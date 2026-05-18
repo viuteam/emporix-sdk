@@ -65,11 +65,11 @@ describe("PaymentGatewayService", () => {
   });
 
   it("authorize requires customer/raw and returns the auth result", async () => {
-    await expect(svc().authorize({ orderId: "EON1", paymentModeId: "m1" })).rejects.toBeInstanceOf(
-      EmporixAuthError,
-    );
+    await expect(
+      svc().authorize({ order: { id: "EON1" }, paymentModeId: "m1" }),
+    ).rejects.toBeInstanceOf(EmporixAuthError);
     const r = await svc().authorize(
-      { orderId: "EON1", paymentModeId: "m1", creditCardToken: "tok" },
+      { order: { id: "EON1" }, paymentModeId: "m1", creditCardToken: "tok" },
       { kind: "customer", token: "C" },
     );
     expect(r.successful).toBe(true);
