@@ -33,7 +33,12 @@ const server = setupServer(
   }),
   http.get("https://api.emporix.io/customer/acme/me", ({ request }) => {
     expect(request.headers.get("authorization")).toBe("Bearer cust-tok");
-    return HttpResponse.json({ id: "c1", email: "a@b.co", firstName: "A" });
+    return HttpResponse.json({
+      id: "c1",
+      contactEmail: "a@b.co",
+      firstName: "A",
+      preferredLanguage: "en",
+    });
   }),
   http.get("https://api.emporix.io/customer/acme/me/addresses", () =>
     HttpResponse.json([{ id: "ad1", city: "Berlin" }]),
@@ -95,7 +100,9 @@ describe("CustomerService", () => {
     const s = svc();
     await expect(s.me()).rejects.toBeInstanceOf(EmporixAuthError);
     const me = await s.me({ kind: "customer", token: "cust-tok" });
-    expect(me.email).toBe("a@b.co");
+    expect(me.contactEmail).toBe("a@b.co");
+    // Field the old hand-rolled Customer interface dropped — now typed.
+    expect(me.preferredLanguage).toBe("en");
   });
 
   it("addresses.list() requires a customer/raw context and returns typed rows", async () => {

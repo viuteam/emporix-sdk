@@ -1,6 +1,10 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext, AnonymousSession } from "../core/auth";
 import { EmporixAuthError } from "../core/errors";
+import type {
+  Customer as GeneratedCustomer,
+  Address as GeneratedAddress,
+} from "../generated/customer";
 
 /**
  * Caller-owned customer session. Maps the Emporix `CustomerToken` wire shape to
@@ -20,22 +24,11 @@ export interface CustomerSession {
   expiresIn: number | undefined;
 }
 
-/** Minimal customer profile (subset; full type comes from generated specs). */
-export interface Customer {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-}
+/** Customer profile as returned by the Customer service (all generated fields). */
+export type Customer = GeneratedCustomer;
 
-/** A customer address (subset; full type comes from generated specs). */
-export interface Address {
-  id: string;
-  city?: string;
-  street?: string;
-  zipCode?: string;
-  country?: string;
-}
+/** A customer address as returned by the Customer service (all generated fields). */
+export type Address = GeneratedAddress;
 
 function requireCustomer(auth: AuthContext | undefined): AuthContext {
   if (auth && (auth.kind === "customer" || auth.kind === "raw")) return auth;
