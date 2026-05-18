@@ -67,17 +67,18 @@ export class HttpClient {
         () => controller.abort(),
         o.timeoutMs ?? this.opts.timeouts.readMs,
       );
+      const init: RequestInit = {
+        method: o.method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(o.body !== undefined ? { "Content-Type": "application/json" } : {}),
+        },
+        signal: controller.signal,
+      };
+      if (o.body !== undefined) init.body = JSON.stringify(o.body);
       let res: Response;
       try {
-        res = await fetch(url, {
-          method: o.method,
-          headers: {
-            Authorization: `Bearer ${token}`,
-            ...(o.body !== undefined ? { "Content-Type": "application/json" } : {}),
-          },
-          body: o.body !== undefined ? JSON.stringify(o.body) : undefined,
-          signal: controller.signal,
-        });
+        res = await fetch(url, init);
       } finally {
         clearTimeout(timer);
       }
