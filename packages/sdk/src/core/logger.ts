@@ -143,7 +143,7 @@ export class LevelResolver {
 const DEFAULT_REDACT = new Set([
   "authorization", "password", "oldpassword", "newpassword", "clientsecret",
   "secret", "access_token", "refresh_token", "customertoken", "saastoken",
-  "bearertoken", "apikey", "token",
+  "saas-token", "bearertoken", "apikey", "token",
 ]);
 
 /** Deep-clones `value`, replacing redacted keys with a mask. AuthContext token is stripped. */
