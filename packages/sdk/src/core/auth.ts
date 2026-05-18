@@ -131,8 +131,61 @@ export class DefaultTokenProvider implements TokenProvider {
     this.serviceCache.delete(set);
   }
 
-  // Anonymous path is implemented in the next task.
+  private anonFresh(): boolean {
+    return !!this.anon && Date.now() < this.anon.expiresAt;
+  }
+
   async getAnonymousToken(): Promise<AnonymousSession> {
-    throw new Error("not implemented yet");
+    if (this.anonFresh()) return this.stripExpiry(this.anon!);
+    if (this.anonLock) return this.anonLock;
+    const p = this.fetchAnonymous("login").finally(() => {
+      this.anonLock = undefined;
+    });
+    this.anonLock = p;
+    return p;
+  }
+
+  /** Refreshes the anonymous session, preserving its sessionId. */
+  async refreshAnonymous(): Promise<AnonymousSession> {
+    if (!this.anon) return this.getAnonymousToken();
+    return this.fetchAnonymous("refresh");
+  }
+
+  invalidateAnonymous(): void {
+    this.anon = undefined;
+  }
+
+  private stripExpiry(s: AnonymousSession & { expiresAt: number }): AnonymousSession {
+    const { expiresAt: _expiresAt, ...rest } = s;
+    return rest;
+  }
+
+  private async fetchAnonymous(mode: "login" | "refresh"): Promise<AnonymousSession> {
+    const sf = this.cfg.credentials.storefront;
+    if (!sf?.clientId) {
+      throw new Error("credentials.storefront.clientId is required for anonymous tokens");
+    }
+    const url = new URL(`${this.cfg.host}/customerlogin/auth/anonymous/${mode}`);
+    url.searchParams.set("tenant", this.cfg.tenant);
+    url.searchParams.set("client_id", sf.clientId);
+    if (mode === "refresh" && this.anon) {
+      url.searchParams.set("refresh_token", this.anon.refreshToken);
+    }
+    const res = await fetch(url, { method: "GET" });
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) {
+      throw new EmporixAuthError(`Anonymous token ${mode} failed`, res.status, json);
+    }
+    const obtainedAt = Date.now();
+    this.anon = {
+      accessToken: json.access_token as string,
+      refreshToken: json.refresh_token as string,
+      sessionId: json.sessionId as string,
+      expiresIn: json.expires_in as number,
+      expiresAt:
+        obtainedAt +
+        ((json.expires_in as number) - this.cfg.cache.expirationBufferSeconds) * 1000,
+    };
+    return this.stripExpiry(this.anon);
   }
 }
