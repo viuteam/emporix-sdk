@@ -24,10 +24,13 @@ export class EmporixClient {
   readonly products: ProductService;
   readonly categories: CategoryService;
   readonly carts: CartService;
+  /** The validated tenant this client is bound to. */
+  readonly tenant: string;
   private readonly resolver: LevelResolver;
 
   constructor(config: EmporixConfig) {
     const cfg = validateConfig(config);
+    this.tenant = cfg.tenant;
 
     let loggerObj: LoggerObjectConfig = {};
     let baseLogger: Logger | undefined;
