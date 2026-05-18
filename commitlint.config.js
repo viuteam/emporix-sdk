@@ -4,7 +4,7 @@ export default {
     "scope-enum": [
       2,
       "always",
-      ["repo", "release", "sdk", "react", "core", "customer", "product", "category", "cart", "auth", "http", "logger", "deps", "docs", "examples"]
+      ["repo", "release", "sdk", "react", "core", "customer", "product", "category", "cart", "checkout", "payment", "auth", "http", "logger", "deps", "docs", "examples"]
     ]
   }
 };

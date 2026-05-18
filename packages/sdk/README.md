@@ -80,7 +80,14 @@ concurrent shoppers (SSR/edge/multi-tenant). SDK-managed (`service`/`anonymous`)
 Structured, level-aware, per-service controllable, secret-redacting, zero
 dependency. See [`../../docs/logging.md`](../../docs/logging.md).
 
+## Checkout & payment
+
+`sdk.checkout.placeOrder(...)` / `.placeOrderFromQuote(...)` and
+`sdk.payments.listPaymentModes(...)` / `.authorize(...)`. The `saas-token`
+header, guest checkout and deferred payment are covered in
+[`../../docs/checkout.md`](../../docs/checkout.md).
+
 ## Subpath exports
 
 `@viu/emporix-sdk` (everything) plus `./customer`, `./product`, `./category`,
-`./cart` for tree-shaking.
+`./cart`, `./checkout`, `./payment` for tree-shaking.

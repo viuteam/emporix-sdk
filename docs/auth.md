@@ -9,6 +9,11 @@
 | `customer` | Caller | `POST /customer/{tenant}/login` returns it (SDK maps wire `accessToken` → `customerToken`, also exposes `saasToken`, `refreshToken`). |
 | `raw` | Caller | An exact token, passed through verbatim — escape hatch for SSO / token-exchange. |
 
+> **`saasToken`** (from `customers.login()`) is a separate JWT, **not** an
+> `AuthContext`. It is required as the `saas-token` header for a logged-in
+> customer checkout — see [`checkout.md`](./checkout.md). The SDK redacts it
+> from all logs.
+
 Build them with `auth.service(name?)`, `auth.anonymous()`,
 `auth.customer(token)`, `auth.raw(token)`. The `AuthContext` is the **last
 argument of every service method** and is **never stored on the client** — one
