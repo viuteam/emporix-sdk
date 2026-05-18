@@ -5,13 +5,13 @@
   "engines": { "node": ">=18" },
   "packageManager": "pnpm@10.15.0",
   "scripts": {
-    "build": "pnpm -r build",
-    "test": "pnpm -r test",
-    "lint": "pnpm -r lint",
+    "build": "pnpm -r --filter \"./packages/*\" build",
+    "test": "pnpm -r --filter \"./packages/*\" test",
+    "lint": "pnpm -r --filter \"./packages/*\" lint",
     "typecheck": "pnpm -r typecheck",
     "changeset": "changeset",
     "version": "changeset version && pnpm install --lockfile-only",
-    "release": "pnpm -r build && changeset publish",
+    "release": "pnpm -r --filter \"./packages/*\" build && changeset publish",
     "prepare": "husky"
   },
   "devDependencies": {
