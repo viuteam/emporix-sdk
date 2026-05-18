@@ -43,3 +43,9 @@ export type {
   AuthorizePaymentInput,
   AuthorizePaymentResult,
 } from "./services/payment";
+export { PriceService } from "./services/price";
+export type {
+  PriceMatch,
+  PriceMatchByContextInput,
+  PriceMatchInput,
+} from "./services/price";
