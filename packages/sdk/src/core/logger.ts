@@ -14,6 +14,7 @@ export type ServiceName =
   | "cart"
   | "checkout"
   | "payment"
+  | "price"
   | "http"
   | "auth";
 
