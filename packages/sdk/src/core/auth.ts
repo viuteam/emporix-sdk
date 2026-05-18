@@ -1,3 +1,6 @@
+import type { ResolvedConfig, ServiceCredentials } from "./config";
+import { EmporixAuthError } from "./errors";
+
 /** Which token a call should use. */
 export type AuthKind = "service" | "customer" | "anonymous" | "raw";
 
@@ -53,5 +56,83 @@ export async function resolveToken(ctx: AuthContext, provider: TokenProvider): P
     case "customer":
     case "raw":
       return ctx.token;
+  }
+}
+
+interface CacheEntry {
+  token: string;
+  expiresAt: number;
+  obtainedAt: number;
+}
+
+/** SDK-owned token provider: client-credentials service tokens + anonymous session. */
+export class DefaultTokenProvider implements TokenProvider {
+  private readonly serviceCache = new Map<string, CacheEntry>();
+  private readonly serviceLocks = new Map<string, Promise<string>>();
+  private anon: (AnonymousSession & { expiresAt: number }) | undefined;
+  private anonLock: Promise<AnonymousSession> | undefined;
+
+  constructor(private readonly cfg: ResolvedConfig) {}
+
+  private creds(set: string): ServiceCredentials {
+    if (set === "backend") return this.cfg.credentials.backend;
+    const c = this.cfg.credentials.custom?.[set];
+    if (!c) throw new Error(`Unknown credential set "${set}"`);
+    return c;
+  }
+
+  private fresh(e: CacheEntry | undefined): boolean {
+    if (!e) return false;
+    const now = Date.now();
+    if (now - e.obtainedAt >= this.cfg.cache.maxLifetimeSeconds * 1000) return false;
+    return now < e.expiresAt;
+  }
+
+  async getToken(set: string): Promise<string> {
+    // Surface an unknown credential set before entering the cache/lock path.
+    this.creds(set);
+    const cached = this.serviceCache.get(set);
+    if (this.fresh(cached)) return cached!.token;
+    const inflight = this.serviceLocks.get(set);
+    if (inflight) return inflight;
+    const p = this.requestServiceToken(set).finally(() => this.serviceLocks.delete(set));
+    this.serviceLocks.set(set, p);
+    return p;
+  }
+
+  private async requestServiceToken(set: string): Promise<string> {
+    const c = this.creds(set);
+    const body = new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: c.clientId,
+      client_secret: c.secret,
+    });
+    if (c.scope) body.set("scope", c.scope);
+    const res = await fetch(`${this.cfg.host}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) {
+      throw new EmporixAuthError(`Token request failed for "${set}"`, res.status, json);
+    }
+    const obtainedAt = Date.now();
+    const ttl = Number((json.expires_in as number | undefined) ?? 3600);
+    this.serviceCache.set(set, {
+      token: json.access_token as string,
+      obtainedAt,
+      expiresAt: obtainedAt + (ttl - this.cfg.cache.expirationBufferSeconds) * 1000,
+    });
+    return this.serviceCache.get(set)!.token;
+  }
+
+  invalidate(set: string): void {
+    this.serviceCache.delete(set);
+  }
+
+  // Anonymous path is implemented in the next task.
+  async getAnonymousToken(): Promise<AnonymousSession> {
+    throw new Error("not implemented yet");
   }
 }
