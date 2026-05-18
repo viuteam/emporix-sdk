@@ -2,11 +2,22 @@ import type { ClientContext } from "../core/context";
 import type { AuthContext, AnonymousSession } from "../core/auth";
 import { EmporixAuthError } from "../core/errors";
 
-/** Caller-owned customer session (wire `accessToken` is exposed as `customerToken`). */
+/**
+ * Caller-owned customer session. Maps the Emporix `CustomerToken` wire shape to
+ * idiomatic names: `access_token` → `customerToken`, `saas_token` →
+ * `saasToken`. `saasToken` is a JWT required for the checkout (`saas-token`
+ * header). The wire's `*_token` (snake_case) fields are canonical; the
+ * camelCase variants are deprecated in the Emporix spec.
+ */
 export interface CustomerSession {
   customerToken: string;
+  /** JWT required for completing checkout (sent as the `saas-token` header). */
   saasToken: string;
   refreshToken: string;
+  /** Same session as the anonymous token — preserves the cart across login. */
+  sessionId: string | undefined;
+  /** Customer access-token lifetime in seconds. */
+  expiresIn: number | undefined;
 }
 
 /** Minimal customer profile (subset; full type comes from generated specs). */
@@ -67,20 +78,29 @@ export class CustomerService {
       ? { kind: "raw", token: opts.anonymousToken }
       : auth;
     const wire = await this.ctx.http.request<{
-      accessToken: string;
-      saasToken: string;
-      refreshToken: string;
+      access_token?: string;
+      saas_token?: string;
+      refresh_token?: string;
+      session_id?: string;
+      expires_in?: number;
+      // Deprecated camelCase variants (Emporix spec marks these deprecated).
+      accessToken?: string;
+      saasToken?: string;
+      refreshToken?: string;
     }>({
       method: "POST",
       path: `/customer/${this.ctx.tenant}/login`,
       auth: effective,
       body: creds,
     });
-    // Wire→facade mapping (vendored spec is source of truth; see design §2).
+    // Wire→facade mapping. snake_case is canonical; camelCase is the
+    // deprecated fallback (see design §2 — vendored spec is source of truth).
     return {
-      customerToken: wire.accessToken,
-      saasToken: wire.saasToken,
-      refreshToken: wire.refreshToken,
+      customerToken: wire.access_token ?? wire.accessToken ?? "",
+      saasToken: wire.saas_token ?? wire.saasToken ?? "",
+      refreshToken: wire.refresh_token ?? wire.refreshToken ?? "",
+      sessionId: wire.session_id,
+      expiresIn: wire.expires_in,
     };
   }
 
