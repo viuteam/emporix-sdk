@@ -9,3 +9,5 @@ export {
   useCategoryTree,
   useCart,
 } from "./queries";
+export { useCartMutations } from "./use-cart-mutations";
+export type { CartMutationsApi } from "./use-cart-mutations";
