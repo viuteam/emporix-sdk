@@ -20,22 +20,36 @@ export { EmporixClient } from "./client";
 export type { ClientContext, Page } from "./core/context";
 export { paginate } from "./core/context";
 export { CustomerService } from "./services/customer";
-export type { Customer, CustomerSession, Address } from "./services/customer";
+export type {
+  Customer,
+  CustomerSession,
+  Address,
+  CustomerSignupInput,
+  CustomerUpdateInput,
+  PasswordChangeInput,
+  PasswordResetRequestInput,
+  PasswordResetConfirmInput,
+  AddressCreateInput,
+  AddressUpdateInput,
+} from "./services/customer";
 export { ProductService } from "./services/product";
 export type { Product, Media } from "./services/product";
 export { CategoryService } from "./services/category";
 export type { Category, CategoryNode } from "./services/category";
 export { CartService } from "./services/cart";
-export type { Cart, CartAddress } from "./services/cart";
+export type {
+  Cart,
+  CartAddress,
+  CreateCartInput,
+  CartItemInput,
+  CartItemUpdate,
+} from "./services/cart";
 export { CheckoutService } from "./services/checkout";
 export type {
   CheckoutInput,
   QuoteCheckoutInput,
   CheckoutResult,
   CheckoutOptions,
-  CheckoutPaymentMethod,
-  CheckoutAddress,
-  CheckoutCustomer,
 } from "./services/checkout";
 export { PaymentGatewayService } from "./services/payment";
 export type {

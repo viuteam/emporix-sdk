@@ -116,10 +116,12 @@ describe("CustomerService remaining methods", () => {
   it("signup/update/changePassword/password-reset/addresses", async () => {
     expect((await s().signup({ email: "a@b.co", password: "p" })).id).toBe("c1");
     expect((await s().update({ firstName: "Z" }, CUST)).firstName).toBe("Z");
-    await expect(s().changePassword({ old: "o", new: "n" }, CUST)).resolves.toBeUndefined();
+    await expect(
+      s().changePassword({ currentPassword: "o", newPassword: "n" }, CUST),
+    ).resolves.toBeUndefined();
     await expect(s().requestPasswordReset({ email: "a@b.co" })).resolves.toBeUndefined();
     await expect(
-      s().confirmPasswordReset({ token: "t", newPassword: "n" }),
+      s().confirmPasswordReset({ token: "t", password: "n" }),
     ).resolves.toBeUndefined();
     expect(
       (await s().addresses.add({ contactName: "A", city: "Berlin" }, CUST)).id,
@@ -161,7 +163,19 @@ describe("CartService remaining methods", () => {
   it("get/getCurrent/items/coupons/addresses", async () => {
     expect((await s().get("cart1", ANON)).id).toBe("cart1");
     expect((await s().getCurrent(ANON))?.id).toBe("cartCur");
-    expect((await s().addItem("cart1", { productId: "p1", quantity: 1 }, ANON)).items).toHaveLength(1);
+    expect(
+      (
+        await s().addItem(
+          "cart1",
+          {
+            product: { id: "p1" },
+            quantity: 1,
+            price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" },
+          },
+          ANON,
+        )
+      ).items,
+    ).toHaveLength(1);
     await s().updateItem("cart1", "i1", { quantity: 2 }, ANON);
     await s().removeItem("cart1", "i1", ANON);
     await s().clear("cart1", ANON);

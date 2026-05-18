@@ -1,17 +1,16 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixAuthError } from "../core/errors";
-import type { PaymentModeFrontendResponse } from "../generated/payment";
+import type {
+  PaymentModeFrontendResponse,
+  AuthorizePaymentRequest,
+} from "../generated/payment";
 
 /** A frontend payment mode (generated). */
 export type PaymentMode = PaymentModeFrontendResponse;
 
-/** Post-checkout authorize request. */
-export interface AuthorizePaymentInput {
-  orderId: string;
-  paymentModeId: string;
-  creditCardToken?: string;
-}
+/** Post-checkout authorize request (generated; caller sends the exact wire shape). */
+export type AuthorizePaymentInput = AuthorizePaymentRequest;
 
 /** Post-checkout authorize result. */
 export interface AuthorizePaymentResult {
@@ -47,16 +46,11 @@ export class PaymentGatewayService {
     input: AuthorizePaymentInput,
     auth?: AuthContext,
   ): Promise<AuthorizePaymentResult> {
-    const body: Record<string, unknown> = {
-      order: { id: input.orderId },
-      paymentModeId: input.paymentModeId,
-    };
-    if (input.creditCardToken !== undefined) body.creditCardToken = input.creditCardToken;
     return this.ctx.http.request<AuthorizePaymentResult>({
       method: "POST",
       path: `/payment-gateway/${this.ctx.tenant}/payment/frontend/authorize`,
       auth: requireCustomer(auth),
-      body,
+      body: input,
     });
   }
 }

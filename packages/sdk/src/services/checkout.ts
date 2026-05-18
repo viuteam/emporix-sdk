@@ -1,66 +1,18 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixAuthError } from "../core/errors";
-import type { ResponseCheckout } from "../generated/checkout";
+import type {
+  ResponseCheckout,
+  RequestCheckout,
+  RequestFromQuoteCheckout,
+  CustomerJson,
+} from "../generated/checkout";
 
-/** A checkout payment method (exactly one per checkout). */
-export interface CheckoutPaymentMethod {
-  provider: "payment-gateway" | "custom" | "none";
-  method?: string;
-  amount?: number;
-  customAttributes?: Record<string, unknown>;
-}
+/** `requestCheckout` body (cart-based, generated). */
+export type CheckoutInput = RequestCheckout;
 
-/** A checkout address. Need ≥1 SHIPPING and ≥1 BILLING. */
-export interface CheckoutAddress {
-  contactName: string;
-  street: string;
-  zipCode: string;
-  city: string;
-  country: string;
-  type: "SHIPPING" | "BILLING" | string;
-  companyName?: string;
-  streetNumber?: string;
-  state?: string;
-  contactPhone?: string;
-  [k: string]: unknown;
-}
-
-/** Checkout customer block. `email` required; `guest:true` for guest checkout. */
-export interface CheckoutCustomer {
-  email: string;
-  id?: string;
-  firstName?: string;
-  lastName?: string;
-  title?: string;
-  contactPhone?: string;
-  company?: string;
-  guest?: boolean;
-  [k: string]: unknown;
-}
-
-/** `requestCheckout` body (cart-based). */
-export interface CheckoutInput {
-  cartId: string;
-  customer: CheckoutCustomer;
-  shipping: {
-    methodId: string;
-    zoneId: string;
-    methodName: string;
-    amount: number;
-    shippingTaxCode?: string;
-  };
-  addresses: CheckoutAddress[];
-  paymentMethods: CheckoutPaymentMethod[];
-  currency?: string;
-}
-
-/** `requestFromQuoteCheckout` body (quote-based). */
-export interface QuoteCheckoutInput {
-  quoteId: string;
-  paymentMethods: CheckoutPaymentMethod[];
-  deliveryWindowId?: string;
-}
+/** `requestFromQuoteCheckout` body (quote-based, generated). */
+export type QuoteCheckoutInput = RequestFromQuoteCheckout;
 
 /** `responseCheckout` — the full generated checkout response. */
 export type CheckoutResult = ResponseCheckout;
@@ -73,7 +25,7 @@ export interface CheckoutOptions {
   siteCode?: string;
 }
 
-function isGuest(customer: CheckoutCustomer | undefined): boolean {
+function isGuest(customer: CustomerJson | undefined): boolean {
   return customer?.guest === true;
 }
 

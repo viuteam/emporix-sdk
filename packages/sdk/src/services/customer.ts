@@ -4,6 +4,13 @@ import { EmporixAuthError } from "../core/errors";
 import type {
   Customer as GeneratedCustomer,
   Address as GeneratedAddress,
+  CustomerSignup,
+  CustomerUpdateDto,
+  PasswordChangeDto,
+  PasswordResetRequestDto,
+  PasswordUpdate,
+  AddressCreateDto,
+  AddressUpdateDto,
 } from "../generated/customer";
 
 /**
@@ -30,6 +37,15 @@ export type Customer = GeneratedCustomer;
 /** A customer address as returned by the Customer service (all generated fields). */
 export type Address = GeneratedAddress;
 
+/** Generated request bodies (caller sends the exact wire shape). */
+export type CustomerSignupInput = CustomerSignup;
+export type CustomerUpdateInput = CustomerUpdateDto;
+export type PasswordChangeInput = PasswordChangeDto;
+export type PasswordResetRequestInput = PasswordResetRequestDto;
+export type PasswordResetConfirmInput = PasswordUpdate;
+export type AddressCreateInput = AddressCreateDto;
+export type AddressUpdateInput = AddressUpdateDto;
+
 function requireCustomer(auth: AuthContext | undefined): AuthContext {
   if (auth && (auth.kind === "customer" || auth.kind === "raw")) return auth;
   throw new EmporixAuthError("This operation requires a customer or raw AuthContext");
@@ -46,7 +62,7 @@ export class CustomerService {
 
   /** Registers a customer. Default auth: anonymous. */
   async signup(
-    input: { email: string; password: string; firstName?: string; lastName?: string },
+    input: CustomerSignupInput,
     auth: AuthContext = { kind: "anonymous" },
   ): Promise<Customer> {
     return this.ctx.http.request<Customer>({
@@ -107,7 +123,7 @@ export class CustomerService {
   }
 
   /** Updates the authenticated customer. Requires customer/raw auth. */
-  async update(patch: Partial<Customer>, auth?: AuthContext): Promise<Customer> {
+  async update(patch: CustomerUpdateInput, auth?: AuthContext): Promise<Customer> {
     return this.ctx.http.request<Customer>({
       method: "PUT",
       path: `/customer/${this.ctx.tenant}/me`,
@@ -117,18 +133,18 @@ export class CustomerService {
   }
 
   /** Changes the password. Requires customer/raw auth. */
-  async changePassword(input: { old: string; new: string }, auth?: AuthContext): Promise<void> {
+  async changePassword(input: PasswordChangeInput, auth?: AuthContext): Promise<void> {
     await this.ctx.http.request<void>({
       method: "PUT",
       path: `/customer/${this.ctx.tenant}/password`,
       auth: requireCustomer(auth),
-      body: { oldPassword: input.old, newPassword: input.new },
+      body: input,
     });
   }
 
   /** Requests a password reset email. Default auth: anonymous. */
   async requestPasswordReset(
-    input: { email: string },
+    input: PasswordResetRequestInput,
     auth: AuthContext = { kind: "anonymous" },
   ): Promise<void> {
     await this.ctx.http.request<void>({
@@ -141,7 +157,7 @@ export class CustomerService {
 
   /** Confirms a password reset. Default auth: anonymous. */
   async confirmPasswordReset(
-    input: { token: string; newPassword: string },
+    input: PasswordResetConfirmInput,
     auth: AuthContext = { kind: "anonymous" },
   ): Promise<void> {
     await this.ctx.http.request<void>({
@@ -160,14 +176,14 @@ export class CustomerService {
         path: `/customer/${this.ctx.tenant}/me/addresses`,
         auth: requireCustomer(auth),
       }),
-    add: async (address: Omit<Address, "id">, auth?: AuthContext): Promise<Address> =>
+    add: async (address: AddressCreateInput, auth?: AuthContext): Promise<Address> =>
       this.ctx.http.request<Address>({
         method: "POST",
         path: `/customer/${this.ctx.tenant}/me/addresses`,
         auth: requireCustomer(auth),
         body: address,
       }),
-    update: async (id: string, patch: Partial<Address>, auth?: AuthContext): Promise<Address> =>
+    update: async (id: string, patch: AddressUpdateInput, auth?: AuthContext): Promise<Address> =>
       this.ctx.http.request<Address>({
         method: "PUT",
         path: `/customer/${this.ctx.tenant}/me/addresses/${id}`,
