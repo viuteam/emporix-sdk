@@ -27,7 +27,13 @@ export interface EmporixConfig {
   tenant: string;
   host?: string;
   credentials: {
-    backend: ServiceCredentials;
+    /**
+     * Service (client-credentials) credentials. Optional: storefront/SPA apps
+     * use only `storefront` (anonymous) + caller-supplied customer tokens and
+     * must never ship a backend secret. Required only when a `service`
+     * AuthContext is actually used — enforced lazily by the TokenProvider.
+     */
+    backend?: ServiceCredentials;
     storefront?: StorefrontCredentials;
     custom?: Record<string, ServiceCredentials>;
   };
@@ -57,8 +63,8 @@ export function validateConfig(input: EmporixConfig): ResolvedConfig {
       `Invalid tenant "${input.tenant}": must be lowercase, 3–16 chars, match ^[a-z][a-z0-9]+$`,
     );
   }
-  if (!input.credentials?.backend?.clientId || !input.credentials.backend.secret) {
-    throw new Error("credentials.backend.clientId and credentials.backend.secret are required");
+  if (!input.credentials) {
+    throw new Error("credentials is required (provide at least one of backend/storefront/custom)");
   }
   return {
     tenant: input.tenant,

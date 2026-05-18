@@ -75,7 +75,15 @@ export class DefaultTokenProvider implements TokenProvider {
   constructor(private readonly cfg: ResolvedConfig) {}
 
   private creds(set: string): ServiceCredentials {
-    if (set === "backend") return this.cfg.credentials.backend;
+    if (set === "backend") {
+      const b = this.cfg.credentials.backend;
+      if (!b?.clientId || !b.secret) {
+        throw new EmporixAuthError(
+          "A 'service' AuthContext was used but credentials.backend is not configured",
+        );
+      }
+      return b;
+    }
     const c = this.cfg.credentials.custom?.[set];
     if (!c) throw new Error(`Unknown credential set "${set}"`);
     return c;

@@ -69,4 +69,14 @@ describe("DefaultTokenProvider service path", () => {
     const p = new DefaultTokenProvider(cfg as never);
     await expect(p.getToken("nope")).rejects.toThrow(/credential set/i);
   });
+
+  it("throws EmporixAuthError when a service token is used but backend is unconfigured", async () => {
+    const noBackend = {
+      host: "https://api.emporix.io",
+      credentials: { storefront: { clientId: "sf" } },
+      cache: { expirationBufferSeconds: 60, maxLifetimeSeconds: 3600 },
+    };
+    const p = new DefaultTokenProvider(noBackend as never);
+    await expect(p.getToken("backend")).rejects.toBeInstanceOf(EmporixAuthError);
+  });
 });

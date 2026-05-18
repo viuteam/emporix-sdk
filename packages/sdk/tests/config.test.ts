@@ -26,8 +26,12 @@ describe("validateConfig", () => {
     );
   });
 
-  it("requires credentials.backend", () => {
-    // @ts-expect-error intentionally missing backend
-    expect(() => validateConfig({ tenant: "acme", credentials: {} })).toThrow(/backend/i);
+  it("allows a storefront-only config (no backend secret in the browser)", () => {
+    const c = validateConfig({
+      tenant: "acme",
+      credentials: { storefront: { clientId: "sf" } },
+    });
+    expect(c.credentials.storefront?.clientId).toBe("sf");
+    expect(c.credentials.backend).toBeUndefined();
   });
 });

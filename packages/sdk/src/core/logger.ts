@@ -39,6 +39,15 @@ function isValidLevel(v: string | undefined): v is LogLevel {
   return v !== undefined && v in LEVEL;
 }
 
+/** Browser-safe env read — `process` is undefined in browsers/edge runtimes. */
+function readEnv(name: string): string | undefined {
+  try {
+    return typeof process !== "undefined" && process.env ? process.env[name] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Resolves the effective level per service following:
  * env per-service > env global > config.services[svc] > config.level > "warn".
@@ -61,7 +70,7 @@ export class LevelResolver {
   }
 
   private envFor(svc: ServiceName): LogLevel | undefined {
-    const raw = process.env[`EMPORIX_LOG_LEVEL_${svc.toUpperCase()}`];
+    const raw = readEnv(`EMPORIX_LOG_LEVEL_${svc.toUpperCase()}`);
     if (raw === undefined) return undefined;
     if (isValidLevel(raw)) return raw;
     if (!this.warned) {
@@ -72,7 +81,7 @@ export class LevelResolver {
   }
 
   private envGlobal(): LogLevel | undefined {
-    const raw = process.env.EMPORIX_LOG_LEVEL;
+    const raw = readEnv("EMPORIX_LOG_LEVEL");
     if (raw === undefined) return undefined;
     if (isValidLevel(raw)) return raw;
     if (!this.warned) {
@@ -111,7 +120,7 @@ export class LevelResolver {
   /** Mutates programmatic level (global or one service). Env-set levels are sticky unless `force`. */
   set(level: LogLevel, svc?: ServiceName, force = false): void {
     if (svc) {
-      const envBound = process.env[`EMPORIX_LOG_LEVEL_${svc.toUpperCase()}`] !== undefined;
+      const envBound = readEnv(`EMPORIX_LOG_LEVEL_${svc.toUpperCase()}`) !== undefined;
       if (envBound && !force) {
         this.warn(`Level for "${svc}" is env-controlled; pass force to override`);
         return;
@@ -119,7 +128,7 @@ export class LevelResolver {
       if (force) this.forcedServices[svc] = level;
       else this.cfgServices[svc] = level;
     } else {
-      const envBound = process.env.EMPORIX_LOG_LEVEL !== undefined;
+      const envBound = readEnv("EMPORIX_LOG_LEVEL") !== undefined;
       if (envBound && !force) {
         this.warn("Global level is env-controlled; pass force to override");
         return;
@@ -259,7 +268,7 @@ export function createConsoleLogger(
   bindings: LogFields = {},
   opts: { pretty?: boolean; redact?: string[]; sink?: Sink } = {},
 ): Logger {
-  const pretty = opts.pretty ?? process.env.NODE_ENV !== "production";
+  const pretty = opts.pretty ?? readEnv("NODE_ENV") !== "production";
   const sink: Sink = opts.sink ?? {
     log: console.log,
     info: console.info,

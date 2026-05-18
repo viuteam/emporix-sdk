@@ -7,8 +7,8 @@ import { App } from "./App";
 
 const client = new EmporixClient({
   tenant: import.meta.env.VITE_EMPORIX_TENANT ?? "mytenant",
+  // Storefront-only: never put a backend secret in browser code.
   credentials: {
-    backend: { clientId: "unused-in-spa", secret: "unused-in-spa" },
     storefront: { clientId: import.meta.env.VITE_EMPORIX_STOREFRONT_CLIENT_ID ?? "" },
   },
 });

@@ -16,8 +16,8 @@ export function Providers({
     () =>
       new EmporixClient({
         tenant: process.env.NEXT_PUBLIC_EMPORIX_TENANT ?? "mytenant",
+        // Client component: storefront-only, no backend secret in the browser.
         credentials: {
-          backend: { clientId: "unused-on-client", secret: "unused-on-client" },
           storefront: { clientId: process.env.NEXT_PUBLIC_EMPORIX_STOREFRONT_CLIENT_ID ?? "" },
         },
       }),
