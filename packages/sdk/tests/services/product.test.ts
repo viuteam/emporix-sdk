@@ -65,4 +65,23 @@ describe("ProductService", () => {
     for await (const p of svc().listAll({ pageSize: 2 })) ids.push(p.id as string);
     expect(ids).toEqual(["p1", "p2", "p3"]);
   });
+
+  it("returns all wire fields, including ones the old facade dropped", async () => {
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products/p1", () =>
+        HttpResponse.json({
+          id: "p1",
+          code: "C1",
+          name: { en: "Widget" },
+          mixins: { custom: { warranty: "2y" } },
+          media: [{ id: "m1", url: "http://x/i.jpg" }],
+        }),
+      ),
+    );
+    const p = await svc().get("p1");
+    expect(p.id).toBe("p1");
+    expect((p as { mixins?: { custom?: unknown } }).mixins?.custom).toEqual({
+      warranty: "2y",
+    });
+  });
 });
