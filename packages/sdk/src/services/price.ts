@@ -1,23 +1,13 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixAuthError } from "../core/errors";
-import type { MatchResponse } from "../generated/price";
+import type { Match, MatchByContext, MatchResponse } from "../generated/price";
 
-/** A single item to price-match. */
-export interface PriceMatchItem {
-  itemId: { itemType: "PRODUCT" | "SKU" | "PRICE"; id: string };
-  quantity: { quantity: number; unitCode?: string };
-}
+/** Session-context match request body (generated). */
+export type PriceMatchByContextInput = MatchByContext;
 
-/** Explicit-context input for {@link PriceService.match}. */
-export interface PriceMatchInput {
-  items: PriceMatchItem[];
-  targetCurrency?: string;
-  siteCode?: string;
-  targetLocation?: { countryCode: string };
-  principal?: { id: string; type: "CUSTOMER" | "GROUP" };
-  useFallback?: boolean;
-}
+/** Explicit-context match request body (generated). */
+export type PriceMatchInput = Match;
 
 /** A resolved price (full generated match-response schema). */
 export type PriceMatch = MatchResponse;
@@ -46,12 +36,15 @@ export class PriceService {
    * (currency/site/country were set at anonymous-login time). Default auth:
    * anonymous; pass a customer/raw context for personalized pricing.
    */
-  async matchByContext(items: PriceMatchItem[], auth?: AuthContext): Promise<PriceMatch[]> {
+  async matchByContext(
+    input: PriceMatchByContextInput,
+    auth?: AuthContext,
+  ): Promise<PriceMatch[]> {
     return this.ctx.http.request<PriceMatch[]>({
       method: "POST",
       path: `/price/${this.ctx.tenant}/match-prices-by-context`,
       auth: requireContextAuth(auth),
-      body: { items },
+      body: input,
     });
   }
 

@@ -53,9 +53,9 @@ function svc() {
 
 describe("PriceService.matchByContext", () => {
   it("POSTs items only, defaults to the anonymous token, returns the match array", async () => {
-    const res = await svc().matchByContext([
-      { itemId: { itemType: "PRODUCT", id: "p1" }, quantity: { quantity: 2 } },
-    ]);
+    const res = await svc().matchByContext({
+      items: [{ itemId: { itemType: "PRODUCT", id: "p1" }, quantity: { quantity: 2 } }],
+    });
     expect(captured?.auth).toBe("Bearer anon-tok");
     expect(captured?.body).toEqual({
       items: [{ itemId: { itemType: "PRODUCT", id: "p1" }, quantity: { quantity: 2 } }],
@@ -65,7 +65,7 @@ describe("PriceService.matchByContext", () => {
 
   it("uses a customer token when given a customer AuthContext", async () => {
     await svc().matchByContext(
-      [{ itemId: { itemType: "PRODUCT", id: "p1" }, quantity: { quantity: 1 } }],
+      { items: [{ itemId: { itemType: "PRODUCT", id: "p1" }, quantity: { quantity: 1 } }] },
       { kind: "customer", token: "cust-tok" },
     );
     expect(captured?.auth).toBe("Bearer cust-tok");
