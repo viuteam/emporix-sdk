@@ -16,7 +16,9 @@ export {
   useCategoryTree,
   useCart,
   useCartMutations,
+  useCheckout,
+  usePaymentModes,
 } from "./hooks/index";
-export type { CustomerSessionApi, CartMutationsApi } from "./hooks/index";
+export type { CustomerSessionApi, CartMutationsApi, CheckoutApi } from "./hooks/index";
 export { EmporixErrorBoundary, useEmporixErrorHandler } from "./errors";
 export { prefetchProduct, prefetchCart } from "./ssr";
