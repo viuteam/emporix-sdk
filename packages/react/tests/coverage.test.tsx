@@ -35,10 +35,10 @@ const server = setupServer(
     HttpResponse.json({ id: "root", children: [] }),
   ),
   http.post("https://api.emporix.io/customer/acme/signup", () =>
-    HttpResponse.json({ id: "c1", email: "a@b.co" }),
+    HttpResponse.json({ id: "c1", contactEmail: "a@b.co" }),
   ),
   http.get("https://api.emporix.io/customer/acme/me", () =>
-    HttpResponse.json({ id: "c1", email: "a@b.co" }),
+    HttpResponse.json({ id: "c1", contactEmail: "a@b.co" }),
   ),
   http.get("https://api.emporix.io/cart/acme/carts/cart1", () =>
     HttpResponse.json({ id: "cart1", items: [{ id: "i1" }] }),
@@ -122,7 +122,7 @@ describe("useCustomerSession signup + refresh", () => {
     await act(async () => {
       await result.current.refresh();
     });
-    expect(result.current.customer?.email).toBe("a@b.co");
+    expect(result.current.customer?.contactEmail).toBe("a@b.co");
   });
 });
 

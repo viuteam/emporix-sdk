@@ -19,7 +19,7 @@ function Catalog(): React.JSX.Element {
   return (
     <ul>
       {data?.items.map((p) => (
-        <li key={p.id}>{displayName(p.name, p.id)}</li>
+        <li key={p.id}>{displayName(p.name, p.id ?? "")}</li>
       ))}
     </ul>
   );
@@ -32,7 +32,7 @@ function Login(): React.JSX.Element {
   if (isAuthenticated) {
     return (
       <div>
-        <p>Signed in as {customer?.email ?? "…"}</p>
+        <p>Signed in as {customer?.contactEmail ?? "…"}</p>
         <button onClick={logout}>Log out</button>
       </div>
     );

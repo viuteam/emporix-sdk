@@ -48,14 +48,26 @@ export function useCartMutations(cartId: string): CartMutationsApi {
     addItem: make(
       (v) => client.carts.addItem(cartId, v, ctx),
       (prev, v) =>
-        prev ? { ...prev, items: [...prev.items, { id: `optimistic-${v.productId}`, ...v }] } : prev,
+        prev
+          ? {
+              ...prev,
+              // Optimistic placeholder; replaced by the real item on success.
+              items: [
+                ...(prev.items ?? []),
+                { id: `optimistic-${v.productId}`, ...v } as unknown as NonNullable<
+                  Cart["items"]
+                >[number],
+              ],
+            }
+          : prev,
     ),
     updateItem: make((v) =>
       client.carts.updateItem(cartId, v.itemId, { quantity: v.quantity }, ctx),
     ),
     removeItem: make(
       (v) => client.carts.removeItem(cartId, v.itemId, ctx),
-      (prev, v) => (prev ? { ...prev, items: prev.items.filter((i) => i.id !== v.itemId) } : prev),
+      (prev, v) =>
+        prev ? { ...prev, items: (prev.items ?? []).filter((i) => i.id !== v.itemId) } : prev,
     ),
     clear: make(
       () => client.carts.clear(cartId, ctx),

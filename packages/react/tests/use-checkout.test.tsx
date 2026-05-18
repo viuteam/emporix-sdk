@@ -42,7 +42,7 @@ function wrap(storage = createMemoryStorage({ initial: "cust" })) {
 describe("useCheckout", () => {
   it("places an order using the stored customer token + provided saasToken", async () => {
     const { result } = renderHook(() => useCheckout(), { wrapper: wrap() });
-    let orderId = "";
+    let orderId: string | undefined;
     await act(async () => {
       const r = await result.current.placeOrder.mutateAsync({
         input: {
