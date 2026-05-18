@@ -116,10 +116,12 @@ describe("CustomerService remaining methods", () => {
   it("signup/update/changePassword/password-reset/addresses", async () => {
     expect((await s().signup({ email: "a@b.co", password: "p" })).id).toBe("c1");
     expect((await s().update({ firstName: "Z" }, CUST)).firstName).toBe("Z");
-    await expect(s().changePassword({ old: "o", new: "n" }, CUST)).resolves.toBeUndefined();
+    await expect(
+      s().changePassword({ currentPassword: "o", newPassword: "n" }, CUST),
+    ).resolves.toBeUndefined();
     await expect(s().requestPasswordReset({ email: "a@b.co" })).resolves.toBeUndefined();
     await expect(
-      s().confirmPasswordReset({ token: "t", newPassword: "n" }),
+      s().confirmPasswordReset({ token: "t", password: "n" }),
     ).resolves.toBeUndefined();
     expect(
       (await s().addresses.add({ contactName: "A", city: "Berlin" }, CUST)).id,
