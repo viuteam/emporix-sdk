@@ -33,9 +33,6 @@ export type {
   QuoteCheckoutInput,
   CheckoutResult,
   CheckoutOptions,
-  CheckoutPaymentMethod,
-  CheckoutAddress,
-  CheckoutCustomer,
 } from "./services/checkout";
 export { PaymentGatewayService } from "./services/payment";
 export type {
