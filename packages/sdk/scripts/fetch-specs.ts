@@ -11,6 +11,7 @@ const SPECS: Record<string, string> = {
   cart: `${BASE}/checkout/cart/api-reference/api.yml`,
   checkout: `${BASE}/checkout/checkout/api-reference/api.yml`,
   payment: `${BASE}/checkout/payment-gateway/api-reference/api.yml`,
+  price: `${BASE}/prices-and-taxes/price-service/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {
