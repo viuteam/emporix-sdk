@@ -1,0 +1,50 @@
+{
+  "name": "@viu/emporix-sdk-react",
+  "version": "0.0.0",
+  "description": "React bindings for the Emporix SDK",
+  "type": "module",
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
+  "files": ["dist", "README.md", "CHANGELOG.md"],
+  "exports": {
+    ".": { "import": "./dist/index.js", "require": "./dist/index.cjs", "types": "./dist/index.d.ts" },
+    "./provider": { "import": "./dist/provider.js", "require": "./dist/provider.cjs", "types": "./dist/provider.d.ts" },
+    "./hooks": { "import": "./dist/hooks.js", "require": "./dist/hooks.cjs", "types": "./dist/hooks.d.ts" },
+    "./storage": { "import": "./dist/storage.js", "require": "./dist/storage.cjs", "types": "./dist/storage.d.ts" },
+    "./ssr": { "import": "./dist/ssr.js", "require": "./dist/ssr.cjs", "types": "./dist/ssr.d.ts" }
+  },
+  "publishConfig": { "access": "public", "provenance": true },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run --coverage",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@viu/emporix-sdk": "workspace:^",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.51.0",
+    "@testing-library/jest-dom": "^6.4.0",
+    "@testing-library/react": "^16.0.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@viu/emporix-sdk": "workspace:*",
+    "@vitejs/plugin-react": "^4.3.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "jsdom": "^25.0.0",
+    "msw": "^2.4.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsup": "^8.2.0",
+    "undici": "^6.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  }
+}
