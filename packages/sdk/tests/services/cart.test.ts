@@ -64,4 +64,18 @@ describe("CartService", () => {
     const merged = await svc().merge("cart1", { kind: "customer", token: "CUST" });
     expect(merged.id).toBe("cart-merged");
   });
+
+  it("returns generated cart fields the old facade dropped", async () => {
+    server.use(
+      http.post("https://api.emporix.io/cart/acme/carts", () =>
+        HttpResponse.json({ id: "c1", items: [], totalPrice: { amount: 0, currency: "CHF" } }),
+      ),
+    );
+    const c = await svc().create(undefined, { kind: "anonymous" });
+    expect(c.id).toBe("c1");
+    expect((c as { totalPrice?: unknown }).totalPrice).toEqual({
+      amount: 0,
+      currency: "CHF",
+    });
+  });
 });
