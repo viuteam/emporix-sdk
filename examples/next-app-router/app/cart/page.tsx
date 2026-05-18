@@ -14,7 +14,13 @@ export default function CartPage(): React.JSX.Element {
       <p>{cart.data ? `${cart.data.items?.length ?? 0} items` : "no cart"}</p>
       <button
         disabled={!cartId}
-        onClick={() => addItem.mutate({ productId: "demo", quantity: 1 })}
+        onClick={() =>
+          addItem.mutate({
+            product: { id: "demo" },
+            quantity: 1,
+            price: { priceId: "demo", originalAmount: 0, effectiveAmount: 0, currency: "EUR" },
+          })
+        }
       >
         Add demo item
       </button>

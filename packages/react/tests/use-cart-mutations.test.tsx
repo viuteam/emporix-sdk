@@ -57,7 +57,7 @@ describe("useCartMutations", () => {
     );
     await waitFor(() => expect(result.current.cart.data?.id).toBe("cart1"));
     await act(async () => {
-      await result.current.mut.addItem.mutateAsync({ productId: "p1", quantity: 1 });
+      await result.current.mut.addItem.mutateAsync({ product: { id: "p1" }, quantity: 1, price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" } });
     });
     await waitFor(() => expect(result.current.cart.data?.items).toHaveLength(1));
   });
@@ -72,9 +72,26 @@ describe("useCartMutations", () => {
     await waitFor(() => expect(result.current.cart.data?.items).toHaveLength(0));
     await act(async () => {
       await result.current.mut.addItem
-        .mutateAsync({ productId: "p1", quantity: 1 })
+        .mutateAsync({ product: { id: "p1" }, quantity: 1, price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" } })
         .catch(() => undefined);
     });
     await waitFor(() => expect(result.current.cart.data?.items).toHaveLength(0));
+  });
+
+  it("optimistic add falls back when the product has no id", async () => {
+    const wrapper = wrap();
+    const { result } = renderHook(
+      () => ({ cart: useCart("cart1"), mut: useCartMutations("cart1") }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.cart.data?.id).toBe("cart1"));
+    await act(async () => {
+      await result.current.mut.addItem.mutateAsync({
+        product: {},
+        quantity: 1,
+        price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" },
+      });
+    });
+    await waitFor(() => expect(result.current.cart.data?.items).toHaveLength(1));
   });
 });

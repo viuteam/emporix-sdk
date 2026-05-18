@@ -1,13 +1,20 @@
 import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
-import { auth, type AuthContext, type Cart, type CartAddress } from "@viu/emporix-sdk";
+import {
+  auth,
+  type AuthContext,
+  type Cart,
+  type CartAddress,
+  type CartItemInput,
+  type CartItemUpdate,
+} from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 
 type Mut<TVars> = UseMutationResult<Cart, unknown, TVars, { previous: Cart | undefined }>;
 
 /** Cart write operations with optimistic cache updates and rollback. */
 export interface CartMutationsApi {
-  addItem: Mut<{ productId: string; quantity: number }>;
-  updateItem: Mut<{ itemId: string; quantity: number }>;
+  addItem: Mut<CartItemInput>;
+  updateItem: Mut<{ itemId: string; patch: CartItemUpdate }>;
   removeItem: Mut<{ itemId: string }>;
   clear: Mut<void>;
   applyCoupon: Mut<{ code: string }>;
@@ -54,16 +61,15 @@ export function useCartMutations(cartId: string): CartMutationsApi {
               // Optimistic placeholder; replaced by the real item on success.
               items: [
                 ...(prev.items ?? []),
-                { id: `optimistic-${v.productId}`, ...v } as unknown as NonNullable<
-                  Cart["items"]
-                >[number],
+                {
+                  id: `optimistic-${v.product?.id ?? "item"}`,
+                  ...v,
+                } as unknown as NonNullable<Cart["items"]>[number],
               ],
             }
           : prev,
     ),
-    updateItem: make((v) =>
-      client.carts.updateItem(cartId, v.itemId, { quantity: v.quantity }, ctx),
-    ),
+    updateItem: make((v) => client.carts.updateItem(cartId, v.itemId, v.patch, ctx)),
     removeItem: make(
       (v) => client.carts.removeItem(cartId, v.itemId, ctx),
       (prev, v) =>

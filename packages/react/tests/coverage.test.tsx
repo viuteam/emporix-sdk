@@ -130,7 +130,7 @@ describe("useCartMutations remaining methods", () => {
   it("update/remove/clear/coupons/addresses mutate", async () => {
     const { result } = renderHook(() => useCartMutations("cart1"), { wrapper: wrap() });
     await act(async () => {
-      await result.current.updateItem.mutateAsync({ itemId: "i1", quantity: 3 });
+      await result.current.updateItem.mutateAsync({ itemId: "i1", patch: { quantity: 3 } });
       await result.current.removeItem.mutateAsync({ itemId: "i1" });
       await result.current.clear.mutateAsync();
       await result.current.applyCoupon.mutateAsync({ code: "CC" });
