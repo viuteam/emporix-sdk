@@ -7,6 +7,8 @@ export default defineConfig({
     "src/product.ts",
     "src/category.ts",
     "src/cart.ts",
+    "src/checkout.ts",
+    "src/payment.ts",
   ],
   format: ["esm", "cjs"],
   dts: true,

@@ -9,6 +9,8 @@ const SPECS: Record<string, string> = {
   product: `${BASE}/products-labels-and-brands/product-service/api-reference/api.yml`,
   category: `${BASE}/catalogs-and-categories/category-tree/api-reference/api.yml`,
   cart: `${BASE}/checkout/cart/api-reference/api.yml`,
+  checkout: `${BASE}/checkout/checkout/api-reference/api.yml`,
+  payment: `${BASE}/checkout/payment-gateway/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {

@@ -9,6 +9,8 @@ export interface RequestOptions {
   auth: AuthContext;
   query?: Record<string, string | number | undefined>;
   body?: unknown;
+  /** Extra request headers (merged before auth; cannot override Authorization). */
+  headers?: Record<string, string>;
   /** Per-request abort timeout override (ms). */
   timeoutMs?: number;
 }
@@ -70,6 +72,7 @@ export class HttpClient {
       const init: RequestInit = {
         method: o.method,
         headers: {
+          ...(o.headers ?? {}),
           Authorization: `Bearer ${token}`,
           ...(o.body !== undefined ? { "Content-Type": "application/json" } : {}),
         },
