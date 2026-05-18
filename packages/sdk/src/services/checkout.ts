@@ -1,6 +1,7 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixAuthError } from "../core/errors";
+import type { ResponseCheckout } from "../generated/checkout";
 
 /** A checkout payment method (exactly one per checkout). */
 export interface CheckoutPaymentMethod {
@@ -61,12 +62,8 @@ export interface QuoteCheckoutInput {
   deliveryWindowId?: string;
 }
 
-/** `responseCheckout`. `paymentDetails` is provider-shaped (kept verbatim). */
-export interface CheckoutResult {
-  orderId: string;
-  paymentDetails: Record<string, unknown> | null;
-  checkoutId: string | null;
-}
+/** `responseCheckout` — the full generated checkout response. */
+export type CheckoutResult = ResponseCheckout;
 
 /** Options for a checkout call. */
 export interface CheckoutOptions {
