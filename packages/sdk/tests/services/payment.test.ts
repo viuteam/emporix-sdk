@@ -55,7 +55,6 @@ describe("PaymentGatewayService", () => {
   });
 
   it("authorize requires customer/raw and returns the auth result", async () => {
-    // @ts-expect-error auth required
     await expect(svc().authorize({ orderId: "EON1", paymentModeId: "m1" })).rejects.toBeInstanceOf(
       EmporixAuthError,
     );

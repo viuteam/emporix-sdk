@@ -27,3 +27,19 @@ export { CategoryService } from "./services/category";
 export type { Category, CategoryNode } from "./services/category";
 export { CartService } from "./services/cart";
 export type { Cart, CartAddress } from "./services/cart";
+export { CheckoutService } from "./services/checkout";
+export type {
+  CheckoutInput,
+  QuoteCheckoutInput,
+  CheckoutResult,
+  CheckoutOptions,
+  CheckoutPaymentMethod,
+  CheckoutAddress,
+  CheckoutCustomer,
+} from "./services/checkout";
+export { PaymentGatewayService } from "./services/payment";
+export type {
+  PaymentMode,
+  AuthorizePaymentInput,
+  AuthorizePaymentResult,
+} from "./services/payment";

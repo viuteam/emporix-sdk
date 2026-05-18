@@ -62,8 +62,7 @@ const order = {
 };
 
 describe("CheckoutService", () => {
-  it("placeOrder requires a customer/raw context", async () => {
-    // @ts-expect-error auth required
+  it("placeOrder requires a customer/raw context (runtime-enforced)", async () => {
     await expect(svc().placeOrder(order)).rejects.toBeInstanceOf(EmporixAuthError);
   });
 

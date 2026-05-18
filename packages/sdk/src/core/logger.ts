@@ -7,7 +7,15 @@ export const LEVEL: Record<LogLevel, number> = {
 };
 
 /** Services that bind their own logger and are independently level-controllable. */
-export type ServiceName = "customer" | "product" | "category" | "cart" | "http" | "auth";
+export type ServiceName =
+  | "customer"
+  | "product"
+  | "category"
+  | "cart"
+  | "checkout"
+  | "payment"
+  | "http"
+  | "auth";
 
 /** Arbitrary structured fields attached to a log line. */
 export interface LogFields { [key: string]: unknown; }
