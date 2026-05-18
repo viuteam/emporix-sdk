@@ -62,7 +62,12 @@ export function useProductsInfinite(
     queryKey: ["emporix", "products-infinite", params, { tenant: client.tenant, authKind: kind }],
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
-      client.products.list({ pageNumber: pageParam, pageSize: params.pageSize }, ctx),
+      client.products.list(
+        params.pageSize !== undefined
+          ? { pageNumber: pageParam, pageSize: params.pageSize }
+          : { pageNumber: pageParam },
+        ctx,
+      ),
     getNextPageParam: (last, all) => (last.items.length === 0 ? undefined : all.length + 1),
   });
 }

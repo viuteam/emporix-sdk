@@ -29,7 +29,11 @@ export function EmporixProvider({
   children,
 }: EmporixProviderProps): React.JSX.Element {
   const value = useMemo<EmporixContextValue>(() => {
-    const s = storage ?? createMemoryStorage({ initial: initialCustomerToken });
+    const s =
+      storage ??
+      createMemoryStorage(
+        initialCustomerToken !== undefined ? { initial: initialCustomerToken } : {},
+      );
     if (initialCustomerToken && storage && storage.getCustomerToken() === null) {
       storage.setCustomerToken(initialCustomerToken);
     }

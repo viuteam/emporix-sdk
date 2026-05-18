@@ -1,13 +1,13 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: [
-    "src/index.ts",
-    "src/provider.tsx",
-    "src/hooks/index.ts",
-    "src/storage/index.ts",
-    "src/ssr.ts",
-  ],
+  entry: {
+    index: "src/index.ts",
+    provider: "src/provider.tsx",
+    hooks: "src/hooks/index.ts",
+    storage: "src/storage/index.ts",
+    ssr: "src/ssr.ts",
+  },
   format: ["esm", "cjs"],
   dts: true,
   sourcemap: true,

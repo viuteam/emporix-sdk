@@ -22,7 +22,6 @@ describe("localStorage storage", () => {
 
   it("falls back to memory + warns once when localStorage is unavailable", () => {
     const orig = globalThis.localStorage;
-    // @ts-expect-error force unavailable
     delete (globalThis as { localStorage?: unknown }).localStorage;
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const s = createLocalStorageStorage();

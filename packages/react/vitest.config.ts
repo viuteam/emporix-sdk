@@ -13,8 +13,11 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    // https origin so the cookie adapter's Secure cookies persist under jsdom.
-    environmentOptions: { jsdom: { url: "https://localhost/" } },
+    // https origin so Secure cookies persist; node export conditions so MSW v2 +
+    // undici share one AbortSignal/fetch realm (avoids "instance of AbortSignal").
+    environmentOptions: {
+      jsdom: { url: "https://localhost/", customExportConditions: ["node"] },
+    },
     setupFiles: ["./vitest.setup.ts"],
     include: ["tests/**/*.test.{ts,tsx}"],
     coverage: {
