@@ -5,8 +5,8 @@ import { EmporixClient } from "@viu/emporix-sdk";
 
 const sdk = new EmporixClient({
   tenant: process.env.NEXT_PUBLIC_EMPORIX_TENANT ?? "mytenant",
+  // login() uses the anonymous (storefront) context — no backend secret needed.
   credentials: {
-    backend: { clientId: "unused", secret: "unused" },
     storefront: { clientId: process.env.EMPORIX_STOREFRONT_CLIENT_ID ?? "" },
   },
   logger: false,
