@@ -7,7 +7,11 @@
   "engines": { "node": ">=18" },
   "files": ["dist", "README.md", "CHANGELOG.md"],
   "exports": {
-    ".": { "import": "./dist/index.js", "require": "./dist/index.cjs", "types": "./dist/index.d.ts" }
+    ".": { "import": "./dist/index.js", "require": "./dist/index.cjs", "types": "./dist/index.d.ts" },
+    "./customer": { "import": "./dist/customer.js", "require": "./dist/customer.cjs", "types": "./dist/customer.d.ts" },
+    "./product": { "import": "./dist/product.js", "require": "./dist/product.cjs", "types": "./dist/product.d.ts" },
+    "./category": { "import": "./dist/category.js", "require": "./dist/category.cjs", "types": "./dist/category.d.ts" },
+    "./cart": { "import": "./dist/cart.js", "require": "./dist/cart.cjs", "types": "./dist/cart.d.ts" }
   },
   "publishConfig": { "access": "public", "provenance": true },
   "scripts": {
