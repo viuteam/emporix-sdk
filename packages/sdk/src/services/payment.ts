@@ -1,14 +1,10 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixAuthError } from "../core/errors";
+import type { PaymentModeFrontendResponse } from "../generated/payment";
 
-/** A frontend payment mode. */
-export interface PaymentMode {
-  id: string;
-  code?: string;
-  name?: string;
-  [k: string]: unknown;
-}
+/** A frontend payment mode (generated). */
+export type PaymentMode = PaymentModeFrontendResponse;
 
 /** Post-checkout authorize request. */
 export interface AuthorizePaymentInput {

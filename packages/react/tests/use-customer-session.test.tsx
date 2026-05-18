@@ -20,7 +20,7 @@ const server = setupServer(
     HttpResponse.json({ accessToken: "cust", saasToken: "saas", refreshToken: "crt" }),
   ),
   http.get("https://api.emporix.io/customer/acme/me", () =>
-    HttpResponse.json({ id: "c1", email: "a@b.co" }),
+    HttpResponse.json({ id: "c1", contactEmail: "a@b.co" }),
   ),
 );
 beforeAll(() => server.listen());
@@ -56,7 +56,7 @@ describe("useCustomerSession", () => {
     });
     expect(storage.getCustomerToken()).toBe("cust");
     expect(result.current.isAuthenticated).toBe(true);
-    await waitFor(() => expect(result.current.customer?.email).toBe("a@b.co"));
+    await waitFor(() => expect(result.current.customer?.contactEmail).toBe("a@b.co"));
   });
 
   it("logout clears the token", async () => {

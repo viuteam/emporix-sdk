@@ -1,23 +1,20 @@
 import type { ClientContext, Page } from "../core/context";
 import { paginate } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import type {
+  BasicProductWithId,
+  BundleProductWithId,
+  ParentVariantProductWithId,
+  ProductMedia,
+} from "../generated/product";
 
 const ANON: AuthContext = { kind: "anonymous" };
 
-/** A product (subset; full type comes from generated specs). */
-export interface Product {
-  id: string;
-  name?: string;
-  code?: string;
-  [k: string]: unknown;
-}
+/** A product as returned by the Product service (all generated fields). */
+export type Product = BasicProductWithId | BundleProductWithId | ParentVariantProductWithId;
 
-/** A product media entry. */
-export interface Media {
-  id: string;
-  url?: string;
-  [k: string]: unknown;
-}
+/** A single product media entry (generated; `ProductMedia` is the list type). */
+export type Media = ProductMedia[number];
 
 /** Catalog reads. Default auth: anonymous; pass customer for personalized pricing. */
 export class ProductService {

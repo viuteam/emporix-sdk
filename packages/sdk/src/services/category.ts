@@ -2,23 +2,15 @@ import type { ClientContext, Page } from "../core/context";
 import { paginate } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import type { Product } from "./product";
+import type { Category as GeneratedCategory, CategoryTree } from "../generated/category";
 
 const ANON: AuthContext = { kind: "anonymous" };
 
-/** A category (subset; full type comes from generated specs). */
-export interface Category {
-  id: string;
-  name?: string;
-  [k: string]: unknown;
-}
+/** A category as returned by the Category service (all generated fields). */
+export type Category = GeneratedCategory;
 
-/** A node in the category tree. */
-export interface CategoryNode {
-  id: string;
-  name?: string;
-  children: CategoryNode[];
-  [k: string]: unknown;
-}
+/** The category tree as returned by the Category service. */
+export type CategoryNode = CategoryTree;
 
 /** Category reads. Default auth: anonymous. */
 export class CategoryService {

@@ -31,7 +31,7 @@ export default async function Page(): Promise<React.JSX.Element> {
       <h1>Catalog (RSC)</h1>
       <ul>
         {page.items.map((p) => (
-          <li key={p.id}>{displayName(p.name, p.id)}</li>
+          <li key={p.id}>{displayName(p.name, p.id ?? "")}</li>
         ))}
       </ul>
     </main>

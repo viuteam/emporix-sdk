@@ -39,7 +39,7 @@ export default function CheckoutPage(): React.JSX.Element {
             },
             saasToken,
           });
-          setOrderId(r.orderId);
+          setOrderId(r.orderId ?? null);
         }}
       >
         Place order

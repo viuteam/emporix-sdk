@@ -1,13 +1,10 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixValidationError } from "../core/errors";
+import type { Cart as GeneratedCart } from "../generated/cart";
 
-/** A cart (subset; full type comes from generated specs). */
-export interface Cart {
-  id: string;
-  items: Array<{ id: string; [k: string]: unknown }>;
-  [k: string]: unknown;
-}
+/** A cart as returned by the Cart service (all generated fields). */
+export type Cart = GeneratedCart;
 
 /** An address payload for cart shipping/billing. */
 export interface CartAddress {

@@ -121,7 +121,9 @@ describe("CustomerService remaining methods", () => {
     await expect(
       s().confirmPasswordReset({ token: "t", newPassword: "n" }),
     ).resolves.toBeUndefined();
-    expect((await s().addresses.add({ city: "Berlin" }, CUST)).id).toBe("ad1");
+    expect(
+      (await s().addresses.add({ contactName: "A", city: "Berlin" }, CUST)).id,
+    ).toBe("ad1");
     expect((await s().addresses.update("ad1", { city: "Munich" }, CUST)).city).toBe("Munich");
     await expect(s().addresses.remove("ad1", CUST)).resolves.toBeUndefined();
   });

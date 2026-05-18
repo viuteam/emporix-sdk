@@ -48,4 +48,14 @@ describe("CategoryService", () => {
   it("tree() passes rootId when provided", async () => {
     expect((await svc().tree("root-7")).id).toBe("root-7");
   });
+  it("returns generated category fields the old facade dropped", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories/c1", () =>
+        HttpResponse.json({ id: "c1", localizedName: { en: "Shoes" }, published: true }),
+      ),
+    );
+    const cat = await svc().get("c1");
+    expect(cat.id).toBe("c1");
+    expect((cat as { published?: boolean }).published).toBe(true);
+  });
 });
