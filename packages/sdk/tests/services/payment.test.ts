@@ -54,6 +54,16 @@ describe("PaymentGatewayService", () => {
     expect(modes[0]?.code).toBe("card");
   });
 
+  it("exposes generated frontend fields (integrationType)", async () => {
+    server.use(
+      http.get("https://api.emporix.io/payment-gateway/acme/paymentmodes/frontend", () =>
+        HttpResponse.json([{ id: "m1", code: "card", integrationType: "OFFSITE" }]),
+      ),
+    );
+    const modes = await svc().listPaymentModes({ kind: "customer", token: "C" });
+    expect(modes[0]?.integrationType).toBe("OFFSITE");
+  });
+
   it("authorize requires customer/raw and returns the auth result", async () => {
     await expect(svc().authorize({ orderId: "EON1", paymentModeId: "m1" })).rejects.toBeInstanceOf(
       EmporixAuthError,
