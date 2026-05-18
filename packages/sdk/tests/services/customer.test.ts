@@ -20,8 +20,15 @@ const server = setupServer(
     expect(request.headers.get("authorization")).toBe("Bearer anon-tok");
     const body = (await request.json()) as { email: string };
     expect(body.email).toBe("a@b.co");
+    // Real Emporix response is snake_case (camelCase fields are deprecated).
     return HttpResponse.json({
-      accessToken: "cust-tok", saasToken: "saas-tok", refreshToken: "cust-rt",
+      access_token: "cust-tok",
+      saas_token: "saas-tok",
+      refresh_token: "cust-rt",
+      expires_in: 2591999,
+      token_type: "Bearer",
+      session_id: "sess-1",
+      initialPassword: false,
     });
   }),
   http.get("https://api.emporix.io/customer/acme/me", ({ request }) => {
@@ -63,11 +70,25 @@ describe("CustomerService", () => {
     expect(s.refreshToken).toBe("anon-rt");
   });
 
-  it("login() threads the anonymous token and maps accessToken→customerToken", async () => {
+  it("login() maps the snake_case wire response and exposes saasToken/sessionId", async () => {
     const r = await svc().login({ email: "a@b.co", password: "p" });
     expect(r.customerToken).toBe("cust-tok");
-    expect(r.saasToken).toBe("saas-tok");
+    expect(r.saasToken).toBe("saas-tok"); // required for checkout (saas-token header)
     expect(r.refreshToken).toBe("cust-rt");
+    expect(r.sessionId).toBe("sess-1");
+  });
+
+  it("login() falls back to deprecated camelCase fields when that's all that's returned", async () => {
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/login", () =>
+        HttpResponse.json({ accessToken: "c2", saasToken: "s2", refreshToken: "r2" }),
+      ),
+    );
+    const r = await svc().login({ email: "a@b.co", password: "p" });
+    expect(r.customerToken).toBe("c2");
+    expect(r.saasToken).toBe("s2");
+    expect(r.refreshToken).toBe("r2");
+    expect(r.sessionId).toBeUndefined();
   });
 
   it("me() requires a customer/raw context", async () => {
