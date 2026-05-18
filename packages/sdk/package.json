@@ -7,17 +7,25 @@
   "engines": { "node": ">=18" },
   "files": ["dist", "README.md", "CHANGELOG.md"],
   "exports": {
-    ".": { "import": "./dist/index.js", "require": "./dist/index.cjs", "types": "./dist/index.d.ts" }
+    ".": { "import": "./dist/index.js", "require": "./dist/index.cjs", "types": "./dist/index.d.ts" },
+    "./customer": { "import": "./dist/customer.js", "require": "./dist/customer.cjs", "types": "./dist/customer.d.ts" },
+    "./product": { "import": "./dist/product.js", "require": "./dist/product.cjs", "types": "./dist/product.d.ts" },
+    "./category": { "import": "./dist/category.js", "require": "./dist/category.cjs", "types": "./dist/category.d.ts" },
+    "./cart": { "import": "./dist/cart.js", "require": "./dist/cart.cjs", "types": "./dist/cart.d.ts" }
   },
   "publishConfig": { "access": "public", "provenance": true },
   "scripts": {
     "build": "tsup",
     "test": "vitest run --coverage",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fetch:specs": "tsx scripts/fetch-specs.ts",
+    "generate": "tsx scripts/generate.ts"
   },
   "devDependencies": {
+    "@hey-api/openapi-ts": "^0.64.0",
     "@types/node": "^20.0.0",
+    "tsx": "^4.19.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^2.0.0",

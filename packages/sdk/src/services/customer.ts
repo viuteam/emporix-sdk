@@ -1,0 +1,171 @@
+import type { ClientContext } from "../core/context";
+import type { AuthContext, AnonymousSession } from "../core/auth";
+import { EmporixAuthError } from "../core/errors";
+
+/** Caller-owned customer session (wire `accessToken` is exposed as `customerToken`). */
+export interface CustomerSession {
+  customerToken: string;
+  saasToken: string;
+  refreshToken: string;
+}
+
+/** Minimal customer profile (subset; full type comes from generated specs). */
+export interface Customer {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+/** A customer address (subset; full type comes from generated specs). */
+export interface Address {
+  id: string;
+  city?: string;
+  street?: string;
+  zipCode?: string;
+  country?: string;
+}
+
+function requireCustomer(auth: AuthContext | undefined): AuthContext {
+  if (auth && (auth.kind === "customer" || auth.kind === "raw")) return auth;
+  throw new EmporixAuthError("This operation requires a customer or raw AuthContext");
+}
+
+/** Customer signup, session, profile and addresses. */
+export class CustomerService {
+  constructor(private readonly ctx: ClientContext) {}
+
+  /** Obtains an anonymous storefront session (accessToken + sessionId + refreshToken). */
+  async anonymous(): Promise<AnonymousSession> {
+    return this.ctx.tokenProvider.getAnonymousToken();
+  }
+
+  /** Registers a customer. Default auth: anonymous. */
+  async signup(
+    input: { email: string; password: string; firstName?: string; lastName?: string },
+    auth: AuthContext = { kind: "anonymous" },
+  ): Promise<Customer> {
+    return this.ctx.http.request<Customer>({
+      method: "POST",
+      path: `/customer/${this.ctx.tenant}/signup`,
+      auth,
+      body: input,
+    });
+  }
+
+  /**
+   * Logs a customer in. Threads the anonymous token so the session (and its
+   * cart) survives — losing it silently creates a new session per Emporix docs.
+   * Wire `accessToken` is mapped to `customerToken`.
+   */
+  async login(
+    creds: { email: string; password: string },
+    opts: { anonymousToken?: string } = {},
+    auth: AuthContext = { kind: "anonymous" },
+  ): Promise<CustomerSession> {
+    const effective: AuthContext = opts.anonymousToken
+      ? { kind: "raw", token: opts.anonymousToken }
+      : auth;
+    const wire = await this.ctx.http.request<{
+      accessToken: string;
+      saasToken: string;
+      refreshToken: string;
+    }>({
+      method: "POST",
+      path: `/customer/${this.ctx.tenant}/login`,
+      auth: effective,
+      body: creds,
+    });
+    // Wire→facade mapping (vendored spec is source of truth; see design §2).
+    return {
+      customerToken: wire.accessToken,
+      saasToken: wire.saasToken,
+      refreshToken: wire.refreshToken,
+    };
+  }
+
+  /** Returns the authenticated customer. Requires customer/raw auth. */
+  async me(auth?: AuthContext): Promise<Customer> {
+    return this.ctx.http.request<Customer>({
+      method: "GET",
+      path: `/customer/${this.ctx.tenant}/me`,
+      auth: requireCustomer(auth),
+    });
+  }
+
+  /** Updates the authenticated customer. Requires customer/raw auth. */
+  async update(patch: Partial<Customer>, auth?: AuthContext): Promise<Customer> {
+    return this.ctx.http.request<Customer>({
+      method: "PUT",
+      path: `/customer/${this.ctx.tenant}/me`,
+      auth: requireCustomer(auth),
+      body: patch,
+    });
+  }
+
+  /** Changes the password. Requires customer/raw auth. */
+  async changePassword(input: { old: string; new: string }, auth?: AuthContext): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PUT",
+      path: `/customer/${this.ctx.tenant}/password`,
+      auth: requireCustomer(auth),
+      body: { oldPassword: input.old, newPassword: input.new },
+    });
+  }
+
+  /** Requests a password reset email. Default auth: anonymous. */
+  async requestPasswordReset(
+    input: { email: string },
+    auth: AuthContext = { kind: "anonymous" },
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `/customer/${this.ctx.tenant}/password/reset`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Confirms a password reset. Default auth: anonymous. */
+  async confirmPasswordReset(
+    input: { token: string; newPassword: string },
+    auth: AuthContext = { kind: "anonymous" },
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `/customer/${this.ctx.tenant}/password/reset/confirm`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Address sub-resource. All operations require customer/raw auth. */
+  readonly addresses = {
+    list: async (auth?: AuthContext): Promise<Address[]> =>
+      this.ctx.http.request<Address[]>({
+        method: "GET",
+        path: `/customer/${this.ctx.tenant}/me/addresses`,
+        auth: requireCustomer(auth),
+      }),
+    add: async (address: Omit<Address, "id">, auth?: AuthContext): Promise<Address> =>
+      this.ctx.http.request<Address>({
+        method: "POST",
+        path: `/customer/${this.ctx.tenant}/me/addresses`,
+        auth: requireCustomer(auth),
+        body: address,
+      }),
+    update: async (id: string, patch: Partial<Address>, auth?: AuthContext): Promise<Address> =>
+      this.ctx.http.request<Address>({
+        method: "PUT",
+        path: `/customer/${this.ctx.tenant}/me/addresses/${id}`,
+        auth: requireCustomer(auth),
+        body: patch,
+      }),
+    remove: async (id: string, auth?: AuthContext): Promise<void> =>
+      this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/customer/${this.ctx.tenant}/me/addresses/${id}`,
+        auth: requireCustomer(auth),
+      }),
+  };
+}
