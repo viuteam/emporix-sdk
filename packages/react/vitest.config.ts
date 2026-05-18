@@ -13,6 +13,8 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // https origin so the cookie adapter's Secure cookies persist under jsdom.
+    environmentOptions: { jsdom: { url: "https://localhost/" } },
     setupFiles: ["./vitest.setup.ts"],
     include: ["tests/**/*.test.{ts,tsx}"],
     coverage: {

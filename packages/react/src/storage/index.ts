@@ -6,3 +6,5 @@ export interface TokenStorage {
 }
 
 export { createMemoryStorage } from "./memory";
+export { createLocalStorageStorage } from "./local-storage";
+export { createCookieStorage } from "./cookie";
