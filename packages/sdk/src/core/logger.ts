@@ -129,3 +129,147 @@ export class LevelResolver {
     }
   }
 }
+
+/** Default redaction floor — never reducible. */
+const DEFAULT_REDACT = new Set([
+  "authorization", "password", "oldpassword", "newpassword", "clientsecret",
+  "secret", "access_token", "refresh_token", "customertoken", "saastoken",
+  "bearertoken", "apikey", "token",
+]);
+
+/** Deep-clones `value`, replacing redacted keys with a mask. AuthContext token is stripped. */
+export function redact(value: unknown, extra: string[] = []): unknown {
+  const keys = new Set(DEFAULT_REDACT);
+  for (const k of extra) keys.add(k.toLowerCase());
+  const walk = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") {
+      const src = v as Record<string, unknown>;
+      // AuthContext: keep only `kind`.
+      if (typeof src.kind === "string" && "token" in src) return { kind: src.kind };
+      const out: Record<string, unknown> = {};
+      for (const [k, val] of Object.entries(src)) {
+        if (keys.has(k.toLowerCase())) {
+          out[k] =
+            k.toLowerCase() === "authorization" && typeof val === "string"
+              ? "Bearer ***redacted***"
+              : "***redacted***";
+        } else {
+          out[k] = walk(val);
+        }
+      }
+      return out;
+    }
+    return v;
+  };
+  return walk(value);
+}
+
+interface Sink {
+  log: (...a: unknown[]) => void;
+  info: (...a: unknown[]) => void;
+  warn: (...a: unknown[]) => void;
+  error: (...a: unknown[]) => void;
+}
+
+const EMIT: Record<Exclude<LogLevel, "silent">, number> = {
+  trace: LEVEL.trace, debug: LEVEL.debug, info: LEVEL.info, warn: LEVEL.warn, error: LEVEL.error,
+};
+
+abstract class BaseLogger implements Logger {
+  constructor(
+    protected readonly resolver: LevelResolver,
+    protected readonly bindings: LogFields,
+    protected readonly extraRedact: string[],
+  ) {}
+  private svc(): ServiceName {
+    return (this.bindings.service as ServiceName) ?? "http";
+  }
+  get level(): LogLevel {
+    return this.resolver.get(this.svc());
+  }
+  isLevelEnabled(level: LogLevel): boolean {
+    return this.resolver.isAtLeast(this.svc(), level);
+  }
+  protected abstract emit(
+    level: Exclude<LogLevel, "silent">,
+    msg: string,
+    fields: LogFields,
+  ): void;
+  private at(level: Exclude<LogLevel, "silent">, msg: string, fields?: LogFields): void {
+    if (this.resolver.numericLevel(this.svc()) > EMIT[level]) return;
+    const merged = { ...this.bindings, ...(fields ?? {}) };
+    this.emit(level, msg, redact(merged, this.extraRedact) as LogFields);
+  }
+  trace(m: string, f?: LogFields): void { this.at("trace", m, f); }
+  debug(m: string, f?: LogFields): void { this.at("debug", m, f); }
+  info(m: string, f?: LogFields): void { this.at("info", m, f); }
+  warn(m: string, f?: LogFields): void { this.at("warn", m, f); }
+  error(m: string, f?: LogFields): void { this.at("error", m, f); }
+  abstract child(bindings: LogFields): Logger;
+}
+
+class ConsoleLogger extends BaseLogger {
+  constructor(
+    resolver: LevelResolver,
+    bindings: LogFields,
+    extra: string[],
+    private readonly sink: Sink,
+    private readonly pretty: boolean,
+  ) {
+    super(resolver, bindings, extra);
+  }
+  protected emit(level: Exclude<LogLevel, "silent">, msg: string, fields: LogFields): void {
+    if (this.pretty) {
+      const fn =
+        level === "error" ? this.sink.error
+        : level === "warn" ? this.sink.warn
+        : level === "info" ? this.sink.info
+        : this.sink.log;
+      fn(`[${level}] ${msg}`, fields);
+    } else {
+      this.sink.log(JSON.stringify({ ts: new Date().toISOString(), level, msg, ...fields }));
+    }
+  }
+  child(bindings: LogFields): Logger {
+    return new ConsoleLogger(
+      this.resolver,
+      { ...this.bindings, ...bindings },
+      this.extraRedact,
+      this.sink,
+      this.pretty,
+    );
+  }
+}
+
+class NoopLogger implements Logger {
+  level: LogLevel = "silent";
+  isLevelEnabled(): boolean { return false; }
+  trace(): void {}
+  debug(): void {}
+  info(): void {}
+  warn(): void {}
+  error(): void {}
+  child(): Logger { return this; }
+}
+
+/** Creates the built-in console logger. `opts.sink` overrides `console` (used in tests). */
+export function createConsoleLogger(
+  resolver: LevelResolver,
+  bindings: LogFields = {},
+  opts: { pretty?: boolean; redact?: string[]; sink?: Sink } = {},
+): Logger {
+  const pretty = opts.pretty ?? process.env.NODE_ENV !== "production";
+  const sink: Sink = opts.sink ?? {
+    log: console.log,
+    info: console.info,
+    warn: console.warn,
+    error: console.error,
+  };
+  return new ConsoleLogger(resolver, bindings, opts.redact ?? [], sink, pretty);
+}
+
+/** Creates a logger that discards everything. */
+export function createNoopLogger(): Logger {
+  return new NoopLogger();
+}
