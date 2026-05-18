@@ -1,19 +1,24 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixValidationError } from "../core/errors";
-import type { Cart as GeneratedCart } from "../generated/cart";
+import type {
+  Cart as GeneratedCart,
+  CreateCart,
+  CartItemRequest,
+  UpdateCartItem,
+  AddressRequest,
+} from "../generated/cart";
 
 /** A cart as returned by the Cart service (all generated fields). */
 export type Cart = GeneratedCart;
 
-/** An address payload for cart shipping/billing. */
-export interface CartAddress {
-  street?: string;
-  city?: string;
-  zipCode?: string;
-  country?: string;
-  [k: string]: unknown;
-}
+/** Generated request bodies (caller sends the exact wire shape). */
+export type CreateCartInput = CreateCart;
+export type CartItemInput = CartItemRequest;
+export type CartItemUpdate = UpdateCartItem;
+
+/** An address payload for cart shipping/billing (generated). */
+export type CartAddress = AddressRequest;
 
 function requireCartAuth(auth: AuthContext | undefined): AuthContext {
   if (auth && (auth.kind === "customer" || auth.kind === "anonymous")) return auth;
@@ -37,7 +42,7 @@ export class CartService {
 
   /** Creates a cart. */
   async create(
-    input: { currency?: string; siteCode?: string } | undefined,
+    input: CreateCartInput | undefined,
     auth: AuthContext,
   ): Promise<Cart> {
     return this.ctx.http.request<Cart>({
@@ -70,7 +75,7 @@ export class CartService {
   /** Adds an item. */
   async addItem(
     cartId: string,
-    item: { productId: string; quantity: number },
+    item: CartItemInput,
     auth: AuthContext,
   ): Promise<Cart> {
     return this.ctx.http.request<Cart>({
@@ -85,7 +90,7 @@ export class CartService {
   async updateItem(
     cartId: string,
     itemId: string,
-    patch: { quantity?: number },
+    patch: CartItemUpdate,
     auth: AuthContext,
   ): Promise<Cart> {
     return this.ctx.http.request<Cart>({
