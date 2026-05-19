@@ -25,13 +25,17 @@ resolution through the SDK is verified working end-to-end.**
    **Emporix resolves the cart product via `itemYrn`**
    (`urn:yaas:hybris:product:product:{tenant};{productId}`), not `product.id`,
    for this price-only item. `price.priceId` + `effectiveAmount` are required.
-5. `checkout.placeOrder` — requires, on the `viu` tenant:
-   - customer `firstName`/`lastName` (guest still needs a name),
-   - **real `shipping.methodId` / `zoneId`** from the tenant's Shipping
-     service (placeholders → `400 "Invalid methodId/zoneId"`).
-   These are tenant-configuration values the integrator supplies; the SDK
-   sends the generated `RequestCheckout` faithfully. Every validation the
-   tenant raised was a data/config requirement, never an SDK defect.
+5. `checkout.placeOrder` — **✅ completed live, `orderId: EON1051`** with:
+   - customer `firstName`/`lastName`/`email` + `guest: true`,
+   - `shipping: { methodId: "free", zoneId: "CH", methodName: "Free
+     Shipping", amount: 0 }` (real ids from the tenant's Shipping service),
+   - `paymentMethods: [{ provider: "custom", amount: <matched
+     effectiveValue> }]`,
+   - BILLING + SHIPPING addresses (Rämistrasse 71, 8006 Zürich, CH).
+
+   The full anonymous guest checkout is verified working end-to-end through
+   the SDK. Earlier 400s were tenant data/config requirements (product YRN,
+   customer name, real shipping ids), never SDK defects.
 
 ## Earlier catalog note (still true, context only)
 

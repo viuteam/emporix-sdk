@@ -58,10 +58,11 @@ export function GuestCheckout(): React.JSX.Element {
     setError(null);
     try {
       // Freshness: re-match right before ordering (SDK is stateless on prices).
-      await client.prices.matchByContext(
+      const m = await client.prices.matchByContext(
         { items: [{ itemId: { itemType: "PRODUCT", id: PRODUCT_ID }, quantity: { quantity: 1 } }] },
         ANON,
       );
+      const amount = (m[0] as { effectiveValue?: number } | undefined)?.effectiveValue ?? 0;
       const r = await client.checkout.placeOrder(
         {
           cartId,
@@ -71,28 +72,27 @@ export function GuestCheckout(): React.JSX.Element {
             lastName: "Shopper",
             guest: true,
           },
-          // methodId/zoneId must be REAL ids from your tenant's Shipping
-          // service — placeholders are rejected at checkout.
-          shipping: { methodId: "m", zoneId: "z", methodName: "Standard", amount: 0 },
+          // Real shipping ids from the tenant's Shipping service.
+          shipping: { methodId: "free", zoneId: "CH", methodName: "Free Shipping", amount: 0 },
           addresses: [
             {
-              contactName: "Guest",
-              street: "S",
-              zipCode: "8000",
-              city: "Zürich",
-              country: "CH",
-              type: "SHIPPING",
-            },
-            {
-              contactName: "Guest",
-              street: "S",
-              zipCode: "8000",
+              contactName: "Guest Shopper",
+              street: "Rämistrasse 71",
+              zipCode: "8006",
               city: "Zürich",
               country: "CH",
               type: "BILLING",
             },
+            {
+              contactName: "Guest Shopper",
+              street: "Rämistrasse 71",
+              zipCode: "8006",
+              city: "Zürich",
+              country: "CH",
+              type: "SHIPPING",
+            },
           ],
-          paymentMethods: [{ provider: "none", method: "invoice" }],
+          paymentMethods: [{ provider: "custom", amount }],
         },
         ANON,
       );
