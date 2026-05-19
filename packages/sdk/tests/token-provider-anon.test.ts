@@ -126,3 +126,55 @@ describe("anonymous-login session context", () => {
     expect(u.searchParams.has("currency")).toBe(false);
   });
 });
+
+describe("anonymous token expiry → refresh (sessionId preserved)", () => {
+  // Login handler whose token is already expired (expires_in below the
+  // 60s buffer ⇒ expiresAt in the past ⇒ immediately stale).
+  const expiredLogin = () =>
+    http.get("https://api.emporix.io/customerlogin/auth/anonymous/login", () => {
+      loginHits += 1;
+      return HttpResponse.json({
+        access_token: `anon-${loginHits}`, token_type: "Bearer",
+        expires_in: 0, refresh_token: "rt-1", sessionId: SESSION,
+      });
+    });
+
+  it("refreshes via the refresh token instead of a new login, keeping sessionId", async () => {
+    server.use(expiredLogin());
+    const p = new DefaultTokenProvider(cfg as never);
+    const s1 = await p.getAnonymousToken(); // login (stale immediately)
+    const s2 = await p.getAnonymousToken(); // expired ⇒ refresh, not login
+    expect(s1.accessToken).toBe("anon-1");
+    expect(s2.accessToken).toBe("anon-r1");
+    expect(s2.sessionId).toBe(SESSION);
+    expect(loginHits).toBe(1);
+    expect(refreshHits).toBe(1);
+  });
+
+  it("falls back to a fresh login when the refresh fails", async () => {
+    server.use(
+      expiredLogin(),
+      http.get("https://api.emporix.io/customerlogin/auth/anonymous/refresh", () => {
+        refreshHits += 1;
+        return HttpResponse.json({ message: "expired refresh token" }, { status: 401 });
+      }),
+    );
+    const p = new DefaultTokenProvider(cfg as never);
+    await p.getAnonymousToken(); // login anon-1
+    const s2 = await p.getAnonymousToken(); // refresh attempted (401) ⇒ fallback login anon-2
+    expect(s2.accessToken).toBe("anon-2");
+    expect(loginHits).toBe(2);
+    expect(refreshHits).toBe(1);
+  });
+
+  it("expireAnonymous() keeps the refresh token so the next call refreshes", async () => {
+    const p = new DefaultTokenProvider(cfg as never);
+    await p.getAnonymousToken(); // fresh login anon-1 (default handler, valid)
+    p.expireAnonymous();
+    const s = await p.getAnonymousToken(); // not fresh, anon kept ⇒ refresh
+    expect(s.accessToken).toBe("anon-r1");
+    expect(s.sessionId).toBe(SESSION);
+    expect(loginHits).toBe(1);
+    expect(refreshHits).toBe(1);
+  });
+});

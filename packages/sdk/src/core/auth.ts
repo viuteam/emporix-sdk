@@ -29,8 +29,14 @@ export interface TokenProvider {
   refreshAnonymous?(): Promise<AnonymousSession>;
   /** Invalidate a cached SDK-managed token so the next call re-auths. */
   invalidate?(credentialSet: string): void;
-  /** Invalidate the cached anonymous session. */
+  /** Invalidate the cached anonymous session entirely (next call re-logs in). */
   invalidateAnonymous?(): void;
+  /**
+   * Mark the anonymous access token stale but keep the refresh token, so the
+   * next {@link getAnonymousToken} refreshes (preserving sessionId) rather
+   * than starting a brand-new session.
+   */
+  expireAnonymous?(): void;
 }
 
 /** Tiny constructors for {@link AuthContext}. */
@@ -146,7 +152,13 @@ export class DefaultTokenProvider implements TokenProvider {
   async getAnonymousToken(): Promise<AnonymousSession> {
     if (this.anonFresh()) return this.stripExpiry(this.anon!);
     if (this.anonLock) return this.anonLock;
-    const p = this.fetchAnonymous("login").finally(() => {
+    // Token expired but a refresh token survives → refresh to keep the same
+    // sessionId; only fall back to a brand-new login if the refresh fails.
+    const canRefresh = !!this.anon?.refreshToken;
+    const obtain = canRefresh
+      ? this.fetchAnonymous("refresh").catch(() => this.fetchAnonymous("login"))
+      : this.fetchAnonymous("login");
+    const p = obtain.finally(() => {
       this.anonLock = undefined;
     });
     this.anonLock = p;
@@ -161,6 +173,11 @@ export class DefaultTokenProvider implements TokenProvider {
 
   invalidateAnonymous(): void {
     this.anon = undefined;
+  }
+
+  /** Force a stale access token while keeping the refresh token + sessionId. */
+  expireAnonymous(): void {
+    if (this.anon) this.anon = { ...this.anon, expiresAt: 0 };
   }
 
   private stripExpiry(s: AnonymousSession & { expiresAt: number }): AnonymousSession {
