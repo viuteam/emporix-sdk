@@ -112,6 +112,25 @@ describe("CustomerService", () => {
     expect(rows[0]?.city).toBe("Berlin");
   });
 
+  it("logout() requires customer/raw and GETs /logout?accessToken with the customer bearer", async () => {
+    let seen: { auth: string | null; accessToken: string | null } | null = null;
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/logout", ({ request }) => {
+        seen = {
+          auth: request.headers.get("authorization"),
+          accessToken: new URL(request.url).searchParams.get("accessToken"),
+        };
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const s = svc();
+    await expect(s.logout()).rejects.toBeInstanceOf(EmporixAuthError);
+    await expect(
+      s.logout({ kind: "customer", token: "cust-tok" }),
+    ).resolves.toBeUndefined();
+    expect(seen).toEqual({ auth: "Bearer cust-tok", accessToken: "cust-tok" });
+  });
+
   it("refresh() sends the refreshToken query with an anonymous token, maps snake_case, carries saasToken", async () => {
     server.use(
       http.get("https://api.emporix.io/customer/acme/refreshauthtoken", ({ request }) => {

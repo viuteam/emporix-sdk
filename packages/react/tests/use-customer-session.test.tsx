@@ -22,6 +22,10 @@ const server = setupServer(
   http.get("https://api.emporix.io/customer/acme/me", () =>
     HttpResponse.json({ id: "c1", contactEmail: "a@b.co" }),
   ),
+  http.get(
+    "https://api.emporix.io/customer/acme/logout",
+    () => new HttpResponse(null, { status: 204 }),
+  ),
 );
 beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
@@ -59,11 +63,38 @@ describe("useCustomerSession", () => {
     await waitFor(() => expect(result.current.customer?.contactEmail).toBe("a@b.co"));
   });
 
-  it("logout clears the token", async () => {
+  it("logout calls the server then clears the token", async () => {
+    let logoutHit = false;
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/logout", ({ request }) => {
+        logoutHit = true;
+        expect(new URL(request.url).searchParams.get("accessToken")).toBe("cust");
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
     const storage = createMemoryStorage({ initial: "cust" });
     const { result } = renderHook(() => useCustomerSession(), { wrapper: wrapper(storage) });
     expect(result.current.isAuthenticated).toBe(true);
-    act(() => result.current.logout());
+    await act(async () => {
+      await result.current.logout();
+    });
+    expect(logoutHit).toBe(true);
+    expect(storage.getCustomerToken()).toBeNull();
+    expect(result.current.isAuthenticated).toBe(false);
+  });
+
+  it("logout still clears locally when the server logout fails", async () => {
+    server.use(
+      http.get(
+        "https://api.emporix.io/customer/acme/logout",
+        () => new HttpResponse(null, { status: 401 }),
+      ),
+    );
+    const storage = createMemoryStorage({ initial: "cust" });
+    const { result } = renderHook(() => useCustomerSession(), { wrapper: wrapper(storage) });
+    await act(async () => {
+      await result.current.logout();
+    });
     expect(storage.getCustomerToken()).toBeNull();
     expect(result.current.isAuthenticated).toBe(false);
   });
