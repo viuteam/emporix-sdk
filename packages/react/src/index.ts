@@ -18,6 +18,7 @@ export {
   useCartMutations,
   useCheckout,
   usePaymentModes,
+  useMatchPrices,
 } from "./hooks/index";
 export type { CustomerSessionApi, CartMutationsApi, CheckoutApi } from "./hooks/index";
 export { EmporixErrorBoundary, useEmporixErrorHandler } from "./errors";
