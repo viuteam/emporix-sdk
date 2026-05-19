@@ -9,7 +9,11 @@ const client = new EmporixClient({
   tenant: import.meta.env.VITE_EMPORIX_TENANT ?? "mytenant",
   // Storefront-only: never put a backend secret in browser code.
   credentials: {
-    storefront: { clientId: import.meta.env.VITE_EMPORIX_STOREFRONT_CLIENT_ID ?? "" },
+    storefront: {
+      clientId: import.meta.env.VITE_EMPORIX_STOREFRONT_CLIENT_ID ?? "",
+      // Bound at anonymous-login so prices.matchByContext can resolve.
+      context: { currency: "EUR", siteCode: "main", targetLocation: "DE" },
+    },
   },
 });
 
