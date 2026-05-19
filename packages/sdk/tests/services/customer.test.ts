@@ -111,4 +111,34 @@ describe("CustomerService", () => {
     const rows = await s.addresses.list({ kind: "customer", token: "cust-tok" });
     expect(rows[0]?.city).toBe("Berlin");
   });
+
+  it("refresh() sends the refreshToken query with an anonymous token, maps snake_case, carries saasToken", async () => {
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/refreshauthtoken", ({ request }) => {
+        expect(request.headers.get("authorization")).toBe("Bearer anon-tok");
+        const u = new URL(request.url);
+        expect(u.searchParams.get("refreshToken")).toBe("cust-rt");
+        expect(u.searchParams.get("legalEntityId")).toBe("le-1");
+        return HttpResponse.json({
+          access_token: "cust-tok-2",
+          refresh_token: "cust-rt-2",
+          refresh_token_expires_in: 2591999,
+          expires_in: 3600,
+          token_type: "Bearer",
+          session_id: "sess-1",
+        });
+      }),
+    );
+    const r = await svc().refresh({
+      refreshToken: "cust-rt",
+      saasToken: "saas-tok",
+      legalEntityId: "le-1",
+    });
+    expect(r.customerToken).toBe("cust-tok-2");
+    expect(r.refreshToken).toBe("cust-rt-2");
+    expect(r.sessionId).toBe("sess-1");
+    expect(r.expiresIn).toBe(3600);
+    // The refresh endpoint does NOT return a saas_token — it is carried over.
+    expect(r.saasToken).toBe("saas-tok");
+  });
 });

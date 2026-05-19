@@ -113,6 +113,45 @@ export class CustomerService {
     };
   }
 
+  /**
+   * Refreshes an authenticated customer session via its refresh token,
+   * preserving the same `sessionId`. Calls
+   * `GET /customer/{tenant}/refreshauthtoken?refreshToken=…`, which **must be
+   * authorized with an anonymous token** (default auth: anonymous) — not the
+   * expired customer token. The refresh response does **not** include a
+   * `saas_token`; pass the original `saasToken` to carry it forward (it has
+   * its own, independent lifetime).
+   */
+  async refresh(
+    input: { refreshToken: string; saasToken?: string; legalEntityId?: string },
+    auth: AuthContext = { kind: "anonymous" },
+  ): Promise<CustomerSession> {
+    const query: Record<string, string> = { refreshToken: input.refreshToken };
+    if (input.legalEntityId) query.legalEntityId = input.legalEntityId;
+    const wire = await this.ctx.http.request<{
+      access_token?: string;
+      refresh_token?: string;
+      session_id?: string;
+      expires_in?: number;
+      // Deprecated camelCase variants (Emporix spec marks these deprecated).
+      accessToken?: string;
+      refreshToken?: string;
+    }>({
+      method: "GET",
+      path: `/customer/${this.ctx.tenant}/refreshauthtoken`,
+      query,
+      auth,
+    });
+    return {
+      customerToken: wire.access_token ?? wire.accessToken ?? "",
+      // Refresh does not return a saas_token — carry the original forward.
+      saasToken: input.saasToken ?? "",
+      refreshToken: wire.refresh_token ?? wire.refreshToken ?? "",
+      sessionId: wire.session_id,
+      expiresIn: wire.expires_in,
+    };
+  }
+
   /** Returns the authenticated customer. Requires customer/raw auth. */
   async me(auth?: AuthContext): Promise<Customer> {
     return this.ctx.http.request<Customer>({

@@ -27,7 +27,10 @@ single process).
   refresh endpoint so `sessionId` is preserved.
 - **Caller-managed** (`customer`, `raw`): returned verbatim; a 401 is **not**
   retried — it propagates as `EmporixAuthError` so you can re-login or refresh
-  externally. `customers.refresh(refreshToken)` is available when you choose to.
+  externally. `customers.refresh({ refreshToken, saasToken? })` is available
+  when you choose to (authorized with an anonymous token; same `sessionId`,
+  no new `saas_token`). In React, `useCustomerSession().refreshSession()`
+  wires this up.
 
 ## The anonymous → login → cart-merge flow
 
