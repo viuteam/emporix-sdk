@@ -176,6 +176,11 @@ export class DefaultTokenProvider implements TokenProvider {
     const url = new URL(`${this.cfg.host}/customerlogin/auth/anonymous/${mode}`);
     url.searchParams.set("tenant", this.cfg.tenant);
     url.searchParams.set("client_id", sf.clientId);
+    // Context is config-fixed → single anon slot stays correct (no per-call ctx).
+    const c = sf.context;
+    if (c?.currency) url.searchParams.set("currency", c.currency);
+    if (c?.siteCode) url.searchParams.set("siteCode", c.siteCode);
+    if (c?.targetLocation) url.searchParams.set("targetLocation", c.targetLocation);
     if (mode === "refresh" && this.anon) {
       url.searchParams.set("refresh_token", this.anon.refreshToken);
     }

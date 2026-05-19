@@ -4,6 +4,7 @@ import { EmporixValidationError } from "../core/errors";
 import type {
   Cart as GeneratedCart,
   CreateCart,
+  CreatedCart,
   CartItemRequest,
   UpdateCartItem,
   AddressRequest,
@@ -11,6 +12,9 @@ import type {
 
 /** A cart as returned by the Cart service (all generated fields). */
 export type Cart = GeneratedCart;
+
+/** The cart-create response (`{ cartId, yrn }`, generated). */
+export type CartCreated = CreatedCart;
 
 /** Generated request bodies (caller sends the exact wire shape). */
 export type CreateCartInput = CreateCart;
@@ -44,8 +48,8 @@ export class CartService {
   async create(
     input: CreateCartInput | undefined,
     auth: AuthContext,
-  ): Promise<Cart> {
-    return this.ctx.http.request<Cart>({
+  ): Promise<CartCreated> {
+    return this.ctx.http.request<CartCreated>({
       method: "POST",
       path: this.base(),
       auth: requireCartAuth(auth),

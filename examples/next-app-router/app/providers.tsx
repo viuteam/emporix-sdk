@@ -18,7 +18,11 @@ export function Providers({
         tenant: process.env.NEXT_PUBLIC_EMPORIX_TENANT ?? "mytenant",
         // Client component: storefront-only, no backend secret in the browser.
         credentials: {
-          storefront: { clientId: process.env.NEXT_PUBLIC_EMPORIX_STOREFRONT_CLIENT_ID ?? "" },
+          storefront: {
+            clientId: process.env.NEXT_PUBLIC_EMPORIX_STOREFRONT_CLIENT_ID ?? "",
+            // Bound at anonymous-login so prices.matchByContext can resolve.
+            context: { currency: "EUR", siteCode: "main", targetLocation: "DE" },
+          },
         },
       }),
   );

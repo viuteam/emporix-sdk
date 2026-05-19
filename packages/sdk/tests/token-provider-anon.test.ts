@@ -81,3 +81,48 @@ describe("DefaultTokenProvider anonymous path", () => {
     await expect(p.getAnonymousToken()).rejects.toThrow(/storefront/i);
   });
 });
+
+describe("anonymous-login session context", () => {
+  it("sends currency/siteCode/targetLocation when configured", async () => {
+    let url = "";
+    server.use(
+      http.get("https://api.emporix.io/customerlogin/auth/anonymous/login", ({ request }) => {
+        url = request.url;
+        return HttpResponse.json({
+          access_token: "a", token_type: "Bearer", expires_in: 3599,
+          refresh_token: "rt", sessionId: "s",
+        });
+      }),
+    );
+    const ctxCfg = {
+      ...cfg,
+      credentials: {
+        storefront: {
+          clientId: "sf",
+          context: { currency: "CHF", siteCode: "main", targetLocation: "CH" },
+        },
+      },
+    };
+    await new DefaultTokenProvider(ctxCfg as never).getAnonymousToken();
+    const u = new URL(url);
+    expect(u.searchParams.get("currency")).toBe("CHF");
+    expect(u.searchParams.get("siteCode")).toBe("main");
+    expect(u.searchParams.get("targetLocation")).toBe("CH");
+  });
+
+  it("omits context params when no context is configured", async () => {
+    let url = "";
+    server.use(
+      http.get("https://api.emporix.io/customerlogin/auth/anonymous/login", ({ request }) => {
+        url = request.url;
+        return HttpResponse.json({
+          access_token: "a", token_type: "Bearer", expires_in: 3599,
+          refresh_token: "rt", sessionId: "s",
+        });
+      }),
+    );
+    await new DefaultTokenProvider(cfg as never).getAnonymousToken();
+    const u = new URL(url);
+    expect(u.searchParams.has("currency")).toBe(false);
+  });
+});

@@ -39,6 +39,7 @@ export type { Category, CategoryNode } from "./services/category";
 export { CartService } from "./services/cart";
 export type {
   Cart,
+  CartCreated,
   CartAddress,
   CreateCartInput,
   CartItemInput,

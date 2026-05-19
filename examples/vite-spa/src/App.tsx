@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Route, Routes, Link } from "react-router-dom";
 import { useProducts, useCustomerSession } from "@viu/emporix-sdk-react";
+import { GuestCheckout } from "./GuestCheckout";
 
 // Emporix product `name` is localized — a `{ [locale]: string }` map (or a
 // plain string for some tenants). Render it defensively.
@@ -61,11 +62,13 @@ export function App(): React.JSX.Element {
   return (
     <main>
       <nav>
-        <Link to="/">Catalog</Link> | <Link to="/account">Account</Link>
+        <Link to="/">Catalog</Link> | <Link to="/account">Account</Link> |{" "}
+        <Link to="/guest">Guest checkout</Link>
       </nav>
       <Routes>
         <Route path="/" element={<Catalog />} />
         <Route path="/account" element={<Login />} />
+        <Route path="/guest" element={<GuestCheckout />} />
       </Routes>
     </main>
   );

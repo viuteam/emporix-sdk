@@ -81,6 +81,30 @@ await placeOrder.mutateAsync({ input, saasToken, siteCode });
 (from `useCustomerSession`/`customers.login`) per call. See
 [`examples/next-app-router/app/checkout`](../examples/next-app-router/app/checkout).
 
+## Guest (anonymous) checkout
+
+A shopper can check out without an account. The verified sequence:
+
+1. **Anonymous token with session context.** Configure
+   `credentials.storefront.context` (`currency`, `siteCode`,
+   `targetLocation`). These are bound at anonymous-login so
+   `prices.matchByContext` resolves currency/site/country server-side.
+2. **`carts.create({ currency }, { kind: "anonymous" })`** → returns
+   `CartCreated` (`{ cartId, yrn }`).
+3. **`carts.addItem(cartId, item, { kind: "anonymous" })`** with the
+   generated `CartItemRequest`.
+4. **`prices.matchByContext({ items }, { kind: "anonymous" })`** to resolve
+   prices for display. The SDK is **stateless on prices** — it never caches
+   or revalidates; re-call `matchByContext` immediately before placing the
+   order to control freshness.
+5. **`checkout.placeOrder(input, { kind: "anonymous" })`** with
+   `customer.guest = true`. No `saas-token` is sent for guests (that header
+   is the logged-in-customer path only).
+
+Working examples: [`examples/vite-spa/src/GuestCheckout.tsx`](../examples/vite-spa/src/GuestCheckout.tsx)
+and [`examples/next-app-router/app/guest-checkout`](../examples/next-app-router/app/guest-checkout).
+The `useMatchPrices` React hook wraps step 4.
+
 ## Scope
 
 The SDK provides the checkout call, the `paymentDetails` passthrough, payment
