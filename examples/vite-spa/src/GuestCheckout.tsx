@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useEmporix, useMatchPrices } from "@viu/emporix-sdk-react";
 
-// Verified catalog product on tenant `viu` (see plan-c-viu-context.md).
-const PRODUCT_ID = "69df9b7d78816f53657ba85b";
+// Priced product on tenant `viu` (CHF/main/CH) — see plan-c-viu-context.md.
+const PRODUCT_ID = "0f1e2d3c-4b5a";
 const ANON = { kind: "anonymous" } as const;
 
 /** Full guest flow: anonymous cart → add item → match prices → place order. */
@@ -19,15 +19,31 @@ export function GuestCheckout(): React.JSX.Element {
   async function startCart(): Promise<void> {
     setError(null);
     try {
-      const cart = await client.carts.create({ currency: "EUR" }, ANON);
+      const cart = await client.carts.create({ currency: "CHF" }, ANON);
       const id = cart.cartId;
       if (!id) throw new Error("cart created without an id");
+      // Resolve the real price first; the cart add-item needs a valid priceId.
+      const matched = await client.prices.matchByContext(
+        { items: [{ itemId: { itemType: "PRODUCT", id: PRODUCT_ID }, quantity: { quantity: 1 } }] },
+        ANON,
+      );
+      const p = matched[0] as
+        | { priceId?: string; originalValue?: number; effectiveValue?: number }
+        | undefined;
+      if (!p?.priceId) throw new Error("no price resolved for the product");
+      // Emporix resolves the cart product via `itemYrn` (or `product`); the
+      // priced item here is not a plain catalog product, so use the YRN.
       await client.carts.addItem(
         id,
         {
-          product: { id: PRODUCT_ID },
+          itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${PRODUCT_ID}`,
           quantity: 1,
-          price: { priceId: PRODUCT_ID, originalAmount: 0, effectiveAmount: 0, currency: "EUR" },
+          price: {
+            priceId: p.priceId,
+            originalAmount: p.originalValue ?? 0,
+            effectiveAmount: p.effectiveValue ?? 0,
+            currency: "CHF",
+          },
         },
         ANON,
       );
@@ -49,23 +65,30 @@ export function GuestCheckout(): React.JSX.Element {
       const r = await client.checkout.placeOrder(
         {
           cartId,
-          customer: { email: "guest@example.com", guest: true },
+          customer: {
+            email: "guest@example.com",
+            firstName: "Guest",
+            lastName: "Shopper",
+            guest: true,
+          },
+          // methodId/zoneId must be REAL ids from your tenant's Shipping
+          // service — placeholders are rejected at checkout.
           shipping: { methodId: "m", zoneId: "z", methodName: "Standard", amount: 0 },
           addresses: [
             {
               contactName: "Guest",
               street: "S",
-              zipCode: "10115",
-              city: "Berlin",
-              country: "DE",
+              zipCode: "8000",
+              city: "Zürich",
+              country: "CH",
               type: "SHIPPING",
             },
             {
               contactName: "Guest",
               street: "S",
-              zipCode: "10115",
-              city: "Berlin",
-              country: "DE",
+              zipCode: "8000",
+              city: "Zürich",
+              country: "CH",
               type: "BILLING",
             },
           ],

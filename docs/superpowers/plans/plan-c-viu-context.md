@@ -3,50 +3,48 @@
 Probed live with storefront client id
 `miFWH87by6AsfQxFSloirT8AV3IZL3seSaC3oR7phbGMV1hO`.
 
+## Working price context (user-supplied, verified)
+
 - **siteCode:** `main`
-- **currency:** `EUR`
-- **targetLocation:** `DE` (valid countries: DE, CH, AT; `US` → 400 "Country not found")
-- **sample catalog productId:** `69df9b7d78816f53657ba85b` (code `BASKET-001`,
-  name `{ de: "Jordan Harden Vol. 8 Basketballtrikot" }`)
+- **currency:** `CHF`
+- **targetLocation:** `CH`
+- **priced productId:** `0f1e2d3c-4b5a` — name
+  `{ de: "Just-in-Time Zugriff (JIT)", en: "Just-in-Time Access (JIT)" }`,
+  resolved priceId `691b27c9940f3e6dbbee71a8`, effectiveValue `1`.
 
-## Known tenant-data limitation (not an SDK issue)
+`prices.matchByContext` via the SDK (anonymous token with the context above)
+returns the full generated `MatchResponse` for this product — **price
+resolution through the SDK is verified working end-to-end.**
 
-`match-prices-by-context` returns `[]` for every catalog product on `viu`.
-Cause: the price records in the Price service reference a **legacy numeric
-product-id scheme** (e.g. `3441957`, `15536937`) while the current catalog
-was re-imported with hex ids (e.g. `69df9b7d78816f53657ba85b`). The
-intersection of priced item-ids and catalog product-ids is **empty**, and
-the legacy priced ids 404 in the Product service.
+## Verified guest-checkout sequence (live, via the SDK)
 
-Consequence for live verification (T6): the guest-checkout flow executes
-correctly end-to-end (anonymous token with context → cart → add item →
-`matchByContext` call succeeds, returns `[]`), but no price can be displayed
-and an Emporix order may be rejected for a zero/priceless cart. The example
-UIs render `—` for an unresolved price by design. This is a `viu` data
-condition, not an SDK defect; the SDK behaviour (context binding, match call,
-graceful empty handling) is correct.
+1. anonymous token with `{ currency: CHF, siteCode: main, targetLocation: CH }` — ✅
+2. `carts.create({ currency: "CHF" })` → `{ cartId }` (generated `CartCreated`) — ✅
+3. `prices.matchByContext({ items:[…] })` → real `priceId`/`effectiveValue` — ✅
+4. `carts.addItem(cartId, { itemYrn, quantity, price }, anonymous)` — ✅
+   **Emporix resolves the cart product via `itemYrn`**
+   (`urn:yaas:hybris:product:product:{tenant};{productId}`), not `product.id`,
+   for this price-only item. `price.priceId` + `effectiveAmount` are required.
+5. `checkout.placeOrder` — requires, on the `viu` tenant:
+   - customer `firstName`/`lastName` (guest still needs a name),
+   - **real `shipping.methodId` / `zoneId`** from the tenant's Shipping
+     service (placeholders → `400 "Invalid methodId/zoneId"`).
+   These are tenant-configuration values the integrator supplies; the SDK
+   sends the generated `RequestCheckout` faithfully. Every validation the
+   tenant raised was a data/config requirement, never an SDK defect.
 
-## Live verification results (2026-05-19)
+## Earlier catalog note (still true, context only)
 
-Replayed the exact example SDK call sequence against live `viu`:
+`viu`'s plain catalog products (hex ids like `69df9b7d…`, e.g. `BASKET-001`)
+have **no** price — the Price service's older entries use a legacy numeric
+id scheme disjoint from the current catalog. The user-supplied
+`0f1e2d3c-4b5a` is a price-bearing (non-plain-catalog) item, which is why it
+must be added via `itemYrn`.
 
-1. **anonymous token with context** — ✅ works (currency/siteCode/targetLocation
-   sent; valid session).
-2. **`carts.create({ currency: "EUR" }, anonymous)`** — ✅ works. This
-   surfaced and fixed a real SDK bug: the create response is
-   `{ cartId, yrn }` (generated `CreatedCart`), not the `Cart` GET model.
-   `CartService.create` now returns `CartCreated` and the examples read
-   `cart.cartId`.
-3. **`carts.addItem`** — ✗ rejected by the `viu` tenant: `400 "Cart Item
-   with Internal type must have priceId set"` / `"Product with given id=null
-   does not exist."`. The tenant's cart add-item requires a `priceId` tied
-   to an existing price, and no catalog product on `viu` has a price
-   (id-scheme mismatch above). The SDK sends the generated `CartItemRequest`
-   faithfully; this is a tenant-data limitation, not an SDK defect.
-4. **`prices.matchByContext`** — ✅ call succeeds, returns `[]` (no price
-   data for catalog products on `viu`).
+## SDK correctness fixes driven by this verification
 
-**Net:** the SDK guest-checkout path (anonymous-context binding, cart
-create, price match, graceful error handling) is verified correct. A fully
-priced guest order cannot be completed on `viu` purely because of that
-tenant's price/catalog data, independent of the SDK.
+- `CartService.create` now returns generated `CartCreated` (`{ cartId, yrn }`),
+  not the `Cart` GET model.
+- Both example guest-checkout flows use the verified pattern: CHF/main/CH
+  context, match-then-add, `itemYrn`, customer name; shipping ids flagged as
+  integrator-supplied.
