@@ -99,6 +99,10 @@ export class HttpClient {
           reauthed = true;
           if (o.auth.kind === "service") {
             this.opts.provider.invalidate?.(o.auth.credentials ?? "backend");
+          } else if (this.opts.provider.expireAnonymous) {
+            // Keep the refresh token so the retry refreshes (same sessionId)
+            // instead of starting a new anonymous session.
+            this.opts.provider.expireAnonymous();
           } else {
             this.opts.provider.invalidateAnonymous?.();
           }
