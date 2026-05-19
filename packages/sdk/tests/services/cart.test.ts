@@ -17,7 +17,7 @@ const server = setupServer(
   ),
   http.post("https://api.emporix.io/cart/acme/carts", ({ request }) => {
     expect(request.headers.get("authorization")).toBe("Bearer anon");
-    return HttpResponse.json({ id: "cart1", items: [] });
+    return HttpResponse.json({ cartId: "cart1", yrn: "urn:cart:acme;cart1" });
   }),
   http.post("https://api.emporix.io/cart/acme/carts/cart1/merge", ({ request }) => {
     expect(request.headers.get("authorization")).toBe("Bearer CUST");
@@ -52,9 +52,9 @@ describe("CartService", () => {
     ).rejects.toBeInstanceOf(EmporixValidationError);
   });
 
-  it("create() works with an anonymous context", async () => {
+  it("create() works with an anonymous context and returns the cartId", async () => {
     const c = await svc().create({ currency: "EUR" }, { kind: "anonymous" });
-    expect(c.id).toBe("cart1");
+    expect(c.cartId).toBe("cart1");
   });
 
   it("merge() requires a customer context and returns the merged cart", async () => {
@@ -65,13 +65,13 @@ describe("CartService", () => {
     expect(merged.id).toBe("cart-merged");
   });
 
-  it("returns generated cart fields the old facade dropped", async () => {
+  it("get() returns generated cart fields the old facade dropped", async () => {
     server.use(
-      http.post("https://api.emporix.io/cart/acme/carts", () =>
+      http.get("https://api.emporix.io/cart/acme/carts/c1", () =>
         HttpResponse.json({ id: "c1", items: [], totalPrice: { amount: 0, currency: "CHF" } }),
       ),
     );
-    const c = await svc().create(undefined, { kind: "anonymous" });
+    const c = await svc().get("c1", { kind: "anonymous" });
     expect(c.id).toBe("c1");
     expect((c as { totalPrice?: unknown }).totalPrice).toEqual({
       amount: 0,

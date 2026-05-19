@@ -21,7 +21,7 @@ export default function GuestCheckoutPage(): React.JSX.Element {
     setError(null);
     try {
       const cart = await client.carts.create({ currency: "EUR" }, ANON);
-      const id = cart.id;
+      const id = cart.cartId;
       if (!id) throw new Error("cart created without an id");
       await client.carts.addItem(
         id,
