@@ -20,6 +20,12 @@ export interface ServiceCredentials {
 /** Storefront credential — anonymous token needs the client id only, no secret. */
 export interface StorefrontCredentials {
   clientId: string;
+  /**
+   * Session context bound at anonymous-login time. Required for
+   * `prices.matchByContext` to resolve currency/site/country server-side.
+   * `targetLocation` is an ISO country code.
+   */
+  context?: { currency?: string; siteCode?: string; targetLocation?: string };
 }
 
 /** User-supplied SDK configuration. */
