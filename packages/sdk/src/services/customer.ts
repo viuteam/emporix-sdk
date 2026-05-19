@@ -152,6 +152,23 @@ export class CustomerService {
     };
   }
 
+  /**
+   * Logs the customer out server-side: `GET /customer/{tenant}/logout?
+   * accessToken=…` authorized with the customer token. Invalidates the
+   * access token (204 No Content). Requires customer/raw auth — the token is
+   * sent both as the bearer and the `accessToken` query param (per Emporix).
+   */
+  async logout(auth?: AuthContext): Promise<void> {
+    const ctx = requireCustomer(auth);
+    const token = (ctx as { token: string }).token;
+    await this.ctx.http.request<void>({
+      method: "GET",
+      path: `/customer/${this.ctx.tenant}/logout`,
+      query: { accessToken: token },
+      auth: ctx,
+    });
+  }
+
   /** Returns the authenticated customer. Requires customer/raw auth. */
   async me(auth?: AuthContext): Promise<Customer> {
     return this.ctx.http.request<Customer>({

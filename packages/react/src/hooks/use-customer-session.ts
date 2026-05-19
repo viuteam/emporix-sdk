@@ -13,7 +13,8 @@ export interface CustomerSessionApi {
   refreshToken: string | null;
   login: (input: { email: string; password: string }) => Promise<void>;
   signup: (input: { email: string; password: string }) => Promise<void>;
-  logout: () => void;
+  /** Server-side logout (best-effort), then clears the local session. */
+  logout: () => Promise<void>;
   /** Refetches the `me` profile query. */
   refresh: () => Promise<void>;
   /**
@@ -63,14 +64,23 @@ export function useCustomerSession(): CustomerSessionApi {
     [client],
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    if (token) {
+      // Best-effort server invalidation; the local session is cleared
+      // regardless (the token may already be expired/invalid).
+      try {
+        await client.customers.logout(auth.customer(token));
+      } catch {
+        /* ignore — proceed to clear locally */
+      }
+    }
     storage.setCustomerToken(null);
     setToken(null);
     setRefreshTok(null);
     setSaasTok(null);
     qc.removeQueries({ queryKey: ["emporix", "customer"] });
     qc.removeQueries({ queryKey: ["emporix", "cart"] });
-  }, [storage, qc]);
+  }, [client, token, storage, qc]);
 
   const refresh = useCallback(async () => {
     await meQuery.refetch();

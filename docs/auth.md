@@ -30,7 +30,9 @@ single process).
   externally. `customers.refresh({ refreshToken, saasToken? })` is available
   when you choose to (authorized with an anonymous token; same `sessionId`,
   no new `saas_token`). In React, `useCustomerSession().refreshSession()`
-  wires this up.
+  wires this up. `customers.logout(auth)` invalidates the customer token
+  server-side (`GET /customer/{tenant}/logout`); `useCustomerSession().logout()`
+  does this best-effort before clearing the local session.
 
 ## The anonymous → login → cart-merge flow
 
