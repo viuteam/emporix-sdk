@@ -14,8 +14,11 @@ import {
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 
-function customerCtx(token: string | null): AuthContext {
-  if (!token) throw new Error("useCheckout requires a logged-in customer token");
+function checkoutCtx(token: string | null): AuthContext {
+  return token ? auth.customer(token) : auth.anonymous();
+}
+function customerOnlyCtx(token: string | null): AuthContext {
+  if (!token) throw new Error("usePaymentModes requires a logged-in customer token");
   return auth.customer(token);
 }
 
@@ -39,14 +42,14 @@ export function useCheckout(): CheckoutApi {
   const token = storage.getCustomerToken();
   const placeOrder = useMutation({
     mutationFn: (v: { input: CheckoutInput; saasToken?: string; siteCode?: string }) =>
-      client.checkout.placeOrder(v.input, customerCtx(token), {
+      client.checkout.placeOrder(v.input, checkoutCtx(token), {
         ...(v.saasToken !== undefined ? { saasToken: v.saasToken } : {}),
         ...(v.siteCode !== undefined ? { siteCode: v.siteCode } : {}),
       }),
   });
   const placeOrderFromQuote = useMutation({
     mutationFn: (v: { input: QuoteCheckoutInput; saasToken?: string; siteCode?: string }) =>
-      client.checkout.placeOrderFromQuote(v.input, customerCtx(token), {
+      client.checkout.placeOrderFromQuote(v.input, checkoutCtx(token), {
         ...(v.saasToken !== undefined ? { saasToken: v.saasToken } : {}),
         ...(v.siteCode !== undefined ? { siteCode: v.siteCode } : {}),
       }),
@@ -63,6 +66,6 @@ export function usePaymentModes(
   return useQuery({
     queryKey: ["emporix", "payment-modes", { tenant: client.tenant }],
     enabled: (options.enabled ?? true) && token !== null,
-    queryFn: () => client.payments.listPaymentModes(customerCtx(token)),
+    queryFn: () => client.payments.listPaymentModes(customerOnlyCtx(token)),
   });
 }
