@@ -35,6 +35,26 @@ export interface PaginatedItems<T> {
 export type DefaultAuth = AuthContext | undefined;
 
 /**
+ * Async-iterates every item across pages of a `PaginatedItems<T>` source.
+ * Stops when the source reports `hasNextPage: false`.
+ *
+ * @param fetchPage - given a 1-based page number, returns the page.
+ * @param start - first page to fetch (default `1`).
+ */
+export async function* iterateAll<T>(
+  fetchPage: (pageNumber: number) => Promise<PaginatedItems<T>>,
+  start = 1,
+): AsyncIterable<T> {
+  let p = start;
+  for (;;) {
+    const page = await fetchPage(p);
+    for (const it of page.items) yield it;
+    if (!page.hasNextPage) return;
+    p += 1;
+  }
+}
+
+/**
  * Async-iterates every item across pages. `fetchPage(offset, limit)` returns a
  * {@link Page}; iteration stops on a short page or once `total` is reached.
  */
