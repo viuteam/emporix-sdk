@@ -23,6 +23,8 @@ export {
   useMySegments,
   useMySegmentItems,
   useMySegmentCategoryTree,
+  useMySegmentProducts,
+  useMySegmentProductsInfinite,
 } from "./hooks/index";
 export type { CustomerSessionApi, CartMutationsApi, CheckoutApi } from "./hooks/index";
 export { EmporixErrorBoundary, useEmporixErrorHandler } from "./errors";

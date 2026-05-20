@@ -19,4 +19,6 @@ export {
   useMySegments,
   useMySegmentItems,
   useMySegmentCategoryTree,
+  useMySegmentProducts,
+  useMySegmentProductsInfinite,
 } from "./use-my-segments";
