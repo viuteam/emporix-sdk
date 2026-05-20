@@ -18,7 +18,7 @@ export { HttpClient } from "./core/http";
 export type { RequestOptions, HttpClientOptions } from "./core/http";
 export { EmporixClient } from "./client";
 export type { ClientContext, Page, PaginatedItems } from "./core/context";
-export { paginate } from "./core/context";
+export { paginate, iterateAll } from "./core/context";
 export { CustomerService } from "./services/customer";
 export type {
   Customer,

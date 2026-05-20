@@ -11,7 +11,7 @@ import {
   type Category,
   type CategoryNode,
   type Cart,
-  type Page,
+  type PaginatedItems,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 
@@ -42,7 +42,7 @@ export function useProduct(productId: string, options: QueryOpts = {}): UseQuery
 export function useProducts(
   params: { pageNumber?: number; pageSize?: number } = {},
   options: QueryOpts = {},
-): UseQueryResult<Page<Product>> {
+): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
   const { ctx, kind } = useReadAuth(options.auth);
   return useQuery({
@@ -51,11 +51,11 @@ export function useProducts(
   });
 }
 
-/** Infinite product list keyed by page number. */
+/** Infinite product list — terminates on `hasNextPage=false`. */
 export function useProductsInfinite(
   params: { pageSize?: number } = {},
   options: QueryOpts = {},
-): UseInfiniteQueryResult<{ pages: Page<Product>[]; pageParams: number[] }> {
+): UseInfiniteQueryResult<{ pages: PaginatedItems<Product>[]; pageParams: number[] }> {
   const { client } = useEmporix();
   const { ctx, kind } = useReadAuth(options.auth);
   return useInfiniteQuery({
@@ -64,11 +64,12 @@ export function useProductsInfinite(
     queryFn: ({ pageParam }) =>
       client.products.list(
         params.pageSize !== undefined
-          ? { pageNumber: pageParam, pageSize: params.pageSize }
-          : { pageNumber: pageParam },
+          ? { pageNumber: pageParam as number, pageSize: params.pageSize }
+          : { pageNumber: pageParam as number },
         ctx,
       ),
-    getNextPageParam: (last, all) => (last.items.length === 0 ? undefined : all.length + 1),
+    getNextPageParam: (last: PaginatedItems<Product>) =>
+      last.hasNextPage ? last.pageNumber + 1 : undefined,
   });
 }
 
@@ -89,12 +90,34 @@ export function useCategory(
 export function useCategories(
   params: { pageNumber?: number; pageSize?: number } = {},
   options: QueryOpts = {},
-): UseQueryResult<Page<Category>> {
+): UseQueryResult<PaginatedItems<Category>> {
   const { client } = useEmporix();
   const { ctx, kind } = useReadAuth(options.auth);
   return useQuery({
     queryKey: ["emporix", "categories", params, { tenant: client.tenant, authKind: kind }],
     queryFn: () => client.categories.list(params, ctx),
+  });
+}
+
+/** Infinite category list — terminates on `hasNextPage=false`. */
+export function useCategoriesInfinite(
+  params: { pageSize?: number } = {},
+  options: QueryOpts = {},
+): UseInfiniteQueryResult<{ pages: PaginatedItems<Category>[]; pageParams: number[] }> {
+  const { client } = useEmporix();
+  const { ctx, kind } = useReadAuth(options.auth);
+  return useInfiniteQuery({
+    queryKey: ["emporix", "categories-infinite", params, { tenant: client.tenant, authKind: kind }],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      client.categories.list(
+        params.pageSize !== undefined
+          ? { pageNumber: pageParam as number, pageSize: params.pageSize }
+          : { pageNumber: pageParam as number },
+        ctx,
+      ),
+    getNextPageParam: (last: PaginatedItems<Category>) =>
+      last.hasNextPage ? last.pageNumber + 1 : undefined,
   });
 }
 
