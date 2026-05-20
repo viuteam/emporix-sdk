@@ -10,19 +10,10 @@ export interface ClientContext {
   logger: Logger;
 }
 
-/** A single page of a paginated collection. */
-export interface Page<T> {
-  items: T[];
-  total: number;
-  offset: number;
-  limit: number;
-}
-
 /**
  * A cursor-paged collection — `pageNumber`/`pageSize` indexing with a
- * `hasNextPage` signal driven by the source page being full. Distinct
- * from `Page<T>` (offset/limit/total). Used by services and hooks that
- * support "load more" pagination.
+ * `hasNextPage` signal driven by the source page being full. Used by all
+ * paginated services and hooks across the SDK.
  */
 export interface PaginatedItems<T> {
   items: T[];
@@ -35,20 +26,22 @@ export interface PaginatedItems<T> {
 export type DefaultAuth = AuthContext | undefined;
 
 /**
- * Async-iterates every item across pages. `fetchPage(offset, limit)` returns a
- * {@link Page}; iteration stops on a short page or once `total` is reached.
+ * Async-iterates every item across pages of a `PaginatedItems<T>` source.
+ * Stops when the source reports `hasNextPage: false`.
+ *
+ * @param fetchPage - given a 1-based page number, returns the page.
+ * @param start - first page to fetch (default `1`).
  */
-export async function* paginate<T>(
-  fetchPage: (offset: number, limit: number) => Promise<Page<T>>,
-  limit = 50,
+export async function* iterateAll<T>(
+  fetchPage: (pageNumber: number) => Promise<PaginatedItems<T>>,
+  start = 1,
 ): AsyncIterable<T> {
-  let offset = 0;
+  let p = start;
   for (;;) {
-    const page = await fetchPage(offset, limit);
-    for (const item of page.items) yield item;
-    offset += page.items.length;
-    if (page.items.length < limit) return;
-    if (Number.isFinite(page.total) && offset >= page.total) return;
-    if (page.items.length === 0) return;
+    const page = await fetchPage(p);
+    for (const it of page.items) yield it;
+    if (!page.hasNextPage) return;
+    p += 1;
   }
 }
+

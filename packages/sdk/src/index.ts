@@ -17,8 +17,8 @@ export type { AuthKind, AuthContext, AnonymousSession, TokenProvider } from "./c
 export { HttpClient } from "./core/http";
 export type { RequestOptions, HttpClientOptions } from "./core/http";
 export { EmporixClient } from "./client";
-export type { ClientContext, Page, PaginatedItems } from "./core/context";
-export { paginate } from "./core/context";
+export type { ClientContext, PaginatedItems } from "./core/context";
+export { iterateAll } from "./core/context";
 export { CustomerService } from "./services/customer";
 export type {
   Customer,

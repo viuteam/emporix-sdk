@@ -60,6 +60,57 @@ describe("ProductService", () => {
     expect(seenAuth[0]).toBe("Bearer CUST");
   });
 
+  it("list() returns PaginatedItems with hasNextPage=true when page is full", async () => {
+    const page = await svc().list({ pageNumber: 1, pageSize: 2 });
+    expect(page).toEqual({
+      items: [{ id: "p1" }, { id: "p2" }],
+      pageNumber: 1,
+      pageSize: 2,
+      hasNextPage: true,
+    });
+  });
+
+  it("list() returns hasNextPage=false on a short page", async () => {
+    const page = await svc().list({ pageNumber: 2, pageSize: 2 });
+    expect(page.items).toEqual([{ id: "p3" }]);
+    expect(page.hasNextPage).toBe(false);
+    expect(page.pageNumber).toBe(2);
+    expect(page.pageSize).toBe(2);
+  });
+
+  it("list() defaults to pageNumber=1, pageSize=50", async () => {
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json([]);
+      }),
+    );
+    await svc().list();
+    expect((seen as URLSearchParams | null)?.get("pageNumber")).toBe("1");
+    expect((seen as URLSearchParams | null)?.get("pageSize")).toBe("50");
+  });
+
+  it("search() returns PaginatedItems with hasNextPage", async () => {
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "p1" }, { id: "p2" }]);
+      }),
+    );
+    const page = await svc().search("name:Foo", { pageNumber: 2, pageSize: 2 });
+    expect(page).toEqual({
+      items: [{ id: "p1" }, { id: "p2" }],
+      pageNumber: 2,
+      pageSize: 2,
+      hasNextPage: true,
+    });
+    expect((seen as URLSearchParams | null)?.get("q")).toBe("name:Foo");
+    expect((seen as URLSearchParams | null)?.get("pageNumber")).toBe("2");
+    expect((seen as URLSearchParams | null)?.get("pageSize")).toBe("2");
+  });
+
   it("listAll() yields every item across pages", async () => {
     const ids: string[] = [];
     for await (const p of svc().listAll({ pageSize: 2 })) ids.push(p.id as string);

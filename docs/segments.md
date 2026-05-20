@@ -70,6 +70,8 @@ that prefix on login/logout clears the segment cache.
 
 ## Pagination
 
+> See [Pagination](./pagination.md) for the shared `PaginatedItems<T>` contract that all SDK list endpoints follow.
+
 The hydrate helpers and their React hooks page through the customer's
 segment items: each page is `pageSize` segment-item rows (PRODUCT or
 CATEGORY), and `hasNextPage` is `true` when the source page is full.

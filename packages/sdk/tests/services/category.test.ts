@@ -102,4 +102,61 @@ describe("CategoryService", () => {
     expect(await svc().searchByIds([])).toEqual([]);
     expect(hit).toBe(false);
   });
+
+  it("list() returns PaginatedItems<Category> with hasNextPage", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories", ({ request }) => {
+        const u = new URL(request.url);
+        const page = Number(u.searchParams.get("pageNumber") ?? "1");
+        const items = page === 1 ? [{ id: "c1" }, { id: "c2" }] : [{ id: "c3" }];
+        return HttpResponse.json(items);
+      }),
+    );
+    const full = await svc().list({ pageNumber: 1, pageSize: 2 });
+    expect(full).toEqual({
+      items: [{ id: "c1" }, { id: "c2" }],
+      pageNumber: 1,
+      pageSize: 2,
+      hasNextPage: true,
+    });
+    const short = await svc().list({ pageNumber: 2, pageSize: 2 });
+    expect(short.hasNextPage).toBe(false);
+    expect(short.items).toEqual([{ id: "c3" }]);
+  });
+
+  it("productsIn() returns PaginatedItems<Product>", async () => {
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get(
+        "https://api.emporix.io/category/acme/categories/c1/products",
+        ({ request }) => {
+          seen = new URL(request.url).searchParams;
+          return HttpResponse.json([{ id: "p1" }, { id: "p2" }]);
+        },
+      ),
+    );
+    const page = await svc().productsIn("c1", { pageNumber: 1, pageSize: 2 });
+    expect(page).toEqual({
+      items: [{ id: "p1" }, { id: "p2" }],
+      pageNumber: 1,
+      pageSize: 2,
+      hasNextPage: true,
+    });
+    expect((seen as URLSearchParams | null)?.get("pageNumber")).toBe("1");
+    expect((seen as URLSearchParams | null)?.get("pageSize")).toBe("2");
+  });
+
+  it("listAll() iterates categories across pages", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories", ({ request }) => {
+        const u = new URL(request.url);
+        const page = Number(u.searchParams.get("pageNumber") ?? "1");
+        const items = page === 1 ? [{ id: "c1" }, { id: "c2" }] : [{ id: "c3" }];
+        return HttpResponse.json(items);
+      }),
+    );
+    const ids: string[] = [];
+    for await (const c of svc().listAll({ pageSize: 2 })) ids.push(c.id as string);
+    expect(ids).toEqual(["c1", "c2", "c3"]);
+  });
 });
