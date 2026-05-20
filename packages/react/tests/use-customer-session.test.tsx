@@ -157,4 +157,47 @@ describe("useCustomerSession", () => {
     expect(result.current.customerToken).toBe("cust-3");
     expect(result.current.refreshToken).toBe("crt"); // unchanged
   });
+
+  it("socialLogin stores the token", async () => {
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/socialLogin", () =>
+        HttpResponse.json({
+          access_token: "sso-cust",
+          saas_token: "saas",
+          refresh_token: "sso-rt",
+          expires_in: "14399",
+        }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useCustomerSession(), { wrapper: wrapper(storage) });
+    await act(async () => {
+      await result.current.socialLogin({ code: "c", redirectUri: "https://shop/cb" });
+    });
+    expect(storage.getCustomerToken()).toBe("sso-cust");
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.refreshToken).toBe("sso-rt");
+  });
+
+  it("exchangeToken stores the token", async () => {
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/exchangeauthtoken", () =>
+        HttpResponse.json({
+          access_token: "ex-cust",
+          saas_token: "saas",
+          refresh_token: "ex-rt",
+          expires_in: 14399,
+          session_id: "s9",
+        }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useCustomerSession(), { wrapper: wrapper(storage) });
+    await act(async () => {
+      await result.current.exchangeToken({ subjectToken: "idp-jwt", config: "Site_DE" });
+    });
+    expect(storage.getCustomerToken()).toBe("ex-cust");
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.refreshToken).toBe("ex-rt");
+  });
 });

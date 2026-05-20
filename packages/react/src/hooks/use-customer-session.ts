@@ -13,6 +13,15 @@ export interface CustomerSessionApi {
   refreshToken: string | null;
   login: (input: { email: string; password: string }) => Promise<void>;
   signup: (input: { email: string; password: string }) => Promise<void>;
+  /** Authorization-Code SSO: exchanges an IdP `code` for a customer session. */
+  socialLogin: (input: {
+    code: string;
+    redirectUri: string;
+    codeVerifier?: string;
+    sessionId?: string;
+  }) => Promise<void>;
+  /** RFC 8693 token exchange: exchanges an external IdP JWT for a session. */
+  exchangeToken: (input: { subjectToken: string; config?: string }) => Promise<void>;
   /** Server-side logout (best-effort), then clears the local session. */
   logout: () => Promise<void>;
   /** Refetches the `me` profile query. */
@@ -64,6 +73,38 @@ export function useCustomerSession(): CustomerSessionApi {
     [client],
   );
 
+  // Shared "store a CustomerSession into hook state" used by SSO flows.
+  const applySession = useCallback(
+    async (session: { customerToken: string; refreshToken: string; saasToken: string }) => {
+      storage.setCustomerToken(session.customerToken);
+      setToken(session.customerToken);
+      setRefreshTok(session.refreshToken || null);
+      setSaasTok(session.saasToken || null);
+      await qc.invalidateQueries({ queryKey: ["emporix", "customer"] });
+      await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
+    },
+    [storage, qc],
+  );
+
+  const socialLogin = useCallback(
+    async (input: {
+      code: string;
+      redirectUri: string;
+      codeVerifier?: string;
+      sessionId?: string;
+    }) => {
+      await applySession(await client.customers.socialLogin(input));
+    },
+    [client, applySession],
+  );
+
+  const exchangeToken = useCallback(
+    async (input: { subjectToken: string; config?: string }) => {
+      await applySession(await client.customers.exchangeToken(input));
+    },
+    [client, applySession],
+  );
+
   const logout = useCallback(async () => {
     if (token) {
       // Best-effort server invalidation; the local session is cleared
@@ -108,6 +149,8 @@ export function useCustomerSession(): CustomerSessionApi {
     isLoading: meQuery.isLoading && token !== null,
     login,
     signup,
+    socialLogin,
+    exchangeToken,
     logout,
     refresh,
     refreshSession,
