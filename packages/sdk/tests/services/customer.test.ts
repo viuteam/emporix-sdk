@@ -217,4 +217,47 @@ describe("CustomerService", () => {
     expect(u.searchParams.has("code_verifier")).toBe(false);
     expect(seen!.sessionHeader).toBeNull();
   });
+
+  it("exchangeToken() posts subjectAccessToken + config with an anonymous token, maps snake_case, integer expires_in", async () => {
+    let seen: { auth: string | null; url: string } | null = null;
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/exchangeauthtoken", ({ request }) => {
+        seen = { auth: request.headers.get("authorization"), url: request.url };
+        return HttpResponse.json({
+          subject_access_token: "idp-jwt",
+          access_token: "cust-tok",
+          saas_token: "saas-tok",
+          refresh_token: "cust-rt",
+          refresh_token_expires_in: 86399,
+          token_type: "Bearer",
+          expires_in: 14399,
+          scope: "tenant=acme",
+          session_id: "sess-9",
+        });
+      }),
+    );
+    const r = await svc().exchangeToken({ subjectToken: "idp-jwt", config: "Site_DE" });
+    const u = new URL(seen!.url);
+    expect(seen!.auth).toBe("Bearer anon-tok");
+    expect(u.searchParams.get("subjectAccessToken")).toBe("idp-jwt");
+    expect(u.searchParams.get("config")).toBe("Site_DE");
+    expect(r.customerToken).toBe("cust-tok");
+    expect(r.saasToken).toBe("saas-tok");
+    expect(r.refreshToken).toBe("cust-rt");
+    expect(r.sessionId).toBe("sess-9");
+    expect(r.expiresIn).toBe(14399); // integer passes through Number() unchanged
+    expect(r.socialAccessToken).toBeUndefined();
+  });
+
+  it("exchangeToken() omits config when not provided", async () => {
+    let url = "";
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/exchangeauthtoken", ({ request }) => {
+        url = request.url;
+        return HttpResponse.json({ access_token: "c", saas_token: "s", refresh_token: "r" });
+      }),
+    );
+    await svc().exchangeToken({ subjectToken: "jwt" });
+    expect(new URL(url).searchParams.has("config")).toBe(false);
+  });
 });
