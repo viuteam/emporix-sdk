@@ -142,3 +142,103 @@ describe("SegmentService.listItems / listSegmentItems / getCategoryTree", () => 
     expect(tree).toHaveLength(1);
   });
 });
+
+describe("SegmentService hydrate helpers", () => {
+  it("listMyProductIds filters listItems by type=PRODUCT (reads item.id)", async () => {
+    server.use(
+      http.get(
+        "https://api.emporix.io/customer-segment/acme/segments/items",
+        () =>
+          HttpResponse.json([
+            { type: "PRODUCT", item: { id: "p1" } },
+            { type: "CATEGORY", item: { id: "c1" } },
+            { type: "PRODUCT", item: { id: "p2" } },
+          ]),
+      ),
+    );
+    const ids = await harness().svc.listMyProductIds(undefined, CUST);
+    expect(ids).toEqual(["p1", "p2"]);
+  });
+
+  it("listMyCategoryIds filters listItems by type=CATEGORY", async () => {
+    server.use(
+      http.get(
+        "https://api.emporix.io/customer-segment/acme/segments/items",
+        () =>
+          HttpResponse.json([
+            { type: "PRODUCT", item: { id: "p1" } },
+            { type: "CATEGORY", item: { id: "c1" } },
+          ]),
+      ),
+    );
+    const ids = await harness().svc.listMyCategoryIds(undefined, CUST);
+    expect(ids).toEqual(["c1"]);
+  });
+
+  it("listMyProducts hydrates ids via ProductService.get in parallel", async () => {
+    let productCalls = 0;
+    server.use(
+      http.get(
+        "https://api.emporix.io/customer-segment/acme/segments/items",
+        () =>
+          HttpResponse.json([
+            { type: "PRODUCT", item: { id: "p1" } },
+            { type: "PRODUCT", item: { id: "p2" } },
+          ]),
+      ),
+      http.get("https://api.emporix.io/product/acme/products/p1", () => {
+        productCalls += 1;
+        return HttpResponse.json({ id: "p1" });
+      }),
+      http.get("https://api.emporix.io/product/acme/products/p2", () => {
+        productCalls += 1;
+        return HttpResponse.json({ id: "p2" });
+      }),
+    );
+    const products = await harness().svc.listMyProducts(undefined, CUST);
+    expect(productCalls).toBe(2);
+    expect(products.map((p) => (p as { id?: string }).id)).toEqual(["p1", "p2"]);
+  });
+
+  it("listMyCategories hydrates ids via CategoryService.get in parallel", async () => {
+    server.use(
+      http.get(
+        "https://api.emporix.io/customer-segment/acme/segments/items",
+        () =>
+          HttpResponse.json([
+            { type: "CATEGORY", item: { id: "c1" } },
+            { type: "CATEGORY", item: { id: "c2" } },
+          ]),
+      ),
+      http.get("https://api.emporix.io/category/acme/categories/c1", () =>
+        HttpResponse.json({ id: "c1" }),
+      ),
+      http.get("https://api.emporix.io/category/acme/categories/c2", () =>
+        HttpResponse.json({ id: "c2" }),
+      ),
+    );
+    const cats = await harness().svc.listMyCategories(undefined, CUST);
+    expect(cats.map((c) => (c as { id?: string }).id)).toEqual(["c1", "c2"]);
+  });
+
+  it("listMyProducts: a single failed product get rejects the whole batch", async () => {
+    server.use(
+      http.get(
+        "https://api.emporix.io/customer-segment/acme/segments/items",
+        () =>
+          HttpResponse.json([
+            { type: "PRODUCT", item: { id: "p1" } },
+            { type: "PRODUCT", item: { id: "p2" } },
+          ]),
+      ),
+      http.get("https://api.emporix.io/product/acme/products/p1", () =>
+        HttpResponse.json({ id: "p1" }),
+      ),
+      http.get(
+        "https://api.emporix.io/product/acme/products/p2",
+        () => new HttpResponse(null, { status: 500 }),
+      ),
+    );
+    await expect(harness().svc.listMyProducts(undefined, CUST)).rejects.toBeTruthy();
+  });
+});

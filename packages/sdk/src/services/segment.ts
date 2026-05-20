@@ -135,4 +135,60 @@ export class SegmentService {
       ...(Object.keys(q).length ? { query: q } : {}),
     });
   }
+
+  private async pickItemIds(
+    kind: "PRODUCT" | "CATEGORY",
+    query: Parameters<SegmentService["listItems"]>[0],
+    auth: AuthContext | undefined,
+  ): Promise<string[]> {
+    const rows = await this.listItems(query, auth);
+    const ids: string[] = [];
+    for (const r of rows) {
+      const id = r.item?.id;
+      if (r.type === kind && typeof id === "string") ids.push(id);
+    }
+    return ids;
+  }
+
+  /** Product ids assigned to the caller's active segments. */
+  async listMyProductIds(
+    query?: Parameters<SegmentService["listItems"]>[0],
+    auth?: AuthContext,
+  ): Promise<string[]> {
+    return this.pickItemIds("PRODUCT", query ?? {}, auth);
+  }
+
+  /** Category ids assigned to the caller's active segments. */
+  async listMyCategoryIds(
+    query?: Parameters<SegmentService["listItems"]>[0],
+    auth?: AuthContext,
+  ): Promise<string[]> {
+    return this.pickItemIds("CATEGORY", query ?? {}, auth);
+  }
+
+  /**
+   * Hydrates `listMyProductIds` via `ProductService.get` in parallel.
+   * Resolves in the same order as the id list. Any single failure rejects
+   * the whole batch (`Promise.all`); use the id-list method + your own
+   * tolerance strategy if partial success matters.
+   */
+  async listMyProducts(
+    query?: Parameters<SegmentService["listItems"]>[0],
+    auth?: AuthContext,
+  ): Promise<Awaited<ReturnType<ProductService["get"]>>[]> {
+    const ids = await this.listMyProductIds(query, auth);
+    return Promise.all(ids.map((id) => this.deps.products.get(id, undefined, auth)));
+  }
+
+  /**
+   * Hydrates `listMyCategoryIds` via `CategoryService.get` in parallel.
+   * Same single-failure-rejects semantics as `listMyProducts`.
+   */
+  async listMyCategories(
+    query?: Parameters<SegmentService["listItems"]>[0],
+    auth?: AuthContext,
+  ): Promise<Awaited<ReturnType<CategoryService["get"]>>[]> {
+    const ids = await this.listMyCategoryIds(query, auth);
+    return Promise.all(ids.map((id) => this.deps.categories.get(id, auth)));
+  }
 }
