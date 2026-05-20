@@ -13,6 +13,7 @@ const SPECS: Record<string, string> = {
   payment: `${BASE}/checkout/payment-gateway/api-reference/api.yml`,
   price: `${BASE}/prices-and-taxes/price-service/api-reference/api.yml`,
   media: `${BASE}/media/media/api-reference/api.yml`,
+  "customer-segment": `${BASE}/companies-and-customers/customer-segments/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {
