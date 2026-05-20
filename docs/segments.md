@@ -30,15 +30,17 @@ const productIds = await client.segments.listMyProductIds(
   auth.customer(token),
 );
 
-// 2. Hydrate sugar — fetches the real products in parallel.
-const products = await client.segments.listMyProducts(
-  { onlyActive: true },
+// 2. Hydrate sugar — one bulk `POST /products/search` round-trip per
+// page (q=id:(…)). Returns a PaginatedItems<Product> with hasNextPage.
+const productsPage = await client.segments.listMyProducts(
+  { onlyActive: true, pageNumber: 1, pageSize: 20 },
   auth.customer(token),
 );
+// productsPage: { items: Product[]; pageNumber; pageSize; hasNextPage }
 
 // 3. Categories work the same way.
-const categories = await client.segments.listMyCategories(
-  { onlyActive: true },
+const categoriesPage = await client.segments.listMyCategories(
+  { onlyActive: true, pageNumber: 1, pageSize: 20 },
   auth.customer(token),
 );
 
@@ -59,11 +61,53 @@ by `type` and dereference `item.id`.
 const { data: segments } = useMySegments();
 const { data: items }    = useMySegmentItems({ onlyActive: true });
 const { data: tree }     = useMySegmentCategoryTree({ siteCode: "main" });
+const { data: products } = useMySegmentProducts({ pageSize: 20 });
 ```
 
-All three are disabled when there is no customer token in storage. They
+All hooks are disabled when there is no customer token in storage. They
 share the `["emporix", "segment", …]` query-key prefix, so invalidating
 that prefix on login/logout clears the segment cache.
+
+## Pagination
+
+The hydrate helpers and their React hooks page through the customer's
+segment items: each page is `pageSize` segment-item rows (PRODUCT or
+CATEGORY), and `hasNextPage` is `true` when the source page is full.
+Hydration is a single bulk call per page (`POST /<service>/{tenant}/<resource>/search`
+with `q="id:(…)"`), so a page of 20 products costs **one** product
+round-trip — not 20.
+
+```ts
+const page = await client.segments.listMyProducts(
+  { pageNumber: 1, pageSize: 20 },
+  auth.customer(token),
+);
+// page: { items: Product[]; pageNumber: 1; pageSize: 20; hasNextPage: boolean }
+```
+
+The React hooks expose the same shape, plus an infinite-scroll variant:
+
+```tsx
+const q = useMySegmentProductsInfinite({ pageSize: 20 });
+const products = q.data?.pages.flatMap((p) => p.items) ?? [];
+return (
+  <>
+    {products.map(/* … */)}
+    {q.hasNextPage && (
+      <button onClick={() => q.fetchNextPage()}>Load more</button>
+    )}
+  </>
+);
+```
+
+Same pair for categories: `useMySegmentCategories` /
+`useMySegmentCategoriesInfinite`. The `hasNextPage` flag is derived from
+the **source segment-items page** being full, not from the hydrated
+`items` array — a page whose source rows filter to zero PRODUCT (or
+CATEGORY) items still correctly advances. Edge case: when the very last
+source page happens to be exactly `pageSize` long, the next fetch
+returns an empty page and `hasNextPage` flips to `false`; the infinite
+scroll terminates cleanly.
 
 ## Out of scope
 
@@ -71,5 +115,4 @@ that prefix on login/logout clears the segment cache.
 - Customer-assignment writes (assign/remove a customer to/from a segment).
 - Item-assignment writes (assign/remove products/categories).
 - Partial-success hydrate (`Promise.allSettled` variant) — `listMyProducts`
-  / `listMyCategories` reject on the first failed `get` by design.
-- Bulk product fetch via a single `?q=id:(p1,p2,…)` round-trip.
+  / `listMyCategories` reject when the bulk `/search` round-trip fails.
