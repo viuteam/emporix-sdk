@@ -95,8 +95,28 @@ export class DefaultTokenProvider implements TokenProvider {
   private readonly serviceLocks = new Map<string, Promise<string>>();
   private anon: (AnonymousSession & { expiresAt: number }) | undefined;
   private anonLock: Promise<AnonymousSession> | undefined;
+  private anonStore?: AnonymousSessionStore;
 
   constructor(private readonly cfg: ResolvedConfig) {}
+
+  attachAnonymousStore(store: AnonymousSessionStore): void {
+    this.anonStore = store;
+    // Bootstrap `this.anon` from the store if we don't have it yet. The seeded
+    // session has expiresAt = 0 so the next getAnonymousToken triggers a refresh
+    // (which preserves sessionId) instead of a fresh login.
+    if (!this.anon) {
+      const persisted = store.read();
+      if (persisted) {
+        this.anon = {
+          accessToken: "",
+          refreshToken: persisted.refreshToken,
+          sessionId: persisted.sessionId,
+          expiresIn: 0,
+          expiresAt: 0,
+        };
+      }
+    }
+  }
 
   private creds(set: string): ServiceCredentials {
     if (set === "backend") {
@@ -191,6 +211,7 @@ export class DefaultTokenProvider implements TokenProvider {
 
   invalidateAnonymous(): void {
     this.anon = undefined;
+    this.anonStore?.write(null);
   }
 
   /** Force a stale access token while keeping the refresh token + sessionId. */
@@ -234,6 +255,10 @@ export class DefaultTokenProvider implements TokenProvider {
         obtainedAt +
         ((json.expires_in as number) - this.cfg.cache.expirationBufferSeconds) * 1000,
     };
+    this.anonStore?.write({
+      refreshToken: this.anon.refreshToken,
+      sessionId: this.anon.sessionId,
+    });
     return this.stripExpiry(this.anon);
   }
 }

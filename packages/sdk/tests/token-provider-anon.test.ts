@@ -178,3 +178,71 @@ describe("anonymous token expiry → refresh (sessionId preserved)", () => {
     expect(refreshHits).toBe(1);
   });
 });
+
+describe("DefaultTokenProvider with AnonymousSessionStore", () => {
+  it("bootstraps from store.read() and uses refresh mode on first call", async () => {
+    const reads: number[] = [];
+    const writes: Array<{ refreshToken: string; sessionId: string } | null> = [];
+    const store = {
+      read: () => {
+        reads.push(Date.now());
+        return { refreshToken: "rt-1", sessionId: SESSION };
+      },
+      write: (s: { refreshToken: string; sessionId: string } | null) => {
+        writes.push(s);
+      },
+    };
+    const p = new DefaultTokenProvider(cfg as never);
+    p.attachAnonymousStore!(store);
+
+    const sess = await p.getAnonymousToken();
+
+    expect(sess.sessionId).toBe(SESSION);
+    expect(sess.accessToken).toBe("anon-r1");
+    expect(reads.length).toBe(1);
+    // No login should have happened — refresh used the persisted refresh-token.
+    expect(loginHits).toBe(0);
+    expect(refreshHits).toBe(1);
+    expect(writes.at(-1)).toEqual({ refreshToken: "rt-1", sessionId: SESSION });
+  });
+
+  it("falls back to login when store.read() returns null and writes the new session", async () => {
+    const writes: Array<{ refreshToken: string; sessionId: string } | null> = [];
+    const store = {
+      read: () => null,
+      write: (s: { refreshToken: string; sessionId: string } | null) => {
+        writes.push(s);
+      },
+    };
+    const p = new DefaultTokenProvider(cfg as never);
+    p.attachAnonymousStore!(store);
+
+    await p.getAnonymousToken();
+
+    expect(loginHits).toBe(1);
+    expect(writes.at(-1)).toEqual({ refreshToken: "rt-1", sessionId: SESSION });
+  });
+
+  it("invalidateAnonymous clears the store", async () => {
+    const writes: Array<{ refreshToken: string; sessionId: string } | null> = [];
+    const store = {
+      read: () => null,
+      write: (s: { refreshToken: string; sessionId: string } | null) => {
+        writes.push(s);
+      },
+    };
+    const p = new DefaultTokenProvider(cfg as never);
+    p.attachAnonymousStore!(store);
+    await p.getAnonymousToken();
+    p.invalidateAnonymous();
+    expect(writes.at(-1)).toBe(null);
+  });
+
+  it("behaves identically to today when no store is attached", async () => {
+    const p = new DefaultTokenProvider(cfg as never);
+    // No attachAnonymousStore call.
+    const sess = await p.getAnonymousToken();
+    expect(sess.accessToken).toBe("anon-1");
+    expect(loginHits).toBe(1);
+  });
+});
