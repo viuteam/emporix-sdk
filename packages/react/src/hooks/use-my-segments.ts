@@ -10,6 +10,7 @@ import {
   type SegmentItem,
   type SegmentCategoryTree,
   type Product,
+  type Category,
   type PaginatedItems,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
@@ -114,6 +115,60 @@ export function useMySegmentProductsInfinite(
         customerCtx(token),
       ),
     getNextPageParam: (last: PaginatedItems<Product>) =>
+      last.hasNextPage ? last.pageNumber + 1 : undefined,
+  });
+}
+
+/** Hydrated CATEGORY page for the caller's segments (single-page). */
+export function useMySegmentCategories(
+  query: {
+    q?: string;
+    siteCode?: string;
+    legalEntityId?: string;
+    onlyActive?: boolean;
+    pageNumber?: number;
+    pageSize?: number;
+  } = {},
+): UseQueryResult<PaginatedItems<Category>> {
+  const { client, storage } = useEmporix();
+  const token = storage.getCustomerToken();
+  return useQuery({
+    queryKey: ["emporix", "segment", "myCategories", { tenant: client.tenant, query }],
+    enabled: token !== null,
+    queryFn: () => client.segments.listMyCategories(query, customerCtx(token)),
+  });
+}
+
+/**
+ * Hydrated CATEGORY pages — infinite scroll. Same semantics as
+ * {@link useMySegmentProductsInfinite}.
+ */
+export function useMySegmentCategoriesInfinite(
+  query: {
+    q?: string;
+    siteCode?: string;
+    legalEntityId?: string;
+    onlyActive?: boolean;
+    pageSize?: number;
+  } = {},
+) {
+  const { client, storage } = useEmporix();
+  const token = storage.getCustomerToken();
+  return useInfiniteQuery({
+    queryKey: [
+      "emporix",
+      "segment",
+      "myCategoriesInfinite",
+      { tenant: client.tenant, query },
+    ],
+    enabled: token !== null,
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      client.segments.listMyCategories(
+        { ...query, pageNumber: pageParam as number, pageSize: query.pageSize ?? 20 },
+        customerCtx(token),
+      ),
+    getNextPageParam: (last: PaginatedItems<Category>) =>
       last.hasNextPage ? last.pageNumber + 1 : undefined,
   });
 }
