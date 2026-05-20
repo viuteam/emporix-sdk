@@ -1,12 +1,12 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { EmporixClient } from "@viu/emporix-sdk";
-import type { TokenStorage } from "./storage/index";
+import type { EmporixStorage } from "./storage/index";
 import { createMemoryStorage } from "./storage/memory";
 
 interface EmporixContextValue {
   client: EmporixClient;
-  storage: TokenStorage;
+  storage: EmporixStorage;
 }
 
 const EmporixContext = createContext<EmporixContextValue | null>(null);
@@ -15,7 +15,7 @@ const EmporixContext = createContext<EmporixContextValue | null>(null);
 export interface EmporixProviderProps {
   client: EmporixClient;
   queryClient?: QueryClient;
-  storage?: TokenStorage;
+  storage?: EmporixStorage;
   initialCustomerToken?: string;
   children: ReactNode;
 }
@@ -41,6 +41,18 @@ export function EmporixProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, storage, initialCustomerToken]);
   const qc = useMemo(() => queryClient ?? new QueryClient(), [queryClient]);
+
+  // Idempotent one-time wiring: attaches a storage-backed adapter to the SDK's
+  // token provider so anonymous sessions survive reloads. Runs once per
+  // (client, storage) pair via useState's lazy initializer.
+  useState(() => {
+    client.tokenProvider.attachAnonymousStore?.({
+      read: () => value.storage.getAnonymousSession(),
+      write: (s) => value.storage.setAnonymousSession(s),
+    });
+    return null;
+  });
+
   return (
     <EmporixContext.Provider value={value}>
       <QueryClientProvider client={qc}>{children}</QueryClientProvider>
