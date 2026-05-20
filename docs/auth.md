@@ -67,6 +67,25 @@ puts it in a custom header or URL outside of the `/anonymous/refresh` call.
 The same wiring is offered via the `AnonymousSessionStore` interface in
 `@viu/emporix-sdk`; non-React hosts can implement it directly.
 
+## Customer cart on login
+
+When a customer logs in (or signs in via SSO / token-exchange), the SDK can automatically pull their open Emporix cart and merge any guest cart that was already in storage. This is wired in `useCustomerSession.login()` / `socialLogin()` / `exchangeToken()`; no consumer code change is required.
+
+The flow:
+
+1. `POST /customer/{tenant}/login` (or the SSO equivalent) → access token (+ saas, refresh) → `storage.setCustomerToken(...)`.
+2. `GET /cart/{tenant}/carts?siteCode=<from storefront.context>&create=true` (customer auth) → returns the open customer cart, or creates one.
+3. If `storage.getCartId()` held an anonymous cartId from before login: `POST /cart/{tenant}/carts/{customerCartId}/merge` with `{ carts: [anonCartId] }` → anonymous cart goes `CLOSED`, items are folded into the customer cart per Emporix's deterministic merge rules.
+4. `storage.setCartId(customerCartId)`.
+
+This is **best-effort** — if any of steps 2–3 fail, the user is still logged in. Failures are silently caught so login never blocks on cart trouble. Cart-merge conflicts (same item in both carts, etc.) are resolved server-side per the rules in [Emporix's Carts overview](https://developer.emporix.io/ce/core-commerce/carts).
+
+Emporix's constraint: **one open cart per customer per `siteCode` / `type` / `legalEntityId` tuple** (cart type defaults to `shopping`). The SDK's onboarding flow respects this.
+
+**Skip condition:** if the `EmporixClient` was created without `credentials.storefront.context.siteCode`, the onboarding block is a no-op. Set `siteCode` in the storefront context (same place the SDK reads it for anonymous-login context) to enable.
+
+**Note on `signup`:** the SDK's `customers.signup` returns a `Customer`, not a session. The user must follow signup with `login()` (or an SSO flow); the cart-onboarding then runs on that subsequent login. There is no separate signup-time onboarding step.
+
 ## The anonymous → login → cart-merge flow
 
 The anonymous token's `sessionId` is what links a guest cart to the customer
