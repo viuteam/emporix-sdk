@@ -77,4 +77,35 @@ export class CategoryService {
     });
     return { items, total: Number.NaN, offset: (pageNumber - 1) * pageSize, limit: pageSize };
   }
+
+  /**
+   * Bulk fetch by id. POSTs `/categories/search` with `q="id:(id1,id2,…)"`,
+   * chunking when the list is larger than `options.chunkSize` (default
+   * 100). An empty list short-circuits with no HTTP call. **Order is not
+   * guaranteed** across chunks — re-index by `id` if order matters.
+   */
+  async searchByIds(
+    ids: string[],
+    options: { chunkSize?: number } = {},
+    auth: AuthContext = ANON,
+  ): Promise<Category[]> {
+    if (ids.length === 0) return [];
+    const chunkSize = options.chunkSize ?? 100;
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      chunks.push(ids.slice(i, i + chunkSize));
+    }
+    const pages = await Promise.all(
+      chunks.map((chunk) =>
+        this.ctx.http.request<Category[]>({
+          method: "POST",
+          path: `/category/${this.ctx.tenant}/categories/search`,
+          query: { pageSize: chunk.length },
+          auth,
+          body: { q: `id:(${chunk.join(",")})` },
+        }),
+      ),
+    );
+    return pages.flat();
+  }
 }

@@ -84,4 +84,48 @@ describe("ProductService", () => {
       warranty: "2y",
     });
   });
+
+  it("searchByIds POSTs /products/search with q=id:(…) and returns the array", async () => {
+    let seenBody: { q?: string } | null = null;
+    server.use(
+      http.post("https://api.emporix.io/product/acme/products/search", async ({ request }) => {
+        seenBody = (await request.json()) as { q?: string };
+        return HttpResponse.json([{ id: "p1" }, { id: "p2" }]);
+      }),
+    );
+    const products = await svc().searchByIds(["p1", "p2"]);
+    expect((seenBody as { q?: string } | null)?.q).toBe("id:(p1,p2)");
+    expect(products.map((p) => p.id as string)).toEqual(["p1", "p2"]);
+  });
+
+  it("searchByIds chunks ids according to chunkSize and concatenates results", async () => {
+    const calls: string[] = [];
+    server.use(
+      http.post("https://api.emporix.io/product/acme/products/search", async ({ request }) => {
+        const body = (await request.json()) as { q?: string };
+        calls.push(body.q ?? "");
+        const ids = (body.q ?? "")
+          .replace(/^id:\(/, "")
+          .replace(/\)$/, "")
+          .split(",")
+          .filter(Boolean);
+        return HttpResponse.json(ids.map((id) => ({ id })));
+      }),
+    );
+    const products = await svc().searchByIds(["a", "b", "c", "d", "e"], { chunkSize: 2 });
+    expect(calls).toEqual(["id:(a,b)", "id:(c,d)", "id:(e)"]);
+    expect(products.map((p) => p.id as string).sort()).toEqual(["a", "b", "c", "d", "e"]);
+  });
+
+  it("searchByIds short-circuits on an empty id list (no HTTP call)", async () => {
+    let hit = false;
+    server.use(
+      http.post("https://api.emporix.io/product/acme/products/search", () => {
+        hit = true;
+        return HttpResponse.json([]);
+      }),
+    );
+    expect(await svc().searchByIds([])).toEqual([]);
+    expect(hit).toBe(false);
+  });
 });

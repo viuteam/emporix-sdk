@@ -58,4 +58,48 @@ describe("CategoryService", () => {
     expect(cat.id).toBe("c1");
     expect((cat as { published?: boolean }).published).toBe(true);
   });
+
+  it("searchByIds POSTs /categories/search with q=id:(…) and returns the array", async () => {
+    let seenBody: { q?: string } | null = null;
+    server.use(
+      http.post("https://api.emporix.io/category/acme/categories/search", async ({ request }) => {
+        seenBody = (await request.json()) as { q?: string };
+        return HttpResponse.json([{ id: "c1" }, { id: "c2" }]);
+      }),
+    );
+    const cats = await svc().searchByIds(["c1", "c2"]);
+    expect((seenBody as { q?: string } | null)?.q).toBe("id:(c1,c2)");
+    expect(cats.map((c) => c.id as string)).toEqual(["c1", "c2"]);
+  });
+
+  it("searchByIds chunks ids and concatenates", async () => {
+    const calls: string[] = [];
+    server.use(
+      http.post("https://api.emporix.io/category/acme/categories/search", async ({ request }) => {
+        const body = (await request.json()) as { q?: string };
+        calls.push(body.q ?? "");
+        const ids = (body.q ?? "")
+          .replace(/^id:\(/, "")
+          .replace(/\)$/, "")
+          .split(",")
+          .filter(Boolean);
+        return HttpResponse.json(ids.map((id) => ({ id })));
+      }),
+    );
+    const cats = await svc().searchByIds(["a", "b", "c"], { chunkSize: 2 });
+    expect(calls).toEqual(["id:(a,b)", "id:(c)"]);
+    expect(cats.map((c) => c.id as string).sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("searchByIds short-circuits on an empty id list", async () => {
+    let hit = false;
+    server.use(
+      http.post("https://api.emporix.io/category/acme/categories/search", () => {
+        hit = true;
+        return HttpResponse.json([]);
+      }),
+    );
+    expect(await svc().searchByIds([])).toEqual([]);
+    expect(hit).toBe(false);
+  });
 });

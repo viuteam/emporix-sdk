@@ -175,8 +175,46 @@ describe("SegmentService hydrate helpers", () => {
     expect(ids).toEqual(["c1"]);
   });
 
-  it("listMyProducts hydrates ids via ProductService.get in parallel", async () => {
-    let productCalls = 0;
+  it("listMyProducts hydrates via ONE products.searchByIds call and returns a PaginatedItems page", async () => {
+    let searchCalls = 0;
+    let pageItemsParams: URLSearchParams | null = null;
+    server.use(
+      http.get(
+        "https://api.emporix.io/customer-segment/acme/segments/items",
+        ({ request }) => {
+          pageItemsParams = new URL(request.url).searchParams;
+          return HttpResponse.json([
+            { type: "PRODUCT", item: { id: "p1" } },
+            { type: "PRODUCT", item: { id: "p2" } },
+          ]);
+        },
+      ),
+      http.post(
+        "https://api.emporix.io/product/acme/products/search",
+        async ({ request }) => {
+          searchCalls += 1;
+          const body = (await request.json()) as { q?: string };
+          expect(body.q).toBe("id:(p1,p2)");
+          return HttpResponse.json([{ id: "p1" }, { id: "p2" }]);
+        },
+      ),
+    );
+    const page = await harness().svc.listMyProducts(
+      { pageNumber: 2, pageSize: 20, onlyActive: true },
+      CUST,
+    );
+    expect(searchCalls).toBe(1);
+    expect(page.items.map((p) => (p as { id?: string }).id)).toEqual(["p1", "p2"]);
+    expect(page.pageNumber).toBe(2);
+    expect(page.pageSize).toBe(20);
+    expect(page.hasNextPage).toBe(false);
+    const q = pageItemsParams as URLSearchParams | null;
+    expect(q?.get("pageNumber")).toBe("2");
+    expect(q?.get("pageSize")).toBe("20");
+    expect(q?.get("onlyActive")).toBe("true");
+  });
+
+  it("listMyProducts.hasNextPage is true when the source page is full", async () => {
     server.use(
       http.get(
         "https://api.emporix.io/customer-segment/acme/segments/items",
@@ -186,21 +224,40 @@ describe("SegmentService hydrate helpers", () => {
             { type: "PRODUCT", item: { id: "p2" } },
           ]),
       ),
-      http.get("https://api.emporix.io/product/acme/products/p1", () => {
-        productCalls += 1;
-        return HttpResponse.json({ id: "p1" });
-      }),
-      http.get("https://api.emporix.io/product/acme/products/p2", () => {
-        productCalls += 1;
-        return HttpResponse.json({ id: "p2" });
-      }),
+      http.post(
+        "https://api.emporix.io/product/acme/products/search",
+        () => HttpResponse.json([{ id: "p1" }, { id: "p2" }]),
+      ),
     );
-    const products = await harness().svc.listMyProducts(undefined, CUST);
-    expect(productCalls).toBe(2);
-    expect(products.map((p) => (p as { id?: string }).id)).toEqual(["p1", "p2"]);
+    const page = await harness().svc.listMyProducts(
+      { pageNumber: 1, pageSize: 2 },
+      CUST,
+    );
+    expect(page.hasNextPage).toBe(true);
   });
 
-  it("listMyCategories hydrates ids via CategoryService.get in parallel", async () => {
+  it("listMyProducts returns items:[] (no HTTP search) when the page has zero PRODUCT rows", async () => {
+    let hit = false;
+    server.use(
+      http.get(
+        "https://api.emporix.io/customer-segment/acme/segments/items",
+        () => HttpResponse.json([{ type: "CATEGORY", item: { id: "c1" } }]),
+      ),
+      http.post(
+        "https://api.emporix.io/product/acme/products/search",
+        () => {
+          hit = true;
+          return HttpResponse.json([]);
+        },
+      ),
+    );
+    const page = await harness().svc.listMyProducts(undefined, CUST);
+    expect(hit).toBe(false);
+    expect(page.items).toEqual([]);
+  });
+
+  it("listMyCategories hydrates via ONE categories.searchByIds call and returns a PaginatedItems page", async () => {
+    let searchCalls = 0;
     server.use(
       http.get(
         "https://api.emporix.io/customer-segment/acme/segments/items",
@@ -210,35 +267,18 @@ describe("SegmentService hydrate helpers", () => {
             { type: "CATEGORY", item: { id: "c2" } },
           ]),
       ),
-      http.get("https://api.emporix.io/category/acme/categories/c1", () =>
-        HttpResponse.json({ id: "c1" }),
-      ),
-      http.get("https://api.emporix.io/category/acme/categories/c2", () =>
-        HttpResponse.json({ id: "c2" }),
-      ),
-    );
-    const cats = await harness().svc.listMyCategories(undefined, CUST);
-    expect(cats.map((c) => (c as { id?: string }).id)).toEqual(["c1", "c2"]);
-  });
-
-  it("listMyProducts: a single failed product get rejects the whole batch", async () => {
-    server.use(
-      http.get(
-        "https://api.emporix.io/customer-segment/acme/segments/items",
-        () =>
-          HttpResponse.json([
-            { type: "PRODUCT", item: { id: "p1" } },
-            { type: "PRODUCT", item: { id: "p2" } },
-          ]),
-      ),
-      http.get("https://api.emporix.io/product/acme/products/p1", () =>
-        HttpResponse.json({ id: "p1" }),
-      ),
-      http.get(
-        "https://api.emporix.io/product/acme/products/p2",
-        () => new HttpResponse(null, { status: 500 }),
+      http.post(
+        "https://api.emporix.io/category/acme/categories/search",
+        async ({ request }) => {
+          searchCalls += 1;
+          const body = (await request.json()) as { q?: string };
+          expect(body.q).toBe("id:(c1,c2)");
+          return HttpResponse.json([{ id: "c1" }, { id: "c2" }]);
+        },
       ),
     );
-    await expect(harness().svc.listMyProducts(undefined, CUST)).rejects.toBeTruthy();
+    const page = await harness().svc.listMyCategories(undefined, CUST);
+    expect(searchCalls).toBe(1);
+    expect(page.items.map((c) => (c as { id?: string }).id)).toEqual(["c1", "c2"]);
   });
 });

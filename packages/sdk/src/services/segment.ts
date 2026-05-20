@@ -1,4 +1,4 @@
-import type { ClientContext } from "../core/context";
+import type { ClientContext, PaginatedItems } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { requireCustomer } from "../core/require-customer";
 import type { ProductService } from "./product";
@@ -80,6 +80,8 @@ export class SegmentService {
       siteCode?: string;
       legalEntityId?: string;
       onlyActive?: boolean;
+      pageNumber?: number;
+      pageSize?: number;
     } = {},
     auth?: AuthContext,
   ): Promise<SegmentItem[]> {
@@ -87,6 +89,8 @@ export class SegmentService {
     setIfDefined(q, "q", query.q);
     setIfDefined(q, "siteCode", query.siteCode);
     setIfDefined(q, "legalEntityId", query.legalEntityId);
+    setIfDefined(q, "pageNumber", query.pageNumber);
+    setIfDefined(q, "pageSize", query.pageSize);
     if (query.onlyActive !== undefined) q.onlyActive = String(query.onlyActive);
     return this.ctx.http.request<SegmentItem[]>({
       method: "GET",
@@ -175,20 +179,41 @@ export class SegmentService {
   async listMyProducts(
     query?: Parameters<SegmentService["listItems"]>[0],
     auth?: AuthContext,
-  ): Promise<Awaited<ReturnType<ProductService["get"]>>[]> {
-    const ids = await this.listMyProductIds(query, auth);
-    return Promise.all(ids.map((id) => this.deps.products.get(id, undefined, auth)));
+  ): Promise<PaginatedItems<Awaited<ReturnType<ProductService["get"]>>>> {
+    const pageNumber = query?.pageNumber ?? 1;
+    const pageSize = query?.pageSize ?? 20;
+    const sourceItems = await this.listItems(
+      { ...(query ?? {}), pageNumber, pageSize },
+      auth,
+    );
+    const ids: string[] = [];
+    for (const r of sourceItems) {
+      if (r.type === "PRODUCT" && typeof r.item?.id === "string") ids.push(r.item.id);
+    }
+    const items = await this.deps.products.searchByIds(ids, undefined, auth);
+    return { items, pageNumber, pageSize, hasNextPage: sourceItems.length === pageSize };
   }
 
   /**
-   * Hydrates `listMyCategoryIds` via `CategoryService.get` in parallel.
-   * Same single-failure-rejects semantics as `listMyProducts`.
+   * Hydrates a page of the caller's segment CATEGORY assignments into
+   * real categories via one bulk `categories.searchByIds` call. Same
+   * `hasNextPage` semantic as `listMyProducts`.
    */
   async listMyCategories(
     query?: Parameters<SegmentService["listItems"]>[0],
     auth?: AuthContext,
-  ): Promise<Awaited<ReturnType<CategoryService["get"]>>[]> {
-    const ids = await this.listMyCategoryIds(query, auth);
-    return Promise.all(ids.map((id) => this.deps.categories.get(id, auth)));
+  ): Promise<PaginatedItems<Awaited<ReturnType<CategoryService["get"]>>>> {
+    const pageNumber = query?.pageNumber ?? 1;
+    const pageSize = query?.pageSize ?? 20;
+    const sourceItems = await this.listItems(
+      { ...(query ?? {}), pageNumber, pageSize },
+      auth,
+    );
+    const ids: string[] = [];
+    for (const r of sourceItems) {
+      if (r.type === "CATEGORY" && typeof r.item?.id === "string") ids.push(r.item.id);
+    }
+    const items = await this.deps.categories.searchByIds(ids, undefined, auth);
+    return { items, pageNumber, pageSize, hasNextPage: sourceItems.length === pageSize };
   }
 }
