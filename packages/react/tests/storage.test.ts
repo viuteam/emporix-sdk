@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createLocalStorageStorage } from "../src/storage/local-storage";
 import { createCookieStorage } from "../src/storage/cookie";
+import { createMemoryStorage } from "../src/storage/memory";
 
 describe("localStorage storage", () => {
   beforeEach(() => localStorage.clear());
@@ -46,5 +47,25 @@ describe("cookie storage", () => {
     expect(s.getCustomerToken()).toBe("ck");
     s.setCustomerToken(null);
     expect(s.getCustomerToken()).toBeNull();
+  });
+});
+
+describe("createMemoryStorage — cartId + anonymous session", () => {
+  it("round-trips cartId", () => {
+    const s = createMemoryStorage();
+    expect(s.getCartId()).toBeNull();
+    s.setCartId("cart-1");
+    expect(s.getCartId()).toBe("cart-1");
+    s.setCartId(null);
+    expect(s.getCartId()).toBeNull();
+  });
+
+  it("round-trips anonymous session", () => {
+    const s = createMemoryStorage();
+    expect(s.getAnonymousSession()).toBeNull();
+    s.setAnonymousSession({ refreshToken: "rt", sessionId: "ss" });
+    expect(s.getAnonymousSession()).toEqual({ refreshToken: "rt", sessionId: "ss" });
+    s.setAnonymousSession(null);
+    expect(s.getAnonymousSession()).toBeNull();
   });
 });
