@@ -173,6 +173,53 @@ export class CustomerService {
     });
   }
 
+  /**
+   * Authorization-Code SSO: exchanges the IdP `code` for an Emporix customer
+   * session via `POST /customer/{tenant}/socialLogin`. The browser performs
+   * the IdP redirect itself; the SDK only does this Emporix exchange.
+   * Default auth: anonymous (Emporix requires an anonymous Bearer). The
+   * response has no `session_id` and returns `expires_in` as a string —
+   * normalized to a number here.
+   */
+  async socialLogin(
+    input: { code: string; redirectUri: string; codeVerifier?: string; sessionId?: string },
+    auth: AuthContext = { kind: "anonymous" },
+  ): Promise<CustomerSession> {
+    const query: Record<string, string> = {
+      code: input.code,
+      redirect_uri: input.redirectUri,
+    };
+    if (input.codeVerifier) query.code_verifier = input.codeVerifier;
+    const wire = await this.ctx.http.request<{
+      social_access_token?: string;
+      social_id_token?: string;
+      access_token?: string;
+      saas_token?: string;
+      refresh_token?: string;
+      session_id?: string;
+      expires_in?: string | number;
+      // Deprecated camelCase variants (Emporix spec marks these deprecated).
+      accessToken?: string;
+      saasToken?: string;
+      refreshToken?: string;
+    }>({
+      method: "POST",
+      path: `/customer/${this.ctx.tenant}/socialLogin`,
+      query,
+      auth,
+      ...(input.sessionId ? { headers: { "session-id": input.sessionId } } : {}),
+    });
+    return {
+      customerToken: wire.access_token ?? wire.accessToken ?? "",
+      saasToken: wire.saas_token ?? wire.saasToken ?? "",
+      refreshToken: wire.refresh_token ?? wire.refreshToken ?? "",
+      sessionId: wire.session_id,
+      expiresIn: wire.expires_in != null ? Number(wire.expires_in) : undefined,
+      ...(wire.social_access_token ? { socialAccessToken: wire.social_access_token } : {}),
+      ...(wire.social_id_token ? { socialIdToken: wire.social_id_token } : {}),
+    };
+  }
+
   /** Returns the authenticated customer. Requires customer/raw auth. */
   async me(auth?: AuthContext): Promise<Customer> {
     return this.ctx.http.request<Customer>({
