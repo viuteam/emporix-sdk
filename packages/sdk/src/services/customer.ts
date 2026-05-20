@@ -29,6 +29,10 @@ export interface CustomerSession {
   sessionId: string | undefined;
   /** Customer access-token lifetime in seconds. */
   expiresIn: number | undefined;
+  /** Only set by `socialLogin`: the IdP access token echoed by Emporix. */
+  socialAccessToken?: string;
+  /** Only set by `socialLogin`: the IdP ID token echoed by Emporix. */
+  socialIdToken?: string;
 }
 
 /** Customer profile as returned by the Customer service (all generated fields). */
