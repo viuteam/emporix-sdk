@@ -14,3 +14,4 @@ export type { CartMutationsApi } from "./use-cart-mutations";
 export { useCheckout, usePaymentModes } from "./use-checkout";
 export type { CheckoutApi } from "./use-checkout";
 export { useMatchPrices } from "./use-match-prices";
+export { useProductMedia } from "./use-product-media";
