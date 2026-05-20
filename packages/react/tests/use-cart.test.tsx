@@ -6,8 +6,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
-import { useCart } from "../src/hooks/queries";
-import { useCartMutations, useCreateCart } from "../src/hooks/use-cart-mutations";
+import { useCart, useCartMutations, useCreateCart } from "../src/hooks/use-cart";
 import type { EmporixStorage } from "../src/storage";
 import type { ReactNode } from "react";
 
@@ -142,5 +141,18 @@ describe("useCreateCart", () => {
     });
     expect(seenAuth).toBe("Bearer CUST-TOK");
     expect(storage.getCartId()).toBe("cart-c");
+  });
+});
+
+describe("useCart (read)", () => {
+  it("is disabled without a cartId", () => {
+    const { result } = renderHook(() => useCart(undefined), { wrapper: wrap() });
+    expect(result.current.fetchStatus).toBe("idle");
+  });
+
+  it("uses customer auth when a token is stored", async () => {
+    const storage = createMemoryStorage({ initial: "cust-tok" });
+    const { result } = renderHook(() => useCart("cart1"), { wrapper: wrap(storage) });
+    await waitFor(() => expect(result.current.data?.id).toBe("cart1"));
   });
 });

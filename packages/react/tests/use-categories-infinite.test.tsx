@@ -6,7 +6,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
-import { useCategoriesInfinite } from "../src/hooks/queries";
+import { useCategoriesInfinite } from "../src/hooks/use-categories";
 import type { ReactNode } from "react";
 
 const server = setupServer(

@@ -13,6 +13,7 @@ export {
   useProductsInfinite,
   useCategory,
   useCategories,
+  useCategoriesInfinite,
   useCategoryTree,
   useCart,
   useCartMutations,

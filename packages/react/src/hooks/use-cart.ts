@@ -1,4 +1,10 @@
-import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import {
   auth,
   type AuthContext,
@@ -10,6 +16,20 @@ import {
   type CreateCartInput,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
+import { type QueryOpts } from "./internal/use-read-auth";
+
+/** Fetches a cart by id. Disabled when `cartId` is undefined. */
+export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
+  const { client, storage } = useEmporix();
+  const override = options.auth;
+  const token = storage.getCustomerToken();
+  const ctx: AuthContext = override ?? (token ? auth.customer(token) : auth.anonymous());
+  return useQuery({
+    queryKey: ["emporix", "cart", cartId ?? null, { tenant: client.tenant, authKind: ctx.kind }],
+    enabled: cartId !== undefined,
+    queryFn: () => client.carts.get(cartId as string, ctx),
+  });
+}
 
 type Mut<TVars> = UseMutationResult<Cart, unknown, TVars, { previous: Cart | undefined }>;
 
