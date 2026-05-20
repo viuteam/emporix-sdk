@@ -6,6 +6,8 @@ import {
   type CartAddress,
   type CartItemInput,
   type CartItemUpdate,
+  type CartCreated,
+  type CreateCartInput,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 
@@ -84,4 +86,28 @@ export function useCartMutations(cartId: string): CartMutationsApi {
     setShippingAddress: make((v) => client.carts.setShippingAddress(cartId, v, ctx)),
     setBillingAddress: make((v) => client.carts.setBillingAddress(cartId, v, ctx)),
   };
+}
+
+/**
+ * Creates a cart. Auto-detects auth (customer if a token is stored, else
+ * anonymous). On success, persists `cartId` via `storage.setCartId` so a later
+ * page reload can resume the same cart with the same anonymous session.
+ *
+ * Note: the SDK's `carts.create` returns `CartCreated = { cartId, yrn }`, not
+ * the full `Cart`. The full cart is loaded on demand by `useCart(cartId)`.
+ */
+export function useCreateCart(): UseMutationResult<
+  CartCreated,
+  unknown,
+  CreateCartInput | undefined
+> {
+  const { client, storage } = useEmporix();
+  const token = storage.getCustomerToken();
+  const ctx: AuthContext = token ? auth.customer(token) : auth.anonymous();
+  return useMutation<CartCreated, unknown, CreateCartInput | undefined>({
+    mutationFn: (input) => client.carts.create(input, ctx),
+    onSuccess: (cart) => {
+      if (cart.cartId) storage.setCartId(cart.cartId);
+    },
+  });
 }
