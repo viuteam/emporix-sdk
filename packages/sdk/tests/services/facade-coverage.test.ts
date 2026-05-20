@@ -45,9 +45,6 @@ const server = setupServer(
     if (u.searchParams.get("q") === "widget") return HttpResponse.json([{ id: "p1" }]);
     return HttpResponse.json([{ id: "p1" }, { id: "p2" }]);
   }),
-  http.get("https://api.emporix.io/product/acme/products/p1/media", () =>
-    HttpResponse.json([{ id: "m1", url: "http://x/i.png" }]),
-  ),
   // category
   http.get("https://api.emporix.io/category/acme/categories", ({ request }) => {
     const page = Number(new URL(request.url).searchParams.get("pageNumber") ?? "1");
@@ -133,11 +130,10 @@ describe("CustomerService remaining methods", () => {
 
 describe("ProductService remaining methods", () => {
   const s = () => new ProductService(ctx("product"));
-  it("getByCode/list/search/media", async () => {
+  it("getByCode/list/search", async () => {
     expect((await s().getByCode("X")).id).toBe("p9");
     expect((await s().list({ pageNumber: 1, pageSize: 2 })).items).toHaveLength(2);
     expect((await s().search("widget")).items[0]?.id).toBe("p1");
-    expect((await s().media.list("p1"))[0]?.url).toBe("http://x/i.png");
   });
   it("getByCode throws when missing", async () => {
     server.use(

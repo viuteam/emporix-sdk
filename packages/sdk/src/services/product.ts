@@ -89,13 +89,4 @@ export class ProductService {
     return { items, total: Number.NaN, offset: (pageNumber - 1) * pageSize, limit: pageSize };
   }
 
-  /** Media sub-resource. */
-  readonly media = {
-    list: async (productId: string, auth: AuthContext = ANON): Promise<Media[]> =>
-      this.ctx.http.request<Media[]>({
-        method: "GET",
-        path: `/product/${this.ctx.tenant}/products/${productId}/media`,
-        auth,
-      }),
-  };
 }
