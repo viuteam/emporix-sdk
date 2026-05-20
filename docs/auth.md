@@ -34,6 +34,39 @@ single process).
   server-side (`GET /customer/{tenant}/logout`); `useCustomerSession().logout()`
   does this best-effort before clearing the local session.
 
+## Persisting anonymous sessions
+
+The SDK can persist the anonymous refresh token + `sessionId` across page
+reloads. Wiring is automatic when you use `EmporixProvider` from
+`@viu/emporix-sdk-react` together with a persistent `EmporixStorage` backend
+(`createLocalStorageStorage()` or `createCookieStorage()`).
+
+How it works:
+
+- On mount, `EmporixProvider` calls `client.tokenProvider.attachAnonymousStore`
+  with an adapter that reads/writes `EmporixStorage.getAnonymousSession` /
+  `setAnonymousSession`.
+- On the first anonymous-token need, `DefaultTokenProvider` seeds its in-memory
+  session from the store. The seeded session has `expiresAt: 0`, which forces
+  the next call to take the **refresh** path — preserving `sessionId`.
+- After every successful refresh or fresh login, the SDK writes the rotated
+  `{ refreshToken, sessionId }` back to the store.
+- On `invalidateAnonymous()`, the SDK calls `store.write(null)`.
+
+Implication for storefronts: a guest cart created in one tab is still
+accessible after a browser reload (or a new tab) for as long as the refresh
+token is valid (Emporix: 24h). If the refresh fails (expired), the SDK falls
+back to a fresh login (new `sessionId`) and the old cart becomes inaccessible
+— surface this as a "discard cart" UI prompt.
+
+**Security note:** the anonymous refresh token is stored client-side
+(`localStorage` or a non-HttpOnly cookie) and is exposed to XSS in the same way
+the customer access token is. The 24-hour TTL limits damage. The SDK never
+puts it in a custom header or URL outside of the `/anonymous/refresh` call.
+
+The same wiring is offered via the `AnonymousSessionStore` interface in
+`@viu/emporix-sdk`; non-React hosts can implement it directly.
+
 ## The anonymous → login → cart-merge flow
 
 The anonymous token's `sessionId` is what links a guest cart to the customer

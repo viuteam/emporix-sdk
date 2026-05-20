@@ -1,9 +1,28 @@
-/** Pluggable customer-token store. SSR-safe by default (memory). */
-export interface TokenStorage {
+/** Pluggable persistence for SDK session state. SSR-safe by default (memory). */
+export interface EmporixStorage {
+  // Customer token (unchanged).
   getCustomerToken(): string | null;
   setCustomerToken(token: string | null): void;
   subscribe?(listener: (token: string | null) => void): () => void;
+
+  // Active guest / customer cart id.
+  getCartId(): string | null;
+  setCartId(id: string | null): void;
+
+  // Anonymous session — used by DefaultTokenProvider (via EmporixProvider
+  // wiring) to preserve sessionId across page reloads.
+  getAnonymousSession(): PersistedAnonymousSession | null;
+  setAnonymousSession(session: PersistedAnonymousSession | null): void;
 }
+
+/** Minimal subset of `AnonymousSession` that needs to outlive a page load. */
+export interface PersistedAnonymousSession {
+  refreshToken: string;
+  sessionId: string;
+}
+
+/** Backward-compat alias. New code should prefer `EmporixStorage`. */
+export type TokenStorage = EmporixStorage;
 
 export { createMemoryStorage } from "./memory";
 export { createLocalStorageStorage } from "./local-storage";

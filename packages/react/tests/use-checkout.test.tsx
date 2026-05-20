@@ -61,4 +61,34 @@ describe("useCheckout", () => {
     });
     expect(orderId).toBe("EON5");
   });
+
+  it("places an order anonymously when no customer token is stored", async () => {
+    let seenAuth: string | null = null;
+    server.use(
+      http.post(
+        "https://api.emporix.io/checkout/acme/checkouts/order",
+        ({ request }) => {
+          seenAuth = request.headers.get("authorization");
+          return HttpResponse.json({ orderId: "EON-anon", paymentDetails: null, checkoutId: null });
+        },
+      ),
+    );
+    const storage = createMemoryStorage(); // no initial token → anonymous
+    const { result } = renderHook(() => useCheckout(), { wrapper: wrap(storage) });
+    let orderId: string | undefined;
+    await act(async () => {
+      const r = await result.current.placeOrder.mutateAsync({
+        input: {
+          cartId: "c-anon",
+          customer: { email: "g@e.com", firstName: "G", lastName: "X", guest: true },
+          shipping: { methodId: "m", zoneId: "z", methodName: "DHL", amount: 0 },
+          addresses: [],
+          paymentMethods: [{ provider: "custom", amount: 1 }],
+        },
+      });
+      orderId = r.orderId;
+    });
+    expect(orderId).toBe("EON-anon");
+    expect(seenAuth).toBe("Bearer anon");
+  });
 });

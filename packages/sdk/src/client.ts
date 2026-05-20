@@ -36,6 +36,12 @@ export class EmporixClient {
   readonly segments: SegmentService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
+  /**
+   * The token provider in use by this client. Exposed so React/Next hosts can
+   * call `attachAnonymousStore` to wire session persistence. Treat as
+   * read-only — replacing it after construction is not supported.
+   */
+  readonly tokenProvider: TokenProvider;
   private readonly resolver: LevelResolver;
 
   constructor(config: EmporixConfig) {
@@ -61,6 +67,7 @@ export class EmporixClient {
       });
 
     const tokenProvider: TokenProvider = cfg.tokenProvider ?? new DefaultTokenProvider(cfg);
+    this.tokenProvider = tokenProvider;
 
     const mk = (service: ServiceName): ClientContext => ({
       tenant: cfg.tenant,

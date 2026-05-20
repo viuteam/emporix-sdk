@@ -24,8 +24,14 @@ The core SDK has **no** React dependency; React lives only in this package.
 | `createCookieStorage` | cookie | you must set `sameSite`/`secure`; readable by JS unless you manage an httpOnly cookie server-side |
 
 Storage choices have security implications (XSS for `localStorage`, CSRF for
-cookies) the SDK cannot make for you — hence opt-in, never automatic. The
-default key is `emporix.customerToken`.
+cookies) the SDK cannot make for you — hence opt-in, never automatic.
+
+Each adapter persists three pieces under predictable keys:
+
+- `emporix.customerToken` — string, set by `useCustomerSession.login/logout`.
+- `emporix.cartId` — string, set by `useCreateCart`, cleared by the consumer.
+- `emporix.anonymousSession` — JSON `{ refreshToken, sessionId }`, set by the
+  SDK on every anonymous login/refresh. See [Persistent guest cart](#persistent-guest-cart).
 
 ## Hooks
 
@@ -43,6 +49,41 @@ disabled until a `cartId` is supplied.
 `clear`, `applyCoupon`, `removeCoupon`, `setShippingAddress`,
 `setBillingAddress` — each a react-query mutation that optimistically patches
 the `useCart` cache and rolls back on error.
+
+`useCreateCart()` creates a cart and persists the resulting `cartId` so a later
+reload can resume the same cart. Auto-detects customer vs anonymous auth from
+`storage.getCustomerToken()`.
+
+```tsx
+const createCart = useCreateCart();
+await createCart.mutateAsync({ currency: "CHF" });
+// → POST /cart/{tenant}/carts; storage.setCartId(cartId) is called on success.
+```
+
+`useCheckout()` returns `placeOrder` and `placeOrderFromQuote` mutations.
+Auto-detects auth: customer if a token is stored, otherwise anonymous (for the
+guest-checkout flow). `usePaymentModes()` stays customer-only — payment-mode
+listing requires an authenticated session.
+
+### Persistent guest cart
+
+When you use `createLocalStorageStorage()` or `createCookieStorage()` for the
+`EmporixProvider`'s `storage` prop, three pieces persist across page reloads:
+
+- `customerToken` — at `emporix.customerToken`; managed by `useCustomerSession`.
+- `cartId` — at `emporix.cartId`; set by `useCreateCart`, cleared by your
+  consumer on successful `placeOrder` (see `examples/vite-spa`).
+- `anonymousSession` — at `emporix.anonymousSession`; `{ refreshToken,
+  sessionId }`, written by `DefaultTokenProvider` on every refresh / login,
+  read on the first call after a reload.
+
+On reload the SDK's first auth call uses the persisted refresh token, which
+preserves the same `sessionId` and therefore the access to the anonymous cart.
+If the refresh token has expired (Emporix returns 4xx — 24h TTL) the SDK falls
+back to a fresh anonymous login (new `sessionId`) and the previous cart becomes
+inaccessible. Surface this in the UI as a "discard cart" prompt.
+
+See `examples/vite-spa/src/GuestCheckout.tsx` for the full pattern.
 
 ## Errors
 
