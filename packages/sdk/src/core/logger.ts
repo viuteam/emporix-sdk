@@ -16,6 +16,7 @@ export type ServiceName =
   | "payment"
   | "price"
   | "media"
+  | "segment"
   | "http"
   | "auth";
 

@@ -11,6 +11,7 @@ export default defineConfig({
     "src/payment.ts",
     "src/price.ts",
     "src/media.ts",
+    "src/segment.ts",
   ],
   format: ["esm", "cjs"],
   dts: true,

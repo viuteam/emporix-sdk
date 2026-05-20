@@ -72,3 +72,11 @@ export type {
   AssetUpdateInput,
   AssetRefId,
 } from "./services/media";
+export { SegmentService } from "./services/segment";
+export type {
+  Segment,
+  SegmentItem,
+  SegmentCategoryTree,
+  SegmentCategoryTreeNode,
+  SegmentServiceDeps,
+} from "./services/segment";
