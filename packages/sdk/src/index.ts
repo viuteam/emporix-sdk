@@ -64,3 +64,11 @@ export type {
   PriceMatchByContextInput,
   PriceMatchInput,
 } from "./services/price";
+export { MediaService } from "./services/media";
+export type {
+  Asset,
+  AssetCreateBlobInput,
+  AssetCreateLinkInput,
+  AssetUpdateInput,
+  AssetRefId,
+} from "./services/media";

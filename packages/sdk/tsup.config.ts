@@ -10,6 +10,7 @@ export default defineConfig({
     "src/checkout.ts",
     "src/payment.ts",
     "src/price.ts",
+    "src/media.ts",
   ],
   format: ["esm", "cjs"],
   dts: true,

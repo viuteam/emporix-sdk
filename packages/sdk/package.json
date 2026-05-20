@@ -14,7 +14,8 @@
     "./cart": { "types": "./dist/cart.d.ts", "import": "./dist/cart.js", "require": "./dist/cart.cjs" },
     "./checkout": { "types": "./dist/checkout.d.ts", "import": "./dist/checkout.js", "require": "./dist/checkout.cjs" },
     "./payment": { "types": "./dist/payment.d.ts", "import": "./dist/payment.js", "require": "./dist/payment.cjs" },
-    "./price": { "types": "./dist/price.d.ts", "import": "./dist/price.js", "require": "./dist/price.cjs" }
+    "./price": { "types": "./dist/price.d.ts", "import": "./dist/price.js", "require": "./dist/price.cjs" },
+    "./media": { "types": "./dist/media.d.ts", "import": "./dist/media.js", "require": "./dist/media.cjs" }
   },
   "publishConfig": { "access": "public", "provenance": true },
   "scripts": {
