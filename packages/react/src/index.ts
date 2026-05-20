@@ -1,6 +1,6 @@
 export { EmporixProvider, useEmporix } from "./provider";
 export type { EmporixProviderProps } from "./provider";
-export type { TokenStorage } from "./storage/index";
+export type { TokenStorage, EmporixStorage, PersistedAnonymousSession } from "./storage/index";
 export {
   createMemoryStorage,
   createLocalStorageStorage,
@@ -16,6 +16,7 @@ export {
   useCategoryTree,
   useCart,
   useCartMutations,
+  useCreateCart,
   useCheckout,
   usePaymentModes,
   useMatchPrices,
