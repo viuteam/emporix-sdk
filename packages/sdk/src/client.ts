@@ -19,6 +19,7 @@ import { CheckoutService } from "./services/checkout";
 import { PaymentGatewayService } from "./services/payment";
 import { PriceService } from "./services/price";
 import { MediaService } from "./services/media";
+import { SegmentService } from "./services/segment";
 
 const SDK_VERSION = "0.0.0";
 
@@ -32,6 +33,7 @@ export class EmporixClient {
   readonly payments: PaymentGatewayService;
   readonly prices: PriceService;
   readonly media: MediaService;
+  readonly segments: SegmentService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
   private readonly resolver: LevelResolver;
@@ -81,6 +83,10 @@ export class EmporixClient {
     this.payments = new PaymentGatewayService(mk("payment"));
     this.prices = new PriceService(mk("price"));
     this.media = new MediaService(mk("media"));
+    this.segments = new SegmentService(mk("segment"), {
+      products: this.products,
+      categories: this.categories,
+    });
   }
 
   /** Sets the runtime log level globally or for one service. */

@@ -1,6 +1,7 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext, AnonymousSession } from "../core/auth";
 import { EmporixAuthError } from "../core/errors";
+import { requireCustomer } from "../core/require-customer";
 import type {
   Customer as GeneratedCustomer,
   Address as GeneratedAddress,
@@ -49,11 +50,6 @@ export type PasswordResetRequestInput = PasswordResetRequestDto;
 export type PasswordResetConfirmInput = PasswordUpdate;
 export type AddressCreateInput = AddressCreateDto;
 export type AddressUpdateInput = AddressUpdateDto;
-
-function requireCustomer(auth: AuthContext | undefined): AuthContext {
-  if (auth && (auth.kind === "customer" || auth.kind === "raw")) return auth;
-  throw new EmporixAuthError("This operation requires a customer or raw AuthContext");
-}
 
 /** Customer signup, session, profile and addresses. */
 export class CustomerService {
