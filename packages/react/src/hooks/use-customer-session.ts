@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { auth, type Customer } from "@viu/emporix-sdk";
+import { auth, type Customer, type EmporixClient } from "@viu/emporix-sdk";
+import type { EmporixStorage } from "../storage";
 import { useEmporix } from "../provider";
 
 /** Customer authentication state and actions. */
@@ -60,6 +61,11 @@ export function useCustomerSession(): CustomerSessionApi {
       setToken(session.customerToken);
       setRefreshTok(session.refreshToken || null);
       setSaasTok(session.saasToken || null);
+      await onboardCustomerCart({
+        client,
+        storage,
+        customerToken: session.customerToken,
+      });
       await qc.invalidateQueries({ queryKey: ["emporix", "customer"] });
       await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
     },
@@ -80,10 +86,15 @@ export function useCustomerSession(): CustomerSessionApi {
       setToken(session.customerToken);
       setRefreshTok(session.refreshToken || null);
       setSaasTok(session.saasToken || null);
+      await onboardCustomerCart({
+        client,
+        storage,
+        customerToken: session.customerToken,
+      });
       await qc.invalidateQueries({ queryKey: ["emporix", "customer"] });
       await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
     },
-    [storage, qc],
+    [client, storage, qc],
   );
 
   const socialLogin = useCallback(
@@ -155,4 +166,38 @@ export function useCustomerSession(): CustomerSessionApi {
     refresh,
     refreshSession,
   };
+}
+
+/**
+ * Best-effort customer cart onboarding right after a fresh customer token is
+ * stored. Loads (or creates) the open customer cart for the configured
+ * `siteCode`, merges any guest `cartId` from storage into it, and writes the
+ * customer-cart-id back to `storage.setCartId(...)`. Never throws — failures
+ * are swallowed so login does not block on cart trouble.
+ */
+async function onboardCustomerCart(opts: {
+  client: EmporixClient;
+  storage: EmporixStorage;
+  customerToken: string;
+}): Promise<void> {
+  const { client, storage, customerToken } = opts;
+  const siteCode = client.config?.credentials?.storefront?.context?.siteCode;
+  if (!siteCode) return; // No site context configured → skip.
+  const ctx = auth.customer(customerToken);
+  try {
+    const customerCart = await client.carts.getCurrent(ctx, {
+      siteCode,
+      create: true,
+    });
+    // Cart uses `id`; only `CartCreated` exposes `cartId`. See generated types.
+    const customerCartId = customerCart?.id;
+    if (!customerCartId) return;
+    const anonCartId = storage.getCartId();
+    if (anonCartId && anonCartId !== customerCartId) {
+      await client.carts.merge(customerCartId, [anonCartId], ctx);
+    }
+    storage.setCartId(customerCartId);
+  } catch {
+    // Cart onboarding is best-effort; never fail login on cart trouble.
+  }
 }

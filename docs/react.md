@@ -40,6 +40,8 @@ is present), `isAuthenticated`, `isLoading`, `login`, `signup`, `logout`,
 `refresh`. `login` stores the token and invalidates customer + cart queries;
 `logout` clears the token and removes those queries.
 
+After a successful `login` (or `socialLogin` / `exchangeToken`), the hook runs a best-effort cart-onboarding step: it pulls the customer's open cart from Emporix (`client.carts.getCurrent({ siteCode, create: true })`), merges any guest cart-id from storage into it, and writes the customer-cart-id back to `storage.setCartId(...)`. The UI sees the cart immediately on the next render. See [Customer cart on login](./auth.md#customer-cart-on-login) for the full flow and skip conditions.
+
 Query hooks (`useProduct(s)`, `useProductsInfinite`, `useCategory(ies)`,
 `useCategoryTree`, `useCart`) accept `{ auth }` to override the per-call token
 kind. Default: `customer` if a token is stored, else `anonymous`. `useCart` is

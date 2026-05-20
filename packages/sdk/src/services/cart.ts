@@ -1,6 +1,6 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
-import { EmporixValidationError } from "../core/errors";
+import { EmporixNotFoundError, EmporixValidationError } from "../core/errors";
 import type {
   Cart as GeneratedCart,
   CreateCart,
@@ -67,13 +67,35 @@ export class CartService {
   }
 
   /** Returns the current cart for the session, or null if none. */
-  async getCurrent(auth: AuthContext): Promise<Cart | null> {
-    const carts = await this.ctx.http.request<Cart[]>({
-      method: "GET",
-      path: this.base(),
-      auth: requireCartAuth(auth),
-    });
-    return carts[0] ?? null;
+  /**
+   * Get the customer / anonymous cart matching the given criteria. Per Emporix:
+   * uniqueness is defined by `siteCode` + `type` + `legalEntityId` +
+   * (`customerId` derived from a customer token, or `sessionId` derived from an
+   * anonymous token). With `create: true`, Emporix creates a new cart if none
+   * matches.
+   *
+   * Returns `null` on 404 (no cart found and `create` was not set). All other
+   * errors are propagated.
+   */
+  async getCurrent(
+    auth: AuthContext,
+    opts: { siteCode: string; type?: string; legalEntityId?: string; create?: boolean },
+  ): Promise<Cart | null> {
+    const query: Record<string, string | number> = { siteCode: opts.siteCode };
+    if (opts.type !== undefined) query.type = opts.type;
+    if (opts.legalEntityId !== undefined) query.legalEntityId = opts.legalEntityId;
+    if (opts.create) query.create = "true";
+    try {
+      return await this.ctx.http.request<Cart>({
+        method: "GET",
+        path: this.base(),
+        query,
+        auth: requireCartAuth(auth),
+      });
+    } catch (e) {
+      if (e instanceof EmporixNotFoundError) return null;
+      throw e;
+    }
   }
 
   /** Adds an item. */
@@ -170,12 +192,24 @@ export class CartService {
     });
   }
 
-  /** Merges an anonymous cart into the customer's cart. Requires customer auth. */
-  async merge(anonymousCartId: string, auth: AuthContext): Promise<Cart> {
+  /**
+   * Merges one or more anonymous carts into the specified customer cart.
+   * Per Emporix: the target cart in the path **must belong to the logged-in
+   * customer**, and each id in `anonymousCartIds` must belong to an anonymous
+   * customer. Anonymous carts go `CLOSED` on success.
+   *
+   * Requires a customer `AuthContext`.
+   */
+  async merge(
+    customerCartId: string,
+    anonymousCartIds: string[],
+    auth: AuthContext,
+  ): Promise<Cart> {
     return this.ctx.http.request<Cart>({
       method: "POST",
-      path: `${this.base()}/${anonymousCartId}/merge`,
+      path: `${this.base()}/${customerCartId}/merge`,
       auth: requireCustomerAuth(auth),
+      body: { carts: anonymousCartIds },
     });
   }
 }

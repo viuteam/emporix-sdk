@@ -58,7 +58,7 @@ const server = setupServer(
     HttpResponse.json({ id: "cart1", items: [] }),
   ),
   http.get("https://api.emporix.io/cart/acme/carts", () =>
-    HttpResponse.json([{ id: "cartCur", items: [] }]),
+    HttpResponse.json({ id: "cartCur", items: [] }),
   ),
   http.post("https://api.emporix.io/cart/acme/carts/cart1/items", () =>
     HttpResponse.json({ id: "cart1", items: [{ id: "i1" }] }),
@@ -158,7 +158,7 @@ describe("CartService remaining methods", () => {
   const s = () => new CartService(ctx("cart"));
   it("get/getCurrent/items/coupons/addresses", async () => {
     expect((await s().get("cart1", ANON)).id).toBe("cart1");
-    expect((await s().getCurrent(ANON))?.id).toBe("cartCur");
+    expect((await s().getCurrent(ANON, { siteCode: "main" }))?.id).toBe("cartCur");
     expect(
       (
         await s().addItem(

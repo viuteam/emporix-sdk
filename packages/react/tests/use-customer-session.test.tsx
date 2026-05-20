@@ -31,10 +31,19 @@ beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-function wrapper(storage = createMemoryStorage()) {
+function wrapper(
+  storage = createMemoryStorage(),
+  opts: { siteCode?: string } = {},
+) {
   const client = new EmporixClient({
     tenant: "acme",
-    credentials: { backend: { clientId: "b", secret: "s" }, storefront: { clientId: "sf" } },
+    credentials: {
+      backend: { clientId: "b", secret: "s" },
+      storefront: {
+        clientId: "sf",
+        ...(opts.siteCode !== undefined ? { context: { siteCode: opts.siteCode } } : {}),
+      },
+    },
     logger: false,
   });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -199,5 +208,91 @@ describe("useCustomerSession", () => {
     expect(storage.getCustomerToken()).toBe("ex-cust");
     expect(result.current.isAuthenticated).toBe(true);
     expect(result.current.refreshToken).toBe("ex-rt");
+  });
+});
+
+describe("useCustomerSession — cart onboarding on login", () => {
+  it("loads the customer cart and writes cartId to storage", async () => {
+    let getCurrentCall: URLSearchParams | undefined;
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts", ({ request }) => {
+        getCurrentCall = new URL(request.url).searchParams;
+        return HttpResponse.json({ id: "cust-cart", items: [] });
+      }),
+    );
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useCustomerSession(), {
+      wrapper: wrapper(storage, { siteCode: "main" }),
+    });
+    await act(async () => {
+      await result.current.login({ email: "a@b.co", password: "x" });
+    });
+    expect(getCurrentCall?.get("siteCode")).toBe("main");
+    expect(getCurrentCall?.get("create")).toBe("true");
+    expect(storage.getCartId()).toBe("cust-cart");
+  });
+
+  it("merges the anonymous cartId from storage into the customer cart", async () => {
+    let mergeBody: { carts?: string[] } | undefined;
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts", () =>
+        HttpResponse.json({ id: "cust-cart", items: [] }),
+      ),
+      http.post(
+        "https://api.emporix.io/cart/acme/carts/cust-cart/merge",
+        async ({ request }) => {
+          mergeBody = (await request.json()) as { carts?: string[] };
+          return HttpResponse.json({ id: "cust-cart" });
+        },
+      ),
+    );
+    const storage = createMemoryStorage();
+    storage.setCartId("anon-cart");
+    const { result } = renderHook(() => useCustomerSession(), {
+      wrapper: wrapper(storage, { siteCode: "main" }),
+    });
+    await act(async () => {
+      await result.current.login({ email: "a@b.co", password: "x" });
+    });
+    expect(mergeBody?.carts).toEqual(["anon-cart"]);
+    expect(storage.getCartId()).toBe("cust-cart");
+  });
+
+  it("skips cart onboarding when storefront context.siteCode is missing", async () => {
+    let getCalled = false;
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts", () => {
+        getCalled = true;
+        return HttpResponse.json({ id: "x", items: [] });
+      }),
+    );
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useCustomerSession(), {
+      wrapper: wrapper(storage), // no siteCode
+    });
+    await act(async () => {
+      await result.current.login({ email: "a@b.co", password: "x" });
+    });
+    expect(getCalled).toBe(false);
+    expect(storage.getCartId()).toBeNull();
+  });
+
+  it("login resolves even if cart onboarding throws (best-effort)", async () => {
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts", () =>
+        HttpResponse.json({ message: "boom" }, { status: 500 }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useCustomerSession(), {
+      wrapper: wrapper(storage, { siteCode: "main" }),
+    });
+    await act(async () => {
+      await expect(
+        result.current.login({ email: "a@b.co", password: "x" }),
+      ).resolves.not.toThrow();
+    });
+    expect(storage.getCustomerToken()).not.toBeNull(); // login still succeeded
+    expect(storage.getCartId()).toBeNull(); // cart-id stayed empty
   });
 });
