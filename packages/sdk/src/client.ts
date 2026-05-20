@@ -1,4 +1,4 @@
-import { validateConfig, type EmporixConfig } from "./core/config";
+import { validateConfig, type EmporixConfig, type ResolvedConfig } from "./core/config";
 import { DefaultTokenProvider, type TokenProvider } from "./core/auth";
 import { HttpClient } from "./core/http";
 import {
@@ -42,11 +42,19 @@ export class EmporixClient {
    * read-only — replacing it after construction is not supported.
    */
   readonly tokenProvider: TokenProvider;
+  /**
+   * The validated config used to construct this client. Exposed so React /
+   * Next hosts can read static settings such as `credentials.storefront.context`
+   * (siteCode, currency, targetLocation) without re-plumbing them through the
+   * Provider tree. Treat as read-only.
+   */
+  readonly config: ResolvedConfig;
   private readonly resolver: LevelResolver;
 
   constructor(config: EmporixConfig) {
     const cfg = validateConfig(config);
     this.tenant = cfg.tenant;
+    this.config = cfg;
 
     let loggerObj: LoggerObjectConfig = {};
     let baseLogger: Logger | undefined;
