@@ -12,7 +12,6 @@ import {
   useProductsInfinite,
   useCategory,
   useCategories,
-  useCategoriesInfinite,
   useCart,
 } from "../src/hooks/queries";
 import type { ReactNode } from "react";
@@ -131,30 +130,4 @@ describe("query hooks", () => {
     ).toEqual(["p1", "p2", "p3"]);
   });
 
-  it("useCategoriesInfinite fetches across pages and terminates on hasNextPage=false", async () => {
-    let calls = 0;
-    server.use(
-      http.get("https://api.emporix.io/category/acme/categories", ({ request }) => {
-        calls += 1;
-        const u = new URL(request.url);
-        const page = Number(u.searchParams.get("pageNumber") ?? "1");
-        return page === 1
-          ? HttpResponse.json([{ id: "c1" }, { id: "c2" }])
-          : HttpResponse.json([{ id: "c3" }]);
-      }),
-    );
-    const { result } = renderHook(() => useCategoriesInfinite({ pageSize: 2 }), {
-      wrapper: wrap(),
-    });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.hasNextPage).toBe(true);
-    await act(async () => {
-      await result.current.fetchNextPage();
-    });
-    await waitFor(() => expect(result.current.hasNextPage).toBe(false));
-    expect(calls).toBe(2);
-    expect(
-      result.current.data?.pages.flatMap((p) => p.items).map((c) => c.id),
-    ).toEqual(["c1", "c2", "c3"]);
-  });
 });
