@@ -50,6 +50,36 @@ describe("cookie storage", () => {
   });
 });
 
+describe("createLocalStorageStorage — cartId + anonymous session", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("round-trips cartId via localStorage", () => {
+    const s = createLocalStorageStorage();
+    expect(s.getCartId()).toBeNull();
+    s.setCartId("cart-2");
+    expect(s.getCartId()).toBe("cart-2");
+    expect(localStorage.getItem("emporix.cartId")).toBe("cart-2");
+    s.setCartId(null);
+    expect(localStorage.getItem("emporix.cartId")).toBeNull();
+  });
+
+  it("round-trips anonymous session as JSON", () => {
+    const s = createLocalStorageStorage();
+    s.setAnonymousSession({ refreshToken: "rt", sessionId: "ss" });
+    const raw = localStorage.getItem("emporix.anonymousSession");
+    expect(raw).toBe(JSON.stringify({ refreshToken: "rt", sessionId: "ss" }));
+    expect(s.getAnonymousSession()).toEqual({ refreshToken: "rt", sessionId: "ss" });
+    s.setAnonymousSession(null);
+    expect(localStorage.getItem("emporix.anonymousSession")).toBeNull();
+  });
+
+  it("getAnonymousSession returns null on malformed JSON", () => {
+    localStorage.setItem("emporix.anonymousSession", "not-json{");
+    const s = createLocalStorageStorage();
+    expect(s.getAnonymousSession()).toBeNull();
+  });
+});
+
 describe("createMemoryStorage — cartId + anonymous session", () => {
   it("round-trips cartId", () => {
     const s = createMemoryStorage();
