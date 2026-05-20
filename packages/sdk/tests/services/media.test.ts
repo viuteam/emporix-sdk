@@ -132,3 +132,108 @@ describe("MediaService CRUD", () => {
     await expect(s.remove("asset-1")).resolves.toBeUndefined();
   });
 });
+
+describe("MediaService convenience", () => {
+  it("uploadFile builds an AssetCreateBlob with refIds + details from the input", async () => {
+    let parsedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.post("https://api.emporix.io/media/acme/assets", async ({ request }) => {
+        const fd = await request.formData();
+        const b = fd.get("body");
+        if (typeof b === "string") parsedBody = JSON.parse(b) as Record<string, unknown>;
+        return HttpResponse.json({ id: "a" }, { status: 201 });
+      }),
+    );
+    await svc().uploadFile({
+      file: new File(["x"], "p.png", { type: "image/png" }),
+      productId: "p1",
+      filename: "p.png",
+      mimeType: "image/png",
+    });
+    expect(parsedBody).toMatchObject({
+      type: "BLOB",
+      access: "PUBLIC",
+      refIds: [{ type: "PRODUCT", id: "p1" }],
+      details: { filename: "p.png", mimeType: "image/png" },
+    });
+  });
+
+  it("link builds an AssetCreateLink body", async () => {
+    let body: unknown = null;
+    server.use(
+      http.post("https://api.emporix.io/media/acme/assets", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ id: "a" }, { status: 201 });
+      }),
+    );
+    await svc().link({ url: "https://cdn/i.jpg", productId: "p1" });
+    expect(body).toMatchObject({
+      type: "LINK",
+      access: "PUBLIC",
+      url: "https://cdn/i.jpg",
+      refIds: [{ type: "PRODUCT", id: "p1" }],
+    });
+  });
+
+  it("attachToProduct is idempotent (no duplicate PRODUCT refId)", async () => {
+    let putBody: { refIds?: Array<{ type?: string; id?: string }> } | null = null;
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets/a", () =>
+        HttpResponse.json({ id: "a", refIds: [{ type: "PRODUCT", id: "p1" }] }),
+      ),
+      http.put("https://api.emporix.io/media/acme/assets/a", async ({ request }) => {
+        putBody = (await request.json()) as typeof putBody;
+        return HttpResponse.json({ id: "a", refIds: putBody?.refIds ?? [] });
+      }),
+    );
+    await svc().attachToProduct("a", "p1"); // already attached → no PUT
+    expect(putBody).toBeNull();
+    await svc().attachToProduct("a", "p2"); // new product → PUT with both
+    expect(
+      (putBody as { refIds?: Array<{ type?: string; id?: string }> } | null)?.refIds,
+    ).toEqual([
+      { type: "PRODUCT", id: "p1" },
+      { type: "PRODUCT", id: "p2" },
+    ]);
+  });
+
+  it("detachFromProduct removes the matching PRODUCT refId", async () => {
+    let putBody: { refIds?: Array<{ type?: string; id?: string }> } | null = null;
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets/a", () =>
+        HttpResponse.json({
+          id: "a",
+          refIds: [
+            { type: "PRODUCT", id: "p1" },
+            { type: "PRODUCT", id: "p2" },
+            { type: "CATEGORY", id: "c1" },
+          ],
+        }),
+      ),
+      http.put("https://api.emporix.io/media/acme/assets/a", async ({ request }) => {
+        putBody = (await request.json()) as typeof putBody;
+        return HttpResponse.json({ id: "a", refIds: putBody?.refIds ?? [] });
+      }),
+    );
+    await svc().detachFromProduct("a", "p1");
+    expect(
+      (putBody as { refIds?: Array<{ type?: string; id?: string }> } | null)?.refIds,
+    ).toEqual([
+      { type: "PRODUCT", id: "p2" },
+      { type: "CATEGORY", id: "c1" },
+    ]);
+  });
+
+  it("listForProduct passes the refIds.id filter as a query param", async () => {
+    let query: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets", ({ request }) => {
+        query = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "a", refIds: [{ type: "PRODUCT", id: "p1" }] }]);
+      }),
+    );
+    const rows = await svc().listForProduct("p1");
+    expect(query !== null && (query as URLSearchParams).get("refIds.id")).toBe("p1");
+    expect(rows).toHaveLength(1);
+  });
+});
