@@ -71,13 +71,20 @@ await sdk.products.list(undefined, auth.service("partner"));
 
 ## SSO / token exchange
 
-The SDK provides the **seam**, not the flow. Two options:
+The SDK supports both Emporix customer SSO flows directly:
 
-1. Do the exchange upstream and pass the resulting Emporix token via
-   `auth.raw(jwt)` per call.
-2. Inject a custom `tokenProvider` in the config; the SDK delegates `service`
-   and `anonymous` resolution to it (implement
-   `getToken`/`getAnonymousToken`).
+- **Authorization Code (SSO):** the storefront performs the IdP redirect and
+  PKCE itself, then calls `customers.socialLogin({ code, redirectUri,
+  codeVerifier?, sessionId? })` (default `anonymous` auth). Emporix has no
+  `/authorize` endpoint — only the code exchange is the SDK's concern.
+- **RFC 8693 Token Exchange:** `customers.exchangeToken({ subjectToken,
+  config? })` exchanges an external IdP JWT for an Emporix session (default
+  `anonymous` auth; `config` selects a per-site IdP config).
 
-Emporix's `POST /customer/{tenant}/exchangeauthtoken` is real but implementing
-the full authorization-code/token-exchange flow is out of scope for the SDK.
+Both return a `CustomerSession` (the caller then uses `auth.customer(token)`),
+and `useCustomerSession().socialLogin` / `.exchangeToken` store it like
+`login`. Registering the IdP / trusted issuer is a manual Emporix-support
+provisioning step, not an SDK config. Note the platform quirk: `expires_in`
+is a string from `socialLogin` and an integer from `exchangeToken` — the SDK
+normalizes both to a number. `auth.raw(jwt)` and a custom `tokenProvider`
+remain available for any flow the SDK does not model.
