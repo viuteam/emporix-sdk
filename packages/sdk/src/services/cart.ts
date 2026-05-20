@@ -170,12 +170,24 @@ export class CartService {
     });
   }
 
-  /** Merges an anonymous cart into the customer's cart. Requires customer auth. */
-  async merge(anonymousCartId: string, auth: AuthContext): Promise<Cart> {
+  /**
+   * Merges one or more anonymous carts into the specified customer cart.
+   * Per Emporix: the target cart in the path **must belong to the logged-in
+   * customer**, and each id in `anonymousCartIds` must belong to an anonymous
+   * customer. Anonymous carts go `CLOSED` on success.
+   *
+   * Requires a customer `AuthContext`.
+   */
+  async merge(
+    customerCartId: string,
+    anonymousCartIds: string[],
+    auth: AuthContext,
+  ): Promise<Cart> {
     return this.ctx.http.request<Cart>({
       method: "POST",
-      path: `${this.base()}/${anonymousCartId}/merge`,
+      path: `${this.base()}/${customerCartId}/merge`,
       auth: requireCustomerAuth(auth),
+      body: { carts: anonymousCartIds },
     });
   }
 }
