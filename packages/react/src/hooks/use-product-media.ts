@@ -1,5 +1,5 @@
 import type { Media } from "@viu/emporix-sdk";
-import { useProduct } from "./queries";
+import { useProduct } from "./use-products";
 
 /**
  * Reads `productMedia` from the existing product query — no Media-Service
