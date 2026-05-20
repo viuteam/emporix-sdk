@@ -13,7 +13,13 @@ export type {
   LogLevel, Logger, LogFields, LoggerConfig, LoggerObjectConfig, ServiceName,
 } from "./core/logger";
 export { auth, resolveToken, DefaultTokenProvider } from "./core/auth";
-export type { AuthKind, AuthContext, AnonymousSession, TokenProvider } from "./core/auth";
+export type {
+  AuthKind,
+  AuthContext,
+  AnonymousSession,
+  TokenProvider,
+  AnonymousSessionStore,
+} from "./core/auth";
 export { HttpClient } from "./core/http";
 export type { RequestOptions, HttpClientOptions } from "./core/http";
 export { EmporixClient } from "./client";

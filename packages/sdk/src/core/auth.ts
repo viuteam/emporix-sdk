@@ -19,6 +19,17 @@ export interface AnonymousSession {
   expiresIn: number;
 }
 
+/**
+ * Persistence callback for anonymous sessions. `read` is called once on the
+ * first need for an anonymous token to bootstrap a possibly-existing session;
+ * `write` is called after every successful login or refresh. `write(null)`
+ * means the SDK is invalidating the stored session.
+ */
+export interface AnonymousSessionStore {
+  read(): { refreshToken: string; sessionId: string } | null;
+  write(session: { refreshToken: string; sessionId: string } | null): void;
+}
+
 /** Supplies SDK-managed tokens (service/custom + anonymous). May be user-injected. */
 export interface TokenProvider {
   /** Service/custom client-credentials token for the named credential set. */
@@ -37,6 +48,13 @@ export interface TokenProvider {
    * than starting a brand-new session.
    */
   expireAnonymous?(): void;
+  /**
+   * Install a persistence adapter for the anonymous session. The host (e.g.
+   * `EmporixProvider`) calls this at construction so the SDK can bootstrap
+   * an existing session and persist refreshes. Idempotent: a later call
+   * replaces the previous adapter.
+   */
+  attachAnonymousStore?(store: AnonymousSessionStore): void;
 }
 
 /** Tiny constructors for {@link AuthContext}. */
