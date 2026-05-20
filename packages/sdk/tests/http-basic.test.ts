@@ -76,4 +76,35 @@ describe("HttpClient", () => {
     expect(dump).not.toContain("SVC-TOKEN");
     expect(dump).toContain("service");
   });
+
+  it("FormData body passes through fetch verbatim (no JSON stringify, no Content-Type)", async () => {
+    let seenCT: string | null = null;
+    let receivedFile: File | null = null;
+    let receivedBody: string | null = null;
+    server.use(
+      mhttp.post("https://api.emporix.io/echo/multipart", async ({ request }) => {
+        seenCT = request.headers.get("content-type");
+        const fd = await request.formData();
+        const f = fd.get("file");
+        if (f instanceof File) receivedFile = f;
+        const b = fd.get("body");
+        if (typeof b === "string") receivedBody = b;
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    const fd = new FormData();
+    fd.set("file", new File(["hello"], "hello.txt", { type: "text/plain" }));
+    fd.set("body", JSON.stringify({ k: 1 }));
+    const { client } = makeClient();
+    await client.request({
+      method: "POST",
+      path: "/echo/multipart",
+      auth: { kind: "service" },
+      body: fd,
+    });
+    // fetch sets `multipart/form-data; boundary=...` itself when the SDK does NOT.
+    expect(seenCT).toMatch(/^multipart\/form-data; boundary=/);
+    expect(receivedBody).toBe('{"k":1}');
+    expect((receivedFile as File | null)?.name).toBe("hello.txt");
+  });
 });

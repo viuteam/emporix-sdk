@@ -69,16 +69,24 @@ export class HttpClient {
         () => controller.abort(),
         o.timeoutMs ?? this.opts.timeouts.readMs,
       );
+      const isFormData =
+        typeof FormData !== "undefined" && o.body instanceof FormData;
       const init: RequestInit = {
         method: o.method,
         headers: {
           ...(o.headers ?? {}),
           Authorization: `Bearer ${token}`,
-          ...(o.body !== undefined ? { "Content-Type": "application/json" } : {}),
+          // JSON bodies: set Content-Type. FormData bodies: let `fetch`
+          // emit `multipart/form-data; boundary=...` itself.
+          ...(o.body !== undefined && !isFormData
+            ? { "Content-Type": "application/json" }
+            : {}),
         },
         signal: controller.signal,
       };
-      if (o.body !== undefined) init.body = JSON.stringify(o.body);
+      if (o.body !== undefined) {
+        init.body = isFormData ? (o.body as FormData) : JSON.stringify(o.body);
+      }
       let res: Response;
       try {
         res = await fetch(url, init);
