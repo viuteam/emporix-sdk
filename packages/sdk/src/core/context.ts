@@ -18,6 +18,19 @@ export interface Page<T> {
   limit: number;
 }
 
+/**
+ * A cursor-paged collection — `pageNumber`/`pageSize` indexing with a
+ * `hasNextPage` signal driven by the source page being full. Distinct
+ * from `Page<T>` (offset/limit/total). Used by services and hooks that
+ * support "load more" pagination.
+ */
+export interface PaginatedItems<T> {
+  items: T[];
+  pageNumber: number;
+  pageSize: number;
+  hasNextPage: boolean;
+}
+
 /** Default `AuthContext` applied by a service when the caller passes none. */
 export type DefaultAuth = AuthContext | undefined;
 
