@@ -50,6 +50,38 @@ describe("cookie storage", () => {
   });
 });
 
+describe("createCookieStorage — cartId + anonymous session", () => {
+  beforeEach(() => {
+    for (const c of document.cookie.split("; ")) {
+      const [k] = c.split("=");
+      document.cookie = `${k}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    }
+  });
+
+  it("round-trips cartId via cookie", () => {
+    const s = createCookieStorage();
+    expect(s.getCartId()).toBeNull();
+    s.setCartId("cart-3");
+    expect(s.getCartId()).toBe("cart-3");
+    s.setCartId(null);
+    expect(s.getCartId()).toBeNull();
+  });
+
+  it("round-trips anonymous session as JSON cookie", () => {
+    const s = createCookieStorage();
+    s.setAnonymousSession({ refreshToken: "rt", sessionId: "ss" });
+    expect(s.getAnonymousSession()).toEqual({ refreshToken: "rt", sessionId: "ss" });
+    s.setAnonymousSession(null);
+    expect(s.getAnonymousSession()).toBeNull();
+  });
+
+  it("getAnonymousSession returns null on malformed JSON cookie", () => {
+    document.cookie = "emporix.anonymousSession=not-json%7B; path=/";
+    const s = createCookieStorage();
+    expect(s.getAnonymousSession()).toBeNull();
+  });
+});
+
 describe("createLocalStorageStorage — cartId + anonymous session", () => {
   beforeEach(() => localStorage.clear());
 
