@@ -5,6 +5,8 @@ import { GuestCheckout } from "./GuestCheckout";
 
 // Emporix product `name` is localized — a `{ [locale]: string }` map (or a
 // plain string for some tenants). Render it defensively.
+// (Intentionally duplicated in examples/next-app-router/app/page.tsx — examples
+//  are kept self-contained so each is copy-paste-friendly.)
 function displayName(name: unknown, fallback: string): string {
   if (typeof name === "string") return name;
   if (name && typeof name === "object") {
