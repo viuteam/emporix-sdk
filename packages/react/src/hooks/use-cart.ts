@@ -7,7 +7,6 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import {
-  auth,
   EmporixError,
   type AuthContext,
   type Cart,
@@ -139,10 +138,13 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
 /**
  * Creates a cart. Auto-detects auth (customer if a token is stored, else
  * anonymous). On success, persists `cartId` via `storage.setCartId` so a later
- * page reload can resume the same cart with the same anonymous session.
+ * page reload can resume the same cart with the same anonymous session, then
+ * invalidates `["emporix","cart"]` so `useActiveCart` re-reads storage on the
+ * next render.
  *
  * Note: the SDK's `carts.create` returns `CartCreated = { cartId, yrn }`, not
- * the full `Cart`. The full cart is loaded on demand by `useCart(cartId)`.
+ * the full `Cart`. The full cart is loaded on demand by `useCart(cartId)` /
+ * `useActiveCart()`.
  */
 export function useCreateCart(): UseMutationResult<
   CartCreated,
@@ -150,12 +152,13 @@ export function useCreateCart(): UseMutationResult<
   CreateCartInput | undefined
 > {
   const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
-  const ctx: AuthContext = token ? auth.customer(token) : auth.anonymous();
+  const qc = useQueryClient();
+  const { ctx } = useReadAuth();
   return useMutation<CartCreated, unknown, CreateCartInput | undefined>({
     mutationFn: (input) => client.carts.create(input, ctx),
-    onSuccess: (cart) => {
+    onSuccess: async (cart) => {
       if (cart.cartId) storage.setCartId(cart.cartId);
+      await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
     },
   });
 }

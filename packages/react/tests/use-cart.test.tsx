@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { renderHook, act, waitFor } from "@testing-library/react";
@@ -170,6 +170,34 @@ describe("useCreateCart", () => {
     });
     expect(seenAuth).toBe("Bearer CUST-TOK");
     expect(storage.getCartId()).toBe("cart-c");
+  });
+
+  it("invalidates [emporix,cart] queries on success", async () => {
+    server.use(
+      http.post("https://api.emporix.io/cart/acme/carts", () =>
+        HttpResponse.json({ cartId: "cart-new", yrn: "yrn:cart:cart-new" }, { status: 201 }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    const client = new EmporixClient({
+      tenant: "acme",
+      credentials: { backend: { clientId: "b", secret: "s" }, storefront: { clientId: "sf" } },
+      logger: false,
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={storage} queryClient={queryClient}>
+        {children}
+      </EmporixProvider>
+    );
+    const { result } = renderHook(() => useCreateCart(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({ currency: "CHF" });
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ["emporix", "cart"] }),
+    );
   });
 });
 
