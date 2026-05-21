@@ -8,3 +8,9 @@ coverage/
 !.env.example
 .idea
 .lean-ctx/
+
+# e2e
+e2e/.env.local
+e2e/playwright-report/
+e2e/test-results/
+e2e/node_modules/.cache
