@@ -1,7 +1,8 @@
 name: Changeset Check
 on: pull_request
 jobs:
-  check:
+  changeset:
+    name: changeset
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-release') }}
     steps:

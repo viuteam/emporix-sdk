@@ -3,7 +3,7 @@
   "changelog": ["@changesets/changelog-github", { "repo": "viuteam/emporix-sdk" }],
   "commit": false,
   "fixed": [],
-  "linked": [],
+  "linked": [["@viu/emporix-sdk", "@viu/emporix-sdk-react"]],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",

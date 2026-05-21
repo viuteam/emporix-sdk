@@ -2,10 +2,27 @@
   "name": "@viu/emporix-sdk",
   "version": "0.0.0",
   "description": "TypeScript SDK for the Emporix Commerce Engine",
+  "license": "MIT",
+  "author": "viuteam",
+  "homepage": "https://github.com/viuteam/emporix-sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/viuteam/emporix-sdk.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": { "url": "https://github.com/viuteam/emporix-sdk/issues" },
+  "keywords": [
+    "emporix",
+    "ecommerce",
+    "commerce",
+    "sdk",
+    "typescript",
+    "storefront"
+  ],
   "type": "module",
   "sideEffects": false,
   "engines": { "node": ">=18" },
-  "files": ["dist", "README.md", "CHANGELOG.md"],
+  "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" },
     "./customer": { "types": "./dist/customer.d.ts", "import": "./dist/customer.js", "require": "./dist/customer.cjs" },
