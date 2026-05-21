@@ -6,7 +6,13 @@ import { QueryClient } from "@tanstack/react-query";
 import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
-import { useProduct, useProducts, useProductsInfinite } from "../src/hooks/use-products";
+import {
+  useProduct,
+  useProducts,
+  useProductsInfinite,
+  useProductByCode,
+  useProductSearch,
+} from "../src/hooks/use-products";
 import type { ReactNode } from "react";
 
 const server = setupServer(
@@ -85,5 +91,48 @@ describe("product hooks", () => {
     expect(
       result.current.data?.pages.flatMap((p) => p.items).map((p) => p.id),
     ).toEqual(["p1", "p2", "p3"]);
+  });
+});
+
+describe("useProductByCode", () => {
+  it("is disabled when code is undefined", () => {
+    const { result } = renderHook(() => useProductByCode(undefined), { wrapper: wrap() });
+    expect(result.current.fetchStatus).toBe("idle");
+  });
+
+  it("fetches the product by code", async () => {
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        const url = new URL(request.url);
+        expect(url.searchParams.get("q")).toBe("code:T-SHIRT");
+        return HttpResponse.json([{ id: "p1", code: "T-SHIRT", name: "Shirt" }]);
+      }),
+    );
+    const { result } = renderHook(() => useProductByCode("T-SHIRT"), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.data?.code).toBe("T-SHIRT"));
+  });
+});
+
+describe("useProductSearch", () => {
+  it("is disabled on empty query", () => {
+    const { result } = renderHook(() => useProductSearch(""), { wrapper: wrap() });
+    expect(result.current.fetchStatus).toBe("idle");
+  });
+
+  it("forwards query and pagination params", async () => {
+    let seenQuery: URLSearchParams | undefined;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        seenQuery = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "p1" }, { id: "p2" }]);
+      }),
+    );
+    const { result } = renderHook(
+      () => useProductSearch("shirt", { pageNumber: 1, pageSize: 10 }),
+      { wrapper: wrap() },
+    );
+    await waitFor(() => expect(result.current.data?.items?.length).toBe(2));
+    expect(seenQuery?.get("q")).toBe("shirt");
+    expect(seenQuery?.get("pageSize")).toBe("10");
   });
 });

@@ -52,3 +52,38 @@ export function useProductsInfinite(
       last.hasNextPage ? last.pageNumber + 1 : undefined,
   });
 }
+
+/** Fetches one product by its `code` (URL slug). Disabled when code is empty. */
+export function useProductByCode(
+  code: string | undefined,
+  options: QueryOpts = {},
+): UseQueryResult<Product> {
+  const { client } = useEmporix();
+  const { ctx, kind } = useReadAuth(options.auth);
+  return useQuery({
+    queryKey: ["emporix", "product-by-code", code, { tenant: client.tenant, authKind: kind }],
+    enabled: typeof code === "string" && code !== "",
+    queryFn: () => client.products.getByCode(code as string, ctx),
+  });
+}
+
+/** Full-text product search. Disabled when query is empty/whitespace. */
+export function useProductSearch(
+  query: string | undefined,
+  params: { pageNumber?: number; pageSize?: number } = {},
+  options: QueryOpts = {},
+): UseQueryResult<PaginatedItems<Product>> {
+  const { client } = useEmporix();
+  const { ctx, kind } = useReadAuth(options.auth);
+  return useQuery({
+    queryKey: [
+      "emporix",
+      "product-search",
+      query,
+      params,
+      { tenant: client.tenant, authKind: kind },
+    ],
+    enabled: typeof query === "string" && query.trim() !== "",
+    queryFn: () => client.products.search(query as string, params, ctx),
+  });
+}
