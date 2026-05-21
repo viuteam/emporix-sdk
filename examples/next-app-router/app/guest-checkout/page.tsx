@@ -29,7 +29,7 @@ export default function GuestCheckoutPage(): React.JSX.Element {
     { items: [{ itemId: { itemType: "PRODUCT", id: PRODUCT_ID }, quantity: { quantity: 1 } }] },
     { enabled: cartId !== null },
   );
-  const cartMutations = useCartMutations(cartId ?? "");
+  const cartMutations = useCartMutations();
   const checkout = useCheckout();
 
   function startCart(): void {
