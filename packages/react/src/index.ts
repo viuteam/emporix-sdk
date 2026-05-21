@@ -16,6 +16,7 @@ export {
   useCategoriesInfinite,
   useCategoryTree,
   useCart,
+  useActiveCart,
   useCartMutations,
   useCreateCart,
   useCheckout,

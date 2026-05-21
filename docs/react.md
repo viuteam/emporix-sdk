@@ -62,6 +62,28 @@ await createCart.mutateAsync({ currency: "CHF" });
 // → POST /cart/{tenant}/carts; storage.setCartId(cartId) is called on success.
 ```
 
+`useActiveCart(opts?)` resolves to "the active cart" in storage. With `opts.create = true`,
+bootstraps a new cart via `client.carts.getCurrent({siteCode, create: true})` if storage
+is empty — useful on cart-page mounts where you want a cart unconditionally. Returns
+`UseQueryResult<Cart | null>`. `data: null` means "no cart yet and create was not
+requested" (deliberate empty-state signal vs. `undefined` = "still loading").
+
+```tsx
+// Header mini-cart — read-only, no auto-create:
+const { data: cart } = useActiveCart();
+const itemCount = cart?.items?.length ?? 0;
+
+// Cart page — auto-create on mount:
+const { data: cart, isLoading } = useActiveCart({ create: true });
+
+// B2B quote cart in parallel to the shopping cart:
+const { data: quoteCart } = useActiveCart({ create: true, type: "quote" });
+```
+
+`useActiveCart` and `useCart(cartId)` coexist with different query-keys. Use `useActiveCart`
+for "the storefront's current cart" and `useCart(cartId)` when you already have a specific
+id (e.g. from a checkout confirmation page).
+
 `useCheckout()` returns `placeOrder` and `placeOrderFromQuote` mutations.
 Auto-detects auth: customer if a token is stored, otherwise anonymous (for the
 guest-checkout flow). `usePaymentModes()` stays customer-only — payment-mode
