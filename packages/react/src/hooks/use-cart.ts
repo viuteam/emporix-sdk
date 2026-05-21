@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -16,7 +17,7 @@ import {
   type CreateCartInput,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
-import { type QueryOpts } from "./internal/use-read-auth";
+import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 
 /** Fetches a cart by id. Disabled when `cartId` is undefined. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
@@ -128,6 +129,74 @@ export function useCreateCart(): UseMutationResult<
     mutationFn: (input) => client.carts.create(input, ctx),
     onSuccess: (cart) => {
       if (cart.cartId) storage.setCartId(cart.cartId);
+    },
+  });
+}
+
+/**
+ * Resolves to "the active cart": the cart matching `storage.cartId` if one is
+ * present. With `create: true`, bootstraps a new cart via
+ * `client.carts.getCurrent({siteCode, create: true})` when storage is empty —
+ * useful on cart-page mounts where you want a cart unconditionally.
+ *
+ * Auto-detects auth (customer if a token is stored, else anonymous), same as
+ * `useCart` and the other read hooks.
+ *
+ * Returns `UseQueryResult<Cart | null>`. `data: null` means "no cart yet and
+ * create was not requested" — a deliberate signal so an empty-state can
+ * render without confusing it with the loading state.
+ */
+export function useActiveCart(opts?: {
+  create?: boolean;
+  type?: string;
+  legalEntityId?: string;
+  auth?: AuthContext;
+}): UseQueryResult<Cart | null> {
+  const { client, storage } = useEmporix();
+  const { ctx, kind } = useReadAuth(opts?.auth);
+
+  const [cartId, setCartId] = useState<string | null>(() => storage.getCartId());
+
+  useEffect(() => {
+    if (cartId !== null) return;
+    if (!opts?.create) return;
+    const siteCode = client.config?.credentials?.storefront?.context?.siteCode;
+    if (!siteCode) return;
+    let cancelled = false;
+    client.carts
+      .getCurrent(ctx, {
+        siteCode,
+        ...(opts.type !== undefined ? { type: opts.type } : {}),
+        ...(opts.legalEntityId !== undefined ? { legalEntityId: opts.legalEntityId } : {}),
+        create: true,
+      })
+      .then((cart) => {
+        if (cancelled) return;
+        if (cart?.id) {
+          storage.setCartId(cart.id);
+          setCartId(cart.id);
+        }
+      })
+      .catch(() => {
+        // Best-effort bootstrap; downstream useQuery error surfaces real issues.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartId, opts?.create, opts?.type, opts?.legalEntityId, kind]);
+
+  return useQuery<Cart | null>({
+    queryKey: [
+      "emporix",
+      "active-cart",
+      cartId,
+      { tenant: client.tenant, authKind: kind },
+    ],
+    enabled: cartId !== null,
+    queryFn: async () => {
+      if (cartId === null) return null;
+      return client.carts.get(cartId, ctx);
     },
   });
 }
