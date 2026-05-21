@@ -1,54 +1,61 @@
 "use client";
 
 import { useState } from "react";
-import { useEmporix, useMatchPrices } from "@viu/emporix-sdk-react";
+import {
+  useEmporix,
+  useActiveCart,
+  useCartMutations,
+  useMatchPrices,
+  useCheckout,
+} from "@viu/emporix-sdk-react";
 
 // Priced product on tenant `viu` (CHF/main/CH) — see plan-c-viu-context.md.
 const PRODUCT_ID = "0f1e2d3c-4b5a";
-const ANON = { kind: "anonymous" } as const;
 
+/**
+ * Hook-only guest flow: useActiveCart resolves storage→cart (or bootstraps
+ * a new cart on "Start guest cart"). Mirrors examples/vite-spa.
+ */
 export default function GuestCheckoutPage(): React.JSX.Element {
-  const { client } = useEmporix();
-  const [cartId, setCartId] = useState<string | null>(null);
+  const { client, storage } = useEmporix();
+  const [wantCart, setWantCart] = useState<boolean>(() => storage.getCartId() !== null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const cart = useActiveCart(wantCart ? { create: true } : undefined);
+  const cartId = cart.data?.id ?? null;
+
   const prices = useMatchPrices(
     { items: [{ itemId: { itemType: "PRODUCT", id: PRODUCT_ID }, quantity: { quantity: 1 } }] },
     { enabled: cartId !== null },
   );
+  const cartMutations = useCartMutations(cartId ?? "");
+  const checkout = useCheckout();
 
-  async function startCart(): Promise<void> {
+  function startCart(): void {
+    setError(null);
+    setWantCart(true);
+  }
+
+  async function addSampleItem(): Promise<void> {
+    if (!cartId) return;
     setError(null);
     try {
-      const cart = await client.carts.create({ currency: "CHF" }, ANON);
-      const id = cart.cartId;
-      if (!id) throw new Error("cart created without an id");
-      // Resolve the real price first; the cart add-item needs a valid priceId.
-      const matched = await client.prices.matchByContext(
-        { items: [{ itemId: { itemType: "PRODUCT", id: PRODUCT_ID }, quantity: { quantity: 1 } }] },
-        ANON,
-      );
-      const p = matched[0] as
+      const { data: matched } = await prices.refetch();
+      const p = matched?.[0] as
         | { priceId?: string; originalValue?: number; effectiveValue?: number }
         | undefined;
       if (!p?.priceId) throw new Error("no price resolved for the product");
-      // Emporix resolves the cart product via `itemYrn` (or `product`); the
-      // priced item here is not a plain catalog product, so use the YRN.
-      await client.carts.addItem(
-        id,
-        {
-          itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${PRODUCT_ID}`,
-          quantity: 1,
-          price: {
-            priceId: p.priceId,
-            originalAmount: p.originalValue ?? 0,
-            effectiveAmount: p.effectiveValue ?? 0,
-            currency: "CHF",
-          },
+      await cartMutations.addItem.mutateAsync({
+        itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${PRODUCT_ID}`,
+        quantity: 1,
+        price: {
+          priceId: p.priceId,
+          originalAmount: p.originalValue ?? 0,
+          effectiveAmount: p.effectiveValue ?? 0,
+          currency: "CHF",
         },
-        ANON,
-      );
-      setCartId(id);
+      });
     } catch (e) {
       setError(String(e));
     }
@@ -58,58 +65,49 @@ export default function GuestCheckoutPage(): React.JSX.Element {
     if (!cartId) return;
     setError(null);
     try {
-      // Freshness: re-match right before ordering (SDK is stateless on prices).
-      const m = await client.prices.matchByContext(
-        { items: [{ itemId: { itemType: "PRODUCT", id: PRODUCT_ID }, quantity: { quantity: 1 } }] },
-        ANON,
-      );
-      const amount = (m[0] as { effectiveValue?: number } | undefined)?.effectiveValue ?? 0;
-      const r = await client.checkout.placeOrder(
-        {
+      const { data: fresh } = await prices.refetch();
+      const amount = (fresh?.[0] as { effectiveValue?: number } | undefined)?.effectiveValue ?? 0;
+      const r = await checkout.placeOrder.mutateAsync({
+        input: {
           cartId,
-          customer: {
-            email: "guest@example.com",
-            firstName: "Guest",
-            lastName: "Shopper",
-            guest: true,
-          },
-          // Real shipping ids from the tenant's Shipping service.
+          customer: { email: "guest@example.com", firstName: "Guest", lastName: "Shopper", guest: true },
           shipping: { methodId: "free", zoneId: "CH", methodName: "Free Shipping", amount: 0 },
           addresses: [
-            {
-              contactName: "Guest Shopper",
-              street: "Rämistrasse 71",
-              zipCode: "8006",
-              city: "Zürich",
-              country: "CH",
-              type: "BILLING",
-            },
-            {
-              contactName: "Guest Shopper",
-              street: "Rämistrasse 71",
-              zipCode: "8006",
-              city: "Zürich",
-              country: "CH",
-              type: "SHIPPING",
-            },
+            { contactName: "Guest Shopper", street: "Rämistrasse 71", zipCode: "8006", city: "Zürich", country: "CH", type: "BILLING" },
+            { contactName: "Guest Shopper", street: "Rämistrasse 71", zipCode: "8006", city: "Zürich", country: "CH", type: "SHIPPING" },
           ],
           paymentMethods: [{ provider: "custom", amount }],
         },
-        ANON,
-      );
+      });
+      storage.setCartId(null);
+      setWantCart(false);
       setOrderId(r.orderId ?? null);
     } catch (e) {
       setError(String(e));
     }
   }
 
+  function discardCart(): void {
+    storage.setCartId(null);
+    setWantCart(false);
+    setOrderId(null);
+  }
+
+  const itemCount = cart.data?.items?.length ?? 0;
+
   return (
     <main>
       <h1>Guest checkout</h1>
-      {!cartId && <button onClick={() => void startCart()}>Start guest cart</button>}
-      {cartId && <p>Cart: {cartId}</p>}
-      {prices.data && <p>Unit price: {prices.data[0]?.effectiveValue ?? "—"}</p>}
-      {cartId && !orderId && <button onClick={() => void placeOrder()}>Place guest order</button>}
+      {!cartId && <button onClick={startCart}>Start guest cart</button>}
+      {cartId && <p>Cart: {cartId} ({itemCount} item(s))</p>}
+      {prices.data && <p>Unit price: {(prices.data[0] as { effectiveValue?: number } | undefined)?.effectiveValue ?? "—"}</p>}
+      {cartId && !orderId && itemCount === 0 && (
+        <button onClick={() => void addSampleItem()}>Add sample item</button>
+      )}
+      {cartId && !orderId && itemCount > 0 && (
+        <button onClick={() => void placeOrder()}>Place guest order</button>
+      )}
+      {cartId && !orderId && <button onClick={discardCart}>Discard cart</button>}
       {orderId && <p>Order placed: {orderId}</p>}
       {error && <pre>{error}</pre>}
     </main>
