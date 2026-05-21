@@ -1,4 +1,5 @@
 import { test, expect } from "../fixtures/test-customer";
+import { fillSecret } from "../fixtures/secret-input";
 
 test("guest cart is merged into the customer cart on login", async ({ page, customer }) => {
   // 1. Fresh start, create guest cart.
@@ -24,8 +25,8 @@ test("guest cart is merged into the customer cart on login", async ({ page, cust
 
   // 3. Log in.
   await page.goto("/account");
-  await page.getByPlaceholder("email").fill(customer.email);
-  await page.getByPlaceholder("password").fill(customer.password);
+  await fillSecret(page, 'input[placeholder="email"]', customer.email);
+  await fillSecret(page, 'input[placeholder="password"]', customer.password);
   await page.getByRole("button", { name: "Log in" }).click();
   await expect(page.getByText(/Signed in as/)).toBeVisible({ timeout: 15_000 });
 

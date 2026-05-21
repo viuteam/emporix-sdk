@@ -1,4 +1,5 @@
 import { test, expect } from "../fixtures/test-customer";
+import { fillSecret } from "../fixtures/secret-input";
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -9,8 +10,8 @@ test("login resolves the customer profile and stores the token", async ({ page, 
   await page.evaluate(() => localStorage.clear());
   await page.reload();
 
-  await page.getByPlaceholder("email").fill(customer.email);
-  await page.getByPlaceholder("password").fill(customer.password);
+  await fillSecret(page, 'input[placeholder="email"]', customer.email);
+  await fillSecret(page, 'input[placeholder="password"]', customer.password);
   await page.getByRole("button", { name: "Log in" }).click();
 
   await expect(
@@ -28,8 +29,8 @@ test("logout clears the customer token", async ({ page, customer }) => {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
 
-  await page.getByPlaceholder("email").fill(customer.email);
-  await page.getByPlaceholder("password").fill(customer.password);
+  await fillSecret(page, 'input[placeholder="email"]', customer.email);
+  await fillSecret(page, 'input[placeholder="password"]', customer.password);
   await page.getByRole("button", { name: "Log in" }).click();
   await expect(page.getByText(/Signed in as/)).toBeVisible({ timeout: 15_000 });
 
