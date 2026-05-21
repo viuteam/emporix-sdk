@@ -7,7 +7,7 @@ export {
   useCategoriesInfinite,
   useCategoryTree,
 } from "./use-categories";
-export { useCart, useCartMutations, useCreateCart } from "./use-cart";
+export { useCart, useActiveCart, useCartMutations, useCreateCart } from "./use-cart";
 export type { CartMutationsApi } from "./use-cart";
 export { useCheckout, usePaymentModes } from "./use-checkout";
 export type { CheckoutApi } from "./use-checkout";
