@@ -19,16 +19,15 @@ import {
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 
-/** Fetches a cart by id. Disabled when `cartId` is undefined. */
+/** Fetches a cart by id. Falls back to `storage.getCartId()` when no argument is passed; disabled when neither is set. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
   const { client, storage } = useEmporix();
-  const override = options.auth;
-  const token = storage.getCustomerToken();
-  const ctx: AuthContext = override ?? (token ? auth.customer(token) : auth.anonymous());
+  const { ctx, kind } = useReadAuth(options.auth);
+  const resolvedId = cartId ?? storage.getCartId() ?? undefined;
   return useQuery({
-    queryKey: ["emporix", "cart", cartId ?? null, { tenant: client.tenant, authKind: ctx.kind }],
-    enabled: cartId !== undefined,
-    queryFn: () => client.carts.get(cartId as string, ctx),
+    queryKey: ["emporix", "cart", resolvedId ?? null, { tenant: client.tenant, authKind: kind }],
+    enabled: resolvedId !== undefined,
+    queryFn: () => client.carts.get(resolvedId as string, ctx),
   });
 }
 

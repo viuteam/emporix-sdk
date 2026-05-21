@@ -155,4 +155,16 @@ describe("useCart (read)", () => {
     const { result } = renderHook(() => useCart("cart1"), { wrapper: wrap(storage) });
     await waitFor(() => expect(result.current.data?.id).toBe("cart1"));
   });
+
+  it("useCart() with no argument is disabled when storage has no cartId", () => {
+    const { result } = renderHook(() => useCart(), { wrapper: wrap() });
+    expect(result.current.fetchStatus).toBe("idle");
+  });
+
+  it("useCart() with no argument reads cartId from storage", async () => {
+    const storage = createMemoryStorage();
+    storage.setCartId("cart1");
+    const { result } = renderHook(() => useCart(), { wrapper: wrap(storage) });
+    await waitFor(() => expect(result.current.data?.id).toBe("cart1"));
+  });
 });
