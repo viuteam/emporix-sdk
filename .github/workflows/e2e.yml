@@ -52,9 +52,10 @@ jobs:
           EMPORIX_TEST_CUSTOMER_PASSWORD: ${{ secrets.EMPORIX_TEST_CUSTOMER_PASSWORD }}
 
       - name: Upload Playwright report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: e2e/playwright-report/
           retention-days: 14
+          if-no-files-found: warn
