@@ -9,6 +9,8 @@
     "test": "pnpm -r --filter \"./packages/*\" test",
     "lint": "pnpm -r --filter \"./packages/*\" lint",
     "typecheck": "pnpm -r typecheck",
+    "e2e": "pnpm --filter @viu/emporix-e2e exec playwright test",
+    "e2e:headed": "pnpm --filter @viu/emporix-e2e exec playwright test --headed",
     "changeset": "changeset",
     "version": "changeset version && pnpm install --lockfile-only",
     "release": "pnpm -r --filter \"./packages/*\" build && changeset publish",
