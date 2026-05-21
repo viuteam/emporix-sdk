@@ -1,11 +1,19 @@
 export { useCustomerSession } from "./use-customer-session";
 export type { CustomerSessionApi } from "./use-customer-session";
-export { useProduct, useProducts, useProductsInfinite } from "./use-products";
+export {
+  useProduct,
+  useProducts,
+  useProductsInfinite,
+  useProductByCode,
+  useProductSearch,
+} from "./use-products";
 export {
   useCategory,
   useCategories,
   useCategoriesInfinite,
   useCategoryTree,
+  useProductsInCategory,
+  useProductsInCategoryInfinite,
 } from "./use-categories";
 export { useCart, useActiveCart, useCartMutations, useCreateCart } from "./use-cart";
 export type { CartMutationsApi } from "./use-cart";

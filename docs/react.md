@@ -47,6 +47,29 @@ Query hooks (`useProduct(s)`, `useProductsInfinite`, `useCategory(ies)`,
 kind. Default: `customer` if a token is stored, else `anonymous`. `useCart` is
 disabled until a `cartId` is supplied.
 
+### Catalog UX
+
+`useProductByCode(code)` — fetches a product by its `code` field. Use for slug-based routes like `/products/[slug]`. Disabled when `code` is undefined/empty.
+
+```tsx
+const { data: product } = useProductByCode(params.slug);
+```
+
+`useProductSearch(query, params?)` — full-text search. Disabled on empty query — pair with consumer-side debouncing for header search boxes.
+
+```tsx
+const [q, setQ] = useState("");
+const debounced = useDebounce(q, 300);
+const { data } = useProductSearch(debounced, { pageSize: 10 });
+```
+
+`useProductsInCategory(categoryId, params?)` — paginated product list for a category page. `useProductsInCategoryInfinite` for infinite scroll, same `hasNextPage`-driven cursor as `useProductsInfinite`.
+
+```tsx
+const { data, fetchNextPage, hasNextPage } = useProductsInCategoryInfinite(categoryId, { pageSize: 24 });
+const items = data?.pages.flatMap((p) => p.items) ?? [];
+```
+
 `useCartMutations(cartId)` returns `addItem`, `updateItem`, `removeItem`,
 `clear`, `applyCoupon`, `removeCoupon`, `setShippingAddress`,
 `setBillingAddress` — each a react-query mutation that optimistically patches
