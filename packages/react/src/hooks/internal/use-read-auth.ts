@@ -22,3 +22,17 @@ export function useReadAuth(
     ? { ctx: auth.customer(token), kind: "customer" }
     : { ctx: auth.anonymous(), kind: "anonymous" };
 }
+
+/**
+ * Returns a customer `AuthContext` from the stored token. Throws if no token
+ * exists in storage — use for hooks that are intentionally customer-only
+ * (profile updates, password change, address management, payment modes).
+ */
+export function useCustomerOnlyCtx(): AuthContext {
+  const { storage } = useEmporix();
+  const token = storage.getCustomerToken();
+  if (!token) {
+    throw new Error("Requires a logged-in customer (no token in storage)");
+  }
+  return auth.customer(token);
+}
