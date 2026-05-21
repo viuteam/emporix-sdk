@@ -2,10 +2,29 @@
   "name": "@viu/emporix-sdk-react",
   "version": "0.0.0",
   "description": "React bindings for the Emporix SDK",
+  "license": "MIT",
+  "author": "viuteam",
+  "homepage": "https://github.com/viuteam/emporix-sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/viuteam/emporix-sdk.git",
+    "directory": "packages/react"
+  },
+  "bugs": { "url": "https://github.com/viuteam/emporix-sdk/issues" },
+  "keywords": [
+    "emporix",
+    "ecommerce",
+    "commerce",
+    "react",
+    "react-query",
+    "hooks",
+    "typescript",
+    "storefront"
+  ],
   "type": "module",
   "sideEffects": false,
   "engines": { "node": ">=18" },
-  "files": ["dist", "README.md", "CHANGELOG.md"],
+  "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" },
     "./provider": { "types": "./dist/provider.d.ts", "import": "./dist/provider.js", "require": "./dist/provider.cjs" },
