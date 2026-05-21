@@ -7,7 +7,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import {
-  auth,
+  EmporixError,
   type AuthContext,
   type Cart,
   type CartAddress,
@@ -19,16 +19,15 @@ import {
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 
-/** Fetches a cart by id. Disabled when `cartId` is undefined. */
+/** Fetches a cart by id. Falls back to `storage.getCartId()` when no argument is passed; disabled when neither is set. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
   const { client, storage } = useEmporix();
-  const override = options.auth;
-  const token = storage.getCustomerToken();
-  const ctx: AuthContext = override ?? (token ? auth.customer(token) : auth.anonymous());
+  const { ctx, kind } = useReadAuth(options.auth);
+  const resolvedId = cartId ?? storage.getCartId() ?? undefined;
   return useQuery({
-    queryKey: ["emporix", "cart", cartId ?? null, { tenant: client.tenant, authKind: ctx.kind }],
-    enabled: cartId !== undefined,
-    queryFn: () => client.carts.get(cartId as string, ctx),
+    queryKey: ["emporix", "cart", resolvedId ?? null, { tenant: client.tenant, authKind: kind }],
+    enabled: resolvedId !== undefined,
+    queryFn: () => client.carts.get(resolvedId as string, ctx),
   });
 }
 
@@ -46,37 +45,64 @@ export interface CartMutationsApi {
   setBillingAddress: Mut<CartAddress>;
 }
 
-/** Returns mutation handles for a cart, each optimistically patching `useCart`. */
-export function useCartMutations(cartId: string): CartMutationsApi {
+/**
+ * Cart write operations with optimistic cache updates and rollback.
+ *
+ * `cartId` is optional — when omitted, `storage.getCartId()` is resolved at
+ * **mutate-time** (inside `mutationFn`/`onMutate`), so post-mount writes from
+ * `useActiveCart({ create: true })` work without a render race. Throws
+ * `EmporixError("useCartMutations: no cartId available — …")` when storage
+ * is still empty at mutate-time.
+ */
+export function useCartMutations(cartId?: string): CartMutationsApi {
   const { client, storage } = useEmporix();
   const qc = useQueryClient();
-  const token = storage.getCustomerToken();
-  const ctx: AuthContext = token ? auth.customer(token) : auth.anonymous();
-  const key = ["emporix", "cart", cartId, { tenant: client.tenant, authKind: ctx.kind }];
+  const { ctx, kind } = useReadAuth();
+
+  const resolveId = (): string => {
+    const id = cartId ?? storage.getCartId();
+    if (!id) {
+      throw new EmporixError(
+        "useCartMutations: no cartId available — pass one explicitly or call useActiveCart({ create: true }) first",
+      );
+    }
+    return id;
+  };
+  const keyFor = (id: string) =>
+    ["emporix", "cart", id, { tenant: client.tenant, authKind: kind }] as const;
 
   function make<TVars>(
-    run: (vars: TVars) => Promise<Cart>,
+    run: (id: string, vars: TVars) => Promise<Cart>,
     optimistic?: (prev: Cart | undefined, vars: TVars) => Cart | undefined,
   ): Mut<TVars> {
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useMutation<Cart, unknown, TVars, { previous: Cart | undefined }>({
-      mutationFn: run,
+    return useMutation<
+      Cart,
+      unknown,
+      TVars,
+      { previous: Cart | undefined; key: readonly unknown[] }
+    >({
+      mutationFn: async (vars) => run(resolveId(), vars),
       onMutate: async (vars) => {
+        const id = resolveId();
+        const key = keyFor(id);
         await qc.cancelQueries({ queryKey: key });
         const previous = qc.getQueryData<Cart>(key);
         if (optimistic) qc.setQueryData<Cart>(key, optimistic(previous, vars));
-        return { previous };
+        return { previous, key };
       },
       onError: (_e, _v, c) => {
-        if (c) qc.setQueryData(key, c.previous);
+        if (c) qc.setQueryData(c.key, c.previous);
       },
-      onSuccess: (cart) => qc.setQueryData(key, cart),
+      onSuccess: (cart, _v, c) => {
+        if (c) qc.setQueryData(c.key, cart);
+      },
     });
   }
 
   return {
     addItem: make(
-      (v) => client.carts.addItem(cartId, v, ctx),
+      (id, v) => client.carts.addItem(id, v, ctx),
       (prev, v) =>
         prev
           ? {
@@ -92,30 +118,33 @@ export function useCartMutations(cartId: string): CartMutationsApi {
             }
           : prev,
     ),
-    updateItem: make((v) => client.carts.updateItem(cartId, v.itemId, v.patch, ctx)),
+    updateItem: make((id, v) => client.carts.updateItem(id, v.itemId, v.patch, ctx)),
     removeItem: make(
-      (v) => client.carts.removeItem(cartId, v.itemId, ctx),
+      (id, v) => client.carts.removeItem(id, v.itemId, ctx),
       (prev, v) =>
         prev ? { ...prev, items: (prev.items ?? []).filter((i) => i.id !== v.itemId) } : prev,
     ),
     clear: make(
-      () => client.carts.clear(cartId, ctx),
+      (id) => client.carts.clear(id, ctx),
       (prev) => (prev ? { ...prev, items: [] } : prev),
     ),
-    applyCoupon: make((v) => client.carts.applyCoupon(cartId, v.code, ctx)),
-    removeCoupon: make((v) => client.carts.removeCoupon(cartId, v.code, ctx)),
-    setShippingAddress: make((v) => client.carts.setShippingAddress(cartId, v, ctx)),
-    setBillingAddress: make((v) => client.carts.setBillingAddress(cartId, v, ctx)),
+    applyCoupon: make((id, v) => client.carts.applyCoupon(id, v.code, ctx)),
+    removeCoupon: make((id, v) => client.carts.removeCoupon(id, v.code, ctx)),
+    setShippingAddress: make((id, v) => client.carts.setShippingAddress(id, v, ctx)),
+    setBillingAddress: make((id, v) => client.carts.setBillingAddress(id, v, ctx)),
   };
 }
 
 /**
  * Creates a cart. Auto-detects auth (customer if a token is stored, else
  * anonymous). On success, persists `cartId` via `storage.setCartId` so a later
- * page reload can resume the same cart with the same anonymous session.
+ * page reload can resume the same cart with the same anonymous session, then
+ * invalidates `["emporix","cart"]` so `useActiveCart` re-reads storage on the
+ * next render.
  *
  * Note: the SDK's `carts.create` returns `CartCreated = { cartId, yrn }`, not
- * the full `Cart`. The full cart is loaded on demand by `useCart(cartId)`.
+ * the full `Cart`. The full cart is loaded on demand by `useCart(cartId)` /
+ * `useActiveCart()`.
  */
 export function useCreateCart(): UseMutationResult<
   CartCreated,
@@ -123,12 +152,13 @@ export function useCreateCart(): UseMutationResult<
   CreateCartInput | undefined
 > {
   const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
-  const ctx: AuthContext = token ? auth.customer(token) : auth.anonymous();
+  const qc = useQueryClient();
+  const { ctx } = useReadAuth();
   return useMutation<CartCreated, unknown, CreateCartInput | undefined>({
     mutationFn: (input) => client.carts.create(input, ctx),
-    onSuccess: (cart) => {
+    onSuccess: async (cart) => {
       if (cart.cartId) storage.setCartId(cart.cartId);
+      await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
     },
   });
 }
@@ -139,8 +169,9 @@ export function useCreateCart(): UseMutationResult<
  * `client.carts.getCurrent({siteCode, create: true})` when storage is empty —
  * useful on cart-page mounts where you want a cart unconditionally.
  *
- * Auto-detects auth (customer if a token is stored, else anonymous), same as
- * `useCart` and the other read hooks.
+ * Internally delegates to `useCart` so both hooks share the canonical
+ * `["emporix","cart", id, …]` cache entry — optimistic updates from
+ * `useCartMutations` propagate automatically.
  *
  * Returns `UseQueryResult<Cart | null>`. `data: null` means "no cart yet and
  * create was not requested" — a deliberate signal so an empty-state can
@@ -178,7 +209,7 @@ export function useActiveCart(opts?: {
         }
       })
       .catch(() => {
-        // Best-effort bootstrap; downstream useQuery error surfaces real issues.
+        // Best-effort bootstrap; downstream useCart error surfaces real issues.
       });
     return () => {
       cancelled = true;
@@ -186,17 +217,9 @@ export function useActiveCart(opts?: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartId, opts?.create, opts?.type, opts?.legalEntityId, kind]);
 
-  return useQuery<Cart | null>({
-    queryKey: [
-      "emporix",
-      "active-cart",
-      cartId,
-      { tenant: client.tenant, authKind: kind },
-    ],
-    enabled: cartId !== null,
-    queryFn: async () => {
-      if (cartId === null) return null;
-      return client.carts.get(cartId, ctx);
-    },
-  });
+  // Delegate to useCart with the canonical cache key. When cartId state is null,
+  // wrap data → null to expose the documented empty-state signal.
+  const inner = useCart(cartId ?? undefined, opts?.auth ? { auth: opts.auth } : {});
+  const data: Cart | null | undefined = cartId === null ? null : inner.data;
+  return { ...inner, data } as UseQueryResult<Cart | null>;
 }

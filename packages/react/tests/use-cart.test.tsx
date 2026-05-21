@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { renderHook, act, waitFor } from "@testing-library/react";
@@ -6,7 +6,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
-import { useCart, useCartMutations, useCreateCart } from "../src/hooks/use-cart";
+import { useCart, useCartMutations, useCreateCart, useActiveCart } from "../src/hooks/use-cart";
 import type { EmporixStorage } from "../src/storage";
 import type { ReactNode } from "react";
 
@@ -94,6 +94,35 @@ describe("useCartMutations", () => {
     });
     await waitFor(() => expect(result.current.cart.data?.items).toHaveLength(1));
   });
+
+  it("useCartMutations() throws when storage has no cartId at mutate-time", async () => {
+    const { result } = renderHook(() => useCartMutations(), { wrapper: wrap() });
+    await expect(
+      result.current.addItem.mutateAsync({
+        product: { id: "p1" },
+        quantity: 1,
+        price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" },
+      }),
+    ).rejects.toThrow(/no cartId available/);
+  });
+
+  it("useCartMutations() resolves cartId at mutate-time (storage set after mount)", async () => {
+    const storage = createMemoryStorage();
+    const wrapper = wrap(storage);
+    const { result } = renderHook(() => useCartMutations(), { wrapper });
+    // Render the hook with no cartId — then set storage before mutating.
+    storage.setCartId("cart1");
+    await act(async () => {
+      await result.current.addItem.mutateAsync({
+        product: { id: "p1" },
+        quantity: 1,
+        price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" },
+      });
+    });
+    // Reaches the existing MSW handler at /cart/acme/carts/cart1/items → success
+    // means the mutation picked up the post-mount setCartId.
+    await waitFor(() => expect(result.current.addItem.isSuccess).toBe(true));
+  });
 });
 
 describe("useCreateCart", () => {
@@ -142,6 +171,34 @@ describe("useCreateCart", () => {
     expect(seenAuth).toBe("Bearer CUST-TOK");
     expect(storage.getCartId()).toBe("cart-c");
   });
+
+  it("invalidates [emporix,cart] queries on success", async () => {
+    server.use(
+      http.post("https://api.emporix.io/cart/acme/carts", () =>
+        HttpResponse.json({ cartId: "cart-new", yrn: "yrn:cart:cart-new" }, { status: 201 }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    const client = new EmporixClient({
+      tenant: "acme",
+      credentials: { backend: { clientId: "b", secret: "s" }, storefront: { clientId: "sf" } },
+      logger: false,
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={storage} queryClient={queryClient}>
+        {children}
+      </EmporixProvider>
+    );
+    const { result } = renderHook(() => useCreateCart(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({ currency: "CHF" });
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ["emporix", "cart"] }),
+    );
+  });
 });
 
 describe("useCart (read)", () => {
@@ -154,5 +211,60 @@ describe("useCart (read)", () => {
     const storage = createMemoryStorage({ initial: "cust-tok" });
     const { result } = renderHook(() => useCart("cart1"), { wrapper: wrap(storage) });
     await waitFor(() => expect(result.current.data?.id).toBe("cart1"));
+  });
+
+  it("useCart() with no argument is disabled when storage has no cartId", () => {
+    const { result } = renderHook(() => useCart(), { wrapper: wrap() });
+    expect(result.current.fetchStatus).toBe("idle");
+  });
+
+  it("useCart() with no argument reads cartId from storage", async () => {
+    const storage = createMemoryStorage();
+    storage.setCartId("cart1");
+    const { result } = renderHook(() => useCart(), { wrapper: wrap(storage) });
+    await waitFor(() => expect(result.current.data?.id).toBe("cart1"));
+  });
+});
+
+describe("useActiveCart + useCart cache sharing", () => {
+  it("useActiveCart and useCart share the cache when both target the same cart", async () => {
+    let cartFetches = 0;
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts/cart-shared", () => {
+        cartFetches += 1;
+        return HttpResponse.json({ id: "cart-shared", items: [] });
+      }),
+    );
+    const storage = createMemoryStorage();
+    storage.setCartId("cart-shared");
+    const wrapper = wrap(storage);
+    const { result } = renderHook(
+      () => ({ active: useActiveCart(), explicit: useCart("cart-shared") }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.active.data?.id).toBe("cart-shared"));
+    await waitFor(() => expect(result.current.explicit.data?.id).toBe("cart-shared"));
+    expect(cartFetches).toBe(1);
+  });
+
+  it("optimistic update from useCartMutations propagates to useActiveCart", async () => {
+    const storage = createMemoryStorage();
+    storage.setCartId("cart1");
+    const wrapper = wrap(storage);
+    const { result } = renderHook(
+      () => ({ active: useActiveCart(), mut: useCartMutations() }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.active.data?.id).toBe("cart1"));
+    expect(result.current.active.data?.items).toHaveLength(0);
+    await act(async () => {
+      await result.current.mut.addItem.mutateAsync({
+        product: { id: "p1" },
+        quantity: 1,
+        price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" },
+      });
+    });
+    // After mutation, useActiveCart reflects the updated cart from the shared cache.
+    await waitFor(() => expect(result.current.active.data?.items).toHaveLength(1));
   });
 });

@@ -45,7 +45,8 @@ After a successful `login` (or `socialLogin` / `exchangeToken`), the hook runs a
 Query hooks (`useProduct(s)`, `useProductsInfinite`, `useCategory(ies)`,
 `useCategoryTree`, `useCart`) accept `{ auth }` to override the per-call token
 kind. Default: `customer` if a token is stored, else `anonymous`. `useCart` is
-disabled until a `cartId` is supplied.
+disabled until a `cartId` is supplied — either explicitly via `useCart(id)` or
+implicitly via `storage.getCartId()` when called as `useCart()`.
 
 ### Catalog UX
 
@@ -70,10 +71,18 @@ const { data, fetchNextPage, hasNextPage } = useProductsInCategoryInfinite(categ
 const items = data?.pages.flatMap((p) => p.items) ?? [];
 ```
 
-`useCartMutations(cartId)` returns `addItem`, `updateItem`, `removeItem`,
+`useCartMutations(cartId?)` returns `addItem`, `updateItem`, `removeItem`,
 `clear`, `applyCoupon`, `removeCoupon`, `setShippingAddress`,
 `setBillingAddress` — each a react-query mutation that optimistically patches
-the `useCart` cache and rolls back on error.
+the cart cache and rolls back on error. When `cartId` is omitted, the active
+cartId is read from `storage` at mutate-time; if storage is empty when a
+mutation runs, it rejects with `EmporixError("useCartMutations: no cartId
+available …")`. Pair with `useActiveCart` to drop manual cart-id threading:
+
+```tsx
+const { data: cart } = useActiveCart({ create: true });
+const { addItem } = useCartMutations(); // shares the cart cache with useActiveCart
+```
 
 `useCreateCart()` creates a cart and persists the resulting `cartId` so a later
 reload can resume the same cart. Auto-detects customer vs anonymous auth from
@@ -103,9 +112,11 @@ const { data: cart, isLoading } = useActiveCart({ create: true });
 const { data: quoteCart } = useActiveCart({ create: true, type: "quote" });
 ```
 
-`useActiveCart` and `useCart(cartId)` coexist with different query-keys. Use `useActiveCart`
-for "the storefront's current cart" and `useCart(cartId)` when you already have a specific
-id (e.g. from a checkout confirmation page).
+`useActiveCart` and `useCart(cartId)` share the same React-Query cache entry
+when they target the same cart, so optimistic updates from `useCartMutations`
+propagate to every cart-aware view. Use `useActiveCart` for "the storefront's
+current cart" and `useCart(cartId)` when you already have a specific id (e.g.
+from a checkout confirmation page).
 
 ### Customer account
 
