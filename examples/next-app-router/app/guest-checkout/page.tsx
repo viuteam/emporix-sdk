@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useEmporix,
-  useActiveCart,
+  useCart,
   useCartMutations,
+  useCreateCart,
   useMatchPrices,
   useCheckout,
 } from "@viu/emporix-sdk-react";
@@ -12,29 +14,40 @@ import {
 // Priced product on tenant `viu` (CHF/main/CH) — see plan-c-viu-context.md.
 const PRODUCT_ID = "0f1e2d3c-4b5a";
 
+type Phase = "empty" | "shopping" | "ordered";
+
 /**
- * Hook-only guest flow: useActiveCart resolves storage→cart (or bootstraps
- * a new cart on "Start guest cart"). Mirrors examples/vite-spa.
+ * Hook-only guest flow: `useCart()` reads the active cartId from storage at
+ * every render, paired with `useCreateCart` for explicit cart creation.
+ * Mirrors `examples/vite-spa/src/GuestCheckout.tsx`.
  */
 export default function GuestCheckoutPage(): React.JSX.Element {
   const { client, storage } = useEmporix();
-  const [wantCart, setWantCart] = useState<boolean>(() => storage.getCartId() !== null);
-  const [orderId, setOrderId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const cart = useActiveCart(wantCart ? { create: true } : undefined);
+  const qc = useQueryClient();
+  const cart = useCart();
   const cartId = cart.data?.id ?? null;
-
+  const createCart = useCreateCart();
+  const cartMutations = useCartMutations();
+  const checkout = useCheckout();
   const prices = useMatchPrices(
     { items: [{ itemId: { itemType: "PRODUCT", id: PRODUCT_ID }, quantity: { quantity: 1 } }] },
     { enabled: cartId !== null },
   );
-  const cartMutations = useCartMutations();
-  const checkout = useCheckout();
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  function startCart(): void {
+  async function clearLocalCart(): Promise<void> {
+    storage.setCartId(null);
+    await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
+  }
+
+  async function startCart(): Promise<void> {
     setError(null);
-    setWantCart(true);
+    try {
+      await createCart.mutateAsync({ currency: "CHF" });
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   async function addSampleItem(): Promise<void> {
@@ -79,36 +92,47 @@ export default function GuestCheckoutPage(): React.JSX.Element {
           paymentMethods: [{ provider: "custom", amount }],
         },
       });
-      storage.setCartId(null);
-      setWantCart(false);
       setOrderId(r.orderId ?? null);
+      await clearLocalCart();
     } catch (e) {
       setError(String(e));
     }
   }
 
-  function discardCart(): void {
-    storage.setCartId(null);
-    setWantCart(false);
+  async function discardCart(): Promise<void> {
+    await clearLocalCart();
     setOrderId(null);
   }
 
   const itemCount = cart.data?.items?.length ?? 0;
+  const phase: Phase = orderId ? "ordered" : cart.data ? "shopping" : "empty";
 
   return (
     <main>
       <h1>Guest checkout</h1>
-      {!cartId && <button onClick={startCart}>Start guest cart</button>}
-      {cartId && <p>Cart: {cartId} ({itemCount} item(s))</p>}
-      {prices.data && <p>Unit price: {(prices.data[0] as { effectiveValue?: number } | undefined)?.effectiveValue ?? "—"}</p>}
-      {cartId && !orderId && itemCount === 0 && (
-        <button onClick={() => void addSampleItem()}>Add sample item</button>
+      {phase === "empty" && (
+        <button onClick={() => void startCart()} disabled={createCart.isPending}>
+          {createCart.isPending ? "Starting…" : "Start guest cart"}
+        </button>
       )}
-      {cartId && !orderId && itemCount > 0 && (
-        <button onClick={() => void placeOrder()}>Place guest order</button>
+      {phase === "shopping" && cartId && (
+        <>
+          <p>Cart: {cartId} ({itemCount} item(s))</p>
+          {prices.data && (
+            <p>
+              Unit price:{" "}
+              {(prices.data[0] as { effectiveValue?: number } | undefined)?.effectiveValue ?? "—"}
+            </p>
+          )}
+          {itemCount === 0 ? (
+            <button onClick={() => void addSampleItem()}>Add sample item</button>
+          ) : (
+            <button onClick={() => void placeOrder()}>Place guest order</button>
+          )}
+          <button onClick={() => void discardCart()}>Discard cart</button>
+        </>
       )}
-      {cartId && !orderId && <button onClick={discardCart}>Discard cart</button>}
-      {orderId && <p>Order placed: {orderId}</p>}
+      {phase === "ordered" && <p>Order placed: {orderId}</p>}
       {error && <pre>{error}</pre>}
     </main>
   );
