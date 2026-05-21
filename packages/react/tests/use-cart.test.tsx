@@ -6,7 +6,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
-import { useCart, useCartMutations, useCreateCart } from "../src/hooks/use-cart";
+import { useCart, useCartMutations, useCreateCart, useActiveCart } from "../src/hooks/use-cart";
 import type { EmporixStorage } from "../src/storage";
 import type { ReactNode } from "react";
 
@@ -195,5 +195,48 @@ describe("useCart (read)", () => {
     storage.setCartId("cart1");
     const { result } = renderHook(() => useCart(), { wrapper: wrap(storage) });
     await waitFor(() => expect(result.current.data?.id).toBe("cart1"));
+  });
+});
+
+describe("useActiveCart + useCart cache sharing", () => {
+  it("useActiveCart and useCart share the cache when both target the same cart", async () => {
+    let cartFetches = 0;
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts/cart-shared", () => {
+        cartFetches += 1;
+        return HttpResponse.json({ id: "cart-shared", items: [] });
+      }),
+    );
+    const storage = createMemoryStorage();
+    storage.setCartId("cart-shared");
+    const wrapper = wrap(storage);
+    const { result } = renderHook(
+      () => ({ active: useActiveCart(), explicit: useCart("cart-shared") }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.active.data?.id).toBe("cart-shared"));
+    await waitFor(() => expect(result.current.explicit.data?.id).toBe("cart-shared"));
+    expect(cartFetches).toBe(1);
+  });
+
+  it("optimistic update from useCartMutations propagates to useActiveCart", async () => {
+    const storage = createMemoryStorage();
+    storage.setCartId("cart1");
+    const wrapper = wrap(storage);
+    const { result } = renderHook(
+      () => ({ active: useActiveCart(), mut: useCartMutations() }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.active.data?.id).toBe("cart1"));
+    expect(result.current.active.data?.items).toHaveLength(0);
+    await act(async () => {
+      await result.current.mut.addItem.mutateAsync({
+        product: { id: "p1" },
+        quantity: 1,
+        price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" },
+      });
+    });
+    // After mutation, useActiveCart reflects the updated cart from the shared cache.
+    await waitFor(() => expect(result.current.active.data?.items).toHaveLength(1));
   });
 });

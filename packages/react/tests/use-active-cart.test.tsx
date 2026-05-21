@@ -49,11 +49,12 @@ function wrap(
 }
 
 describe("useActiveCart", () => {
-  it("returns disabled state when storage.cartId is null and create is false", () => {
+  it("returns null (not undefined) when storage.cartId is null and create is false", () => {
     const storage = createMemoryStorage();
     const { result } = renderHook(() => useActiveCart(), { wrapper: wrap(storage) });
     expect(result.current.fetchStatus).toBe("idle");
-    expect(result.current.data).toBeUndefined();
+    // The wrapper exposes the documented `data: null = no cart, create not requested` signal.
+    expect(result.current.data).toBeNull();
   });
 
   it("loads the cart when storage.cartId is set on mount", async () => {

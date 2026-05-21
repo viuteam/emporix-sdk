@@ -166,8 +166,9 @@ export function useCreateCart(): UseMutationResult<
  * `client.carts.getCurrent({siteCode, create: true})` when storage is empty —
  * useful on cart-page mounts where you want a cart unconditionally.
  *
- * Auto-detects auth (customer if a token is stored, else anonymous), same as
- * `useCart` and the other read hooks.
+ * Internally delegates to `useCart` so both hooks share the canonical
+ * `["emporix","cart", id, …]` cache entry — optimistic updates from
+ * `useCartMutations` propagate automatically.
  *
  * Returns `UseQueryResult<Cart | null>`. `data: null` means "no cart yet and
  * create was not requested" — a deliberate signal so an empty-state can
@@ -205,7 +206,7 @@ export function useActiveCart(opts?: {
         }
       })
       .catch(() => {
-        // Best-effort bootstrap; downstream useQuery error surfaces real issues.
+        // Best-effort bootstrap; downstream useCart error surfaces real issues.
       });
     return () => {
       cancelled = true;
@@ -213,17 +214,9 @@ export function useActiveCart(opts?: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartId, opts?.create, opts?.type, opts?.legalEntityId, kind]);
 
-  return useQuery<Cart | null>({
-    queryKey: [
-      "emporix",
-      "active-cart",
-      cartId,
-      { tenant: client.tenant, authKind: kind },
-    ],
-    enabled: cartId !== null,
-    queryFn: async () => {
-      if (cartId === null) return null;
-      return client.carts.get(cartId, ctx);
-    },
-  });
+  // Delegate to useCart with the canonical cache key. When cartId state is null,
+  // wrap data → null to expose the documented empty-state signal.
+  const inner = useCart(cartId ?? undefined, opts?.auth ? { auth: opts.auth } : {});
+  const data: Cart | null | undefined = cartId === null ? null : inner.data;
+  return { ...inner, data } as UseQueryResult<Cart | null>;
 }
