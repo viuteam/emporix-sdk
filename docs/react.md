@@ -84,6 +84,32 @@ const { data: quoteCart } = useActiveCart({ create: true, type: "quote" });
 for "the storefront's current cart" and `useCart(cartId)` when you already have a specific
 id (e.g. from a checkout confirmation page).
 
+### Customer account
+
+For "My Account" pages, five additional hooks complement `useCustomerSession`:
+
+`useUpdateCustomer()` — mutation to PUT a profile patch. Invalidates `useCustomerSession.customer` on success so the UI re-renders with the new value.
+
+`useChangePassword()` — mutation that PUTs `currentPassword` + `newPassword`. Customer-only; throws on missing token.
+
+`useCustomerAddresses()` — list of the logged-in customer's addresses. Disabled until a customer token is in storage.
+
+`useAddressMutations()` — `{ add, update, remove }` mutations for `customer.addresses.*`. Each invalidates `useCustomerAddresses` on success.
+
+`usePasswordReset()` — the 2-step anonymous flow: `{ request, confirm }`. Use on `/forgot-password` and `/reset-password?token=…` routes. Both mutations are anonymous-auth (the user is locked out by definition).
+
+```tsx
+const update = useUpdateCustomer();
+await update.mutateAsync({ firstName: "New" });
+
+const { add, update: updateAddr, remove } = useAddressMutations();
+await add.mutateAsync({ street: "Main St", city: "Zürich", country: "CH" });
+
+const { request, confirm } = usePasswordReset();
+await request.mutateAsync({ email: "u@e.com" });             // step 1
+await confirm.mutateAsync({ token: "...", newPassword: "..." }); // step 2
+```
+
 `useCheckout()` returns `placeOrder` and `placeOrderFromQuote` mutations.
 Auto-detects auth: customer if a token is stored, otherwise anonymous (for the
 guest-checkout flow). `usePaymentModes()` stays customer-only — payment-mode

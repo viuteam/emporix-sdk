@@ -30,7 +30,18 @@ export {
   useMySegmentProductsInfinite,
   useMySegmentCategories,
   useMySegmentCategoriesInfinite,
+  useUpdateCustomer,
+  useChangePassword,
+  useCustomerAddresses,
+  useAddressMutations,
+  usePasswordReset,
 } from "./hooks/index";
-export type { CustomerSessionApi, CartMutationsApi, CheckoutApi } from "./hooks/index";
+export type {
+  CustomerSessionApi,
+  CartMutationsApi,
+  CheckoutApi,
+  AddressMutationsApi,
+  PasswordResetApi,
+} from "./hooks/index";
 export { EmporixErrorBoundary, useEmporixErrorHandler } from "./errors";
 export { prefetchProduct, prefetchCart } from "./ssr";
