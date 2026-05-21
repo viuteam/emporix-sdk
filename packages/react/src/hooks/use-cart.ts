@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import {
   auth,
+  EmporixError,
   type AuthContext,
   type Cart,
   type CartAddress,
@@ -45,37 +46,64 @@ export interface CartMutationsApi {
   setBillingAddress: Mut<CartAddress>;
 }
 
-/** Returns mutation handles for a cart, each optimistically patching `useCart`. */
-export function useCartMutations(cartId: string): CartMutationsApi {
+/**
+ * Cart write operations with optimistic cache updates and rollback.
+ *
+ * `cartId` is optional — when omitted, `storage.getCartId()` is resolved at
+ * **mutate-time** (inside `mutationFn`/`onMutate`), so post-mount writes from
+ * `useActiveCart({ create: true })` work without a render race. Throws
+ * `EmporixError("useCartMutations: no cartId available — …")` when storage
+ * is still empty at mutate-time.
+ */
+export function useCartMutations(cartId?: string): CartMutationsApi {
   const { client, storage } = useEmporix();
   const qc = useQueryClient();
-  const token = storage.getCustomerToken();
-  const ctx: AuthContext = token ? auth.customer(token) : auth.anonymous();
-  const key = ["emporix", "cart", cartId, { tenant: client.tenant, authKind: ctx.kind }];
+  const { ctx, kind } = useReadAuth();
+
+  const resolveId = (): string => {
+    const id = cartId ?? storage.getCartId();
+    if (!id) {
+      throw new EmporixError(
+        "useCartMutations: no cartId available — pass one explicitly or call useActiveCart({ create: true }) first",
+      );
+    }
+    return id;
+  };
+  const keyFor = (id: string) =>
+    ["emporix", "cart", id, { tenant: client.tenant, authKind: kind }] as const;
 
   function make<TVars>(
-    run: (vars: TVars) => Promise<Cart>,
+    run: (id: string, vars: TVars) => Promise<Cart>,
     optimistic?: (prev: Cart | undefined, vars: TVars) => Cart | undefined,
   ): Mut<TVars> {
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useMutation<Cart, unknown, TVars, { previous: Cart | undefined }>({
-      mutationFn: run,
+    return useMutation<
+      Cart,
+      unknown,
+      TVars,
+      { previous: Cart | undefined; key: readonly unknown[] }
+    >({
+      mutationFn: async (vars) => run(resolveId(), vars),
       onMutate: async (vars) => {
+        const id = resolveId();
+        const key = keyFor(id);
         await qc.cancelQueries({ queryKey: key });
         const previous = qc.getQueryData<Cart>(key);
         if (optimistic) qc.setQueryData<Cart>(key, optimistic(previous, vars));
-        return { previous };
+        return { previous, key };
       },
       onError: (_e, _v, c) => {
-        if (c) qc.setQueryData(key, c.previous);
+        if (c) qc.setQueryData(c.key, c.previous);
       },
-      onSuccess: (cart) => qc.setQueryData(key, cart),
+      onSuccess: (cart, _v, c) => {
+        if (c) qc.setQueryData(c.key, cart);
+      },
     });
   }
 
   return {
     addItem: make(
-      (v) => client.carts.addItem(cartId, v, ctx),
+      (id, v) => client.carts.addItem(id, v, ctx),
       (prev, v) =>
         prev
           ? {
@@ -91,20 +119,20 @@ export function useCartMutations(cartId: string): CartMutationsApi {
             }
           : prev,
     ),
-    updateItem: make((v) => client.carts.updateItem(cartId, v.itemId, v.patch, ctx)),
+    updateItem: make((id, v) => client.carts.updateItem(id, v.itemId, v.patch, ctx)),
     removeItem: make(
-      (v) => client.carts.removeItem(cartId, v.itemId, ctx),
+      (id, v) => client.carts.removeItem(id, v.itemId, ctx),
       (prev, v) =>
         prev ? { ...prev, items: (prev.items ?? []).filter((i) => i.id !== v.itemId) } : prev,
     ),
     clear: make(
-      () => client.carts.clear(cartId, ctx),
+      (id) => client.carts.clear(id, ctx),
       (prev) => (prev ? { ...prev, items: [] } : prev),
     ),
-    applyCoupon: make((v) => client.carts.applyCoupon(cartId, v.code, ctx)),
-    removeCoupon: make((v) => client.carts.removeCoupon(cartId, v.code, ctx)),
-    setShippingAddress: make((v) => client.carts.setShippingAddress(cartId, v, ctx)),
-    setBillingAddress: make((v) => client.carts.setBillingAddress(cartId, v, ctx)),
+    applyCoupon: make((id, v) => client.carts.applyCoupon(id, v.code, ctx)),
+    removeCoupon: make((id, v) => client.carts.removeCoupon(id, v.code, ctx)),
+    setShippingAddress: make((id, v) => client.carts.setShippingAddress(id, v, ctx)),
+    setBillingAddress: make((id, v) => client.carts.setBillingAddress(id, v, ctx)),
   };
 }
 

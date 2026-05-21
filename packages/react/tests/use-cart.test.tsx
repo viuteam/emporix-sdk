@@ -94,6 +94,35 @@ describe("useCartMutations", () => {
     });
     await waitFor(() => expect(result.current.cart.data?.items).toHaveLength(1));
   });
+
+  it("useCartMutations() throws when storage has no cartId at mutate-time", async () => {
+    const { result } = renderHook(() => useCartMutations(), { wrapper: wrap() });
+    await expect(
+      result.current.addItem.mutateAsync({
+        product: { id: "p1" },
+        quantity: 1,
+        price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" },
+      }),
+    ).rejects.toThrow(/no cartId available/);
+  });
+
+  it("useCartMutations() resolves cartId at mutate-time (storage set after mount)", async () => {
+    const storage = createMemoryStorage();
+    const wrapper = wrap(storage);
+    const { result } = renderHook(() => useCartMutations(), { wrapper });
+    // Render the hook with no cartId — then set storage before mutating.
+    storage.setCartId("cart1");
+    await act(async () => {
+      await result.current.addItem.mutateAsync({
+        product: { id: "p1" },
+        quantity: 1,
+        price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" },
+      });
+    });
+    // Reaches the existing MSW handler at /cart/acme/carts/cart1/items → success
+    // means the mutation picked up the post-mount setCartId.
+    await waitFor(() => expect(result.current.addItem.isSuccess).toBe(true));
+  });
 });
 
 describe("useCreateCart", () => {
