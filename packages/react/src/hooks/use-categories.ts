@@ -4,7 +4,12 @@ import {
   type UseQueryResult,
   type UseInfiniteQueryResult,
 } from "@tanstack/react-query";
-import { type PaginatedItems, type Category, type CategoryNode } from "@viu/emporix-sdk";
+import {
+  type PaginatedItems,
+  type Category,
+  type CategoryNode,
+  type Product,
+} from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 
@@ -71,5 +76,57 @@ export function useCategoryTree(
       { tenant: client.tenant, authKind: kind },
     ],
     queryFn: () => client.categories.tree(rootId, ctx),
+  });
+}
+
+/** One page of products in a category. Disabled when categoryId is empty. */
+export function useProductsInCategory(
+  categoryId: string | undefined,
+  params: { pageNumber?: number; pageSize?: number } = {},
+  options: QueryOpts = {},
+): UseQueryResult<PaginatedItems<Product>> {
+  const { client } = useEmporix();
+  const { ctx, kind } = useReadAuth(options.auth);
+  return useQuery({
+    queryKey: [
+      "emporix",
+      "products-in-category",
+      categoryId,
+      params,
+      { tenant: client.tenant, authKind: kind },
+    ],
+    enabled: typeof categoryId === "string" && categoryId !== "",
+    queryFn: () => client.categories.productsIn(categoryId as string, params, ctx),
+  });
+}
+
+/** Infinite-scroll product list for a category. Terminates on `hasNextPage=false`. */
+export function useProductsInCategoryInfinite(
+  categoryId: string | undefined,
+  params: { pageSize?: number } = {},
+  options: QueryOpts = {},
+): UseInfiniteQueryResult<{ pages: PaginatedItems<Product>[]; pageParams: number[] }> {
+  const { client } = useEmporix();
+  const { ctx, kind } = useReadAuth(options.auth);
+  return useInfiniteQuery({
+    queryKey: [
+      "emporix",
+      "products-in-category-infinite",
+      categoryId,
+      params,
+      { tenant: client.tenant, authKind: kind },
+    ],
+    enabled: typeof categoryId === "string" && categoryId !== "",
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      client.categories.productsIn(
+        categoryId as string,
+        params.pageSize !== undefined
+          ? { pageNumber: pageParam as number, pageSize: params.pageSize }
+          : { pageNumber: pageParam as number },
+        ctx,
+      ),
+    getNextPageParam: (last: PaginatedItems<Product>) =>
+      last.hasNextPage ? last.pageNumber + 1 : undefined,
   });
 }
