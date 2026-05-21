@@ -1,0 +1,62 @@
+name: E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      log_level:
+        description: Playwright log level
+        required: false
+        default: info
+
+concurrency:
+  group: e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Chromium
+        run: pnpm --filter @viu/emporix-e2e exec playwright install --with-deps chromium
+
+      - name: Build SDK
+        run: pnpm -F @viu/emporix-sdk build
+
+      - name: Build React
+        run: pnpm -F @viu/emporix-sdk-react build
+
+      - name: Run E2E
+        run: pnpm e2e
+        env:
+          CI: "true"
+          EMPORIX_TEST_CUSTOMER_EMAIL: ${{ secrets.EMPORIX_TEST_CUSTOMER_EMAIL }}
+          EMPORIX_TEST_CUSTOMER_PASSWORD: ${{ secrets.EMPORIX_TEST_CUSTOMER_PASSWORD }}
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
