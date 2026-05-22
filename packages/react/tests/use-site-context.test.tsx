@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider } from "../src/provider";
@@ -132,9 +132,106 @@ describe("useSiteContext — setSite", () => {
       wrapper: wrap({ storage }),
     });
     act(() => {
-      result.current.setSite(null);
+      void result.current.setSite(null);
     });
     expect(result.current.siteCode).toBeNull();
     expect(storage.getSiteCode()).toBeNull();
+  });
+});
+
+describe("useSiteContext — async setSite (MS-3)", () => {
+  it("setSite returns a Promise and calls sessionContext.patch", async () => {
+    let patchBody: { siteCode?: string; metadata?: { version?: number } } | undefined;
+    server.use(
+      http.get("https://api.emporix.io/session-context/acme/me/context", () =>
+        HttpResponse.json({
+          sessionId: "sess1",
+          siteCode: "old",
+          metadata: { version: 5 },
+        }),
+      ),
+      http.patch("https://api.emporix.io/session-context/acme/me/context", async ({ request }) => {
+        patchBody = (await request.json()) as typeof patchBody;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap({ storage }) });
+    await act(async () => {
+      await result.current.setSite("new-site");
+    });
+    expect(result.current.siteCode).toBe("new-site");
+    expect(storage.getSiteCode()).toBe("new-site");
+    expect(patchBody?.siteCode).toBe("new-site");
+    expect(patchBody?.metadata?.version).toBe(5);
+  });
+
+  it("setSite resolves OK when server has no session context yet (404 on GET → skip PATCH)", async () => {
+    server.use(
+      http.get(
+        "https://api.emporix.io/session-context/acme/me/context",
+        () => new HttpResponse(null, { status: 404 }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap({ storage }) });
+    await act(async () => {
+      await result.current.setSite("X");
+    });
+    expect(result.current.siteCode).toBe("X");
+    expect(result.current.switchError).toBeNull();
+  });
+
+  it("switchError is populated when PATCH fails (state stays optimistic)", async () => {
+    server.use(
+      http.get("https://api.emporix.io/session-context/acme/me/context", () =>
+        HttpResponse.json({ sessionId: "s", metadata: { version: 1 } }),
+      ),
+      http.patch("https://api.emporix.io/session-context/acme/me/context", () =>
+        HttpResponse.json({ message: "boom" }, { status: 500 }),
+      ),
+    );
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap() });
+    await act(async () => {
+      await result.current.setSite("X");
+    });
+    expect(result.current.siteCode).toBe("X");
+    expect(result.current.switchError).not.toBeNull();
+  });
+
+  it("setSite(null) does not call PATCH (no session context to clear)", async () => {
+    let called = 0;
+    server.use(
+      http.get("https://api.emporix.io/session-context/acme/me/context", () => {
+        called += 1;
+        return new HttpResponse(null, { status: 404 });
+      }),
+      http.patch("https://api.emporix.io/session-context/acme/me/context", () => {
+        called += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap() });
+    await act(async () => {
+      await result.current.setSite(null);
+    });
+    expect(called).toBe(0);
+  });
+
+  it("isSwitching is false after the PATCH resolves", async () => {
+    server.use(
+      http.get("https://api.emporix.io/session-context/acme/me/context", () =>
+        HttpResponse.json({ sessionId: "s", metadata: { version: 1 } }),
+      ),
+      http.patch(
+        "https://api.emporix.io/session-context/acme/me/context",
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap() });
+    await act(async () => {
+      await result.current.setSite("X");
+    });
+    await waitFor(() => expect(result.current.isSwitching).toBe(false));
   });
 });
