@@ -91,3 +91,13 @@ header, guest checkout and deferred payment are covered in
 
 `@viu/emporix-sdk` (everything) plus `./customer`, `./product`, `./category`,
 `./cart`, `./checkout`, `./payment` for tree-shaking.
+
+## Authors
+
+- **Dominic Fritschi** — _Maintainer_ — [VIU](https://www.viu.ch)
+- **Andreas Nebiker** — _Contributor_ — [VIU](https://www.viu.ch)
+- The **Team at VIU** — _Contributors_ — [VIU](https://www.viu.ch)
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.

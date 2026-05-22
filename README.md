@@ -48,11 +48,16 @@ See [`packages/sdk/README.md`](./packages/sdk/README.md) and
 ## Development
 
 ```bash
+nvm use          # picks Node 20 from .nvmrc (matches CI)
 pnpm install
 pnpm typecheck   # repo-wide (packages + examples)
 pnpm test        # library packages
 pnpm build       # library packages
 ```
+
+Node 20 is what CI runs (`.github/workflows/*.yml`). The published packages'
+runtime floor is `engines.node: ">=18"` — that's the support contract for
+consumers, not a development requirement.
 
 Root `build`/`test`/`lint` are scoped to `./packages/*` (the publishable
 libraries); examples are excluded from the release gate but still typechecked.
@@ -71,3 +76,13 @@ hygiene — see [`CONTRIBUTING.md`](./CONTRIBUTING.md)).
    creates GitHub releases.
 
 Example packages (`@viu/emporix-examples-*`) are ignored by Changesets.
+
+## Authors
+
+- **Dominic Fritschi** — _Maintainer_ — [VIU](https://www.viu.ch)
+- **Andreas Nebiker** — _Contributor_ — [VIU](https://www.viu.ch)
+- The **Team at VIU** — _Contributors_ — [VIU](https://www.viu.ch)
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.

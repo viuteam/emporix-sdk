@@ -153,7 +153,7 @@ Use the standard MIT template. Replace `<YEAR>` and `<COPYRIGHT HOLDER>`:
 ```
 MIT License
 
-Copyright (c) 2026 viuteam
+Copyright (c) 2026 VIU AG
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -223,7 +223,7 @@ Add these at the top level (preserve existing keys):
 "bugs": {
   "url": "https://github.com/viuteam/emporix-sdk/issues"
 },
-"author": "viuteam <opensource@viu.com>",
+"author": "viu <team@viu.ch>",
 "keywords": [
   "emporix",
   "ecommerce",
@@ -237,7 +237,7 @@ Add these at the top level (preserve existing keys):
 },
 ```
 
-> The `"author"` email is illustrative — replace with the real maintainer mailbox before merging. If no public email exists yet, drop the `<...>` part: `"author": "viuteam"`.
+> The `"author"` email is illustrative — replace with the real maintainer mailbox before merging. If no public email exists yet, drop the `<...>` part: `"author": "viu"`.
 
 - [ ] **Step 3: Add the same fields to `packages/react/package.json`**
 
@@ -494,7 +494,7 @@ These can't be done from the repo. Listed here so they don't fall through the cr
 1. **Create or join the `@viu` npm scope** — npmjs.org account, scope creation, team membership.
 2. **Set `NPM_TOKEN` repo secret** — GitHub Settings → Secrets and variables → Actions.
 3. **Enable 2FA on the publishing npm identity** — required for provenance.
-4. **Replace the placeholder `author` email** with the real maintainer mailbox in both package.jsons. If unclear, drop the email and leave just `"author": "viuteam"`.
+4. **Replace the placeholder `author` email** with the real maintainer mailbox in both package.jsons. If unclear, drop the email and leave just `"author": "viu"`.
 5. **Decide if the license is really MIT** — confirm with legal/leadership. If not MIT, replace both `LICENSE` and the `license` field in package.jsons (this plan assumes MIT).
 
 Once 1-3 are done, the next merge to `main` that includes a changeset will result in a real npm publish. Test with a tiny patch-level changeset (e.g. a typo fix in a README) so the first published version is recoverable if anything goes wrong.

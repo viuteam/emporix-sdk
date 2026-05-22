@@ -88,7 +88,7 @@ export function EmporixProvider({
       storage.setCustomerToken(initialCustomerToken);
     }
     return { client, storage: s };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [client, storage, initialCustomerToken]);
   const qc = useMemo(
     () =>
