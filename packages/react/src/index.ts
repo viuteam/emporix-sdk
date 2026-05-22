@@ -39,6 +39,8 @@ export {
   useCustomerAddresses,
   useAddressMutations,
   usePasswordReset,
+  useSites,
+  useDefaultSite,
 } from "./hooks/index";
 export type {
   CustomerSessionApi,
