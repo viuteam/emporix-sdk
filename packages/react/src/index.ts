@@ -52,3 +52,5 @@ export type {
 } from "./hooks/index";
 export { EmporixErrorBoundary, useEmporixErrorHandler } from "./errors";
 export { prefetchProduct, prefetchCart } from "./ssr";
+export { useEmporixTelemetry } from "./telemetry";
+export type { EmporixTelemetryEvent } from "./telemetry";
