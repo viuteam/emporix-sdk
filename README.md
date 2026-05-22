@@ -76,3 +76,13 @@ hygiene — see [`CONTRIBUTING.md`](./CONTRIBUTING.md)).
    creates GitHub releases.
 
 Example packages (`@viu/emporix-examples-*`) are ignored by Changesets.
+
+## Authors
+
+- **Dominic Fritschi** — _Maintainer_ — [VIU](https://www.viu.ch)
+- **Andreas Nebiker** — _Contributor_ — [VIU](https://www.viu.ch)
+- The **Team at VIU** — _Contributors_ — [VIU](https://www.viu.ch)
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.
