@@ -179,4 +179,31 @@ describe("useActiveCart", () => {
     const { result } = renderHook(() => useActiveCart(), { wrapper: wrap(storage) });
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
+
+  it("two parallel useActiveCart({create:true}) under the same provider share one bootstrap call", async () => {
+    let calls = 0;
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts", () => {
+        calls += 1;
+        return HttpResponse.json({ id: "cart-shared", items: [] });
+      }),
+      http.get("https://api.emporix.io/cart/acme/carts/cart-shared", () =>
+        HttpResponse.json({ id: "cart-shared", items: [] }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    const wrapper = wrap(storage);
+    // Two parallel mounts of useActiveCart({create:true}) in the same provider.
+    const { result } = renderHook(
+      () => ({
+        a: useActiveCart({ create: true }),
+        b: useActiveCart({ create: true }),
+      }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.a.data?.id).toBe("cart-shared"));
+    await waitFor(() => expect(result.current.b.data?.id).toBe("cart-shared"));
+    // Only one bootstrap call to /cart/.../carts, not two.
+    expect(calls).toBe(1);
+  });
 });
