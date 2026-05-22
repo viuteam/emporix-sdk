@@ -246,3 +246,35 @@ describe("DefaultTokenProvider with AnonymousSessionStore", () => {
     expect(loginHits).toBe(1);
   });
 });
+
+describe("DefaultTokenProvider.onRefresh", () => {
+  it("notifies subscribers on anonymous-login with success=true", async () => {
+    const events: { kind: "anonymous" | "customer"; success: boolean }[] = [];
+    const p = new DefaultTokenProvider(cfg as never);
+    p.onRefresh!((e) => events.push(e));
+    await p.getAnonymousToken();
+    expect(events).toEqual([{ kind: "anonymous", success: true }]);
+  });
+
+  it("notifies with success=false when the request fails", async () => {
+    server.use(
+      http.get("https://api.emporix.io/customerlogin/auth/anonymous/login", () =>
+        HttpResponse.json({ message: "boom" }, { status: 500 }),
+      ),
+    );
+    const events: { kind: "anonymous" | "customer"; success: boolean }[] = [];
+    const p = new DefaultTokenProvider(cfg as never);
+    p.onRefresh!((e) => events.push(e));
+    await expect(p.getAnonymousToken()).rejects.toThrow();
+    expect(events).toEqual([{ kind: "anonymous", success: false }]);
+  });
+
+  it("unsubscribe stops further notifications", async () => {
+    const events: unknown[] = [];
+    const p = new DefaultTokenProvider(cfg as never);
+    const unsubscribe = p.onRefresh!((e) => events.push(e));
+    unsubscribe();
+    await p.getAnonymousToken();
+    expect(events).toEqual([]);
+  });
+});

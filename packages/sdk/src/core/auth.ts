@@ -55,6 +55,14 @@ export interface TokenProvider {
    * replaces the previous adapter.
    */
   attachAnonymousStore?(store: AnonymousSessionStore): void;
+  /**
+   * Subscribe to token-refresh events. Optional — implementations may no-op.
+   * Returns an unsubscribe function. `DefaultTokenProvider` emits for the
+   * anonymous-login / anonymous-refresh paths.
+   */
+  onRefresh?(
+    listener: (event: { kind: "anonymous" | "customer"; success: boolean }) => void,
+  ): () => void;
 }
 
 /** Tiny constructors for {@link AuthContext}. */
@@ -96,8 +104,30 @@ export class DefaultTokenProvider implements TokenProvider {
   private anon: (AnonymousSession & { expiresAt: number }) | undefined;
   private anonLock: Promise<AnonymousSession> | undefined;
   private anonStore?: AnonymousSessionStore;
+  private readonly refreshListeners = new Set<
+    (event: { kind: "anonymous" | "customer"; success: boolean }) => void
+  >();
 
   constructor(private readonly cfg: ResolvedConfig) {}
+
+  onRefresh(
+    listener: (event: { kind: "anonymous" | "customer"; success: boolean }) => void,
+  ): () => void {
+    this.refreshListeners.add(listener);
+    return () => {
+      this.refreshListeners.delete(listener);
+    };
+  }
+
+  private notifyRefresh(kind: "anonymous" | "customer", success: boolean): void {
+    for (const l of this.refreshListeners) {
+      try {
+        l({ kind, success });
+      } catch {
+        // Never let a telemetry listener break the auth path.
+      }
+    }
+  }
 
   attachAnonymousStore(store: AnonymousSessionStore): void {
     this.anonStore = store;
@@ -240,25 +270,39 @@ export class DefaultTokenProvider implements TokenProvider {
     if (mode === "refresh" && this.anon) {
       url.searchParams.set("refresh_token", this.anon.refreshToken);
     }
-    const res = await fetch(url, { method: "GET" });
-    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!res.ok) {
-      throw new EmporixAuthError(`Anonymous token ${mode} failed`, res.status, json);
+    try {
+      const res = await fetch(url, { method: "GET" });
+      const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok) {
+        this.notifyRefresh("anonymous", false);
+        throw new EmporixAuthError(`Anonymous token ${mode} failed`, res.status, json);
+      }
+      const obtainedAt = Date.now();
+      this.anon = {
+        accessToken: json.access_token as string,
+        refreshToken: json.refresh_token as string,
+        sessionId: json.sessionId as string,
+        expiresIn: json.expires_in as number,
+        expiresAt:
+          obtainedAt +
+          ((json.expires_in as number) - this.cfg.cache.expirationBufferSeconds) * 1000,
+      };
+      this.anonStore?.write({
+        refreshToken: this.anon.refreshToken,
+        sessionId: this.anon.sessionId,
+      });
+      this.notifyRefresh("anonymous", true);
+      return this.stripExpiry(this.anon);
+    } catch (err) {
+      // Re-throw EmporixAuthError as-is; for non-Emporix errors (network), also notify.
+      if (!(err instanceof EmporixAuthError)) {
+        this.notifyRefresh("anonymous", false);
+      }
+      throw err;
     }
-    const obtainedAt = Date.now();
-    this.anon = {
-      accessToken: json.access_token as string,
-      refreshToken: json.refresh_token as string,
-      sessionId: json.sessionId as string,
-      expiresIn: json.expires_in as number,
-      expiresAt:
-        obtainedAt +
-        ((json.expires_in as number) - this.cfg.cache.expirationBufferSeconds) * 1000,
-    };
-    this.anonStore?.write({
-      refreshToken: this.anon.refreshToken,
-      sessionId: this.anon.sessionId,
-    });
-    return this.stripExpiry(this.anon);
   }
 }
+// Customer-token refreshes happen via client.customers.refresh() and don't
+// route through this TokenProvider — only the anonymous flow notifies.
+// React-side useCustomerSession.refresh emits its own telemetry event in a
+// follow-up if needed.
