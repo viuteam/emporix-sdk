@@ -136,3 +136,42 @@ describe("useProductSearch", () => {
     expect(seenQuery?.get("pageSize")).toBe("10");
   });
 });
+
+describe("useProducts — site-isolation (MS-2)", () => {
+  it("two providers with different initialSiteCode yield separate cache entries", async () => {
+    let calls = 0;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", () => {
+        calls += 1;
+        return HttpResponse.json([{ id: `p-${calls}` }]);
+      }),
+    );
+    const client = new EmporixClient({
+      tenant: "acme",
+      credentials: { backend: { clientId: "b", secret: "s" }, storefront: { clientId: "sf" } },
+      logger: false,
+    });
+
+    // Site A: own QueryClient, own provider.
+    const qcA = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapA = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={createMemoryStorage()} queryClient={qcA} initialSiteCode="A">
+        {children}
+      </EmporixProvider>
+    );
+    const { result: rA } = renderHook(() => useProducts({ pageSize: 5 }), { wrapper: wrapA });
+    await waitFor(() => expect(rA.current.isSuccess).toBe(true));
+    expect(calls).toBe(1);
+
+    // Site B: separate QueryClient and provider — different siteCode means a fresh fetch.
+    const qcB = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapB = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={createMemoryStorage()} queryClient={qcB} initialSiteCode="B">
+        {children}
+      </EmporixProvider>
+    );
+    const { result: rB } = renderHook(() => useProducts({ pageSize: 5 }), { wrapper: wrapB });
+    await waitFor(() => expect(rB.current.isSuccess).toBe(true));
+    expect(calls).toBe(2);
+  });
+});

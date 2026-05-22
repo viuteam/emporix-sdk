@@ -14,6 +14,7 @@ import {
   type PaginatedItems,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
+import { useReadSite } from "./internal/use-read-site";
 
 function customerCtx(token: string | null): AuthContext {
   if (!token) throw new Error("requires a customer token in storage");
@@ -26,8 +27,9 @@ export function useMySegments(
 ): UseQueryResult<Segment[]> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
+  const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "segment", "list", { tenant: client.tenant, query }],
+    queryKey: ["emporix", "segment", "list", { tenant: client.tenant, query, siteCode }],
     enabled: token !== null,
     queryFn: () => client.segments.list(query, customerCtx(token)),
   });
@@ -44,8 +46,9 @@ export function useMySegmentItems(
 ): UseQueryResult<SegmentItem[]> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
+  const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "segment", "items", { tenant: client.tenant, query }],
+    queryKey: ["emporix", "segment", "items", { tenant: client.tenant, query, siteCode }],
     enabled: token !== null,
     queryFn: () => client.segments.listItems(query, customerCtx(token)),
   });
@@ -57,8 +60,9 @@ export function useMySegmentCategoryTree(
 ): UseQueryResult<SegmentCategoryTree> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
+  const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "segment", "categoryTree", { tenant: client.tenant, query }],
+    queryKey: ["emporix", "segment", "categoryTree", { tenant: client.tenant, query, siteCode }],
     enabled: token !== null,
     queryFn: () => client.segments.getCategoryTree(query, customerCtx(token)),
   });
@@ -77,8 +81,9 @@ export function useMySegmentProducts(
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
+  const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "segment", "myProducts", { tenant: client.tenant, query }],
+    queryKey: ["emporix", "segment", "myProducts", { tenant: client.tenant, query, siteCode }],
     enabled: token !== null,
     queryFn: () => client.segments.listMyProducts(query, customerCtx(token)),
   });
@@ -100,12 +105,13 @@ export function useMySegmentProductsInfinite(
 ) {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
+  const { siteCode } = useReadSite();
   return useInfiniteQuery({
     queryKey: [
       "emporix",
       "segment",
       "myProductsInfinite",
-      { tenant: client.tenant, query },
+      { tenant: client.tenant, query, siteCode },
     ],
     enabled: token !== null,
     initialPageParam: 1,
@@ -132,8 +138,9 @@ export function useMySegmentCategories(
 ): UseQueryResult<PaginatedItems<Category>> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
+  const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "segment", "myCategories", { tenant: client.tenant, query }],
+    queryKey: ["emporix", "segment", "myCategories", { tenant: client.tenant, query, siteCode }],
     enabled: token !== null,
     queryFn: () => client.segments.listMyCategories(query, customerCtx(token)),
   });
@@ -154,12 +161,13 @@ export function useMySegmentCategoriesInfinite(
 ) {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
+  const { siteCode } = useReadSite();
   return useInfiniteQuery({
     queryKey: [
       "emporix",
       "segment",
       "myCategoriesInfinite",
-      { tenant: client.tenant, query },
+      { tenant: client.tenant, query, siteCode },
     ],
     enabled: token !== null,
     initialPageParam: 1,

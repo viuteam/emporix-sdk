@@ -7,13 +7,15 @@ import {
 import { type PaginatedItems, type Product } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
+import { useReadSite } from "./internal/use-read-site";
 
 /** Fetches one product. Default auth: customer if logged in, else anonymous. */
 export function useProduct(productId: string, options: QueryOpts = {}): UseQueryResult<Product> {
   const { client } = useEmporix();
   const { ctx, kind } = useReadAuth(options.auth);
+  const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "product", productId, { tenant: client.tenant, authKind: kind }],
+    queryKey: ["emporix", "product", productId, { tenant: client.tenant, authKind: kind, siteCode }],
     queryFn: () => client.products.get(productId, undefined, ctx),
   });
 }
@@ -25,8 +27,9 @@ export function useProducts(
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
   const { ctx, kind } = useReadAuth(options.auth);
+  const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "products", params, { tenant: client.tenant, authKind: kind }],
+    queryKey: ["emporix", "products", params, { tenant: client.tenant, authKind: kind, siteCode }],
     queryFn: () => client.products.list(params, ctx),
   });
 }
@@ -38,8 +41,9 @@ export function useProductsInfinite(
 ): UseInfiniteQueryResult<{ pages: PaginatedItems<Product>[]; pageParams: number[] }> {
   const { client } = useEmporix();
   const { ctx, kind } = useReadAuth(options.auth);
+  const { siteCode } = useReadSite();
   return useInfiniteQuery({
-    queryKey: ["emporix", "products-infinite", params, { tenant: client.tenant, authKind: kind }],
+    queryKey: ["emporix", "products-infinite", params, { tenant: client.tenant, authKind: kind, siteCode }],
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
       client.products.list(
@@ -60,8 +64,9 @@ export function useProductByCode(
 ): UseQueryResult<Product> {
   const { client } = useEmporix();
   const { ctx, kind } = useReadAuth(options.auth);
+  const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "product-by-code", code, { tenant: client.tenant, authKind: kind }],
+    queryKey: ["emporix", "product-by-code", code, { tenant: client.tenant, authKind: kind, siteCode }],
     enabled: typeof code === "string" && code !== "",
     queryFn: () => client.products.getByCode(code as string, ctx),
   });
@@ -75,13 +80,14 @@ export function useProductSearch(
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
   const { ctx, kind } = useReadAuth(options.auth);
+  const { siteCode } = useReadSite();
   return useQuery({
     queryKey: [
       "emporix",
       "product-search",
       query,
       params,
-      { tenant: client.tenant, authKind: kind },
+      { tenant: client.tenant, authKind: kind, siteCode },
     ],
     enabled: typeof query === "string" && query.trim() !== "",
     queryFn: () => client.products.search(query as string, params, ctx),

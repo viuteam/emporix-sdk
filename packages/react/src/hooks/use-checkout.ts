@@ -13,6 +13,7 @@ import {
   type PaymentMode,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
+import { useReadSite } from "./internal/use-read-site";
 
 function checkoutCtx(token: string | null): AuthContext {
   return token ? auth.customer(token) : auth.anonymous();
@@ -63,8 +64,9 @@ export function usePaymentModes(
 ): UseQueryResult<PaymentMode[]> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
+  const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "payment-modes", { tenant: client.tenant }],
+    queryKey: ["emporix", "payment-modes", { tenant: client.tenant, siteCode }],
     enabled: (options.enabled ?? true) && token !== null,
     queryFn: () => client.payments.listPaymentModes(customerOnlyCtx(token)),
   });

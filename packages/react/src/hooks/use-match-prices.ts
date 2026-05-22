@@ -6,6 +6,7 @@ import {
   type PriceMatchByContextInput,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
+import { useReadSite } from "./internal/use-read-site";
 
 /**
  * Resolves prices for `input.items` via `prices.matchByContext`. Defaults to
@@ -18,6 +19,7 @@ export function useMatchPrices(
   options: { enabled?: boolean; customerToken?: string | null } = {},
 ): UseQueryResult<PriceMatch[]> {
   const { client } = useEmporix();
+  const { siteCode } = useReadSite();
   const ctx: AuthContext = options.customerToken
     ? auth.customer(options.customerToken)
     : auth.anonymous();
@@ -25,7 +27,7 @@ export function useMatchPrices(
     queryKey: [
       "emporix",
       "match-prices",
-      { tenant: client.tenant, input, anon: !options.customerToken },
+      { tenant: client.tenant, input, anon: !options.customerToken, siteCode },
     ],
     enabled: (options.enabled ?? true) && (input.items?.length ?? 0) > 0,
     queryFn: () => client.prices.matchByContext(input, ctx),
