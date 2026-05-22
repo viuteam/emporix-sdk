@@ -48,7 +48,7 @@ export function useAddressMutations(): AddressMutationsApi {
     void qc.invalidateQueries({ queryKey: ADDRESSES_KEY });
   };
 
-  /* eslint-disable react-hooks/rules-of-hooks */
+   
   return {
     add: useMutation<Address, unknown, AddressCreateInput>({
       mutationFn: (input) => client.customers.addresses.add(input, ctx),
@@ -63,5 +63,5 @@ export function useAddressMutations(): AddressMutationsApi {
       onSuccess: invalidate,
     }),
   };
-  /* eslint-enable react-hooks/rules-of-hooks */
+   
 }

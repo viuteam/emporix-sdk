@@ -19,7 +19,7 @@ export interface PasswordResetApi {
 export function usePasswordReset(): PasswordResetApi {
   const { client } = useEmporix();
   const anonCtx = auth.anonymous();
-  /* eslint-disable react-hooks/rules-of-hooks */
+   
   return {
     request: useMutation<void, unknown, PasswordResetRequestInput>({
       mutationFn: (input) => client.customers.requestPasswordReset(input, anonCtx),
@@ -28,5 +28,5 @@ export function usePasswordReset(): PasswordResetApi {
       mutationFn: (input) => client.customers.confirmPasswordReset(input, anonCtx),
     }),
   };
-  /* eslint-enable react-hooks/rules-of-hooks */
+   
 }
