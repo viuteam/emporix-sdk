@@ -7,6 +7,7 @@ import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
 import { useCustomerSession } from "../src/hooks/use-customer-session";
+import { useSiteContext } from "../src/hooks/use-site-context";
 import type { ReactNode } from "react";
 
 const server = setupServer(
@@ -294,5 +295,66 @@ describe("useCustomerSession — cart onboarding on login", () => {
     });
     expect(storage.getCustomerToken()).not.toBeNull(); // login still succeeded
     expect(storage.getCartId()).toBeNull(); // cart-id stayed empty
+  });
+});
+
+describe("useCustomerSession — preferredSite honour (MS-4)", () => {
+  it("switches active site to customer.preferredSite after login", async () => {
+    let patchCall: { siteCode?: string } | undefined;
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/me", () =>
+        HttpResponse.json({ id: "c1", contactEmail: "u@e.com", preferredSite: "Y" }),
+      ),
+      http.get("https://api.emporix.io/site/acme/sites/Y", () =>
+        HttpResponse.json({
+          code: "Y",
+          name: "Y",
+          active: true,
+          default: false,
+          defaultLanguage: "en",
+          languages: ["en"],
+          currency: "EUR",
+          homeBase: { address: { country: "DE", zipCode: "1" } },
+          shipToCountries: ["DE"],
+        }),
+      ),
+      http.get("https://api.emporix.io/session-context/acme/me/context", () =>
+        HttpResponse.json({ sessionId: "s", metadata: { version: 1 } }),
+      ),
+      http.patch("https://api.emporix.io/session-context/acme/me/context", async ({ request }) => {
+        patchCall = (await request.json()) as typeof patchCall;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const storage = createMemoryStorage();
+    storage.setSiteCode("X");
+    const { result } = renderHook(
+      () => ({ session: useCustomerSession(), site: useSiteContext() }),
+      { wrapper: wrapper(storage, { siteCode: "main" }) },
+    );
+    await act(async () => {
+      await result.current.session.login({ email: "u@e.com", password: "p" });
+    });
+    await waitFor(() => expect(result.current.site.siteCode).toBe("Y"));
+    expect(patchCall?.siteCode).toBe("Y");
+  });
+
+  it("leaves site unchanged when customer has no preferredSite", async () => {
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/me", () =>
+        HttpResponse.json({ id: "c1", contactEmail: "u@e.com" }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    storage.setSiteCode("X");
+    const { result } = renderHook(
+      () => ({ session: useCustomerSession(), site: useSiteContext() }),
+      { wrapper: wrapper(storage, { siteCode: "main" }) },
+    );
+    await act(async () => {
+      await result.current.session.login({ email: "u@e.com", password: "p" });
+    });
+    // Site stays as it was — no preference to honour.
+    expect(result.current.site.siteCode).toBe("X");
   });
 });

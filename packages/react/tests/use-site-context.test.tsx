@@ -139,10 +139,29 @@ describe("useSiteContext — setSite", () => {
   });
 });
 
+/**
+ * Minimal Site DTO mock — needed for every setSite test since MS-4 fetches
+ * the Site DTO to derive currency + targetLocation.
+ */
+const stubSite = (code: string) => ({
+  code,
+  name: code,
+  active: true,
+  default: false,
+  defaultLanguage: "en",
+  languages: ["en"],
+  currency: "EUR",
+  homeBase: { address: { country: "DE", zipCode: "1" } },
+  shipToCountries: ["DE"],
+});
+
 describe("useSiteContext — async setSite (MS-3)", () => {
   it("setSite returns a Promise and calls sessionContext.patch", async () => {
     let patchBody: { siteCode?: string; metadata?: { version?: number } } | undefined;
     server.use(
+      http.get("https://api.emporix.io/site/acme/sites/new-site", () =>
+        HttpResponse.json(stubSite("new-site")),
+      ),
       http.get("https://api.emporix.io/session-context/acme/me/context", () =>
         HttpResponse.json({
           sessionId: "sess1",
@@ -168,6 +187,9 @@ describe("useSiteContext — async setSite (MS-3)", () => {
 
   it("setSite resolves OK when server has no session context yet (404 on GET → skip PATCH)", async () => {
     server.use(
+      http.get("https://api.emporix.io/site/acme/sites/X", () =>
+        HttpResponse.json(stubSite("X")),
+      ),
       http.get(
         "https://api.emporix.io/session-context/acme/me/context",
         () => new HttpResponse(null, { status: 404 }),
@@ -184,6 +206,9 @@ describe("useSiteContext — async setSite (MS-3)", () => {
 
   it("switchError is populated when PATCH fails (state stays optimistic)", async () => {
     server.use(
+      http.get("https://api.emporix.io/site/acme/sites/X", () =>
+        HttpResponse.json(stubSite("X")),
+      ),
       http.get("https://api.emporix.io/session-context/acme/me/context", () =>
         HttpResponse.json({ sessionId: "s", metadata: { version: 1 } }),
       ),
@@ -220,6 +245,9 @@ describe("useSiteContext — async setSite (MS-3)", () => {
 
   it("isSwitching is false after the PATCH resolves", async () => {
     server.use(
+      http.get("https://api.emporix.io/site/acme/sites/X", () =>
+        HttpResponse.json(stubSite("X")),
+      ),
       http.get("https://api.emporix.io/session-context/acme/me/context", () =>
         HttpResponse.json({ sessionId: "s", metadata: { version: 1 } }),
       ),
@@ -233,5 +261,106 @@ describe("useSiteContext — async setSite (MS-3)", () => {
       await result.current.setSite("X");
     });
     await waitFor(() => expect(result.current.isSwitching).toBe(false));
+  });
+});
+
+describe("useSiteContext — site DTO derivation (MS-4)", () => {
+  it("setSite populates currency + targetLocation from site DTO", async () => {
+    server.use(
+      http.get("https://api.emporix.io/site/acme/sites/ThermoBrand_DE", () =>
+        HttpResponse.json({
+          code: "ThermoBrand_DE",
+          name: "ThermoBrand Germany",
+          active: true,
+          default: false,
+          defaultLanguage: "de",
+          languages: ["de"],
+          currency: "EUR",
+          homeBase: { address: { country: "DE", zipCode: "12345" } },
+          shipToCountries: ["DE"],
+        }),
+      ),
+      http.get("https://api.emporix.io/session-context/acme/me/context", () =>
+        HttpResponse.json({ sessionId: "s", metadata: { version: 1 } }),
+      ),
+      http.patch(
+        "https://api.emporix.io/session-context/acme/me/context",
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap() });
+    await act(async () => {
+      await result.current.setSite("ThermoBrand_DE");
+    });
+    expect(result.current.currency).toBe("EUR");
+    expect(result.current.targetLocation).toBe("DE");
+  });
+
+  it("setSite sends currency + targetLocation in the session-context PATCH", async () => {
+    let patchBody: { siteCode?: string; currency?: string; targetLocation?: string } | undefined;
+    server.use(
+      http.get("https://api.emporix.io/site/acme/sites/main", () =>
+        HttpResponse.json({
+          code: "main",
+          name: "Main",
+          active: true,
+          default: true,
+          defaultLanguage: "de",
+          languages: ["de"],
+          currency: "CHF",
+          homeBase: { address: { country: "CH", zipCode: "8000" } },
+          shipToCountries: ["CH"],
+        }),
+      ),
+      http.get("https://api.emporix.io/session-context/acme/me/context", () =>
+        HttpResponse.json({ sessionId: "s", metadata: { version: 1 } }),
+      ),
+      http.patch("https://api.emporix.io/session-context/acme/me/context", async ({ request }) => {
+        patchBody = (await request.json()) as typeof patchBody;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap() });
+    await act(async () => {
+      await result.current.setSite("main");
+    });
+    expect(patchBody?.siteCode).toBe("main");
+    expect(patchBody?.currency).toBe("CHF");
+    expect(patchBody?.targetLocation).toBe("CH");
+  });
+
+  it("setSite(null) clears currency + targetLocation alongside siteCode", async () => {
+    const storage = createMemoryStorage();
+    storage.setSiteCode("X");
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap({ storage }) });
+    await act(async () => {
+      await result.current.setSite(null);
+    });
+    expect(result.current.siteCode).toBeNull();
+    expect(result.current.currency).toBeNull();
+    expect(result.current.targetLocation).toBeNull();
+  });
+
+  it("populates currency + targetLocation on mount when siteCode is pre-resolved", async () => {
+    server.use(
+      http.get("https://api.emporix.io/site/acme/sites/main", () =>
+        HttpResponse.json({
+          code: "main",
+          name: "Main",
+          active: true,
+          default: true,
+          defaultLanguage: "de",
+          languages: ["de"],
+          currency: "CHF",
+          homeBase: { address: { country: "CH", zipCode: "8000" } },
+          shipToCountries: ["CH"],
+        }),
+      ),
+    );
+    const { result } = renderHook(() => useSiteContext(), {
+      wrapper: wrap({ initialSiteCode: "main" }),
+    });
+    await waitFor(() => expect(result.current.currency).toBe("CHF"));
+    expect(result.current.targetLocation).toBe("CH");
   });
 });

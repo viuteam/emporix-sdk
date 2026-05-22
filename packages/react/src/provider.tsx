@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { auth, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "./storage/index";
@@ -119,26 +119,85 @@ function SiteContextProvider({
     if (fromStorage !== null) return fromStorage;
     return client.config?.credentials?.storefront?.context?.siteCode ?? null;
   });
+  const [currency, setCurrency] = useState<string | null>(null);
+  const [targetLocation, setTargetLocation] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<Error | null>(null);
 
+  // Mount-time derivation: if a siteCode is already resolved, fetch its DTO
+  // once so currency + targetLocation populate without a user-driven switch.
+  useEffect(() => {
+    if (!siteCode || currency !== null) return;
+    let cancelled = false;
+    const token = storage.getCustomerToken();
+    const authCtx = token ? auth.customer(token) : auth.anonymous();
+    qc.fetchQuery({
+      queryKey: [
+        "emporix",
+        "site-by-code",
+        siteCode,
+        { tenant: client.tenant, authKind: authCtx.kind },
+      ],
+      queryFn: () => client.sites.get(siteCode, authCtx),
+      staleTime: 5 * 60_000,
+    })
+      .then((site) => {
+        if (cancelled) return;
+        setCurrency(site.currency);
+        setTargetLocation(site.homeBase?.address?.country ?? null);
+      })
+      .catch(() => {
+        // Best-effort — silent. setSite-driven derivation surfaces real errors.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteCode]);
+
   const setSite = useCallback(
     async (code: string | null) => {
-      // 1) Optimistic local flip — UI moves immediately.
+      // 1) Optimistic flip — UI moves immediately.
       storage.setSiteCode(code);
-      // Carts are site-aware — old cartId becomes unreachable on the new site.
       storage.setCartId(null);
       setSiteCodeState(code);
       setSwitchError(null);
       void qc.invalidateQueries({ queryKey: ["emporix"] });
 
-      // 2) Server-side sync. Skip when clearing (no PATCH target).
-      if (code === null) return;
+      if (code === null) {
+        setCurrency(null);
+        setTargetLocation(null);
+        return;
+      }
+
       setIsSwitching(true);
       try {
         const token = storage.getCustomerToken();
         const authCtx = token ? auth.customer(token) : auth.anonymous();
-        await client.sessionContext.patch({ siteCode: code }, authCtx);
+        // 2) Derive currency + targetLocation from the site DTO (cached 5min).
+        const site = await qc.fetchQuery({
+          queryKey: [
+            "emporix",
+            "site-by-code",
+            code,
+            { tenant: client.tenant, authKind: authCtx.kind },
+          ],
+          queryFn: () => client.sites.get(code, authCtx),
+          staleTime: 5 * 60_000,
+        });
+        const nextCurrency = site.currency;
+        const nextTarget = site.homeBase?.address?.country ?? null;
+        setCurrency(nextCurrency);
+        setTargetLocation(nextTarget);
+        // 3) Push everything into the session-context PATCH.
+        await client.sessionContext.patch(
+          {
+            siteCode: code,
+            ...(nextCurrency ? { currency: nextCurrency } : {}),
+            ...(nextTarget ? { targetLocation: nextTarget } : {}),
+          },
+          authCtx,
+        );
       } catch (e) {
         setSwitchError(e instanceof Error ? e : new Error(String(e)));
       } finally {
@@ -151,13 +210,13 @@ function SiteContextProvider({
   const value = useMemo<SiteContextValue>(
     () => ({
       siteCode,
-      currency: null,
-      targetLocation: null,
+      currency,
+      targetLocation,
       setSite,
       isSwitching,
       switchError,
     }),
-    [siteCode, setSite, isSwitching, switchError],
+    [siteCode, currency, targetLocation, setSite, isSwitching, switchError],
   );
 
   return <EmporixSiteContext.Provider value={value}>{children}</EmporixSiteContext.Provider>;
