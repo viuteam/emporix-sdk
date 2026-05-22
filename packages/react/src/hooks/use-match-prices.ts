@@ -8,6 +8,8 @@ import {
 import { useEmporix } from "../provider";
 import { useReadSite } from "./internal/use-read-site";
 
+const PRICES_STALE_TIME = 60_000; // 1 minute — prices change with promotions.
+
 /**
  * Resolves prices for `input.items` via `prices.matchByContext`. Defaults to
  * the anonymous session token (context bound at anonymous-login); pass a
@@ -31,5 +33,6 @@ export function useMatchPrices(
     ],
     enabled: (options.enabled ?? true) && (input.items?.length ?? 0) > 0,
     queryFn: () => client.prices.matchByContext(input, ctx),
+    staleTime: PRICES_STALE_TIME,
   });
 }
