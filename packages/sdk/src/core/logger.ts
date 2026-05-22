@@ -17,6 +17,7 @@ export type ServiceName =
   | "price"
   | "media"
   | "segment"
+  | "site"
   | "http"
   | "auth";
 

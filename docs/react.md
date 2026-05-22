@@ -149,6 +149,33 @@ Auto-detects auth: customer if a token is stored, otherwise anonymous (for the
 guest-checkout flow). `usePaymentModes()` stays customer-only — payment-mode
 listing requires an authenticated session.
 
+### Sites
+
+For tenants with multiple storefront sites (countries, brands, or country/brand
+combinations), the SDK exposes the Site Settings Service:
+
+`useSites()` — lists the active sites for the tenant.
+
+`useDefaultSite()` — convenience for "the site flagged as `default: true`".
+
+```tsx
+const { data: sites } = useSites();
+const { data: defaultSite } = useDefaultSite();
+
+return (
+  <select defaultValue={defaultSite?.code}>
+    {sites?.map((s) => (
+      <option key={s.code} value={s.code}>{s.name}</option>
+    ))}
+  </select>
+);
+```
+
+These hooks do **not** yet drive the active-site context — the active site is
+still bound by `client.config.credentials.storefront.context.siteCode`. Runtime
+site-switching arrives in MS-2 (`useSiteContext()` + `setSite()`). See the
+multi-site spec under `docs/superpowers/specs/` for the roadmap.
+
 ### Persistent guest cart
 
 When you use `createLocalStorageStorage()` or `createCookieStorage()` for the
