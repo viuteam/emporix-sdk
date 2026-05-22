@@ -4,6 +4,7 @@ import { createMemoryStorage } from "./memory";
 const DEFAULT_TOKEN_KEY = "emporix.customerToken";
 const CART_KEY = "emporix.cartId";
 const ANON_KEY = "emporix.anonymousSession";
+const SITE_KEY = "emporix.siteCode";
 
 /** Browser `localStorage`-backed store. Falls back to memory on the server. */
 export function createLocalStorageStorage(opts: { key?: string } = {}): EmporixStorage {
@@ -50,6 +51,11 @@ export function createLocalStorageStorage(opts: { key?: string } = {}): EmporixS
     setAnonymousSession: (s) => {
       if (s === null) ls.removeItem(ANON_KEY);
       else ls.setItem(ANON_KEY, JSON.stringify({ refreshToken: s.refreshToken, sessionId: s.sessionId }));
+    },
+    getSiteCode: () => ls.getItem(SITE_KEY),
+    setSiteCode: (code) => {
+      if (code === null) ls.removeItem(SITE_KEY);
+      else ls.setItem(SITE_KEY, code);
     },
   };
 }

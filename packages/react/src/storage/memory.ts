@@ -5,6 +5,7 @@ export function createMemoryStorage(opts: { initial?: string } = {}): EmporixSto
   let token: string | null = opts.initial ?? null;
   let cartId: string | null = null;
   let anon: PersistedAnonymousSession | null = null;
+  let siteCode: string | null = null;
   const listeners = new Set<(t: string | null) => void>();
   return {
     getCustomerToken: () => token,
@@ -23,6 +24,10 @@ export function createMemoryStorage(opts: { initial?: string } = {}): EmporixSto
     getAnonymousSession: () => anon,
     setAnonymousSession: (s) => {
       anon = s;
+    },
+    getSiteCode: () => siteCode,
+    setSiteCode: (code) => {
+      siteCode = code;
     },
   };
 }

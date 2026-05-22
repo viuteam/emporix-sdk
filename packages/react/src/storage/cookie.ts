@@ -4,6 +4,7 @@ import { createMemoryStorage } from "./memory";
 const DEFAULT_TOKEN_NAME = "emporix.customerToken";
 const CART_NAME = "emporix.cartId";
 const ANON_NAME = "emporix.anonymousSession";
+const SITE_NAME = "emporix.siteCode";
 
 /** Cookie-backed store. Consumer must set SameSite/Secure for CSRF safety. */
 export function createCookieStorage(
@@ -56,5 +57,7 @@ export function createCookieStorage(
           ? null
           : JSON.stringify({ refreshToken: s.refreshToken, sessionId: s.sessionId }),
       ),
+    getSiteCode: () => readCookie(SITE_NAME),
+    setSiteCode: (code) => writeCookie(SITE_NAME, code),
   };
 }

@@ -13,6 +13,10 @@ export interface EmporixStorage {
   // wiring) to preserve sessionId across page reloads.
   getAnonymousSession(): PersistedAnonymousSession | null;
   setAnonymousSession(session: PersistedAnonymousSession | null): void;
+
+  // Active site code (MS-2). `null` = no site bound yet.
+  getSiteCode(): string | null;
+  setSiteCode(code: string | null): void;
 }
 
 /** Minimal subset of `AnonymousSession` that needs to outlive a page load. */
