@@ -14,10 +14,10 @@ const PRODUCTS_STALE_TIME = 60_000; // 1 minute — catalog listings + prices.
 /** Fetches one product. Default auth: customer if logged in, else anonymous. */
 export function useProduct(productId: string, options: QueryOpts = {}): UseQueryResult<Product> {
   const { client } = useEmporix();
-  const { ctx, kind } = useReadAuth(options.auth);
+  const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "product", productId, { tenant: client.tenant, authKind: kind, siteCode }],
+    queryKey: ["emporix", "product", productId, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
     queryFn: () => client.products.get(productId, undefined, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
@@ -29,10 +29,10 @@ export function useProducts(
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
-  const { ctx, kind } = useReadAuth(options.auth);
+  const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "products", params, { tenant: client.tenant, authKind: kind, siteCode }],
+    queryKey: ["emporix", "products", params, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
     queryFn: () => client.products.list(params, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
@@ -44,10 +44,10 @@ export function useProductsInfinite(
   options: QueryOpts = {},
 ): UseInfiniteQueryResult<{ pages: PaginatedItems<Product>[]; pageParams: number[] }> {
   const { client } = useEmporix();
-  const { ctx, kind } = useReadAuth(options.auth);
+  const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useInfiniteQuery({
-    queryKey: ["emporix", "products-infinite", params, { tenant: client.tenant, authKind: kind, siteCode }],
+    queryKey: ["emporix", "products-infinite", params, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
       client.products.list(
@@ -68,10 +68,10 @@ export function useProductByCode(
   options: QueryOpts = {},
 ): UseQueryResult<Product> {
   const { client } = useEmporix();
-  const { ctx, kind } = useReadAuth(options.auth);
+  const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "product-by-code", code, { tenant: client.tenant, authKind: kind, siteCode }],
+    queryKey: ["emporix", "product-by-code", code, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
     enabled: typeof code === "string" && code !== "",
     queryFn: () => client.products.getByCode(code as string, ctx),
     staleTime: PRODUCTS_STALE_TIME,
@@ -85,7 +85,7 @@ export function useProductSearch(
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
-  const { ctx, kind } = useReadAuth(options.auth);
+  const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
     queryKey: [
@@ -93,7 +93,7 @@ export function useProductSearch(
       "product-search",
       query,
       params,
-      { tenant: client.tenant, authKind: kind, siteCode },
+      { tenant: client.tenant, authKind: ctx.kind, siteCode },
     ],
     enabled: typeof query === "string" && query.trim() !== "",
     queryFn: () => client.products.search(query as string, params, ctx),

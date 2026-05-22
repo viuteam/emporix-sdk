@@ -251,7 +251,6 @@ async function onboardCustomerCart(opts: {
       qc,
       client,
       ctx,
-      authKind: "customer",
       siteCode,
     });
     // Cart uses `id`; only `CartCreated` exposes `cartId`. See generated types.

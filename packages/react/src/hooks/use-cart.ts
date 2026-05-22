@@ -24,11 +24,11 @@ import { bootstrapCart } from "./internal/bootstrap-cart";
 /** Fetches a cart by id. Falls back to `storage.getCartId()` when no argument is passed; disabled when neither is set. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
   const { client, storage } = useEmporix();
-  const { ctx, kind } = useReadAuth(options.auth);
+  const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   const resolvedId = cartId ?? storage.getCartId() ?? undefined;
   return useQuery({
-    queryKey: ["emporix", "cart", resolvedId ?? null, { tenant: client.tenant, authKind: kind, siteCode }],
+    queryKey: ["emporix", "cart", resolvedId ?? null, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
     enabled: resolvedId !== undefined,
     queryFn: () => client.carts.get(resolvedId as string, ctx),
   });
@@ -60,7 +60,7 @@ export interface CartMutationsApi {
 export function useCartMutations(cartId?: string): CartMutationsApi {
   const { client, storage } = useEmporix();
   const qc = useQueryClient();
-  const { ctx, kind } = useReadAuth();
+  const { ctx } = useReadAuth();
   const { siteCode } = useReadSite();
 
   const resolveId = (): string => {
@@ -73,7 +73,7 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
     return id;
   };
   const keyFor = (id: string) =>
-    ["emporix", "cart", id, { tenant: client.tenant, authKind: kind, siteCode }] as const;
+    ["emporix", "cart", id, { tenant: client.tenant, authKind: ctx.kind, siteCode }] as const;
 
   function make<TVars>(
     run: (id: string, vars: TVars) => Promise<Cart>,
@@ -189,7 +189,7 @@ export function useActiveCart(opts?: {
 }): UseQueryResult<Cart | null> {
   const { client, storage } = useEmporix();
   const qc = useQueryClient();
-  const { ctx, kind } = useReadAuth(opts?.auth);
+  const { ctx } = useReadAuth(opts?.auth);
   const { siteCode: activeSite } = useReadSite();
 
   const [cartId, setCartId] = useState<string | null>(() => storage.getCartId());
@@ -205,7 +205,6 @@ export function useActiveCart(opts?: {
       qc,
       client,
       ctx,
-      authKind: kind,
       siteCode,
       ...(opts.type !== undefined ? { type: opts.type } : {}),
       ...(opts.legalEntityId !== undefined ? { legalEntityId: opts.legalEntityId } : {}),
@@ -224,7 +223,7 @@ export function useActiveCart(opts?: {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartId, opts?.create, opts?.type, opts?.legalEntityId, kind, activeSite]);
+  }, [cartId, opts?.create, opts?.type, opts?.legalEntityId, ctx.kind, activeSite]);
 
   // Delegate to useCart with the canonical cache key. When cartId state is null,
   // wrap data → null to expose the documented empty-state signal.

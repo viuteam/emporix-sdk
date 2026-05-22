@@ -22,7 +22,6 @@ export async function bootstrapCart(opts: {
   qc: QueryClient;
   client: EmporixClient;
   ctx: AuthContext;
-  authKind: string;
   siteCode: string;
   type?: string;
   legalEntityId?: string;
@@ -33,7 +32,9 @@ export async function bootstrapCart(opts: {
       "cart-bootstrap",
       {
         tenant: opts.client.tenant,
-        authKind: opts.authKind,
+        // ctx.kind is the discriminator of AuthContext — same string as the
+        // legacy `authKind` param, derived directly so callers can't drift.
+        authKind: opts.ctx.kind,
         siteCode: opts.siteCode,
         ...(opts.type !== undefined ? { type: opts.type } : {}),
         ...(opts.legalEntityId !== undefined ? { legalEntityId: opts.legalEntityId } : {}),

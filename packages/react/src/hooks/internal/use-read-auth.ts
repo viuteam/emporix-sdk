@@ -9,18 +9,16 @@ export interface QueryOpts {
 /**
  * Picks the auth context for a read hook. If `override` is given, returns it.
  * Otherwise: customer if a token is in storage, anonymous as fallback.
- * The `kind` string is included in query-keys so cache entries are
- * separated per auth boundary.
+ *
+ * Callers compose `ctx.kind` into their query keys to separate cache entries
+ * across auth boundaries — `ctx.kind` is the discriminator of AuthContext,
+ * one of `"service" | "anonymous" | "customer" | "raw"`.
  */
-export function useReadAuth(
-  override?: AuthContext,
-): { ctx: AuthContext; kind: string } {
+export function useReadAuth(override?: AuthContext): { ctx: AuthContext } {
   const { storage } = useEmporix();
-  if (override) return { ctx: override, kind: override.kind };
+  if (override) return { ctx: override };
   const token = storage.getCustomerToken();
-  return token
-    ? { ctx: auth.customer(token), kind: "customer" }
-    : { ctx: auth.anonymous(), kind: "anonymous" };
+  return token ? { ctx: auth.customer(token) } : { ctx: auth.anonymous() };
 }
 
 /**
