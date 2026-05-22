@@ -20,6 +20,7 @@ import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
 import { bootstrapCart } from "./internal/bootstrap-cart";
+import { emporixKey } from "./internal/query-keys";
 
 /** Fetches a cart by id. Falls back to `storage.getCartId()` when no argument is passed; disabled when neither is set. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
@@ -28,7 +29,7 @@ export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResul
   const { siteCode } = useReadSite();
   const resolvedId = cartId ?? storage.getCartId() ?? undefined;
   return useQuery({
-    queryKey: ["emporix", "cart", resolvedId ?? null, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
+    queryKey: emporixKey("cart", [resolvedId ?? null], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     enabled: resolvedId !== undefined,
     queryFn: () => client.carts.get(resolvedId as string, ctx),
   });
@@ -73,7 +74,7 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
     return id;
   };
   const keyFor = (id: string) =>
-    ["emporix", "cart", id, { tenant: client.tenant, authKind: ctx.kind, siteCode }] as const;
+    emporixKey("cart", [id], { tenant: client.tenant, authKind: ctx.kind, siteCode });
 
   function make<TVars>(
     run: (id: string, vars: TVars) => Promise<Cart>,

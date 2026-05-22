@@ -1,8 +1,8 @@
 import {
   useQuery,
-  useInfiniteQuery,
   type UseQueryResult,
 } from "@tanstack/react-query";
+import { useEmporixInfinite } from "./internal/use-emporix-infinite";
 import {
   auth,
   type AuthContext,
@@ -112,7 +112,7 @@ export function useMySegmentProductsInfinite(
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
   const { siteCode } = useReadSite();
-  return useInfiniteQuery({
+  return useEmporixInfinite<Product>({
     queryKey: [
       "emporix",
       "segment",
@@ -120,14 +120,11 @@ export function useMySegmentProductsInfinite(
       { tenant: client.tenant, query, siteCode },
     ],
     enabled: token !== null,
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
+    fetchPage: (pageNumber) =>
       client.segments.listMyProducts(
-        { ...query, pageNumber: pageParam as number, pageSize: query.pageSize ?? 20 },
+        { ...query, pageNumber, pageSize: query.pageSize ?? 20 },
         customerCtx(token),
       ),
-    getNextPageParam: (last: PaginatedItems<Product>) =>
-      last.hasNextPage ? last.pageNumber + 1 : undefined,
     staleTime: SEGMENTS_STALE_TIME,
   });
 }
@@ -170,7 +167,7 @@ export function useMySegmentCategoriesInfinite(
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
   const { siteCode } = useReadSite();
-  return useInfiniteQuery({
+  return useEmporixInfinite<Category>({
     queryKey: [
       "emporix",
       "segment",
@@ -178,14 +175,11 @@ export function useMySegmentCategoriesInfinite(
       { tenant: client.tenant, query, siteCode },
     ],
     enabled: token !== null,
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
+    fetchPage: (pageNumber) =>
       client.segments.listMyCategories(
-        { ...query, pageNumber: pageParam as number, pageSize: query.pageSize ?? 20 },
+        { ...query, pageNumber, pageSize: query.pageSize ?? 20 },
         customerCtx(token),
       ),
-    getNextPageParam: (last: PaginatedItems<Category>) =>
-      last.hasNextPage ? last.pageNumber + 1 : undefined,
     staleTime: SEGMENTS_STALE_TIME,
   });
 }

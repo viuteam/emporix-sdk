@@ -1,6 +1,5 @@
 import {
   useQuery,
-  useInfiniteQuery,
   type UseQueryResult,
   type UseInfiniteQueryResult,
 } from "@tanstack/react-query";
@@ -8,6 +7,8 @@ import { type PaginatedItems, type Product } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
+import { emporixKey } from "./internal/query-keys";
+import { useEmporixInfinite } from "./internal/use-emporix-infinite";
 
 const PRODUCTS_STALE_TIME = 60_000; // 1 minute — catalog listings + prices.
 
@@ -17,7 +18,7 @@ export function useProduct(productId: string, options: QueryOpts = {}): UseQuery
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "product", productId, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
+    queryKey: emporixKey("product", [productId], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     queryFn: () => client.products.get(productId, undefined, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
@@ -32,7 +33,7 @@ export function useProducts(
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "products", params, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
+    queryKey: emporixKey("products", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     queryFn: () => client.products.list(params, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
@@ -46,18 +47,13 @@ export function useProductsInfinite(
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
-  return useInfiniteQuery({
-    queryKey: ["emporix", "products-infinite", params, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
+  return useEmporixInfinite<Product>({
+    queryKey: emporixKey("products-infinite", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    fetchPage: (pageNumber) =>
       client.products.list(
-        params.pageSize !== undefined
-          ? { pageNumber: pageParam as number, pageSize: params.pageSize }
-          : { pageNumber: pageParam as number },
+        params.pageSize !== undefined ? { pageNumber, pageSize: params.pageSize } : { pageNumber },
         ctx,
       ),
-    getNextPageParam: (last: PaginatedItems<Product>) =>
-      last.hasNextPage ? last.pageNumber + 1 : undefined,
     staleTime: PRODUCTS_STALE_TIME,
   });
 }
@@ -71,7 +67,7 @@ export function useProductByCode(
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "product-by-code", code, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
+    queryKey: emporixKey("product-by-code", [code], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     enabled: typeof code === "string" && code !== "",
     queryFn: () => client.products.getByCode(code as string, ctx),
     staleTime: PRODUCTS_STALE_TIME,
@@ -88,13 +84,7 @@ export function useProductSearch(
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: [
-      "emporix",
-      "product-search",
-      query,
-      params,
-      { tenant: client.tenant, authKind: ctx.kind, siteCode },
-    ],
+    queryKey: emporixKey("product-search", [query, params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     enabled: typeof query === "string" && query.trim() !== "",
     queryFn: () => client.products.search(query as string, params, ctx),
     staleTime: PRODUCTS_STALE_TIME,

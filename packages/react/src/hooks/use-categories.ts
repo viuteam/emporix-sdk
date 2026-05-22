@@ -1,6 +1,5 @@
 import {
   useQuery,
-  useInfiniteQuery,
   type UseQueryResult,
   type UseInfiniteQueryResult,
 } from "@tanstack/react-query";
@@ -13,6 +12,8 @@ import {
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
+import { emporixKey } from "./internal/query-keys";
+import { useEmporixInfinite } from "./internal/use-emporix-infinite";
 
 const CATEGORIES_STALE_TIME = 5 * 60_000; // 5 minutes — catalog structure.
 
@@ -25,7 +26,7 @@ export function useCategory(
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "category", categoryId, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
+    queryKey: emporixKey("category", [categoryId], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     queryFn: () => client.categories.get(categoryId, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
@@ -40,7 +41,7 @@ export function useCategories(
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "categories", params, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
+    queryKey: emporixKey("categories", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     queryFn: () => client.categories.list(params, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
@@ -54,18 +55,13 @@ export function useCategoriesInfinite(
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
-  return useInfiniteQuery({
-    queryKey: ["emporix", "categories-infinite", params, { tenant: client.tenant, authKind: ctx.kind, siteCode }],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
+  return useEmporixInfinite<Category>({
+    queryKey: emporixKey("categories-infinite", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    fetchPage: (pageNumber) =>
       client.categories.list(
-        params.pageSize !== undefined
-          ? { pageNumber: pageParam as number, pageSize: params.pageSize }
-          : { pageNumber: pageParam as number },
+        params.pageSize !== undefined ? { pageNumber, pageSize: params.pageSize } : { pageNumber },
         ctx,
       ),
-    getNextPageParam: (last: PaginatedItems<Category>) =>
-      last.hasNextPage ? last.pageNumber + 1 : undefined,
     staleTime: CATEGORIES_STALE_TIME,
   });
 }
@@ -79,12 +75,7 @@ export function useCategoryTree(
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: [
-      "emporix",
-      "category-tree",
-      rootId ?? null,
-      { tenant: client.tenant, authKind: ctx.kind, siteCode },
-    ],
+    queryKey: emporixKey("category-tree", [rootId ?? null], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     queryFn: () => client.categories.tree(rootId, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
@@ -100,13 +91,7 @@ export function useProductsInCategory(
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: [
-      "emporix",
-      "products-in-category",
-      categoryId,
-      params,
-      { tenant: client.tenant, authKind: ctx.kind, siteCode },
-    ],
+    queryKey: emporixKey("products-in-category", [categoryId, params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     enabled: typeof categoryId === "string" && categoryId !== "",
     queryFn: () => client.categories.productsIn(categoryId as string, params, ctx),
     staleTime: CATEGORIES_STALE_TIME,
@@ -122,26 +107,15 @@ export function useProductsInCategoryInfinite(
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
-  return useInfiniteQuery({
-    queryKey: [
-      "emporix",
-      "products-in-category-infinite",
-      categoryId,
-      params,
-      { tenant: client.tenant, authKind: ctx.kind, siteCode },
-    ],
+  return useEmporixInfinite<Product>({
+    queryKey: emporixKey("products-in-category-infinite", [categoryId, params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     enabled: typeof categoryId === "string" && categoryId !== "",
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
+    fetchPage: (pageNumber) =>
       client.categories.productsIn(
         categoryId as string,
-        params.pageSize !== undefined
-          ? { pageNumber: pageParam as number, pageSize: params.pageSize }
-          : { pageNumber: pageParam as number },
+        params.pageSize !== undefined ? { pageNumber, pageSize: params.pageSize } : { pageNumber },
         ctx,
       ),
-    getNextPageParam: (last: PaginatedItems<Product>) =>
-      last.hasNextPage ? last.pageNumber + 1 : undefined,
     staleTime: CATEGORIES_STALE_TIME,
   });
 }

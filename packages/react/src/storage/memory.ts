@@ -1,6 +1,9 @@
-import type { EmporixStorage, PersistedAnonymousSession } from "./index";
-
-type AllKey = "customerToken" | "cartId" | "siteCode" | "anonymousSession";
+import {
+  createListenerSet,
+  type EmporixStorage,
+  type EmporixStorageKey,
+  type PersistedAnonymousSession,
+} from "./index";
 
 /** In-memory token store. Default, SSR-safe, no persistence. */
 export function createMemoryStorage(opts: { initial?: string } = {}): EmporixStorage {
@@ -8,46 +11,34 @@ export function createMemoryStorage(opts: { initial?: string } = {}): EmporixSto
   let cartId: string | null = null;
   let anon: PersistedAnonymousSession | null = null;
   let siteCode: string | null = null;
-  const listeners = new Set<(t: string | null) => void>();
-  const allListeners = new Set<(k: AllKey) => void>();
-  const notifyAll = (k: AllKey): void => {
-    for (const l of allListeners) {
-      try {
-        l(k);
-      } catch {
-        // Swallow handler errors; telemetry must never break writes.
-      }
-    }
-  };
+  const tokenListeners = new Set<(t: string | null) => void>();
+  const all = createListenerSet<EmporixStorageKey>();
   return {
     getCustomerToken: () => token,
     setCustomerToken: (t) => {
       token = t;
-      for (const l of listeners) l(token);
-      notifyAll("customerToken");
+      for (const l of tokenListeners) l(token);
+      all.notify("customerToken");
     },
     subscribe: (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
+      tokenListeners.add(l);
+      return () => tokenListeners.delete(l);
     },
     getCartId: () => cartId,
     setCartId: (id) => {
       cartId = id;
-      notifyAll("cartId");
+      all.notify("cartId");
     },
     getAnonymousSession: () => anon,
     setAnonymousSession: (s) => {
       anon = s;
-      notifyAll("anonymousSession");
+      all.notify("anonymousSession");
     },
     getSiteCode: () => siteCode,
     setSiteCode: (code) => {
       siteCode = code;
-      notifyAll("siteCode");
+      all.notify("siteCode");
     },
-    subscribeAll: (l) => {
-      allListeners.add(l);
-      return () => allListeners.delete(l);
-    },
+    subscribeAll: (l) => all.add(l),
   };
 }
