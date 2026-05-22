@@ -48,11 +48,16 @@ See [`packages/sdk/README.md`](./packages/sdk/README.md) and
 ## Development
 
 ```bash
+nvm use          # picks Node 20 from .nvmrc (matches CI)
 pnpm install
 pnpm typecheck   # repo-wide (packages + examples)
 pnpm test        # library packages
 pnpm build       # library packages
 ```
+
+Node 20 is what CI runs (`.github/workflows/*.yml`). The published packages'
+runtime floor is `engines.node: ">=18"` — that's the support contract for
+consumers, not a development requirement.
 
 Root `build`/`test`/`lint` are scoped to `./packages/*` (the publishable
 libraries); examples are excluded from the release gate but still typechecked.
