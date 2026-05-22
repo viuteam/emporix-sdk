@@ -39,3 +39,4 @@ export type { AddressMutationsApi } from "./use-customer-addresses";
 export { usePasswordReset } from "./use-password-reset";
 export type { PasswordResetApi } from "./use-password-reset";
 export { useSites, useDefaultSite } from "./use-sites";
+export { useSiteContext } from "./use-site-context";

@@ -1,5 +1,5 @@
 export { EmporixProvider, useEmporix } from "./provider";
-export type { EmporixProviderProps } from "./provider";
+export type { EmporixProviderProps, SiteContextValue } from "./provider";
 export type { TokenStorage, EmporixStorage, PersistedAnonymousSession } from "./storage/index";
 export {
   createMemoryStorage,
@@ -41,6 +41,7 @@ export {
   usePasswordReset,
   useSites,
   useDefaultSite,
+  useSiteContext,
 } from "./hooks/index";
 export type {
   CustomerSessionApi,
