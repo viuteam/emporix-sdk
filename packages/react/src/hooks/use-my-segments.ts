@@ -16,6 +16,8 @@ import {
 import { useEmporix } from "../provider";
 import { useReadSite } from "./internal/use-read-site";
 
+const SEGMENTS_STALE_TIME = 5 * 60_000; // 5 minutes — segment membership is admin-driven.
+
 function customerCtx(token: string | null): AuthContext {
   if (!token) throw new Error("requires a customer token in storage");
   return auth.customer(token);
@@ -32,6 +34,7 @@ export function useMySegments(
     queryKey: ["emporix", "segment", "list", { tenant: client.tenant, query, siteCode }],
     enabled: token !== null,
     queryFn: () => client.segments.list(query, customerCtx(token)),
+    staleTime: SEGMENTS_STALE_TIME,
   });
 }
 
@@ -51,6 +54,7 @@ export function useMySegmentItems(
     queryKey: ["emporix", "segment", "items", { tenant: client.tenant, query, siteCode }],
     enabled: token !== null,
     queryFn: () => client.segments.listItems(query, customerCtx(token)),
+    staleTime: SEGMENTS_STALE_TIME,
   });
 }
 
@@ -65,6 +69,7 @@ export function useMySegmentCategoryTree(
     queryKey: ["emporix", "segment", "categoryTree", { tenant: client.tenant, query, siteCode }],
     enabled: token !== null,
     queryFn: () => client.segments.getCategoryTree(query, customerCtx(token)),
+    staleTime: SEGMENTS_STALE_TIME,
   });
 }
 
@@ -86,6 +91,7 @@ export function useMySegmentProducts(
     queryKey: ["emporix", "segment", "myProducts", { tenant: client.tenant, query, siteCode }],
     enabled: token !== null,
     queryFn: () => client.segments.listMyProducts(query, customerCtx(token)),
+    staleTime: SEGMENTS_STALE_TIME,
   });
 }
 
@@ -122,6 +128,7 @@ export function useMySegmentProductsInfinite(
       ),
     getNextPageParam: (last: PaginatedItems<Product>) =>
       last.hasNextPage ? last.pageNumber + 1 : undefined,
+    staleTime: SEGMENTS_STALE_TIME,
   });
 }
 
@@ -143,6 +150,7 @@ export function useMySegmentCategories(
     queryKey: ["emporix", "segment", "myCategories", { tenant: client.tenant, query, siteCode }],
     enabled: token !== null,
     queryFn: () => client.segments.listMyCategories(query, customerCtx(token)),
+    staleTime: SEGMENTS_STALE_TIME,
   });
 }
 
@@ -178,5 +186,6 @@ export function useMySegmentCategoriesInfinite(
       ),
     getNextPageParam: (last: PaginatedItems<Category>) =>
       last.hasNextPage ? last.pageNumber + 1 : undefined,
+    staleTime: SEGMENTS_STALE_TIME,
   });
 }

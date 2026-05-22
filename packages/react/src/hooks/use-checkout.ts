@@ -15,6 +15,8 @@ import {
 import { useEmporix } from "../provider";
 import { useReadSite } from "./internal/use-read-site";
 
+const PAYMENT_MODES_STALE_TIME = 10 * 60_000; // 10 minutes — admin-configured.
+
 function checkoutCtx(token: string | null): AuthContext {
   return token ? auth.customer(token) : auth.anonymous();
 }
@@ -69,5 +71,6 @@ export function usePaymentModes(
     queryKey: ["emporix", "payment-modes", { tenant: client.tenant, siteCode }],
     enabled: (options.enabled ?? true) && token !== null,
     queryFn: () => client.payments.listPaymentModes(customerOnlyCtx(token)),
+    staleTime: PAYMENT_MODES_STALE_TIME,
   });
 }

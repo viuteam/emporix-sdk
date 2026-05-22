@@ -9,6 +9,8 @@ import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
 
+const PRODUCTS_STALE_TIME = 60_000; // 1 minute — catalog listings + prices.
+
 /** Fetches one product. Default auth: customer if logged in, else anonymous. */
 export function useProduct(productId: string, options: QueryOpts = {}): UseQueryResult<Product> {
   const { client } = useEmporix();
@@ -17,6 +19,7 @@ export function useProduct(productId: string, options: QueryOpts = {}): UseQuery
   return useQuery({
     queryKey: ["emporix", "product", productId, { tenant: client.tenant, authKind: kind, siteCode }],
     queryFn: () => client.products.get(productId, undefined, ctx),
+    staleTime: PRODUCTS_STALE_TIME,
   });
 }
 
@@ -31,6 +34,7 @@ export function useProducts(
   return useQuery({
     queryKey: ["emporix", "products", params, { tenant: client.tenant, authKind: kind, siteCode }],
     queryFn: () => client.products.list(params, ctx),
+    staleTime: PRODUCTS_STALE_TIME,
   });
 }
 
@@ -54,6 +58,7 @@ export function useProductsInfinite(
       ),
     getNextPageParam: (last: PaginatedItems<Product>) =>
       last.hasNextPage ? last.pageNumber + 1 : undefined,
+    staleTime: PRODUCTS_STALE_TIME,
   });
 }
 
@@ -69,6 +74,7 @@ export function useProductByCode(
     queryKey: ["emporix", "product-by-code", code, { tenant: client.tenant, authKind: kind, siteCode }],
     enabled: typeof code === "string" && code !== "",
     queryFn: () => client.products.getByCode(code as string, ctx),
+    staleTime: PRODUCTS_STALE_TIME,
   });
 }
 
@@ -91,5 +97,6 @@ export function useProductSearch(
     ],
     enabled: typeof query === "string" && query.trim() !== "",
     queryFn: () => client.products.search(query as string, params, ctx),
+    staleTime: PRODUCTS_STALE_TIME,
   });
 }

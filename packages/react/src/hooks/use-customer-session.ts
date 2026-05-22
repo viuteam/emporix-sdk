@@ -1,8 +1,9 @@
 import { useCallback, useContext, useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { auth, type Customer, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "../storage";
 import { EmporixSiteContext, useEmporix, type SiteContextValue } from "../provider";
+import { bootstrapCart } from "./internal/bootstrap-cart";
 
 /** Customer authentication state and actions. */
 export interface CustomerSessionApi {
@@ -54,6 +55,9 @@ export function useCustomerSession(): CustomerSessionApi {
     queryKey: ["emporix", "customer", "me", { tenant: client.tenant, hasToken: token !== null }],
     enabled: token !== null,
     queryFn: () => client.customers.me(auth.customer(token as string)),
+    // 30s — matches Balanced default. Lets honourPreferredSite's fetchQuery
+    // (with staleTime: Infinity) reuse the cache instead of refetching.
+    staleTime: 30_000,
   });
 
   const login = useCallback(
@@ -64,13 +68,23 @@ export function useCustomerSession(): CustomerSessionApi {
       setRefreshTok(session.refreshToken || null);
       setSaasTok(session.saasToken || null);
       await onboardCustomerCart({
+        qc,
         client,
         storage,
         customerToken: session.customerToken,
       });
-      await qc.invalidateQueries({ queryKey: ["emporix", "customer"] });
-      await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
-      await honourPreferredSite({ client, customerToken: session.customerToken, siteCtx });
+      // Honour preferred site BEFORE invalidate — writes meQuery cache.
+      await honourPreferredSite({
+        qc,
+        client,
+        customerToken: session.customerToken,
+        siteCtx,
+      });
+      // refetchType: "none" — mark stale but DO NOT trigger an immediate
+      // refetch. The fresh /customer/me from honourPreferredSite already
+      // updated the cache; remounts past 30s staleness will refetch.
+      await qc.invalidateQueries({ queryKey: ["emporix", "customer"], refetchType: "none" });
+      await qc.invalidateQueries({ queryKey: ["emporix", "cart"], refetchType: "none" });
     },
     [client, storage, qc, siteCtx],
   );
@@ -90,13 +104,19 @@ export function useCustomerSession(): CustomerSessionApi {
       setRefreshTok(session.refreshToken || null);
       setSaasTok(session.saasToken || null);
       await onboardCustomerCart({
+        qc,
         client,
         storage,
         customerToken: session.customerToken,
       });
-      await qc.invalidateQueries({ queryKey: ["emporix", "customer"] });
-      await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
-      await honourPreferredSite({ client, customerToken: session.customerToken, siteCtx });
+      await honourPreferredSite({
+        qc,
+        client,
+        customerToken: session.customerToken,
+        siteCtx,
+      });
+      await qc.invalidateQueries({ queryKey: ["emporix", "customer"], refetchType: "none" });
+      await qc.invalidateQueries({ queryKey: ["emporix", "cart"], refetchType: "none" });
     },
     [client, storage, qc, siteCtx],
   );
@@ -181,20 +201,32 @@ export function useCustomerSession(): CustomerSessionApi {
  */
 /**
  * After login, switch the active site to the customer's `preferredSite` if
- * one is set and differs from the current siteCode. Best-effort: failure
- * never blocks login.
+ * one is set and differs from the current siteCode. Uses `qc.fetchQuery` with
+ * the same key as `meQuery` so the post-login `/customer/me` call is shared
+ * (no double-fetch). Best-effort: failure never blocks login.
  */
 async function honourPreferredSite(opts: {
+  qc: QueryClient;
   client: EmporixClient;
   customerToken: string;
   siteCtx: SiteContextValue | null;
 }): Promise<void> {
-  const { client, customerToken, siteCtx } = opts;
+  const { qc, client, customerToken, siteCtx } = opts;
   if (!siteCtx) return;
   try {
-    const me = (await client.customers.me(auth.customer(customerToken))) as {
-      preferredSite?: string;
-    };
+    const me = (await qc.fetchQuery({
+      queryKey: [
+        "emporix",
+        "customer",
+        "me",
+        { tenant: client.tenant, hasToken: true },
+      ],
+      queryFn: () => client.customers.me(auth.customer(customerToken)),
+      // Reuse whatever meQuery already wrote (login flow runs meQuery in
+      // parallel). Without this, fetchQuery refetches if meQuery's data is
+      // already stale (default staleTime: 0 on meQuery).
+      staleTime: Infinity,
+    })) as { preferredSite?: string };
     const preferred = me.preferredSite;
     if (preferred && siteCtx.siteCode !== preferred) {
       await siteCtx.setSite(preferred);
@@ -205,18 +237,22 @@ async function honourPreferredSite(opts: {
 }
 
 async function onboardCustomerCart(opts: {
+  qc: QueryClient;
   client: EmporixClient;
   storage: EmporixStorage;
   customerToken: string;
 }): Promise<void> {
-  const { client, storage, customerToken } = opts;
+  const { qc, client, storage, customerToken } = opts;
   const siteCode = client.config?.credentials?.storefront?.context?.siteCode;
   if (!siteCode) return; // No site context configured → skip.
   const ctx = auth.customer(customerToken);
   try {
-    const customerCart = await client.carts.getCurrent(ctx, {
+    const customerCart = await bootstrapCart({
+      qc,
+      client,
+      ctx,
+      authKind: "customer",
       siteCode,
-      create: true,
     });
     // Cart uses `id`; only `CartCreated` exposes `cartId`. See generated types.
     const customerCartId = customerCart?.id;

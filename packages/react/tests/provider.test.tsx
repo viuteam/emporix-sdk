@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, renderHook, screen } from "@testing-library/react";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, useQueryClient } from "@tanstack/react-query";
 import { EmporixClient, type AnonymousSessionStore } from "@viu/emporix-sdk";
 import { EmporixProvider, useEmporix } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
+import type { ReactNode } from "react";
 
 function mkClient() {
   return new EmporixClient({
@@ -89,5 +90,38 @@ describe("EmporixProvider", () => {
         </EmporixProvider>,
       ),
     ).not.toThrow();
+  });
+});
+
+describe("EmporixProvider — QueryClient defaults (Balanced)", () => {
+  it("applies Balanced defaults when no queryClient prop is passed", () => {
+    const client = mkClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={createMemoryStorage()}>
+        {children}
+      </EmporixProvider>
+    );
+    const { result } = renderHook(() => useQueryClient(), { wrapper });
+    const defaults = result.current.getDefaultOptions().queries;
+    expect(defaults?.staleTime).toBe(30_000);
+    expect(defaults?.refetchOnWindowFocus).toBe(false);
+    expect(defaults?.retry).toBe(1);
+  });
+
+  it("does not override an externally-passed QueryClient", () => {
+    const client = mkClient();
+    const externalQc = new QueryClient({
+      defaultOptions: { queries: { staleTime: 999, refetchOnWindowFocus: true, retry: 5 } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={createMemoryStorage()} queryClient={externalQc}>
+        {children}
+      </EmporixProvider>
+    );
+    const { result } = renderHook(() => useQueryClient(), { wrapper });
+    const defaults = result.current.getDefaultOptions().queries;
+    expect(defaults?.staleTime).toBe(999);
+    expect(defaults?.refetchOnWindowFocus).toBe(true);
+    expect(defaults?.retry).toBe(5);
   });
 });

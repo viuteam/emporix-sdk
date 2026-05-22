@@ -19,6 +19,7 @@ import {
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
+import { bootstrapCart } from "./internal/bootstrap-cart";
 
 /** Fetches a cart by id. Falls back to `storage.getCartId()` when no argument is passed; disabled when neither is set. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
@@ -187,6 +188,7 @@ export function useActiveCart(opts?: {
   auth?: AuthContext;
 }): UseQueryResult<Cart | null> {
   const { client, storage } = useEmporix();
+  const qc = useQueryClient();
   const { ctx, kind } = useReadAuth(opts?.auth);
   const { siteCode: activeSite } = useReadSite();
 
@@ -199,13 +201,15 @@ export function useActiveCart(opts?: {
     const siteCode = activeSite ?? client.config?.credentials?.storefront?.context?.siteCode;
     if (!siteCode) return;
     let cancelled = false;
-    client.carts
-      .getCurrent(ctx, {
-        siteCode,
-        ...(opts.type !== undefined ? { type: opts.type } : {}),
-        ...(opts.legalEntityId !== undefined ? { legalEntityId: opts.legalEntityId } : {}),
-        create: true,
-      })
+    bootstrapCart({
+      qc,
+      client,
+      ctx,
+      authKind: kind,
+      siteCode,
+      ...(opts.type !== undefined ? { type: opts.type } : {}),
+      ...(opts.legalEntityId !== undefined ? { legalEntityId: opts.legalEntityId } : {}),
+    })
       .then((cart) => {
         if (cancelled) return;
         if (cart?.id) {

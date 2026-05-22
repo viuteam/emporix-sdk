@@ -33,6 +33,39 @@ Each adapter persists three pieces under predictable keys:
 - `emporix.anonymousSession` — JSON `{ refreshToken, sessionId }`, set by the
   SDK on every anonymous login/refresh. See [Persistent guest cart](#persistent-guest-cart).
 
+### Caching & quota
+
+`EmporixProvider` ships with a Balanced React-Query default profile to keep
+your tenant API-quota in check:
+
+| Default | Value | Why |
+|---|---|---|
+| `staleTime` | `30s` | Fresh-within-30s policy reduces refetch-on-mount churn. |
+| `refetchOnWindowFocus` | `false` | Tabbing back no longer refetches all queries. |
+| `retry` | `1` | Single retry on failure instead of three (caps failed-request cost at 2× per query). |
+
+Each hook overrides `staleTime` for resources that change at different rates:
+
+| Hook(s) | staleTime |
+|---|---|
+| `useSites`, `useDefaultSite`, `usePaymentModes` | 10 min |
+| `useCategory(ies)`, `useCategoryTree`, `useProductsInCategory(Infinite)`, `useMySegment*` | 5 min |
+| `useProducts(Infinite)`, `useProduct`, `useProductByCode`, `useProductSearch`, `useMatchPrices` | 60 s |
+| `useCustomerSession.customer` (meQuery) | 30 s |
+| Everything else | 30 s (provider default) |
+
+To opt out and supply your own defaults, pass a `queryClient` prop:
+
+```tsx
+const qc = new QueryClient(); // your own defaults
+<EmporixProvider client={client} queryClient={qc}>...</EmporixProvider>
+```
+
+`useActiveCart({ create: true })` and `useCustomerSession.login` share a
+`bootstrapCart` cache entry — parallel mounts trigger one server call.
+`honourPreferredSite` shares the `meQuery` cache so post-login profile
+fetches are deduplicated when timing permits (at worst 2 calls per login).
+
 ## Hooks
 
 `useCustomerSession()` — `customerToken`, `customer` (auto-fetched when a token

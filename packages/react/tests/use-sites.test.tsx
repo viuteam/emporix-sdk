@@ -79,3 +79,24 @@ describe("useDefaultSite", () => {
     expect(result.current.data?.code).toBe("main");
   });
 });
+
+describe("useSites — staleTime caching", () => {
+  it("a second hook mount within staleTime is a cache hit (no refetch)", async () => {
+    let calls = 0;
+    server.use(
+      http.get("https://api.emporix.io/site/acme/sites", () => {
+        calls += 1;
+        return HttpResponse.json(SITES);
+      }),
+    );
+    // Both hooks share the same wrapper → same QueryClient.
+    const wrapper = wrap();
+    const { result: r1 } = renderHook(() => useSites(), { wrapper });
+    await waitFor(() => expect(r1.current.isSuccess).toBe(true));
+    expect(calls).toBe(1);
+    const { result: r2 } = renderHook(() => useSites(), { wrapper });
+    await waitFor(() => expect(r2.current.isSuccess).toBe(true));
+    // Within staleTime, second mount hits cache.
+    expect(calls).toBe(1);
+  });
+});

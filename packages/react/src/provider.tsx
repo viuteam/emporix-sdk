@@ -34,6 +34,17 @@ export interface SiteContextValue {
 const EmporixContext = createContext<EmporixContextValue | null>(null);
 export const EmporixSiteContext = createContext<SiteContextValue | null>(null);
 
+/**
+ * Balanced React-Query defaults applied to the provider's fallback QueryClient
+ * (only when no `queryClient` prop is passed). Keeps the Emporix API-quota in
+ * check by suppressing window-focus refetches and capping retries.
+ */
+const DEFAULT_QUERY_OPTIONS = {
+  staleTime: 30_000,
+  refetchOnWindowFocus: false,
+  retry: 1,
+} as const;
+
 /** Props for {@link EmporixProvider}. */
 export interface EmporixProviderProps {
   client: EmporixClient;
@@ -69,7 +80,12 @@ export function EmporixProvider({
     return { client, storage: s };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, storage, initialCustomerToken]);
-  const qc = useMemo(() => queryClient ?? new QueryClient(), [queryClient]);
+  const qc = useMemo(
+    () =>
+      queryClient ??
+      new QueryClient({ defaultOptions: { queries: DEFAULT_QUERY_OPTIONS } }),
+    [queryClient],
+  );
 
   // Idempotent one-time wiring: attaches a storage-backed adapter to the SDK's
   // token provider so anonymous sessions survive reloads. Runs once per
