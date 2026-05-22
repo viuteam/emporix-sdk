@@ -181,9 +181,19 @@ function SiteSwitcher() {
 
 `setSite(code)` writes `storage.setSiteCode(code)`, clears `storage.cartId`
 (carts are site-aware), and invalidates `["emporix"]` queries — all
-site-aware caches refetch on the new site. In MS-2 `currency` and
-`targetLocation` stay `null`; they auto-derive from the site DTO in MS-4.
-Server-side session-context sync arrives in MS-3 (`setSite` becomes async).
+site-aware caches refetch on the new site. Then it PATCHes
+`/session-context/{tenant}/me/context` so the server sees the new site on
+the next request. The UI flips immediately (optimistic); `isSwitching`
+exposes the in-flight PATCH so a switcher button can show a spinner, and
+`switchError` carries any PATCH failure (rare — the optimistic state is
+NOT rolled back, since the caches already invalidated).
+
+When no cart has been created yet, the server has no session-context for
+the user — the SDK skips the PATCH in that case (GET returns 404) and
+local state still flips.
+
+In MS-4 `currency` and `targetLocation` auto-derive from the active site's
+DTO; today they stay `null`.
 
 All site-aware React-Query hooks include `siteCode` in their cache key, so
 two `useProducts({pageSize: 12})` calls under different sites yield two

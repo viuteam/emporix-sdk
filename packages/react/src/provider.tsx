@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import type { EmporixClient } from "@viu/emporix-sdk";
+import { auth, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "./storage/index";
 import { createMemoryStorage } from "./storage/memory";
 
@@ -15,8 +15,20 @@ export interface SiteContextValue {
   currency: string | null;
   /** MS-4 populates this from the active site's DTO. */
   targetLocation: string | null;
-  /** Sync in MS-2 (state + storage + cart-id clear + cache invalidate). Async in MS-3. */
-  setSite: (code: string | null) => void;
+  /**
+   * Asynchronous site switch. Updates local state + storage immediately
+   * (optimistic), then PATCHes `/session-context/{tenant}/me/context` so
+   * the server sees the same site on the next request. When no session
+   * context exists yet (first visit, before any cart), the PATCH is
+   * skipped — local state still flips.
+   *
+   * `isSwitching` is `true` while the PATCH is in flight. `switchError`
+   * surfaces a PATCH failure; the optimistic state is NOT rolled back
+   * (the cache was already invalidated, the UI already moved on).
+   */
+  setSite: (code: string | null) => Promise<void>;
+  isSwitching: boolean;
+  switchError: Error | null;
 }
 
 const EmporixContext = createContext<EmporixContextValue | null>(null);
@@ -107,16 +119,33 @@ function SiteContextProvider({
     if (fromStorage !== null) return fromStorage;
     return client.config?.credentials?.storefront?.context?.siteCode ?? null;
   });
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState<Error | null>(null);
 
   const setSite = useCallback(
-    (code: string | null) => {
+    async (code: string | null) => {
+      // 1) Optimistic local flip — UI moves immediately.
       storage.setSiteCode(code);
       // Carts are site-aware — old cartId becomes unreachable on the new site.
       storage.setCartId(null);
       setSiteCodeState(code);
+      setSwitchError(null);
       void qc.invalidateQueries({ queryKey: ["emporix"] });
+
+      // 2) Server-side sync. Skip when clearing (no PATCH target).
+      if (code === null) return;
+      setIsSwitching(true);
+      try {
+        const token = storage.getCustomerToken();
+        const authCtx = token ? auth.customer(token) : auth.anonymous();
+        await client.sessionContext.patch({ siteCode: code }, authCtx);
+      } catch (e) {
+        setSwitchError(e instanceof Error ? e : new Error(String(e)));
+      } finally {
+        setIsSwitching(false);
+      }
     },
-    [storage, qc],
+    [client, storage, qc],
   );
 
   const value = useMemo<SiteContextValue>(
@@ -125,8 +154,10 @@ function SiteContextProvider({
       currency: null,
       targetLocation: null,
       setSite,
+      isSwitching,
+      switchError,
     }),
-    [siteCode, setSite],
+    [siteCode, setSite, isSwitching, switchError],
   );
 
   return <EmporixSiteContext.Provider value={value}>{children}</EmporixSiteContext.Provider>;

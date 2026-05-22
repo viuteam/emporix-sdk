@@ -88,3 +88,5 @@ export type {
 } from "./services/segment";
 export { SiteService } from "./services/site";
 export type { Site } from "./services/site";
+export { SessionContextService } from "./services/session-context";
+export type { SessionContext, SessionContextPatch } from "./services/session-context";
