@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { auth, type Customer, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "../storage";
-import { useEmporix } from "../provider";
+import { EmporixSiteContext, useEmporix, type SiteContextValue } from "../provider";
 
 /** Customer authentication state and actions. */
 export interface CustomerSessionApi {
@@ -39,6 +39,8 @@ export interface CustomerSessionApi {
 export function useCustomerSession(): CustomerSessionApi {
   const { client, storage } = useEmporix();
   const qc = useQueryClient();
+  // Optional — present when wrapped in an EmporixProvider (always true post-MS-2).
+  const siteCtx = useContext(EmporixSiteContext);
   const [token, setToken] = useState<string | null>(() => storage.getCustomerToken());
   // Refresh / saas tokens are kept in-session (not persisted by TokenStorage).
   const [refreshTok, setRefreshTok] = useState<string | null>(null);
@@ -68,8 +70,9 @@ export function useCustomerSession(): CustomerSessionApi {
       });
       await qc.invalidateQueries({ queryKey: ["emporix", "customer"] });
       await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
+      await honourPreferredSite({ client, customerToken: session.customerToken, siteCtx });
     },
-    [client, storage, qc],
+    [client, storage, qc, siteCtx],
   );
 
   const signup = useCallback(
@@ -93,8 +96,9 @@ export function useCustomerSession(): CustomerSessionApi {
       });
       await qc.invalidateQueries({ queryKey: ["emporix", "customer"] });
       await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
+      await honourPreferredSite({ client, customerToken: session.customerToken, siteCtx });
     },
-    [client, storage, qc],
+    [client, storage, qc, siteCtx],
   );
 
   const socialLogin = useCallback(
@@ -175,6 +179,31 @@ export function useCustomerSession(): CustomerSessionApi {
  * customer-cart-id back to `storage.setCartId(...)`. Never throws — failures
  * are swallowed so login does not block on cart trouble.
  */
+/**
+ * After login, switch the active site to the customer's `preferredSite` if
+ * one is set and differs from the current siteCode. Best-effort: failure
+ * never blocks login.
+ */
+async function honourPreferredSite(opts: {
+  client: EmporixClient;
+  customerToken: string;
+  siteCtx: SiteContextValue | null;
+}): Promise<void> {
+  const { client, customerToken, siteCtx } = opts;
+  if (!siteCtx) return;
+  try {
+    const me = (await client.customers.me(auth.customer(customerToken))) as {
+      preferredSite?: string;
+    };
+    const preferred = me.preferredSite;
+    if (preferred && siteCtx.siteCode !== preferred) {
+      await siteCtx.setSite(preferred);
+    }
+  } catch {
+    // Best-effort — never block login on a preference lookup.
+  }
+}
+
 async function onboardCustomerCart(opts: {
   client: EmporixClient;
   storage: EmporixStorage;
