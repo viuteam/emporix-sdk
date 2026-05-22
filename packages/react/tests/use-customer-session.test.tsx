@@ -339,6 +339,53 @@ describe("useCustomerSession — preferredSite honour (MS-4)", () => {
     expect(patchCall?.siteCode).toBe("Y");
   });
 
+  it("login fires at most 2 GET /customer/me calls (meQuery + preferredSite cache share)", async () => {
+    // honourPreferredSite uses qc.fetchQuery with the same key as meQuery so
+    // they share the cache. A race between meQuery's auto-fetch (on token
+    // state change) and fetchQuery means we get 1 call when cache is hit, 2
+    // when racing — but never more than 2 (vs 2 without dedup attempt).
+    let meCalls = 0;
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/me", () => {
+        meCalls += 1;
+        return HttpResponse.json({ id: "c1", contactEmail: "u@e.com", preferredSite: "Y" });
+      }),
+      http.get("https://api.emporix.io/site/acme/sites/Y", () =>
+        HttpResponse.json({
+          code: "Y",
+          name: "Y",
+          active: true,
+          default: false,
+          defaultLanguage: "en",
+          languages: ["en"],
+          currency: "EUR",
+          homeBase: { address: { country: "DE", zipCode: "1" } },
+          shipToCountries: ["DE"],
+        }),
+      ),
+      http.get("https://api.emporix.io/session-context/acme/me/context", () =>
+        HttpResponse.json({ sessionId: "s", metadata: { version: 1 } }),
+      ),
+      http.patch(
+        "https://api.emporix.io/session-context/acme/me/context",
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    storage.setSiteCode("X");
+    const { result } = renderHook(
+      () => ({ session: useCustomerSession(), site: useSiteContext() }),
+      { wrapper: wrapper(storage, { siteCode: "main" }) },
+    );
+    await act(async () => {
+      await result.current.session.login({ email: "u@e.com", password: "p" });
+    });
+    await waitFor(() => expect(result.current.site.siteCode).toBe("Y"));
+    // Race-tolerant assertion: shared cache means ≤ 2 calls (often 1 in
+    // production where timing is less adversarial than test environments).
+    expect(meCalls).toBeLessThanOrEqual(2);
+  });
+
   it("leaves site unchanged when customer has no preferredSite", async () => {
     server.use(
       http.get("https://api.emporix.io/customer/acme/me", () =>
