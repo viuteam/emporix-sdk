@@ -1,12 +1,15 @@
-import type { EmporixStorage, PersistedAnonymousSession } from "./index";
+import {
+  createListenerSet,
+  parseAnonymousSession,
+  type EmporixStorage,
+  type EmporixStorageKey,
+} from "./index";
 import { createMemoryStorage } from "./memory";
 
 const DEFAULT_TOKEN_NAME = "emporix.customerToken";
 const CART_NAME = "emporix.cartId";
 const ANON_NAME = "emporix.anonymousSession";
 const SITE_NAME = "emporix.siteCode";
-
-type AllKey = "customerToken" | "cartId" | "siteCode" | "anonymousSession";
 
 /** Cookie-backed store. Consumer must set SameSite/Secure for CSRF safety. */
 export function createCookieStorage(
@@ -34,40 +37,19 @@ export function createCookieStorage(
         ? `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${attrs}`
         : `${name}=${encodeURIComponent(value)}; ${attrs}`;
   };
-  const allListeners = new Set<(k: AllKey) => void>();
-  const notifyAll = (k: AllKey): void => {
-    for (const l of allListeners) {
-      try {
-        l(k);
-      } catch {
-        // Swallow handler errors; telemetry must never break writes.
-      }
-    }
-  };
+  const all = createListenerSet<EmporixStorageKey>();
   return {
     getCustomerToken: () => readCookie(tokenName),
     setCustomerToken: (t) => {
       writeCookie(tokenName, t);
-      notifyAll("customerToken");
+      all.notify("customerToken");
     },
     getCartId: () => readCookie(CART_NAME),
     setCartId: (id) => {
       writeCookie(CART_NAME, id);
-      notifyAll("cartId");
+      all.notify("cartId");
     },
-    getAnonymousSession: (): PersistedAnonymousSession | null => {
-      const raw = readCookie(ANON_NAME);
-      if (!raw) return null;
-      try {
-        const parsed = JSON.parse(raw) as Partial<PersistedAnonymousSession>;
-        if (typeof parsed.refreshToken === "string" && typeof parsed.sessionId === "string") {
-          return { refreshToken: parsed.refreshToken, sessionId: parsed.sessionId };
-        }
-        return null;
-      } catch {
-        return null;
-      }
-    },
+    getAnonymousSession: () => parseAnonymousSession(readCookie(ANON_NAME)),
     setAnonymousSession: (s) => {
       writeCookie(
         ANON_NAME,
@@ -75,16 +57,13 @@ export function createCookieStorage(
           ? null
           : JSON.stringify({ refreshToken: s.refreshToken, sessionId: s.sessionId }),
       );
-      notifyAll("anonymousSession");
+      all.notify("anonymousSession");
     },
     getSiteCode: () => readCookie(SITE_NAME),
     setSiteCode: (code) => {
       writeCookie(SITE_NAME, code);
-      notifyAll("siteCode");
+      all.notify("siteCode");
     },
-    subscribeAll: (l) => {
-      allListeners.add(l);
-      return () => allListeners.delete(l);
-    },
+    subscribeAll: (l) => all.add(l),
   };
 }
