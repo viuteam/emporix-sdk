@@ -14,6 +14,8 @@ import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
 
+const CATEGORIES_STALE_TIME = 5 * 60_000; // 5 minutes — catalog structure.
+
 /** Fetches one category. */
 export function useCategory(
   categoryId: string,
@@ -25,6 +27,7 @@ export function useCategory(
   return useQuery({
     queryKey: ["emporix", "category", categoryId, { tenant: client.tenant, authKind: kind, siteCode }],
     queryFn: () => client.categories.get(categoryId, ctx),
+    staleTime: CATEGORIES_STALE_TIME,
   });
 }
 
@@ -39,6 +42,7 @@ export function useCategories(
   return useQuery({
     queryKey: ["emporix", "categories", params, { tenant: client.tenant, authKind: kind, siteCode }],
     queryFn: () => client.categories.list(params, ctx),
+    staleTime: CATEGORIES_STALE_TIME,
   });
 }
 
@@ -62,6 +66,7 @@ export function useCategoriesInfinite(
       ),
     getNextPageParam: (last: PaginatedItems<Category>) =>
       last.hasNextPage ? last.pageNumber + 1 : undefined,
+    staleTime: CATEGORIES_STALE_TIME,
   });
 }
 
@@ -81,6 +86,7 @@ export function useCategoryTree(
       { tenant: client.tenant, authKind: kind, siteCode },
     ],
     queryFn: () => client.categories.tree(rootId, ctx),
+    staleTime: CATEGORIES_STALE_TIME,
   });
 }
 
@@ -103,6 +109,7 @@ export function useProductsInCategory(
     ],
     enabled: typeof categoryId === "string" && categoryId !== "",
     queryFn: () => client.categories.productsIn(categoryId as string, params, ctx),
+    staleTime: CATEGORIES_STALE_TIME,
   });
 }
 
@@ -135,5 +142,6 @@ export function useProductsInCategoryInfinite(
       ),
     getNextPageParam: (last: PaginatedItems<Product>) =>
       last.hasNextPage ? last.pageNumber + 1 : undefined,
+    staleTime: CATEGORIES_STALE_TIME,
   });
 }
