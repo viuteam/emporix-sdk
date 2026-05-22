@@ -18,6 +18,7 @@ export type ServiceName =
   | "media"
   | "segment"
   | "site"
+  | "session-context"
   | "http"
   | "auth";
 
