@@ -192,8 +192,19 @@ When no cart has been created yet, the server has no session-context for
 the user — the SDK skips the PATCH in that case (GET returns 404) and
 local state still flips.
 
-In MS-4 `currency` and `targetLocation` auto-derive from the active site's
-DTO; today they stay `null`.
+`useSiteContext()` exposes `currency` and `targetLocation` derived from the
+active site's DTO (cached for 5 minutes via React-Query). On a `setSite`
+call, the SDK fetches the new site's DTO, updates these fields, and pushes
+all three (`siteCode`, `currency`, `targetLocation`) into the session-context
+PATCH. On provider mount with a pre-resolved `siteCode`, the same fetch
+happens once so the values are available immediately.
+
+After a successful login, `useCustomerSession` honours `customer.preferredSite`:
+if the customer profile carries a preferred site different from the active
+one, the SDK calls `setSite(preferredSite)` automatically — including the
+server-side PATCH. To opt out, fetch the customer profile first and decide
+in your UI before calling `login()` (uncommon; preference-driven behavior
+is the expected storefront default).
 
 All site-aware React-Query hooks include `siteCode` in their cache key, so
 two `useProducts({pageSize: 12})` calls under different sites yield two
