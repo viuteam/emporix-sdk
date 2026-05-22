@@ -18,14 +18,16 @@ import {
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
+import { useReadSite } from "./internal/use-read-site";
 
 /** Fetches a cart by id. Falls back to `storage.getCartId()` when no argument is passed; disabled when neither is set. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
   const { client, storage } = useEmporix();
   const { ctx, kind } = useReadAuth(options.auth);
+  const { siteCode } = useReadSite();
   const resolvedId = cartId ?? storage.getCartId() ?? undefined;
   return useQuery({
-    queryKey: ["emporix", "cart", resolvedId ?? null, { tenant: client.tenant, authKind: kind }],
+    queryKey: ["emporix", "cart", resolvedId ?? null, { tenant: client.tenant, authKind: kind, siteCode }],
     enabled: resolvedId !== undefined,
     queryFn: () => client.carts.get(resolvedId as string, ctx),
   });
@@ -58,6 +60,7 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
   const { client, storage } = useEmporix();
   const qc = useQueryClient();
   const { ctx, kind } = useReadAuth();
+  const { siteCode } = useReadSite();
 
   const resolveId = (): string => {
     const id = cartId ?? storage.getCartId();
@@ -69,7 +72,7 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
     return id;
   };
   const keyFor = (id: string) =>
-    ["emporix", "cart", id, { tenant: client.tenant, authKind: kind }] as const;
+    ["emporix", "cart", id, { tenant: client.tenant, authKind: kind, siteCode }] as const;
 
   function make<TVars>(
     run: (id: string, vars: TVars) => Promise<Cart>,
@@ -185,13 +188,15 @@ export function useActiveCart(opts?: {
 }): UseQueryResult<Cart | null> {
   const { client, storage } = useEmporix();
   const { ctx, kind } = useReadAuth(opts?.auth);
+  const { siteCode: activeSite } = useReadSite();
 
   const [cartId, setCartId] = useState<string | null>(() => storage.getCartId());
 
   useEffect(() => {
     if (cartId !== null) return;
     if (!opts?.create) return;
-    const siteCode = client.config?.credentials?.storefront?.context?.siteCode;
+    // Prefer the active provider site (MS-2), fall back to static config.
+    const siteCode = activeSite ?? client.config?.credentials?.storefront?.context?.siteCode;
     if (!siteCode) return;
     let cancelled = false;
     client.carts
@@ -215,7 +220,7 @@ export function useActiveCart(opts?: {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartId, opts?.create, opts?.type, opts?.legalEntityId, kind]);
+  }, [cartId, opts?.create, opts?.type, opts?.legalEntityId, kind, activeSite]);
 
   // Delegate to useCart with the canonical cache key. When cartId state is null,
   // wrap data → null to expose the documented empty-state signal.

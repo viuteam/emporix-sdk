@@ -131,3 +131,34 @@ describe("createMemoryStorage — cartId + anonymous session", () => {
     expect(s.getAnonymousSession()).toBeNull();
   });
 });
+
+describe("siteCode storage", () => {
+  it("memory: getSiteCode returns null, then the set value", () => {
+    const s = createMemoryStorage();
+    expect(s.getSiteCode()).toBeNull();
+    s.setSiteCode("ThermoBrand_DE");
+    expect(s.getSiteCode()).toBe("ThermoBrand_DE");
+    s.setSiteCode(null);
+    expect(s.getSiteCode()).toBeNull();
+  });
+
+  it("localStorage: persists siteCode under emporix.siteCode", () => {
+    localStorage.clear();
+    const s = createLocalStorageStorage();
+    s.setSiteCode("WarmTech_DE");
+    expect(localStorage.getItem("emporix.siteCode")).toBe("WarmTech_DE");
+    expect(s.getSiteCode()).toBe("WarmTech_DE");
+    s.setSiteCode(null);
+    expect(localStorage.getItem("emporix.siteCode")).toBeNull();
+  });
+
+  it("cookie: round-trips siteCode through document.cookie", () => {
+    for (const c of document.cookie.split("; ")) {
+      const [k] = c.split("=");
+      document.cookie = `${k}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    }
+    const s = createCookieStorage({ secure: false, sameSite: "lax" });
+    s.setSiteCode("main");
+    expect(s.getSiteCode()).toBe("main");
+  });
+});
