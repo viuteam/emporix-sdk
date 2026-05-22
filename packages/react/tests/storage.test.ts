@@ -132,6 +132,48 @@ describe("createMemoryStorage — cartId + anonymous session", () => {
   });
 });
 
+describe("EmporixStorage.subscribeAll", () => {
+  it("memory: notifies subscribers for all four key writes", () => {
+    const s = createMemoryStorage();
+    const events: string[] = [];
+    const unsubscribe = s.subscribeAll!((key) => events.push(key));
+    s.setCustomerToken("t1");
+    s.setCartId("c1");
+    s.setSiteCode("X");
+    s.setAnonymousSession({ refreshToken: "rt", sessionId: "ss" });
+    unsubscribe();
+    s.setCartId("c2"); // post-unsub — should not appear
+    expect(events).toEqual(["customerToken", "cartId", "siteCode", "anonymousSession"]);
+  });
+
+  it("localStorage: notifies subscribers for all four key writes", () => {
+    localStorage.clear();
+    const s = createLocalStorageStorage();
+    const events: string[] = [];
+    s.subscribeAll!((key) => events.push(key));
+    s.setCustomerToken("t");
+    s.setCartId("c");
+    s.setSiteCode("Y");
+    s.setAnonymousSession({ refreshToken: "rt", sessionId: "ss" });
+    expect(events).toEqual(["customerToken", "cartId", "siteCode", "anonymousSession"]);
+  });
+
+  it("cookie: notifies subscribers for all four key writes", () => {
+    for (const c of document.cookie.split("; ")) {
+      const [k] = c.split("=");
+      document.cookie = `${k}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    }
+    const s = createCookieStorage({ secure: false, sameSite: "lax" });
+    const events: string[] = [];
+    s.subscribeAll!((key) => events.push(key));
+    s.setCustomerToken("t");
+    s.setCartId("c");
+    s.setSiteCode("Y");
+    s.setAnonymousSession({ refreshToken: "rt", sessionId: "ss" });
+    expect(events).toEqual(["customerToken", "cartId", "siteCode", "anonymousSession"]);
+  });
+});
+
 describe("siteCode storage", () => {
   it("memory: getSiteCode returns null, then the set value", () => {
     const s = createMemoryStorage();
