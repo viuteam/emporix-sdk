@@ -24,3 +24,10 @@ unchanged, all 151 React tests stay green.
   local `checkoutCtx` helper.
 - `usePaymentModes` cache key gains a stable `authKind: "customer"`
   component for consistency with other hooks.
+
+**Customer session**
+- `useCustomerSession` bundles the three separate `useState` calls
+  (token / refreshToken / saasToken) into a single `SessionState` object.
+  Login / logout / refresh / SSO flows now flip the session atomically
+  via one `setSession(...)` call instead of three. Same public API,
+  same behaviour — only an internal state-shape consolidation.

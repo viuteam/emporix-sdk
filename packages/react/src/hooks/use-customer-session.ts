@@ -5,6 +5,24 @@ import type { EmporixStorage } from "../storage";
 import { EmporixSiteContext, useEmporix, type SiteContextValue } from "../provider";
 import { bootstrapCart } from "./internal/bootstrap-cart";
 
+/**
+ * Internal: the three session tokens the hook tracks. Bundled so login/
+ * applySession/logout/refresh all flip the session atomically — partial
+ * updates use the setter-callback form (e.g. external storage notifications
+ * that only change `token`).
+ */
+interface SessionState {
+  token: string | null;
+  refreshToken: string | null;
+  saasToken: string | null;
+}
+
+const EMPTY_SESSION: SessionState = {
+  token: null,
+  refreshToken: null,
+  saasToken: null,
+};
+
 /** Customer authentication state and actions. */
 export interface CustomerSessionApi {
   customerToken: string | null;
@@ -42,19 +60,23 @@ export function useCustomerSession(): CustomerSessionApi {
   const qc = useQueryClient();
   // Optional — present when wrapped in an EmporixProvider (always true post-MS-2).
   const siteCtx = useContext(EmporixSiteContext);
-  const [token, setToken] = useState<string | null>(() => storage.getCustomerToken());
-  // Refresh / saas tokens are kept in-session (not persisted by TokenStorage).
-  const [refreshTok, setRefreshTok] = useState<string | null>(null);
-  const [saasTok, setSaasTok] = useState<string | null>(null);
+  // Single session-state object. `token` is mirrored from storage at mount,
+  // `refreshToken` and `saasToken` are in-session only (not persisted).
+  const [session, setSession] = useState<SessionState>(() => ({
+    token: storage.getCustomerToken(),
+    refreshToken: null,
+    saasToken: null,
+  }));
 
   useEffect(() => {
-    return storage.subscribe?.((t) => setToken(t));
+    // External token change (e.g. another tab) updates only the `token` slot.
+    return storage.subscribe?.((t) => setSession((s) => ({ ...s, token: t })));
   }, [storage]);
 
   const meQuery = useQuery({
-    queryKey: ["emporix", "customer", "me", { tenant: client.tenant, hasToken: token !== null }],
-    enabled: token !== null,
-    queryFn: () => client.customers.me(auth.customer(token as string)),
+    queryKey: ["emporix", "customer", "me", { tenant: client.tenant, hasToken: session.token !== null }],
+    enabled: session.token !== null,
+    queryFn: () => client.customers.me(auth.customer(session.token as string)),
     // 30s — matches Balanced default. Lets honourPreferredSite's fetchQuery
     // (with staleTime: Infinity) reuse the cache instead of refetching.
     staleTime: 30_000,
@@ -62,22 +84,24 @@ export function useCustomerSession(): CustomerSessionApi {
 
   const login = useCallback(
     async (input: { email: string; password: string }) => {
-      const session = await client.customers.login(input);
-      storage.setCustomerToken(session.customerToken);
-      setToken(session.customerToken);
-      setRefreshTok(session.refreshToken || null);
-      setSaasTok(session.saasToken || null);
+      const result = await client.customers.login(input);
+      storage.setCustomerToken(result.customerToken);
+      setSession({
+        token: result.customerToken,
+        refreshToken: result.refreshToken || null,
+        saasToken: result.saasToken || null,
+      });
       await onboardCustomerCart({
         qc,
         client,
         storage,
-        customerToken: session.customerToken,
+        customerToken: result.customerToken,
       });
       // Honour preferred site BEFORE invalidate — writes meQuery cache.
       await honourPreferredSite({
         qc,
         client,
-        customerToken: session.customerToken,
+        customerToken: result.customerToken,
         siteCtx,
       });
       // refetchType: "none" — mark stale but DO NOT trigger an immediate
@@ -98,21 +122,23 @@ export function useCustomerSession(): CustomerSessionApi {
 
   // Shared "store a CustomerSession into hook state" used by SSO flows.
   const applySession = useCallback(
-    async (session: { customerToken: string; refreshToken: string; saasToken: string }) => {
-      storage.setCustomerToken(session.customerToken);
-      setToken(session.customerToken);
-      setRefreshTok(session.refreshToken || null);
-      setSaasTok(session.saasToken || null);
+    async (incoming: { customerToken: string; refreshToken: string; saasToken: string }) => {
+      storage.setCustomerToken(incoming.customerToken);
+      setSession({
+        token: incoming.customerToken,
+        refreshToken: incoming.refreshToken || null,
+        saasToken: incoming.saasToken || null,
+      });
       await onboardCustomerCart({
         qc,
         client,
         storage,
-        customerToken: session.customerToken,
+        customerToken: incoming.customerToken,
       });
       await honourPreferredSite({
         qc,
         client,
-        customerToken: session.customerToken,
+        customerToken: incoming.customerToken,
         siteCtx,
       });
       await qc.invalidateQueries({ queryKey: ["emporix", "customer"], refetchType: "none" });
@@ -141,47 +167,47 @@ export function useCustomerSession(): CustomerSessionApi {
   );
 
   const logout = useCallback(async () => {
-    if (token) {
+    if (session.token) {
       // Best-effort server invalidation; the local session is cleared
       // regardless (the token may already be expired/invalid).
       try {
-        await client.customers.logout(auth.customer(token));
+        await client.customers.logout(auth.customer(session.token));
       } catch {
         /* ignore — proceed to clear locally */
       }
     }
     storage.setCustomerToken(null);
-    setToken(null);
-    setRefreshTok(null);
-    setSaasTok(null);
+    setSession(EMPTY_SESSION);
     qc.removeQueries({ queryKey: ["emporix", "customer"] });
     qc.removeQueries({ queryKey: ["emporix", "cart"] });
-  }, [client, token, storage, qc]);
+  }, [client, session.token, storage, qc]);
 
   const refresh = useCallback(async () => {
     await meQuery.refetch();
   }, [meQuery]);
 
   const refreshSession = useCallback(async () => {
-    if (!refreshTok) return;
-    const session = await client.customers.refresh({
-      refreshToken: refreshTok,
-      ...(saasTok ? { saasToken: saasTok } : {}),
+    if (!session.refreshToken) return;
+    const refreshed = await client.customers.refresh({
+      refreshToken: session.refreshToken,
+      ...(session.saasToken ? { saasToken: session.saasToken } : {}),
     });
-    storage.setCustomerToken(session.customerToken);
-    setToken(session.customerToken);
-    setRefreshTok(session.refreshToken || refreshTok);
-    if (session.saasToken) setSaasTok(session.saasToken);
+    storage.setCustomerToken(refreshed.customerToken);
+    setSession((s) => ({
+      token: refreshed.customerToken,
+      refreshToken: refreshed.refreshToken || s.refreshToken,
+      saasToken: refreshed.saasToken || s.saasToken,
+    }));
     await qc.invalidateQueries({ queryKey: ["emporix", "customer"] });
     await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
-  }, [client, storage, qc, refreshTok, saasTok]);
+  }, [client, storage, qc, session.refreshToken, session.saasToken]);
 
   return {
-    customerToken: token,
-    refreshToken: refreshTok,
+    customerToken: session.token,
+    refreshToken: session.refreshToken,
     customer: meQuery.data ?? null,
-    isAuthenticated: token !== null,
-    isLoading: meQuery.isLoading && token !== null,
+    isAuthenticated: session.token !== null,
+    isLoading: meQuery.isLoading && session.token !== null,
     login,
     signup,
     socialLogin,
