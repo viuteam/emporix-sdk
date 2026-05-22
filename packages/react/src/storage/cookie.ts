@@ -6,6 +6,8 @@ const CART_NAME = "emporix.cartId";
 const ANON_NAME = "emporix.anonymousSession";
 const SITE_NAME = "emporix.siteCode";
 
+type AllKey = "customerToken" | "cartId" | "siteCode" | "anonymousSession";
+
 /** Cookie-backed store. Consumer must set SameSite/Secure for CSRF safety. */
 export function createCookieStorage(
   opts: { name?: string; secure?: boolean; sameSite?: "lax" | "strict" | "none" } = {},
@@ -32,11 +34,27 @@ export function createCookieStorage(
         ? `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${attrs}`
         : `${name}=${encodeURIComponent(value)}; ${attrs}`;
   };
+  const allListeners = new Set<(k: AllKey) => void>();
+  const notifyAll = (k: AllKey): void => {
+    for (const l of allListeners) {
+      try {
+        l(k);
+      } catch {
+        // Swallow handler errors; telemetry must never break writes.
+      }
+    }
+  };
   return {
     getCustomerToken: () => readCookie(tokenName),
-    setCustomerToken: (t) => writeCookie(tokenName, t),
+    setCustomerToken: (t) => {
+      writeCookie(tokenName, t);
+      notifyAll("customerToken");
+    },
     getCartId: () => readCookie(CART_NAME),
-    setCartId: (id) => writeCookie(CART_NAME, id),
+    setCartId: (id) => {
+      writeCookie(CART_NAME, id);
+      notifyAll("cartId");
+    },
     getAnonymousSession: (): PersistedAnonymousSession | null => {
       const raw = readCookie(ANON_NAME);
       if (!raw) return null;
@@ -50,14 +68,23 @@ export function createCookieStorage(
         return null;
       }
     },
-    setAnonymousSession: (s) =>
+    setAnonymousSession: (s) => {
       writeCookie(
         ANON_NAME,
         s === null
           ? null
           : JSON.stringify({ refreshToken: s.refreshToken, sessionId: s.sessionId }),
-      ),
+      );
+      notifyAll("anonymousSession");
+    },
     getSiteCode: () => readCookie(SITE_NAME),
-    setSiteCode: (code) => writeCookie(SITE_NAME, code),
+    setSiteCode: (code) => {
+      writeCookie(SITE_NAME, code);
+      notifyAll("siteCode");
+    },
+    subscribeAll: (l) => {
+      allListeners.add(l);
+      return () => allListeners.delete(l);
+    },
   };
 }

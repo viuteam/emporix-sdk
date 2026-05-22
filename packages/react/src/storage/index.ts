@@ -17,6 +17,15 @@ export interface EmporixStorage {
   // Active site code (MS-2). `null` = no site bound yet.
   getSiteCode(): string | null;
   setSiteCode(code: string | null): void;
+
+  /**
+   * Subscribe to any storage write. The listener receives the key that
+   * changed. Returns an unsubscribe function. Optional — backends may no-op.
+   * Used by the telemetry layer to emit `storage.write` events.
+   */
+  subscribeAll?(
+    listener: (key: "customerToken" | "cartId" | "siteCode" | "anonymousSession") => void,
+  ): () => void;
 }
 
 /** Minimal subset of `AnonymousSession` that needs to outlive a page load. */

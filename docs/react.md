@@ -66,6 +66,67 @@ const qc = new QueryClient(); // your own defaults
 `honourPreferredSite` shares the `meQuery` cache so post-login profile
 fetches are deduplicated when timing permits (at worst 2 calls per login).
 
+### Observability
+
+For production tuning and quota monitoring, pass an `onTelemetry` callback
+to the provider:
+
+```tsx
+<EmporixProvider
+  client={client}
+  onTelemetry={(event) => {
+    switch (event.type) {
+      case "cache.hit":
+      case "cache.miss":
+        datadog.addAction(event.type, { key: event.queryKey });
+        break;
+      case "query.error":
+      case "mutation.error":
+        sentry.captureException(event.error, { tags: { type: event.type } });
+        break;
+      case "auth.refresh":
+        if (!event.success) datadog.addError("auth.refresh failed", event);
+        break;
+      // … cache.miss / mutation.success / storage.write / custom …
+    }
+  }}
+>
+```
+
+The event stream is a typed discriminated union — exhaustive switches are
+type-safe. Without `onTelemetry`, the whole telemetry layer is no-op and
+incurs no overhead.
+
+To emit your own events on the same channel:
+
+```tsx
+function CheckoutCTA() {
+  const { emit } = useEmporixTelemetry();
+  return (
+    <button onClick={() => emit({ type: "custom", name: "app.checkout-cta-click" })}>
+      Buy
+    </button>
+  );
+}
+```
+
+Namespace your custom-event `name` (e.g. `"app.*"`) to avoid collisions with
+future SDK event types.
+
+Event types emitted by the SDK:
+
+| Type | Source | Fields |
+|---|---|---|
+| `cache.hit` | React-Query | `queryKey`, `tenant` |
+| `cache.miss` | React-Query | `queryKey`, `tenant`, `durationMs` |
+| `query.refetch` | React-Query | `queryKey`, `tenant`, `reason` |
+| `query.error` | React-Query | `queryKey`, `tenant`, `error` |
+| `mutation.success` | React-Query | `mutationKey?`, `tenant`, `durationMs` |
+| `mutation.error` | React-Query | `mutationKey?`, `tenant`, `error`, `durationMs` |
+| `auth.refresh` | SDK TokenProvider | `kind`, `tenant`, `success` |
+| `storage.write` | EmporixStorage | `key` |
+| `custom` | Consumer | `name`, `props?` |
+
 ## Hooks
 
 `useCustomerSession()` — `customerToken`, `customer` (auto-fetched when a token
