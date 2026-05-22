@@ -151,30 +151,43 @@ listing requires an authenticated session.
 
 ### Sites
 
-For tenants with multiple storefront sites (countries, brands, or country/brand
-combinations), the SDK exposes the Site Settings Service:
+For tenants with multiple storefront sites, the SDK exposes the Site Settings
+Service and an observable active-site context:
 
 `useSites()` — lists the active sites for the tenant.
 
 `useDefaultSite()` — convenience for "the site flagged as `default: true`".
 
-```tsx
-const { data: sites } = useSites();
-const { data: defaultSite } = useDefaultSite();
+`useSiteContext()` — returns `{ siteCode, currency, targetLocation, setSite }`
+for the **active** site. The provider resolves the initial value from (in
+order): the `initialSiteCode` prop → `storage.getSiteCode()` → the static
+`client.config.credentials.storefront.context.siteCode` → `null`.
 
-return (
-  <select defaultValue={defaultSite?.code}>
-    {sites?.map((s) => (
-      <option key={s.code} value={s.code}>{s.name}</option>
-    ))}
-  </select>
-);
+```tsx
+<EmporixProvider client={client} storage={storage} initialSiteCode="ThermoBrand_DE">
+  <App />
+</EmporixProvider>
+
+function SiteSwitcher() {
+  const { data: sites } = useSites();
+  const { siteCode, setSite } = useSiteContext();
+  return (
+    <select value={siteCode ?? ""} onChange={(e) => setSite(e.target.value)}>
+      {sites?.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
+    </select>
+  );
+}
 ```
 
-These hooks do **not** yet drive the active-site context — the active site is
-still bound by `client.config.credentials.storefront.context.siteCode`. Runtime
-site-switching arrives in MS-2 (`useSiteContext()` + `setSite()`). See the
-multi-site spec under `docs/superpowers/specs/` for the roadmap.
+`setSite(code)` writes `storage.setSiteCode(code)`, clears `storage.cartId`
+(carts are site-aware), and invalidates `["emporix"]` queries — all
+site-aware caches refetch on the new site. In MS-2 `currency` and
+`targetLocation` stay `null`; they auto-derive from the site DTO in MS-4.
+Server-side session-context sync arrives in MS-3 (`setSite` becomes async).
+
+All site-aware React-Query hooks include `siteCode` in their cache key, so
+two `useProducts({pageSize: 12})` calls under different sites yield two
+separate cache entries.
 
 ### Persistent guest cart
 
