@@ -8,6 +8,8 @@ import type {
   CartItemRequest,
   UpdateCartItem,
   AddressRequest,
+  BatchResponse as GeneratedBatchResponse,
+  SingleBatchResponse as GeneratedSingleBatchResponse,
 } from "../generated/cart";
 
 /** A cart as returned by the Cart service (all generated fields). */
@@ -20,6 +22,11 @@ export type CartCreated = CreatedCart;
 export type CreateCartInput = CreateCart;
 export type CartItemInput = CartItemRequest;
 export type CartItemUpdate = UpdateCartItem;
+
+/** Per-entry result of `addItemsBatch`. `status` is HTTP-style per entry (e.g. 201 = added, 4xx = failed). */
+export type CartItemBatchEntry = GeneratedSingleBatchResponse;
+/** Response shape of `addItemsBatch` — one entry per input item, matching by `index`. */
+export type CartItemsBatchResponse = GeneratedBatchResponse;
 
 /** An address payload for cart shipping/billing (generated). */
 export type CartAddress = AddressRequest;
@@ -109,6 +116,26 @@ export class CartService {
       path: `${this.base()}/${cartId}/items`,
       auth: requireCartAuth(auth),
       body: item,
+    });
+  }
+
+  /**
+   * Adds multiple items in a single request via `POST /carts/{id}/itemsBatch`.
+   * Server-side limit is 200 entries per call — callers handling larger sets
+   * must chunk. The response carries a per-entry `status` (HTTP-style: 201
+   * for added, 4xx/5xx for failed) and `index` matching the input position;
+   * partial failures do **not** throw — inspect `status` per entry.
+   */
+  async addItemsBatch(
+    cartId: string,
+    items: CartItemInput[],
+    auth: AuthContext,
+  ): Promise<CartItemsBatchResponse> {
+    return this.ctx.http.request<CartItemsBatchResponse>({
+      method: "POST",
+      path: `${this.base()}/${cartId}/itemsBatch`,
+      auth: requireCartAuth(auth),
+      body: items,
     });
   }
 
