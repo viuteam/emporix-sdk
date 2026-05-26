@@ -16,6 +16,7 @@ export default defineConfig({
     "src/contacts.ts",
     "src/locations.ts",
     "src/customer-groups.ts",
+    "src/orders.ts",
   ],
   format: ["esm", "cjs"],
   dts: true,

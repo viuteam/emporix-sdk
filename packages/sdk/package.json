@@ -37,7 +37,8 @@
     "./companies": { "types": "./dist/companies.d.ts", "import": "./dist/companies.js", "require": "./dist/companies.cjs" },
     "./contacts": { "types": "./dist/contacts.d.ts", "import": "./dist/contacts.js", "require": "./dist/contacts.cjs" },
     "./locations": { "types": "./dist/locations.d.ts", "import": "./dist/locations.js", "require": "./dist/locations.cjs" },
-    "./customer-groups": { "types": "./dist/customer-groups.d.ts", "import": "./dist/customer-groups.js", "require": "./dist/customer-groups.cjs" }
+    "./customer-groups": { "types": "./dist/customer-groups.d.ts", "import": "./dist/customer-groups.js", "require": "./dist/customer-groups.cjs" },
+    "./orders": { "types": "./dist/orders.d.ts", "import": "./dist/orders.js", "require": "./dist/orders.cjs" }
   },
   "publishConfig": { "access": "public", "provenance": true },
   "scripts": {
