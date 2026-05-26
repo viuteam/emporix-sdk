@@ -18,13 +18,17 @@ export interface EmporixStorage {
   getSiteCode(): string | null;
   setSiteCode(code: string | null): void;
 
+  // Active legal entity id (B2B). `null` = B2C mode.
+  getActiveLegalEntityId(): string | null;
+  setActiveLegalEntityId(id: string | null): void;
+
   /**
    * Subscribe to any storage write. The listener receives the key that
    * changed. Returns an unsubscribe function. Optional — backends may no-op.
    * Used by the telemetry layer to emit `storage.write` events.
    */
   subscribeAll?(
-    listener: (key: "customerToken" | "cartId" | "siteCode" | "anonymousSession") => void,
+    listener: (key: EmporixStorageKey) => void,
   ): () => void;
 }
 
@@ -42,7 +46,8 @@ export type EmporixStorageKey =
   | "customerToken"
   | "cartId"
   | "siteCode"
-  | "anonymousSession";
+  | "anonymousSession"
+  | "activeLegalEntityId";
 
 /**
  * Internal: create a swallow-on-throw listener set used by all three storage
