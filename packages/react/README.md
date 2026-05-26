@@ -35,15 +35,28 @@ per request/render.
 | Hook | Purpose |
 | --- | --- |
 | `useCustomerSession()` | `customerToken`, `customer`, `isAuthenticated`, `login`, `signup`, `logout`, `refresh` |
-| `useProduct` / `useProducts` / `useProductsInfinite` | product reads |
-| `useCategory` / `useCategories` / `useCategoryTree` | category reads |
-| `useCart(cartId?)` | cart read (disabled without `cartId`) |
-| `useCartMutations(cartId)` | add/update/remove/clear/coupons/addresses — optimistic + rollback |
+| `useProduct` / `useProducts` / `useProductsInfinite` / `useProductByCode` / `useProductSearch` | product reads |
+| `useCategory` / `useCategories` / `useCategoryTree` / `useProductsInCategory(Infinite)` | category reads |
+| `useCart(cartId?)` / `useActiveCart(opts?)` / `useCreateCart()` | cart read + bootstrap |
+| `useCartMutations(cartId?)` | add/update/remove/clear/coupons/addresses — optimistic + rollback |
+| `useCheckout()` / `usePaymentModes()` | checkout flow + payment-mode list |
+| `useMatchPrices()` / `useProductMedia()` | price + media reads |
+| `useMySegments` / `useMySegmentItems` / `useMySegment{Products,Categories}(Infinite)` / `useMySegmentCategoryTree` | customer-segment reads |
+| `useUpdateCustomer` / `useChangePassword` / `usePasswordReset` | account management |
+| `useCustomerAddresses` / `useAddressMutations` | address CRUD |
+| `useSites` / `useDefaultSite` / `useSiteContext` | multi-site context |
+| `useActiveCompany` / `useCompanySwitcher` | active legal entity (B2B) |
+| `useMyCompanies` / `useCompany` / `useCompanyContacts` / `useCompanyLocations` / `useCompanyGroups` | B2B reads |
+| `useCreateCompany` / `useUpdateCompany` / `useDeleteCompany` | B2B admin mutations |
+| `useAssignContact` / `useUpdateContactAssignment` / `useUnassignContact` | B2B contact-assignment mutations |
+| `useCreateLocation` / `useUpdateLocation` / `useDeleteLocation` | B2B location mutations |
 
-Query keys are namespaced `["emporix", resource, id, { tenant, authKind }]`, so
-cache is scoped per tenant and per auth kind. Every query hook accepts
-`{ auth }` to override the token kind for that call (default: `customer` if a
-token is stored, else `anonymous`).
+Query keys are namespaced `["emporix", resource, ...args, meta]` where `meta`
+holds the cache discriminators — at minimum `{ tenant, authKind }`, plus
+`siteCode` for site-aware hooks and `legalEntityId` for B2B-aware hooks (cart,
+checkout, addresses, etc. invalidate automatically on company switch).
+Every query hook accepts `{ auth }` to override the token kind for that
+call (default: `customer` if a token is stored, else `anonymous`).
 
 ## Storage adapters
 

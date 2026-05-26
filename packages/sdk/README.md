@@ -1,7 +1,7 @@
 # @viu/emporix-sdk
 
 Framework-agnostic TypeScript SDK for the Emporix Commerce Engine. Native
-`fetch` only (Node 18+), zero runtime dependencies.
+`fetch` only (Node 20.19+), zero runtime dependencies.
 
 ## Install
 
@@ -69,6 +69,7 @@ await sdk.customers.me(auth.raw(externalJwt));
 | `products.*` / `categories.*` (reads) | `anonymous` | — (pass `customer` for personalized pricing) |
 | `carts.*` | — | explicit `customer` or `anonymous` |
 | `carts.merge` | — | `customer` |
+| `companies.*` / `contacts.*` / `locations.*` / `customerGroups.*` (B2B) | — | `customer` (reads need `*_read_own`; mutations need `*_manage`) |
 
 `AuthContext` is **per call, never stored** — one client safely serves many
 concurrent shoppers (SSR/edge/multi-tenant). SDK-managed (`service`/`anonymous`)
@@ -87,10 +88,21 @@ dependency. See [`../../docs/logging.md`](../../docs/logging.md).
 header, guest checkout and deferred payment are covered in
 [`../../docs/checkout.md`](../../docs/checkout.md).
 
+## B2B
+
+`sdk.companies` (legal entities), `sdk.contacts` (contact assignments),
+`sdk.locations` (HQ/warehouse/office), `sdk.customerGroups` (IAM groups,
+read-only for now). Switching company scope is a customer-token rescope via
+`sdk.customers.refresh({ refreshToken, legalEntityId })`. Mutations that the
+customer's role lacks scope for surface as `EmporixInsufficientScopeError`
+(extends `EmporixForbiddenError`, carries `requiredScope`). See
+[`../../docs/b2b.md`](../../docs/b2b.md).
+
 ## Subpath exports
 
 `@viu/emporix-sdk` (everything) plus `./customer`, `./product`, `./category`,
-`./cart`, `./checkout`, `./payment` for tree-shaking.
+`./cart`, `./checkout`, `./payment`, `./price`, `./media`, `./segment`,
+`./companies`, `./contacts`, `./locations`, `./customer-groups` for tree-shaking.
 
 ## Authors
 

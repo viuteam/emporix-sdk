@@ -6,7 +6,14 @@ The core SDK has **no** React dependency; React lives only in this package.
 ## Provider
 
 ```tsx
-<EmporixProvider client={client} queryClient={qc?} storage={storage?} initialCustomerToken={token?}>
+<EmporixProvider
+  client={client}
+  queryClient={qc?}
+  storage={storage?}
+  initialCustomerToken={token?}
+  initialSiteCode={siteCode?}
+  initialActiveLegalEntityId={legalEntityId?}
+>
   <App />
 </EmporixProvider>
 ```
@@ -26,12 +33,17 @@ The core SDK has **no** React dependency; React lives only in this package.
 Storage choices have security implications (XSS for `localStorage`, CSRF for
 cookies) the SDK cannot make for you — hence opt-in, never automatic.
 
-Each adapter persists three pieces under predictable keys:
+Each adapter persists five pieces under predictable keys:
 
 - `emporix.customerToken` — string, set by `useCustomerSession.login/logout`.
 - `emporix.cartId` — string, set by `useCreateCart`, cleared by the consumer.
 - `emporix.anonymousSession` — JSON `{ refreshToken, sessionId }`, set by the
   SDK on every anonymous login/refresh. See [Persistent guest cart](#persistent-guest-cart).
+- `emporix.siteCode` — string, set by `useSiteContext.setSite` (multi-site).
+- `emporix.activeLegalEntityId` — string, set by `useActiveCompany.setActiveCompany` (B2B).
+- `emporix.refreshToken` — string, mirrored from the customer session by
+  `useCustomerSession` on every login/refresh. Required for B2B
+  refresh-on-switch; cleared on logout.
 
 ### Caching & quota
 
@@ -125,6 +137,7 @@ Event types emitted by the SDK:
 | `mutation.error` | React-Query | `mutationKey?`, `tenant`, `error`, `durationMs` |
 | `auth.refresh` | SDK TokenProvider | `kind`, `tenant`, `success` |
 | `storage.write` | EmporixStorage | `key` |
+| `company:switched` | `useActiveCompany.setActiveCompany` | `from`, `to`, `durationMs` |
 | `custom` | Consumer | `name`, `props?` |
 
 ## Hooks
@@ -304,10 +317,28 @@ All site-aware React-Query hooks include `siteCode` in their cache key, so
 two `useProducts({pageSize: 12})` calls under different sites yield two
 separate cache entries.
 
+### B2B (active company)
+
+`useActiveCompany()` exposes the customer's assigned legal entities, the
+currently-active one, and `setActiveCompany(id | null)` to switch (eager
+token-refresh + cart-id drop + query invalidation). Hybrid bootstrap:
+auto-pick if the customer has exactly one company, leave `mode: "unresolved"`
+if multiple. `useCompanySwitcher()` is the UI-friendly wrapper.
+
+Read hooks: `useMyCompanies`, `useCompany`, `useCompanyContacts`,
+`useCompanyLocations`, `useCompanyGroups` (IAM, read-only).
+
+Admin mutations require `customermanagement.*_manage` scopes on the
+customer token; missing scope surfaces as `EmporixInsufficientScopeError`.
+
+Cart, checkout, addresses and payment-modes hooks include the active
+`legalEntityId` in their query keys — switching company invalidates them
+automatically. Full surface in [`./b2b.md`](./b2b.md).
+
 ### Persistent guest cart
 
 When you use `createLocalStorageStorage()` or `createCookieStorage()` for the
-`EmporixProvider`'s `storage` prop, three pieces persist across page reloads:
+`EmporixProvider`'s `storage` prop, five pieces persist across page reloads:
 
 - `customerToken` — at `emporix.customerToken`; managed by `useCustomerSession`.
 - `cartId` — at `emporix.cartId`; set by `useCreateCart`, cleared by your
@@ -315,6 +346,12 @@ When you use `createLocalStorageStorage()` or `createCookieStorage()` for the
 - `anonymousSession` — at `emporix.anonymousSession`; `{ refreshToken,
   sessionId }`, written by `DefaultTokenProvider` on every refresh / login,
   read on the first call after a reload.
+- `siteCode` — at `emporix.siteCode`; set by `useSiteContext.setSite`.
+- `activeLegalEntityId` — at `emporix.activeLegalEntityId`; B2B active
+  company, set by `useActiveCompany.setActiveCompany`.
+- `refreshToken` — at `emporix.refreshToken`; customer refresh token mirrored
+  by `useCustomerSession`. Required for B2B refresh-on-switch — without it,
+  `setActiveCompany` falls back to a local-state-only update.
 
 On reload the SDK's first auth call uses the persisted refresh token, which
 preserves the same `sessionId` and therefore the access to the anonymous cart.
