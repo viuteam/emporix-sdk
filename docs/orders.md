@@ -62,7 +62,7 @@ useUpdateSalesOrder()               // mutate({ orderId, patch, auth, recalculat
 
 ### Reorder partial-success
 
-`useReorder` adds line-items to the active cart sequentially. Item-level failures (e.g. a discontinued product) are collected into `errors[]`; the mutation returns `{ added, errors }` instead of throwing. Surface both numbers in the UI.
+`useReorder` adds line-items to the active cart via a single `POST /cart/{tenant}/carts/{cartId}/itemsBatch` call (Emporix batch endpoint, cap 200 items). Per-entry HTTP status (2xx = added, 4xx/5xx = failed) feeds the `{ added, errors }` mutation result; partial failures do **not** throw. Surface both numbers in the UI. Orders with more than 200 line-items are not supported by this helper.
 
 ## SSR
 
