@@ -14,6 +14,7 @@ import {
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useCustomerOnlyCtx, type QueryOpts } from "./internal/use-read-auth";
+import { useActiveCompany } from "../company-context";
 
 const ADDRESSES_KEY = ["emporix", "customer", "addresses"] as const;
 
@@ -24,9 +25,13 @@ const ADDRESSES_KEY = ["emporix", "customer", "addresses"] as const;
 export function useCustomerAddresses(options: QueryOpts = {}): UseQueryResult<Address[]> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
+  const { activeCompany } = useActiveCompany();
   const ctx: AuthContext | null = options.auth ?? (token ? auth.customer(token) : null);
   return useQuery({
-    queryKey: [...ADDRESSES_KEY, { tenant: client.tenant, hasToken: token !== null }],
+    queryKey: [
+      ...ADDRESSES_KEY,
+      { tenant: client.tenant, hasToken: token !== null, legalEntityId: activeCompany?.id ?? null },
+    ],
     enabled: ctx !== null,
     queryFn: () => client.customers.addresses.list(ctx as AuthContext),
   });
