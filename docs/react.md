@@ -256,6 +256,20 @@ Auto-detects auth: customer if a token is stored, otherwise anonymous (for the
 guest-checkout flow). `usePaymentModes()` stays customer-only — payment-mode
 listing requires an authenticated session.
 
+### Orders
+
+`useMyOrders` / `useMyOrdersInfinite` — paginated reads of the customer's own orders. `legalEntityId` defaults to the active company from `useActiveCompany`; explicit `null` disables.
+
+`useOrder(orderId)` — single-order read.
+
+`useCancelOrder` / `useOrderTransition` — mutations. Cancel is a sugar for `transition(DECLINED)`.
+
+`useReorder({ orderId })` → `{ added, errors }` — best-effort cart repopulation from a past order; item-level failures land in `errors[]` instead of throwing.
+
+Service-account (backoffice tools): `useSalesOrder(id, auth)` and `useUpdateSalesOrder()` — disabled / throw when `auth` is undefined; caller is responsible for providing an `auth.service()` context.
+
+See [`./orders.md`](./orders.md).
+
 ### Sites
 
 For tenants with multiple storefront sites, the SDK exposes the Site Settings

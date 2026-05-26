@@ -146,3 +146,7 @@ remain available for any flow the SDK does not model.
 `customer.refresh({ refreshToken, legalEntityId })` re-issues a customer token scoped to the given legal entity. Omitting `legalEntityId` re-issues a non-scoped (B2C) token. Used internally by `setActiveCompany` in React; can be called directly from non-React hosts.
 
 See [docs/b2b.md](./b2b.md) for the active-company model.
+
+## `saas-token` on order reads
+
+`client.orders.listMine` and `client.orders.get` accept an `opts.saasToken` that is forwarded as the `saas-token` header (mirrors `checkout.placeOrder`). For tenants that require dual-token reads, pass the `saasToken` returned by `customers.login`. See [docs/orders.md](./orders.md).
