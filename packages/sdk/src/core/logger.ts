@@ -21,6 +21,8 @@ export type ServiceName =
   | "session-context"
   | "customer-management"
   | "iam"
+  | "orders"
+  | "sales-orders"
   | "http"
   | "auth";
 

@@ -54,6 +54,16 @@ describe("EmporixClient", () => {
     expect(sdk.customerGroups).toBeDefined();
   });
 
+  it("exposes orders + salesOrders", () => {
+    const sdk = new EmporixClient({
+      tenant: "acme",
+      credentials: { storefront: { clientId: "sf" } },
+      logger: false,
+    });
+    expect(sdk.orders).toBeDefined();
+    expect(sdk.salesOrders).toBeDefined();
+  });
+
   it("setLogLevel/getLogLevel proxy the resolver", () => {
     const sdk = new EmporixClient({
       tenant: "acme",

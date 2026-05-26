@@ -94,3 +94,4 @@ export * from "./companies";
 export * from "./contacts";
 export * from "./locations";
 export * from "./customer-groups";
+export * from "./orders";

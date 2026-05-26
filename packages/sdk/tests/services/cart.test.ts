@@ -198,3 +198,59 @@ describe("CartService.getCurrent with legalEntityId", () => {
     expect((q as URLSearchParams | null)?.get("legalEntityId")).toBe("le-1");
   });
 });
+
+describe("CartService.addItemsBatch", () => {
+  it("POSTs the array body to /itemsBatch and returns per-entry status", async () => {
+    let body: unknown = null;
+    server.use(
+      http.post("https://api.emporix.io/cart/acme/carts/cart-1/itemsBatch", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json([
+          { index: 0, status: 201, id: "ci-a", yrn: "urn:cart-item:acme;cart-1:ci-a" },
+          { index: 1, status: 201, id: "ci-b" },
+        ]);
+      }),
+    );
+    const res = await svc().addItemsBatch(
+      "cart-1",
+      [
+        { product: { id: "p-1" }, quantity: 2 } as never,
+        { product: { id: "p-2" }, quantity: 1 } as never,
+      ],
+      { kind: "customer", token: "CUST" },
+    );
+    expect(Array.isArray(body)).toBe(true);
+    expect((body as unknown[]).length).toBe(2);
+    expect(res).toHaveLength(2);
+    expect(res[0]?.status).toBe(201);
+    expect(res[0]?.id).toBe("ci-a");
+  });
+
+  it("surfaces per-entry failures via status without throwing", async () => {
+    server.use(
+      http.post("https://api.emporix.io/cart/acme/carts/cart-1/itemsBatch", () =>
+        HttpResponse.json([
+          { index: 0, status: 201, id: "ci-a" },
+          { index: 1, status: 404, errorMessage: "product discontinued" },
+        ]),
+      ),
+    );
+    const res = await svc().addItemsBatch(
+      "cart-1",
+      [
+        { product: { id: "p-ok" }, quantity: 1 } as never,
+        { product: { id: "p-gone" }, quantity: 1 } as never,
+      ],
+      { kind: "customer", token: "CUST" },
+    );
+    expect(res[0]?.status).toBe(201);
+    expect(res[1]?.status).toBe(404);
+    expect(res[1]?.errorMessage).toBe("product discontinued");
+  });
+
+  it("rejects without an explicit customer/anonymous context", async () => {
+    await expect(
+      svc().addItemsBatch("cart-1", [], { kind: "service" } as never),
+    ).rejects.toBeInstanceOf(EmporixValidationError);
+  });
+});

@@ -57,8 +57,16 @@ export {
   useUpdateLocation,
   useDeleteLocation,
   useCompanySwitcher,
+  useMyOrders,
+  useMyOrdersInfinite,
+  useOrder,
+  useCancelOrder,
+  useOrderTransition,
+  useReorder,
+  useSalesOrder,
+  useUpdateSalesOrder,
 } from "./hooks/index";
-export type { CompanySwitcherApi } from "./hooks/index";
+export type { CompanySwitcherApi, UseMyOrdersOptions, UseMyOrdersInfiniteOptions } from "./hooks/index";
 export type {
   CustomerSessionApi,
   CartMutationsApi,
@@ -67,7 +75,7 @@ export type {
   PasswordResetApi,
 } from "./hooks/index";
 export { EmporixErrorBoundary, useEmporixErrorHandler } from "./errors";
-export { prefetchProduct, prefetchCart } from "./ssr";
+export { prefetchProduct, prefetchCart, prefetchOrder } from "./ssr";
 export { useEmporixTelemetry } from "./telemetry";
 export type { EmporixTelemetryEvent } from "./telemetry";
 export {
