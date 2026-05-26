@@ -160,9 +160,18 @@ export function CompanyContextProvider({
     void load();
   }, [load]);
 
-  // External customer-token change (login/logout in another hook) re-triggers bootstrap.
+  // Re-run bootstrap only on token-presence transitions (login/logout). A
+  // mid-session token swap (e.g. switch-driven refresh) keeps prev/next both
+  // truthy and is ignored — otherwise the auto-pick branch would clobber an
+  // explicit B2C choice as soon as the new token is written.
   useEffect(() => {
-    return storage.subscribe?.(() => void load());
+    let prev = storage.getCustomerToken();
+    return storage.subscribe?.((next) => {
+      const becameAuth = !prev && next;
+      const becameUnauth = prev && !next;
+      prev = next;
+      if (becameAuth || becameUnauth) void load();
+    });
   }, [storage, load]);
 
   const setActiveCompany = useCallback(
