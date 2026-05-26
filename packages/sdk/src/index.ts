@@ -1,6 +1,6 @@
 export {
   EmporixError, EmporixAuthError, EmporixForbiddenError, EmporixNotFoundError,
-  EmporixValidationError, EmporixServerError, errorFromResponse,
+  EmporixValidationError, EmporixServerError, EmporixInsufficientScopeError, errorFromResponse,
 } from "./core/errors";
 export { validateConfig, DEFAULT_HOST } from "./core/config";
 export type {

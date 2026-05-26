@@ -44,10 +44,43 @@ export class EmporixValidationError extends EmporixError {}
 /** 5xx — server-side failure. */
 export class EmporixServerError extends EmporixError {}
 
+/**
+ * 403 with a `missing scope: <name>` hint in the body's `details` array.
+ * Subclasses {@link EmporixForbiddenError} so existing 403 catches still work.
+ */
+export class EmporixInsufficientScopeError extends EmporixForbiddenError {
+  readonly requiredScope: string | undefined;
+  constructor(message: string, status: number, body: unknown, requiredScope?: string) {
+    super(message, status, body);
+    this.requiredScope = requiredScope;
+  }
+}
+
+const SCOPE_HINT_RE = /missing scope[: ]+([a-z0-9._-]+)/i;
+
+function extractRequiredScope(body: unknown): string | undefined {
+  if (body && typeof body === "object" && "details" in body) {
+    const details = (body as { details?: unknown }).details;
+    if (Array.isArray(details)) {
+      for (const d of details) {
+        if (typeof d === "string") {
+          const m = d.match(SCOPE_HINT_RE);
+          if (m) return m[1];
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
 /** Maps an HTTP status to the matching {@link EmporixError} subclass. */
 export function errorFromResponse(status: number, message: string, body: unknown): EmporixError {
   if (status === 401) return new EmporixAuthError(message, status, body);
-  if (status === 403) return new EmporixForbiddenError(message, status, body);
+  if (status === 403) {
+    const scope = extractRequiredScope(body);
+    if (scope) return new EmporixInsufficientScopeError(message, status, body, scope);
+    return new EmporixForbiddenError(message, status, body);
+  }
   if (status === 404) return new EmporixNotFoundError(message, status, body);
   if (status === 400 || status === 422) return new EmporixValidationError(message, status, body);
   if (status >= 500) return new EmporixServerError(message, status, body);
