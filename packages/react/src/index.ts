@@ -57,8 +57,10 @@ export {
   useUpdateLocation,
   useDeleteLocation,
   useCompanySwitcher,
+  useMyOrders,
+  useMyOrdersInfinite,
 } from "./hooks/index";
-export type { CompanySwitcherApi } from "./hooks/index";
+export type { CompanySwitcherApi, UseMyOrdersOptions, UseMyOrdersInfiniteOptions } from "./hooks/index";
 export type {
   CustomerSessionApi,
   CartMutationsApi,
