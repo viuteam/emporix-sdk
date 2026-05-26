@@ -42,6 +42,8 @@ export {
   useSites,
   useDefaultSite,
   useSiteContext,
+  useMyCompanies,
+  useCompany,
 } from "./hooks/index";
 export type {
   CustomerSessionApi,
