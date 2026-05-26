@@ -44,6 +44,9 @@ export {
   useSiteContext,
   useMyCompanies,
   useCompany,
+  useCompanyContacts,
+  useCompanyLocations,
+  useCompanyGroups,
 } from "./hooks/index";
 export type {
   CustomerSessionApi,

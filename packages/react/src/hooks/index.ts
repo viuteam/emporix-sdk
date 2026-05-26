@@ -42,3 +42,6 @@ export { useSites, useDefaultSite } from "./use-sites";
 export { useSiteContext } from "./use-site-context";
 export { useMyCompanies } from "./use-my-companies";
 export { useCompany } from "./use-company";
+export { useCompanyContacts } from "./use-company-contacts";
+export { useCompanyLocations } from "./use-company-locations";
+export { useCompanyGroups } from "./use-company-groups";
