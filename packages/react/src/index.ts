@@ -47,6 +47,15 @@ export {
   useCompanyContacts,
   useCompanyLocations,
   useCompanyGroups,
+  useCreateCompany,
+  useUpdateCompany,
+  useDeleteCompany,
+  useAssignContact,
+  useUpdateContactAssignment,
+  useUnassignContact,
+  useCreateLocation,
+  useUpdateLocation,
+  useDeleteLocation,
 } from "./hooks/index";
 export type {
   CustomerSessionApi,

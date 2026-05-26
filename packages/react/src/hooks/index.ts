@@ -45,3 +45,14 @@ export { useCompany } from "./use-company";
 export { useCompanyContacts } from "./use-company-contacts";
 export { useCompanyLocations } from "./use-company-locations";
 export { useCompanyGroups } from "./use-company-groups";
+export {
+  useCreateCompany,
+  useUpdateCompany,
+  useDeleteCompany,
+  useAssignContact,
+  useUpdateContactAssignment,
+  useUnassignContact,
+  useCreateLocation,
+  useUpdateLocation,
+  useDeleteLocation,
+} from "./use-company-mutations";
