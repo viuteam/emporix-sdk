@@ -116,9 +116,10 @@ export function CompanyContextProvider({
         });
       }
       emit({
-        type: "custom",
-        name: "company:switched",
-        props: { from, to: target?.id ?? null, durationMs: Date.now() - start },
+        type: "company:switched",
+        from,
+        to: target?.id ?? null,
+        durationMs: Date.now() - start,
       });
     },
     [client, storage, qc, emit],
