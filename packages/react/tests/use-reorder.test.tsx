@@ -35,8 +35,9 @@ function wrap() {
 }
 
 describe("useReorder", () => {
-  it("fetches order, adds each item to cart, returns { added }", async () => {
-    const added: unknown[] = [];
+  it("makes ONE batch call and returns { added }", async () => {
+    let batchHits = 0;
+    let batchBody: unknown = null;
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders/o-1", () =>
         HttpResponse.json({
@@ -48,9 +49,13 @@ describe("useReorder", () => {
           ],
         }),
       ),
-      http.post("https://api.emporix.io/cart/acme/carts/cart-1/items", async ({ request }) => {
-        added.push(await request.json());
-        return HttpResponse.json({ id: "cart-1", items: [] });
+      http.post("https://api.emporix.io/cart/acme/carts/cart-1/itemsBatch", async ({ request }) => {
+        batchHits += 1;
+        batchBody = await request.json();
+        return HttpResponse.json([
+          { index: 0, status: 201, id: "ci-a" },
+          { index: 1, status: 201, id: "ci-b" },
+        ]);
       }),
     );
     const { result } = renderHook(() => useReorder(), { wrapper: wrap() });
@@ -58,14 +63,18 @@ describe("useReorder", () => {
     await act(async () => {
       res = await result.current.mutateAsync({ orderId: "o-1" });
     });
+    expect(batchHits).toBe(1);
     expect(res?.added).toBe(2);
     expect(res?.errors).toEqual([]);
-    expect(added).toHaveLength(2);
-    expect(added[0]).toMatchObject({ product: { id: "p-1" }, quantity: 2 });
-    expect(added[1]).toMatchObject({ product: { id: "p-2" }, quantity: 1 });
+    expect(Array.isArray(batchBody)).toBe(true);
+    expect((batchBody as unknown[]).length).toBe(2);
+    expect((batchBody as Array<{ product?: { id?: string }; quantity?: number }>)[0]).toMatchObject({
+      product: { id: "p-1" },
+      quantity: 2,
+    });
   });
 
-  it("collects errors but does not throw on item-level failures", async () => {
+  it("collects partial failures from the batch response", async () => {
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders/o-1", () =>
         HttpResponse.json({
@@ -77,11 +86,12 @@ describe("useReorder", () => {
           ],
         }),
       ),
-      http.post("https://api.emporix.io/cart/acme/carts/cart-1/items", async ({ request }) => {
-        const body = (await request.json()) as { product?: { id?: string } };
-        if (body.product?.id === "p-gone") return HttpResponse.json({ message: "discontinued" }, { status: 404 });
-        return HttpResponse.json({ id: "cart-1", items: [] });
-      }),
+      http.post("https://api.emporix.io/cart/acme/carts/cart-1/itemsBatch", () =>
+        HttpResponse.json([
+          { index: 0, status: 201, id: "ci-a" },
+          { index: 1, status: 404, errorMessage: "product discontinued" },
+        ]),
+      ),
     );
     const { result } = renderHook(() => useReorder(), { wrapper: wrap() });
     let res: { added: number; errors: unknown[] } | undefined;
@@ -90,5 +100,31 @@ describe("useReorder", () => {
     });
     expect(res?.added).toBe(1);
     expect(res?.errors).toHaveLength(1);
+    expect((res?.errors[0] as Error).message).toMatch(/status=404/);
+    expect((res?.errors[0] as Error).message).toMatch(/discontinued/);
+  });
+
+  it("short-circuits on empty order (no batch call)", async () => {
+    let batchHits = 0;
+    server.use(
+      http.get("https://api.emporix.io/order-v2/acme/orders/o-empty", () =>
+        HttpResponse.json({
+          id: "o-empty", orderNumber: "ORD-E", status: "COMPLETED", currency: "CHF",
+          totalPrice: { amount: 0, currency: "CHF" }, items: [],
+        }),
+      ),
+      http.post("https://api.emporix.io/cart/acme/carts/cart-1/itemsBatch", () => {
+        batchHits += 1;
+        return HttpResponse.json([]);
+      }),
+    );
+    const { result } = renderHook(() => useReorder(), { wrapper: wrap() });
+    let res: { added: number; errors: unknown[] } | undefined;
+    await act(async () => {
+      res = await result.current.mutateAsync({ orderId: "o-empty" });
+    });
+    expect(batchHits).toBe(0);
+    expect(res?.added).toBe(0);
+    expect(res?.errors).toEqual([]);
   });
 });

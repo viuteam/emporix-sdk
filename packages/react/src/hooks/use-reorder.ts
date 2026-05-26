@@ -14,9 +14,14 @@ export interface UseReorderResult {
 }
 
 /**
- * Re-populates the active cart from a past order. Best-effort: each
- * `cart.addItem` runs sequentially; item-level failures are collected in
- * `errors[]` instead of throwing. Returns `{ added, errors }`.
+ * Re-populates the active cart from a past order via a single
+ * `cart.addItemsBatch` call. Best-effort: item-level failures land in
+ * `errors[]` instead of throwing; partial-success result shape stays
+ * `{ added, errors }`.
+ *
+ * Emporix's batch endpoint caps at 200 items per request. Orders with more
+ * line-items are not supported here — extend with chunking if a real use
+ * case appears.
  */
 export function useReorder(): UseMutationResult<UseReorderResult, unknown, UseReorderVars> {
   const { client, storage } = useEmporix();
@@ -37,18 +42,24 @@ export function useReorder(): UseMutationResult<UseReorderResult, unknown, UseRe
       const cartId = storage.getCartId();
       if (!cartId) throw new Error("useReorder: no active cart id in storage");
 
+      if (order.items.length === 0) return { added: 0, errors: [] };
+
+      const batchBody = order.items.map((item) => ({
+        product: { id: item.productId },
+        quantity: item.quantity,
+      })) as never;
+      const res = await client.carts.addItemsBatch(cartId, batchBody, ctx);
       let added = 0;
       const errors: unknown[] = [];
-      for (const item of order.items) {
-        try {
-          await client.carts.addItem(
-            cartId,
-            { product: { id: item.productId }, quantity: item.quantity } as never,
-            ctx,
-          );
+      for (const entry of res) {
+        if (entry.status >= 200 && entry.status < 300) {
           added += 1;
-        } catch (e) {
-          errors.push(e);
+        } else {
+          errors.push(
+            new Error(
+              `addItemsBatch entry ${entry.index ?? "?"}: status=${entry.status}${entry.errorMessage ? " " + entry.errorMessage : ""}`,
+            ),
+          );
         }
       }
       return { added, errors };
