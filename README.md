@@ -7,7 +7,7 @@ shipped as a pnpm workspace monorepo.
 
 | Package | Description |
 | --- | --- |
-| [`@viu/emporix-sdk`](./packages/sdk) | Core, framework-agnostic SDK: auth, HTTP, logging, Customer/Product/Category/Cart services |
+| [`@viu/emporix-sdk`](./packages/sdk) | Core, framework-agnostic SDK: auth, HTTP, logging + Customer, Product, Category, Cart, Checkout, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups (B2B) |
 | [`@viu/emporix-sdk-react`](./packages/react) | React bindings: provider, hooks, storage adapters, SSR helpers |
 
 Runnable examples live in [`examples/`](./examples): `node-server` (no React),
@@ -48,15 +48,16 @@ See [`packages/sdk/README.md`](./packages/sdk/README.md) and
 ## Development
 
 ```bash
-nvm use          # picks Node 20 from .nvmrc (matches CI)
+nvm use          # picks Node 24 from .nvmrc (matches CI primary)
 pnpm install
 pnpm typecheck   # repo-wide (packages + examples)
 pnpm test        # library packages
 pnpm build       # library packages
 ```
 
-Node 20 is what CI runs (`.github/workflows/*.yml`). The published packages'
-runtime floor is `engines.node: ">=18"` — that's the support contract for
+CI exercises Node 20, 22, and 24 in the PR-check matrix; release + e2e run on
+Node 24 LTS (`.github/workflows/*.yml`). The published packages'
+runtime floor is `engines.node: ">=20.19.0"` — that's the support contract for
 consumers, not a development requirement.
 
 Root `build`/`test`/`lint` are scoped to `./packages/*` (the publishable

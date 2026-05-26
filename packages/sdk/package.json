@@ -33,7 +33,11 @@
     "./payment": { "types": "./dist/payment.d.ts", "import": "./dist/payment.js", "require": "./dist/payment.cjs" },
     "./price": { "types": "./dist/price.d.ts", "import": "./dist/price.js", "require": "./dist/price.cjs" },
     "./media": { "types": "./dist/media.d.ts", "import": "./dist/media.js", "require": "./dist/media.cjs" },
-    "./segment": { "types": "./dist/segment.d.ts", "import": "./dist/segment.js", "require": "./dist/segment.cjs" }
+    "./segment": { "types": "./dist/segment.d.ts", "import": "./dist/segment.js", "require": "./dist/segment.cjs" },
+    "./companies": { "types": "./dist/companies.d.ts", "import": "./dist/companies.js", "require": "./dist/companies.cjs" },
+    "./contacts": { "types": "./dist/contacts.d.ts", "import": "./dist/contacts.js", "require": "./dist/contacts.cjs" },
+    "./locations": { "types": "./dist/locations.d.ts", "import": "./dist/locations.js", "require": "./dist/locations.cjs" },
+    "./customer-groups": { "types": "./dist/customer-groups.d.ts", "import": "./dist/customer-groups.js", "require": "./dist/customer-groups.cjs" }
   },
   "publishConfig": { "access": "public", "provenance": true },
   "scripts": {

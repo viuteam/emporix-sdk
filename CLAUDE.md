@@ -10,7 +10,7 @@ A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published a
 
 | Path | Purpose | Released? |
 |---|---|---|
-| `packages/sdk` | Core SDK: HTTP, auth, services (Product, Category, Cart, Checkout, Customer, Price, Media, Segment) | yes (`@viu/emporix-sdk`) |
+| `packages/sdk` | Core SDK: HTTP, auth, services (Product, Category, Cart, Checkout, Customer, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups) | yes (`@viu/emporix-sdk`) |
 | `packages/react` | React-Query bindings: hooks, provider, storage adapters | yes (`@viu/emporix-sdk-react`) |
 | `examples/vite-spa` | Reference storefront (Vite + React Router) | no |
 | `examples/next-app-router` | Reference storefront (Next.js App Router) | no |
@@ -56,9 +56,9 @@ A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published a
 - `client.carts.getCurrent(...)` returns a `Cart` with `.id`. `client.carts.create(...)` returns `CartCreated` with `.cartId`. The two shapes are not interchangeable.
 - `useCheckout` auto-detects auth (customer if a token is stored, anonymous otherwise). `usePaymentModes` is intentionally customer-only — its helper `customerOnlyCtx` throws on missing token.
 - `client.carts.merge(customerCartId, [anonCartId], auth)` — the path-ID is the **customer** cart (target), the body lists anonymous cart IDs to merge in. Easy to invert.
-- `EmporixStorage` keys: `emporix.customerToken`, `emporix.cartId`, `emporix.anonymousSession`. The last one carries `{ refreshToken, sessionId }` and is what makes the guest cart survive page reloads (PR #26).
+- `EmporixStorage` keys: `emporix.customerToken`, `emporix.cartId`, `emporix.anonymousSession`, `emporix.siteCode`, `emporix.activeLegalEntityId`, `emporix.refreshToken`. The `anonymousSession` carries `{ refreshToken, sessionId }` and is what makes the guest cart survive page reloads (PR #26). The `refreshToken` is mirrored from the customer session and is needed for B2B refresh-on-switch — without it, `setActiveCompany` falls back to local-state-only.
 - Examples typecheck against the built `dist/` of `@viu/emporix-sdk` and `@viu/emporix-sdk-react`. Run `pnpm -F @viu/emporix-sdk build && pnpm -F @viu/emporix-sdk-react build` before `pnpm -F @viu/emporix-examples-* typecheck` if you've changed SDK/React source.
 
 ## When you're not sure
 
-Read `docs/auth.md`, `docs/react.md`, `docs/e2e.md`, `docs/pagination.md`. Design specs and implementation plans live under `docs/superpowers/specs/` and `docs/superpowers/plans/` respectively. The most recent specs are the closest to today's behavior.
+Read `docs/auth.md`, `docs/react.md`, `docs/b2b.md`, `docs/checkout.md`, `docs/e2e.md`, `docs/pagination.md`. Design specs and implementation plans live under `docs/superpowers/specs/` and `docs/superpowers/plans/` respectively. The most recent specs are the closest to today's behavior.
