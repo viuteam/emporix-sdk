@@ -22,6 +22,11 @@ export interface EmporixStorage {
   getActiveLegalEntityId(): string | null;
   setActiveLegalEntityId(id: string | null): void;
 
+  // Refresh token — optional persistence. When absent, B2B company-switch
+  // falls back to a local-state-only update (no server-side token rescope).
+  getRefreshToken(): string | null;
+  setRefreshToken(token: string | null): void;
+
   /**
    * Subscribe to any storage write. The listener receives the key that
    * changed. Returns an unsubscribe function. Optional — backends may no-op.
@@ -47,7 +52,8 @@ export type EmporixStorageKey =
   | "cartId"
   | "siteCode"
   | "anonymousSession"
-  | "activeLegalEntityId";
+  | "activeLegalEntityId"
+  | "refreshToken";
 
 /**
  * Internal: create a swallow-on-throw listener set used by all three storage

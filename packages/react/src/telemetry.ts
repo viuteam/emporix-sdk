@@ -54,7 +54,7 @@ export type EmporixTelemetryEvent =
   // Storage writes
   | {
       type: "storage.write";
-      key: "customerToken" | "cartId" | "siteCode" | "anonymousSession" | "activeLegalEntityId";
+      key: "customerToken" | "cartId" | "siteCode" | "anonymousSession" | "activeLegalEntityId" | "refreshToken";
     }
   // Consumer-emitted
   | { type: "custom"; name: string; props?: Record<string, unknown> };

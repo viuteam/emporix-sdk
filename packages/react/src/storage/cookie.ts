@@ -11,6 +11,7 @@ const CART_NAME = "emporix.cartId";
 const ANON_NAME = "emporix.anonymousSession";
 const SITE_NAME = "emporix.siteCode";
 const ACTIVE_LE_NAME = "emporix.activeLegalEntityId";
+const REFRESH_NAME = "emporix.refreshToken";
 
 /** Cookie-backed store. Consumer must set SameSite/Secure for CSRF safety. */
 export function createCookieStorage(
@@ -69,6 +70,11 @@ export function createCookieStorage(
     setActiveLegalEntityId: (id) => {
       writeCookie(ACTIVE_LE_NAME, id);
       all.notify("activeLegalEntityId");
+    },
+    getRefreshToken: () => readCookie(REFRESH_NAME),
+    setRefreshToken: (t) => {
+      writeCookie(REFRESH_NAME, t);
+      all.notify("refreshToken");
     },
     subscribeAll: (l) => all.add(l),
   };

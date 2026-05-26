@@ -12,6 +12,7 @@ export function createMemoryStorage(opts: { initial?: string } = {}): EmporixSto
   let anon: PersistedAnonymousSession | null = null;
   let siteCode: string | null = null;
   let activeLegalEntityId: string | null = null;
+  let refreshToken: string | null = null;
   const tokenListeners = new Set<(t: string | null) => void>();
   const all = createListenerSet<EmporixStorageKey>();
   return {
@@ -44,6 +45,11 @@ export function createMemoryStorage(opts: { initial?: string } = {}): EmporixSto
     setActiveLegalEntityId: (id) => {
       activeLegalEntityId = id;
       all.notify("activeLegalEntityId");
+    },
+    getRefreshToken: () => refreshToken,
+    setRefreshToken: (t) => {
+      refreshToken = t;
+      all.notify("refreshToken");
     },
     subscribeAll: (l) => all.add(l),
   };

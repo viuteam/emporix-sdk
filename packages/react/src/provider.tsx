@@ -4,6 +4,7 @@ import { auth, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "./storage/index";
 import { createMemoryStorage } from "./storage/memory";
 import { EmporixTelemetryContext, type EmporixTelemetryEvent } from "./telemetry";
+import { CompanyContextProvider } from "./company-context";
 
 interface EmporixContextValue {
   client: EmporixClient;
@@ -58,6 +59,12 @@ export interface EmporixProviderProps {
    */
   initialSiteCode?: string;
   /**
+   * Initial active legal-entity id (B2B). When set, the CompanyContext
+   * provider tries to match it against `companies.listMine()` once the
+   * customer is loaded; mismatches are dropped silently.
+   */
+  initialActiveLegalEntityId?: string | null;
+  /**
    * Opt-in telemetry callback. Receives a typed event stream covering cache
    * hit/miss, refetches, errors, mutations, auth refreshes, storage writes,
    * and consumer-emitted custom events. Wire this to Datadog/Sentry/custom
@@ -75,6 +82,7 @@ export function EmporixProvider({
   storage,
   initialCustomerToken,
   initialSiteCode,
+  initialActiveLegalEntityId,
   onTelemetry,
   children,
 }: EmporixProviderProps): React.JSX.Element {
@@ -220,7 +228,15 @@ export function EmporixProvider({
             storage={value.storage}
             {...(initialSiteCode !== undefined ? { initialSiteCode } : {})}
           >
-            {children}
+            <CompanyContextProvider
+              client={client}
+              storage={value.storage}
+              {...(initialActiveLegalEntityId !== undefined
+                ? { initialActiveLegalEntityId }
+                : {})}
+            >
+              {children}
+            </CompanyContextProvider>
           </SiteContextProvider>
         </QueryClientProvider>
       </EmporixTelemetryContext.Provider>
