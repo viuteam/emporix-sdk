@@ -33,3 +33,21 @@ export async function prefetchCart(
     queryFn: () => client.carts.get(cartId, authCtx),
   });
 }
+
+/**
+ * Server-side prefetch of a single customer order. Writes the same cache key
+ * `useOrder(orderId)` reads, so client hydration is a cache hit.
+ */
+export async function prefetchOrder(
+  qc: QueryClient,
+  client: EmporixClient,
+  orderId: string,
+  authCtx: AuthContext,
+  opts: { saasToken?: string } = {},
+): Promise<void> {
+  await qc.prefetchQuery({
+    queryKey: ["emporix", "orders", orderId, { tenant: client.tenant, authKind: authCtx.kind }],
+    queryFn: () =>
+      client.orders.get(orderId, authCtx, opts.saasToken ? { saasToken: opts.saasToken } : {}),
+  });
+}

@@ -67,7 +67,7 @@ export type {
   PasswordResetApi,
 } from "./hooks/index";
 export { EmporixErrorBoundary, useEmporixErrorHandler } from "./errors";
-export { prefetchProduct, prefetchCart } from "./ssr";
+export { prefetchProduct, prefetchCart, prefetchOrder } from "./ssr";
 export { useEmporixTelemetry } from "./telemetry";
 export type { EmporixTelemetryEvent } from "./telemetry";
 export {
