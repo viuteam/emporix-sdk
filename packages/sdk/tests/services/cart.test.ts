@@ -180,3 +180,21 @@ describe("CartService", () => {
     });
   });
 });
+
+describe("CartService.getCurrent with legalEntityId", () => {
+  it("forwards legalEntityId as a query param so the server returns the company cart", async () => {
+    let q: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts", ({ request }) => {
+        q = new URL(request.url).searchParams;
+        return HttpResponse.json({ id: "cart-le-1", siteCode: "main" });
+      }),
+    );
+    await svc().getCurrent(
+      { kind: "customer", token: "cust-tok" },
+      { siteCode: "main", legalEntityId: "le-1" },
+    );
+    expect((q as URLSearchParams | null)?.get("siteCode")).toBe("main");
+    expect((q as URLSearchParams | null)?.get("legalEntityId")).toBe("le-1");
+  });
+});
