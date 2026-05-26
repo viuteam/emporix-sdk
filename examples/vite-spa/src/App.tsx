@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Route, Routes, Link } from "react-router-dom";
 import { useProducts, useCustomerSession } from "@viu/emporix-sdk-react";
 import { GuestCheckout } from "./GuestCheckout";
+import { CompanySwitcher } from "./components/CompanySwitcher";
+import { CompanyBadge } from "./components/CompanyBadge";
 
 // Emporix product `name` is localized — a `{ [locale]: string }` map (or a
 // plain string for some tenants). Render it defensively.
@@ -66,6 +68,10 @@ export function App(): React.JSX.Element {
       <nav>
         <Link to="/">Catalog</Link> | <Link to="/account">Account</Link> |{" "}
         <Link to="/guest">Guest checkout</Link>
+        <CompanyBadge />
+        <span style={{ marginLeft: 8 }}>
+          <CompanySwitcher />
+        </span>
       </nav>
       <Routes>
         <Route path="/" element={<Catalog />} />
