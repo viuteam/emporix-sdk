@@ -21,7 +21,7 @@
   ],
   "type": "module",
   "sideEffects": false,
-  "engines": { "node": ">=18" },
+  "engines": { "node": ">=20.19.0" },
   "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" },
@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.64.0",
-    "@types/node": "^20.0.0",
+    "@types/node": "^24.0.0",
     "tsx": "^4.19.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
