@@ -56,7 +56,9 @@ export {
   useCreateLocation,
   useUpdateLocation,
   useDeleteLocation,
+  useCompanySwitcher,
 } from "./hooks/index";
+export type { CompanySwitcherApi } from "./hooks/index";
 export type {
   CustomerSessionApi,
   CartMutationsApi,

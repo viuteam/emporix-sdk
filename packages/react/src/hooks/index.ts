@@ -56,3 +56,5 @@ export {
   useUpdateLocation,
   useDeleteLocation,
 } from "./use-company-mutations";
+export { useCompanySwitcher } from "./use-company-switcher";
+export type { CompanySwitcherApi } from "./use-company-switcher";
