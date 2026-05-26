@@ -70,3 +70,6 @@ export { useOrderTransition } from "./use-order-transition";
 export type { UseOrderTransitionVars } from "./use-order-transition";
 export { useReorder } from "./use-reorder";
 export type { UseReorderVars, UseReorderResult } from "./use-reorder";
+export { useSalesOrder } from "./use-sales-order";
+export { useUpdateSalesOrder } from "./use-update-sales-order";
+export type { UseUpdateSalesOrderVars } from "./use-update-sales-order";
