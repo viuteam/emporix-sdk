@@ -42,6 +42,18 @@ describe("EmporixClient", () => {
     expect(sdk.carts).toBeDefined();
   });
 
+  it("exposes B2B services (companies / contacts / locations / customerGroups)", () => {
+    const sdk = new EmporixClient({
+      tenant: "acme",
+      credentials: { backend: { clientId: "b", secret: "s" }, storefront: { clientId: "sf" } },
+      logger: false,
+    });
+    expect(sdk.companies).toBeDefined();
+    expect(sdk.contacts).toBeDefined();
+    expect(sdk.locations).toBeDefined();
+    expect(sdk.customerGroups).toBeDefined();
+  });
+
   it("setLogLevel/getLogLevel proxy the resolver", () => {
     const sdk = new EmporixClient({
       tenant: "acme",

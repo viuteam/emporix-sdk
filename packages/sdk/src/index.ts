@@ -1,6 +1,6 @@
 export {
   EmporixError, EmporixAuthError, EmporixForbiddenError, EmporixNotFoundError,
-  EmporixValidationError, EmporixServerError, errorFromResponse,
+  EmporixValidationError, EmporixServerError, EmporixInsufficientScopeError, errorFromResponse,
 } from "./core/errors";
 export { validateConfig, DEFAULT_HOST } from "./core/config";
 export type {
@@ -90,3 +90,7 @@ export { SiteService } from "./services/site";
 export type { Site } from "./services/site";
 export { SessionContextService } from "./services/session-context";
 export type { SessionContext, SessionContextPatch } from "./services/session-context";
+export * from "./companies";
+export * from "./contacts";
+export * from "./locations";
+export * from "./customer-groups";

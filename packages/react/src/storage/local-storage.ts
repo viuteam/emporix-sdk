@@ -10,6 +10,8 @@ const DEFAULT_TOKEN_KEY = "emporix.customerToken";
 const CART_KEY = "emporix.cartId";
 const ANON_KEY = "emporix.anonymousSession";
 const SITE_KEY = "emporix.siteCode";
+const ACTIVE_LE_KEY = "emporix.activeLegalEntityId";
+const REFRESH_KEY = "emporix.refreshToken";
 
 /** Browser `localStorage`-backed store. Falls back to memory on the server. */
 export function createLocalStorageStorage(opts: { key?: string } = {}): EmporixStorage {
@@ -54,6 +56,18 @@ export function createLocalStorageStorage(opts: { key?: string } = {}): EmporixS
       if (code === null) ls.removeItem(SITE_KEY);
       else ls.setItem(SITE_KEY, code);
       all.notify("siteCode");
+    },
+    getActiveLegalEntityId: () => ls.getItem(ACTIVE_LE_KEY),
+    setActiveLegalEntityId: (id) => {
+      if (id === null) ls.removeItem(ACTIVE_LE_KEY);
+      else ls.setItem(ACTIVE_LE_KEY, id);
+      all.notify("activeLegalEntityId");
+    },
+    getRefreshToken: () => ls.getItem(REFRESH_KEY),
+    setRefreshToken: (t) => {
+      if (t === null) ls.removeItem(REFRESH_KEY);
+      else ls.setItem(REFRESH_KEY, t);
+      all.notify("refreshToken");
     },
     subscribeAll: (l) => all.add(l),
   };

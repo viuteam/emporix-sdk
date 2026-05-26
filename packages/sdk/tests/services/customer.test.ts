@@ -261,3 +261,30 @@ describe("CustomerService", () => {
     expect(new URL(url).searchParams.has("config")).toBe(false);
   });
 });
+
+describe("CustomerService.refresh with legalEntityId", () => {
+  it("forwards legalEntityId as a query param", async () => {
+    let q: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/refreshauthtoken", ({ request }) => {
+        q = new URL(request.url).searchParams;
+        return HttpResponse.json({ access_token: "new-tok", refresh_token: "new-r" });
+      }),
+    );
+    await svc().refresh({ refreshToken: "old-r", legalEntityId: "le-1" });
+    expect((q as URLSearchParams | null)?.get("refreshToken")).toBe("old-r");
+    expect((q as URLSearchParams | null)?.get("legalEntityId")).toBe("le-1");
+  });
+
+  it("omits legalEntityId when not provided", async () => {
+    let q: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/refreshauthtoken", ({ request }) => {
+        q = new URL(request.url).searchParams;
+        return HttpResponse.json({ access_token: "new-tok", refresh_token: "new-r" });
+      }),
+    );
+    await svc().refresh({ refreshToken: "old-r" });
+    expect((q as URLSearchParams | null)?.has("legalEntityId")).toBe(false);
+  });
+});

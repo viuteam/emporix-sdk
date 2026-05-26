@@ -110,3 +110,9 @@ The `useMatchPrices` React hook wraps step 4.
 The SDK provides the checkout call, the `paymentDetails` passthrough, payment
 modes and the deferred `authorize` seam. Provider-specific flows (3DS2, PayPal
 callbacks, webhook reconciliation) are the integrator's responsibility.
+
+## Active legal-entity scope (B2B)
+
+When a customer is acting on behalf of a legal entity, the active company id is sent on order creation so the order is attached to the correct company. In React, this is automatic via `useActiveCompany`; non-React callers pass `legalEntityId` explicitly on checkout calls.
+
+See [docs/b2b.md](./b2b.md) for the active-company model.

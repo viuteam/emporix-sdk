@@ -140,3 +140,9 @@ provisioning step, not an SDK config. Note the platform quirk: `expires_in`
 is a string from `socialLogin` and an integer from `exchangeToken` — the SDK
 normalizes both to a number. `auth.raw(jwt)` and a custom `tokenProvider`
 remain available for any flow the SDK does not model.
+
+## Refresh with `legalEntityId` (B2B scope)
+
+`customer.refresh({ refreshToken, legalEntityId })` re-issues a customer token scoped to the given legal entity. Omitting `legalEntityId` re-issues a non-scoped (B2C) token. Used internally by `setActiveCompany` in React; can be called directly from non-React hosts.
+
+See [docs/b2b.md](./b2b.md) for the active-company model.

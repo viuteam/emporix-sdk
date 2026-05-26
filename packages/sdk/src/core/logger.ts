@@ -19,6 +19,8 @@ export type ServiceName =
   | "segment"
   | "site"
   | "session-context"
+  | "customer-management"
+  | "iam"
   | "http"
   | "auth";
 

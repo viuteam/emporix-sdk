@@ -86,6 +86,7 @@ export function useCustomerSession(): CustomerSessionApi {
     async (input: { email: string; password: string }) => {
       const result = await client.customers.login(input);
       storage.setCustomerToken(result.customerToken);
+      storage.setRefreshToken(result.refreshToken || null);
       setSession({
         token: result.customerToken,
         refreshToken: result.refreshToken || null,
@@ -124,6 +125,7 @@ export function useCustomerSession(): CustomerSessionApi {
   const applySession = useCallback(
     async (incoming: { customerToken: string; refreshToken: string; saasToken: string }) => {
       storage.setCustomerToken(incoming.customerToken);
+      storage.setRefreshToken(incoming.refreshToken || null);
       setSession({
         token: incoming.customerToken,
         refreshToken: incoming.refreshToken || null,
@@ -177,6 +179,8 @@ export function useCustomerSession(): CustomerSessionApi {
       }
     }
     storage.setCustomerToken(null);
+    storage.setRefreshToken(null);
+    storage.setActiveLegalEntityId(null);
     setSession(EMPTY_SESSION);
     qc.removeQueries({ queryKey: ["emporix", "customer"] });
     qc.removeQueries({ queryKey: ["emporix", "cart"] });
@@ -193,6 +197,7 @@ export function useCustomerSession(): CustomerSessionApi {
       ...(session.saasToken ? { saasToken: session.saasToken } : {}),
     });
     storage.setCustomerToken(refreshed.customerToken);
+    if (refreshed.refreshToken) storage.setRefreshToken(refreshed.refreshToken);
     setSession((s) => ({
       token: refreshed.customerToken,
       refreshToken: refreshed.refreshToken || s.refreshToken,

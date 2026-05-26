@@ -22,6 +22,10 @@ import { MediaService } from "./services/media";
 import { SegmentService } from "./services/segment";
 import { SiteService } from "./services/site";
 import { SessionContextService } from "./services/session-context";
+import { CompaniesService } from "./services/companies";
+import { ContactsService } from "./services/contacts";
+import { LocationsService } from "./services/locations";
+import { CustomerGroupsService } from "./services/customer-groups";
 
 const SDK_VERSION = "0.0.0";
 
@@ -38,6 +42,10 @@ export class EmporixClient {
   readonly segments: SegmentService;
   readonly sites: SiteService;
   readonly sessionContext: SessionContextService;
+  readonly companies: CompaniesService;
+  readonly contacts: ContactsService;
+  readonly locations: LocationsService;
+  readonly customerGroups: CustomerGroupsService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
   /**
@@ -108,6 +116,10 @@ export class EmporixClient {
     });
     this.sites = new SiteService(mk("site"));
     this.sessionContext = new SessionContextService(mk("session-context"));
+    this.companies = new CompaniesService(mk("customer-management"));
+    this.contacts = new ContactsService(mk("customer-management"));
+    this.locations = new LocationsService(mk("customer-management"));
+    this.customerGroups = new CustomerGroupsService(mk("iam"));
   }
 
   /** Sets the runtime log level globally or for one service. */

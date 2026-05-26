@@ -21,15 +21,21 @@ import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
 import { bootstrapCart } from "./internal/bootstrap-cart";
 import { emporixKey } from "./internal/query-keys";
+import { useActiveCompany } from "../company-context";
 
 /** Fetches a cart by id. Falls back to `storage.getCartId()` when no argument is passed; disabled when neither is set. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
   const { client, storage } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
+  const { activeCompany } = useActiveCompany();
   const resolvedId = cartId ?? storage.getCartId() ?? undefined;
   return useQuery({
-    queryKey: emporixKey("cart", [resolvedId ?? null], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey(
+      "cart",
+      [resolvedId ?? null, activeCompany?.id ?? null],
+      { tenant: client.tenant, authKind: ctx.kind, siteCode },
+    ),
     enabled: resolvedId !== undefined,
     queryFn: () => client.carts.get(resolvedId as string, ctx),
   });
@@ -63,6 +69,7 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
   const qc = useQueryClient();
   const { ctx } = useReadAuth();
   const { siteCode } = useReadSite();
+  const { activeCompany } = useActiveCompany();
 
   const resolveId = (): string => {
     const id = cartId ?? storage.getCartId();
@@ -74,7 +81,11 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
     return id;
   };
   const keyFor = (id: string) =>
-    emporixKey("cart", [id], { tenant: client.tenant, authKind: ctx.kind, siteCode });
+    emporixKey(
+      "cart",
+      [id, activeCompany?.id ?? null],
+      { tenant: client.tenant, authKind: ctx.kind, siteCode },
+    );
 
   function make<TVars>(
     run: (id: string, vars: TVars) => Promise<Cart>,
@@ -192,8 +203,11 @@ export function useActiveCart(opts?: {
   const qc = useQueryClient();
   const { ctx } = useReadAuth(opts?.auth);
   const { siteCode: activeSite } = useReadSite();
+  const { activeCompany } = useActiveCompany();
 
   const [cartId, setCartId] = useState<string | null>(() => storage.getCartId());
+  // Explicit opt overrides; otherwise pick up the active company.
+  const effectiveLegalEntityId = opts?.legalEntityId ?? activeCompany?.id;
 
   useEffect(() => {
     if (cartId !== null) return;
@@ -208,7 +222,7 @@ export function useActiveCart(opts?: {
       ctx,
       siteCode,
       ...(opts.type !== undefined ? { type: opts.type } : {}),
-      ...(opts.legalEntityId !== undefined ? { legalEntityId: opts.legalEntityId } : {}),
+      ...(effectiveLegalEntityId !== undefined ? { legalEntityId: effectiveLegalEntityId } : {}),
     })
       .then((cart) => {
         if (cancelled) return;
@@ -224,7 +238,7 @@ export function useActiveCart(opts?: {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartId, opts?.create, opts?.type, opts?.legalEntityId, ctx.kind, activeSite]);
+  }, [cartId, opts?.create, opts?.type, effectiveLegalEntityId, ctx.kind, activeSite]);
 
   // Delegate to useCart with the canonical cache key. When cartId state is null,
   // wrap data → null to expose the documented empty-state signal.
