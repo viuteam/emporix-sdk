@@ -62,6 +62,7 @@ export {
   useOrder,
   useCancelOrder,
   useOrderTransition,
+  useReorder,
 } from "./hooks/index";
 export type { CompanySwitcherApi, UseMyOrdersOptions, UseMyOrdersInfiniteOptions } from "./hooks/index";
 export type {
