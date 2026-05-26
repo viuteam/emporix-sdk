@@ -1,16 +1,21 @@
 {
   "name": "@viu/emporix-sdk",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "TypeScript SDK for the Emporix Commerce Engine",
   "license": "MIT",
-  "author": { "name": "viu", "url": "https://github.com/viuteam" },
+  "author": {
+    "name": "viu",
+    "url": "https://github.com/viuteam"
+  },
   "homepage": "https://github.com/viuteam/emporix-sdk#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/viuteam/emporix-sdk.git",
     "directory": "packages/sdk"
   },
-  "bugs": { "url": "https://github.com/viuteam/emporix-sdk/issues" },
+  "bugs": {
+    "url": "https://github.com/viuteam/emporix-sdk/issues"
+  },
   "keywords": [
     "emporix",
     "ecommerce",
@@ -21,26 +26,96 @@
   ],
   "type": "module",
   "sideEffects": false,
-  "engines": { "node": ">=20.19.0" },
-  "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
-  "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" },
-    "./customer": { "types": "./dist/customer.d.ts", "import": "./dist/customer.js", "require": "./dist/customer.cjs" },
-    "./product": { "types": "./dist/product.d.ts", "import": "./dist/product.js", "require": "./dist/product.cjs" },
-    "./category": { "types": "./dist/category.d.ts", "import": "./dist/category.js", "require": "./dist/category.cjs" },
-    "./cart": { "types": "./dist/cart.d.ts", "import": "./dist/cart.js", "require": "./dist/cart.cjs" },
-    "./checkout": { "types": "./dist/checkout.d.ts", "import": "./dist/checkout.js", "require": "./dist/checkout.cjs" },
-    "./payment": { "types": "./dist/payment.d.ts", "import": "./dist/payment.js", "require": "./dist/payment.cjs" },
-    "./price": { "types": "./dist/price.d.ts", "import": "./dist/price.js", "require": "./dist/price.cjs" },
-    "./media": { "types": "./dist/media.d.ts", "import": "./dist/media.js", "require": "./dist/media.cjs" },
-    "./segment": { "types": "./dist/segment.d.ts", "import": "./dist/segment.js", "require": "./dist/segment.cjs" },
-    "./companies": { "types": "./dist/companies.d.ts", "import": "./dist/companies.js", "require": "./dist/companies.cjs" },
-    "./contacts": { "types": "./dist/contacts.d.ts", "import": "./dist/contacts.js", "require": "./dist/contacts.cjs" },
-    "./locations": { "types": "./dist/locations.d.ts", "import": "./dist/locations.js", "require": "./dist/locations.cjs" },
-    "./customer-groups": { "types": "./dist/customer-groups.d.ts", "import": "./dist/customer-groups.js", "require": "./dist/customer-groups.cjs" },
-    "./orders": { "types": "./dist/orders.d.ts", "import": "./dist/orders.js", "require": "./dist/orders.cjs" }
+  "engines": {
+    "node": ">=20.19.0"
   },
-  "publishConfig": { "access": "public", "provenance": true },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./customer": {
+      "types": "./dist/customer.d.ts",
+      "import": "./dist/customer.js",
+      "require": "./dist/customer.cjs"
+    },
+    "./product": {
+      "types": "./dist/product.d.ts",
+      "import": "./dist/product.js",
+      "require": "./dist/product.cjs"
+    },
+    "./category": {
+      "types": "./dist/category.d.ts",
+      "import": "./dist/category.js",
+      "require": "./dist/category.cjs"
+    },
+    "./cart": {
+      "types": "./dist/cart.d.ts",
+      "import": "./dist/cart.js",
+      "require": "./dist/cart.cjs"
+    },
+    "./checkout": {
+      "types": "./dist/checkout.d.ts",
+      "import": "./dist/checkout.js",
+      "require": "./dist/checkout.cjs"
+    },
+    "./payment": {
+      "types": "./dist/payment.d.ts",
+      "import": "./dist/payment.js",
+      "require": "./dist/payment.cjs"
+    },
+    "./price": {
+      "types": "./dist/price.d.ts",
+      "import": "./dist/price.js",
+      "require": "./dist/price.cjs"
+    },
+    "./media": {
+      "types": "./dist/media.d.ts",
+      "import": "./dist/media.js",
+      "require": "./dist/media.cjs"
+    },
+    "./segment": {
+      "types": "./dist/segment.d.ts",
+      "import": "./dist/segment.js",
+      "require": "./dist/segment.cjs"
+    },
+    "./companies": {
+      "types": "./dist/companies.d.ts",
+      "import": "./dist/companies.js",
+      "require": "./dist/companies.cjs"
+    },
+    "./contacts": {
+      "types": "./dist/contacts.d.ts",
+      "import": "./dist/contacts.js",
+      "require": "./dist/contacts.cjs"
+    },
+    "./locations": {
+      "types": "./dist/locations.d.ts",
+      "import": "./dist/locations.js",
+      "require": "./dist/locations.cjs"
+    },
+    "./customer-groups": {
+      "types": "./dist/customer-groups.d.ts",
+      "import": "./dist/customer-groups.js",
+      "require": "./dist/customer-groups.cjs"
+    },
+    "./orders": {
+      "types": "./dist/orders.d.ts",
+      "import": "./dist/orders.js",
+      "require": "./dist/orders.cjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsup",
     "test": "vitest run --coverage",
