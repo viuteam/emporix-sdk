@@ -76,8 +76,11 @@ export type {
   AssetCreateBlobInput,
   AssetCreateLinkInput,
   AssetUpdateInput,
+  AssetUpdateBlobInput,
+  AssetUpdateLinkInput,
   AssetRefId,
   DownloadResult,
+  ListAssetsQuery,
 } from "./services/media";
 export { SegmentService } from "./services/segment";
 export type {

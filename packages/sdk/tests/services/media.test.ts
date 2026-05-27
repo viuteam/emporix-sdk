@@ -125,11 +125,126 @@ describe("MediaService CRUD", () => {
     );
     const s = svc();
     expect((await s.get("asset-1")).id).toBe("asset-1");
-    expect(await s.list()).toHaveLength(2);
+    expect((await s.list()).items).toHaveLength(2);
     expect(
-      (await s.update("asset-1", { type: "BLOB", access: "PRIVATE" })).access,
+      (
+        await s.update("asset-1", {
+          kind: "json",
+          body: { type: "BLOB", access: "PRIVATE" },
+        })
+      ).access,
     ).toBe("PRIVATE");
     await expect(s.remove("asset-1")).resolves.toBeUndefined();
+  });
+
+  it("list() wraps results in a PaginatedItems envelope with hasNextPage heuristic", async () => {
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets", ({ request }) => {
+        const url = new URL(request.url);
+        expect(url.searchParams.get("pageNumber")).toBe("1");
+        expect(url.searchParams.get("pageSize")).toBe("2");
+        return HttpResponse.json([{ id: "a" }, { id: "b" }]);
+      }),
+    );
+    const page = await svc().list({ pageSize: 2 });
+    expect(page.items.map((a) => a.id)).toEqual(["a", "b"]);
+    expect(page.pageNumber).toBe(1);
+    expect(page.pageSize).toBe(2);
+    expect(page.hasNextPage).toBe(true); // items.length === pageSize → assume more
+  });
+
+  it("list() hasNextPage=false when the page is not full", async () => {
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets", () =>
+        HttpResponse.json([{ id: "a" }]),
+      ),
+    );
+    const page = await svc().list({ pageSize: 10 });
+    expect(page.items).toHaveLength(1);
+    expect(page.hasNextPage).toBe(false);
+  });
+
+  it("update() multipart: BLOB file-replacement sends multipart with file + body parts", async () => {
+    let receivedFile: File | null = null;
+    let receivedBody: string | null = null;
+    let seenCT: string | null = null;
+    server.use(
+      http.put("https://api.emporix.io/media/acme/assets/asset-1", async ({ request }) => {
+        seenCT = request.headers.get("content-type");
+        const fd = await request.formData();
+        const f = fd.get("file");
+        if (f instanceof File) receivedFile = f;
+        const b = fd.get("body");
+        if (typeof b === "string") receivedBody = b;
+        return HttpResponse.json({
+          id: "asset-1",
+          type: "BLOB",
+          access: "PUBLIC",
+          details: { filename: "new.jpg", mimeType: "image/jpeg" },
+        });
+      }),
+    );
+    const result = await svc().update("asset-1", {
+      kind: "blob",
+      file: new File(["new bytes"], "new.jpg", { type: "image/jpeg" }),
+      body: {
+        type: "BLOB",
+        access: "PUBLIC",
+        details: { filename: "new.jpg", mimeType: "image/jpeg" },
+        metadata: { version: 3 },
+      },
+    });
+    expect(seenCT).toMatch(/^multipart\/form-data; boundary=/);
+    expect((receivedFile as File | null)?.name).toBe("new.jpg");
+    const parsed = JSON.parse(receivedBody!) as Record<string, unknown>;
+    expect(parsed).toMatchObject({
+      type: "BLOB",
+      access: "PUBLIC",
+      metadata: { version: 3 },
+    });
+    expect(result.id).toBe("asset-1");
+  });
+
+  it("replaceFile() builds an AssetUpdateBlob with details + version", async () => {
+    let parsedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.put("https://api.emporix.io/media/acme/assets/asset-1", async ({ request }) => {
+        const fd = await request.formData();
+        const b = fd.get("body");
+        if (typeof b === "string") parsedBody = JSON.parse(b) as Record<string, unknown>;
+        return HttpResponse.json({ id: "asset-1", type: "BLOB", access: "PRIVATE" });
+      }),
+    );
+    await svc().replaceFile("asset-1", {
+      file: new File(["x"], "doc.pdf", { type: "application/pdf" }),
+      access: "PRIVATE",
+      filename: "doc.pdf",
+      mimeType: "application/pdf",
+      version: 7,
+    });
+    expect(parsedBody).toMatchObject({
+      type: "BLOB",
+      access: "PRIVATE",
+      details: { filename: "doc.pdf", mimeType: "application/pdf" },
+      metadata: { version: 7 },
+    });
+  });
+
+  it("replaceFile() omits details + metadata when not supplied", async () => {
+    let parsedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.put("https://api.emporix.io/media/acme/assets/asset-1", async ({ request }) => {
+        const fd = await request.formData();
+        const b = fd.get("body");
+        if (typeof b === "string") parsedBody = JSON.parse(b) as Record<string, unknown>;
+        return HttpResponse.json({ id: "asset-1", type: "BLOB", access: "PUBLIC" });
+      }),
+    );
+    await svc().replaceFile("asset-1", {
+      file: new File(["x"], "f", { type: "image/png" }),
+      access: "PUBLIC",
+    });
+    expect(parsedBody).toEqual({ type: "BLOB", access: "PUBLIC" });
   });
 });
 
@@ -232,9 +347,12 @@ describe("MediaService convenience", () => {
         return HttpResponse.json([{ id: "a", refIds: [{ type: "PRODUCT", id: "p1" }] }]);
       }),
     );
-    const rows = await svc().listForProduct("p1");
+    const page = await svc().listForProduct("p1");
     expect(query !== null && (query as URLSearchParams).get("refIds.id")).toBe("p1");
-    expect(rows).toHaveLength(1);
+    expect(page.items).toHaveLength(1);
+    expect(page.pageNumber).toBe(1);
+    expect(page.pageSize).toBe(60);
+    expect(page.hasNextPage).toBe(false);
   });
 });
 

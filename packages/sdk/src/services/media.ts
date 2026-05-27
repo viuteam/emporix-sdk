@@ -1,4 +1,4 @@
-import type { ClientContext } from "../core/context";
+import type { ClientContext, PaginatedItems } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixError, errorFromResponse } from "../core/errors";
 import type {
@@ -13,9 +13,26 @@ import type {
 /** Generated media types (caller sends the exact wire shape). */
 export type AssetCreateBlobInput = AssetCreateBlob;
 export type AssetCreateLinkInput = AssetCreateLink;
+export type AssetUpdateBlobInput = AssetUpdateBlob;
+export type AssetUpdateLinkInput = AssetUpdateLink;
 export type AssetUpdateInput = AssetUpdateBlob | AssetUpdateLink;
 export type Asset = GetAsset;
 export type AssetRefId = RefId;
+
+/**
+ * Filter / pagination options for {@link MediaService.list}. The explicit
+ * fields are typed for autocomplete; the index signature stays open so
+ * Emporix `q`-syntax filters like `"refIds.id"` can be passed verbatim.
+ */
+export interface ListAssetsQuery {
+  pageNumber?: number;
+  pageSize?: number;
+  /** Emporix sort syntax, e.g. `"name,metadata.createdAt:desc"`. */
+  sort?: string;
+  /** Emporix `q`-syntax filter, e.g. `"name:hero"`. */
+  q?: string;
+  [key: string]: string | number | undefined;
+}
 
 /**
  * Result of {@link MediaService.download}. The endpoint's behaviour depends
@@ -79,17 +96,32 @@ export class MediaService {
     });
   }
 
-  /** List assets. Optional `query` is passed through to Emporix verbatim. */
+  /**
+   * List assets, wrapped in the shared {@link PaginatedItems} envelope so
+   * callers can iterate over pages consistently with the rest of the SDK.
+   * `hasNextPage` is the standard SDK heuristic: `true` when the returned
+   * page is full (`items.length === requested pageSize`). Pagination
+   * defaults match Emporix's server defaults (`pageNumber: 1`,
+   * `pageSize: 60`) so an empty `query` produces stable expectations.
+   */
   async list(
-    query?: Record<string, string | number | undefined>,
+    query: ListAssetsQuery = {},
     auth: AuthContext = SERVICE,
-  ): Promise<Asset[]> {
-    return this.ctx.http.request<Asset[]>({
+  ): Promise<PaginatedItems<Asset>> {
+    const pageNumber = query.pageNumber ?? 1;
+    const pageSize = query.pageSize ?? 60;
+    const items = await this.ctx.http.request<Asset[]>({
       method: "GET",
       path: this.base(),
       auth,
-      ...(query ? { query } : {}),
+      query: { ...query, pageNumber, pageSize },
     });
+    return {
+      items,
+      pageNumber,
+      pageSize,
+      hasNextPage: items.length === pageSize,
+    };
   }
 
   /** Fetch an asset by id. */
@@ -101,17 +133,43 @@ export class MediaService {
     });
   }
 
-  /** Update an asset (e.g. swap `refIds` or `access`). */
+  /**
+   * Update an asset. The input is a discriminated union mirroring
+   * {@link create}:
+   * - `{ kind: "json", body }` — metadata-only patch (BLOB or LINK).
+   *   Sends `application/json`. Used for `refIds`, `details`, `metadata`,
+   *   or `url` changes.
+   * - `{ kind: "blob", file, body }` — replaces the BLOB file content
+   *   (max 10MB) AND patches metadata in the same request. Sends
+   *   `multipart/form-data`.
+   *
+   * `type` and `access` are immutable per Emporix — they must match the
+   * existing asset's values. Optimistic-locking is via `body.metadata.version`;
+   * the server returns 409 Conflict on a stale version.
+   */
   async update(
     assetId: string,
-    patch: AssetUpdateInput,
+    input:
+      | { kind: "json"; body: AssetUpdateInput }
+      | { kind: "blob"; file: Blob; body: AssetUpdateBlobInput },
     auth: AuthContext = SERVICE,
   ): Promise<Asset> {
+    if (input.kind === "blob") {
+      const fd = new FormData();
+      fd.set("file", input.file);
+      fd.set("body", JSON.stringify(input.body));
+      return this.ctx.http.request<Asset>({
+        method: "PUT",
+        path: `${this.base()}/${assetId}`,
+        auth,
+        body: fd,
+      });
+    }
     return this.ctx.http.request<Asset>({
       method: "PUT",
       path: `${this.base()}/${assetId}`,
       auth,
-      body: patch,
+      body: input.body,
     });
   }
 
@@ -232,6 +290,42 @@ export class MediaService {
     return this.create({ kind: "blob", file: input.file, body }, auth);
   }
 
+  /**
+   * Replace the file content of an existing BLOB asset. Sugar over
+   * {@link update} with `kind: "blob"`. `access` is required because the
+   * field is immutable and the server validates that the patch matches.
+   * Pass `version` from `asset.metadata.version` if you want optimistic
+   * locking (recommended when concurrent writers are possible).
+   */
+  async replaceFile(
+    assetId: string,
+    input: {
+      file: Blob;
+      access: "PUBLIC" | "PRIVATE";
+      filename?: string;
+      mimeType?: string;
+      version?: number;
+    },
+    auth: AuthContext = SERVICE,
+  ): Promise<Asset> {
+    const body: AssetUpdateBlobInput = {
+      type: "BLOB",
+      access: input.access,
+      ...(input.filename || input.mimeType
+        ? {
+            details: {
+              ...(input.filename ? { filename: input.filename } : {}),
+              ...(input.mimeType ? { mimeType: input.mimeType } : {}),
+            },
+          }
+        : {}),
+      ...(input.version !== undefined
+        ? { metadata: { version: input.version } }
+        : {}),
+    };
+    return this.update(assetId, { kind: "blob", file: input.file, body }, auth);
+  }
+
   /** External-URL sugar: builds `AssetCreateLink`. */
   async link(
     input: { url: string; productId?: string; access?: "PUBLIC" | "PRIVATE" },
@@ -261,7 +355,7 @@ export class MediaService {
     // Preserve the asset's type discriminator so the update body satisfies
     // the AssetUpdateBlob | AssetUpdateLink union.
     const patch = { type: a.type, refIds: next } as unknown as AssetUpdateInput;
-    return this.update(assetId, patch, auth);
+    return this.update(assetId, { kind: "json", body: patch }, auth);
   }
 
   /** Remove a PRODUCT refId from an asset (no-op if absent). */
@@ -275,11 +369,14 @@ export class MediaService {
     const next = refIds.filter((r) => !isProductRef(r, productId));
     if (next.length === refIds.length) return a;
     const patch = { type: a.type, refIds: next } as unknown as AssetUpdateInput;
-    return this.update(assetId, patch, auth);
+    return this.update(assetId, { kind: "json", body: patch }, auth);
   }
 
   /** Convenience: list assets attached to a product (server-side filter). */
-  async listForProduct(productId: string, auth: AuthContext = SERVICE): Promise<Asset[]> {
+  async listForProduct(
+    productId: string,
+    auth: AuthContext = SERVICE,
+  ): Promise<PaginatedItems<Asset>> {
     return this.list({ "refIds.id": productId }, auth);
   }
 }
