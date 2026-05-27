@@ -70,6 +70,7 @@ await sdk.customers.me(auth.raw(externalJwt));
 | `carts.*` | — | explicit `customer` or `anonymous` |
 | `carts.merge` | — | `customer` |
 | `companies.*` / `contacts.*` / `locations.*` / `customerGroups.*` (B2B) | — | `customer` (reads need `*_read_own`; mutations need `*_manage`) |
+| `media.*` (Asset CRUD + download) | `service` | `service` — server-only (`media.asset_read` / `media.asset_manage`); never call from the browser |
 
 `AuthContext` is **per call, never stored** — one client safely serves many
 concurrent shoppers (SSR/edge/multi-tenant). SDK-managed (`service`/`anonymous`)
@@ -97,6 +98,18 @@ read-only for now). Switching company scope is a customer-token rescope via
 customer's role lacks scope for surface as `EmporixInsufficientScopeError`
 (extends `EmporixForbiddenError`, carries `requiredScope`). See
 [`../../docs/b2b.md`](../../docs/b2b.md).
+
+## Media
+
+`sdk.media` covers the full `/media/{tenant}/assets/*` surface: create
+(`uploadFile` / `link` / `create`), list (paginated, `PaginatedItems<Asset>`),
+get, update (JSON metadata or BLOB multipart file-replacement via the
+`replaceFile` sugar), remove, and download (resolves to either a redirect
+URL for `PUBLIC` assets or an `ArrayBuffer` for `PRIVATE`). All endpoints
+require a server-only scope — every call defaults to a `service`
+`AuthContext`. Storefronts read media via `product.productMedia` (denormalised
+on the product) or the `useProductMedia(productId)` hook, not by calling
+the Media service directly. See [`../../docs/media.md`](../../docs/media.md).
 
 ## Subpath exports
 
