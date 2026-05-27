@@ -1,5 +1,6 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { EmporixError, errorFromResponse } from "../core/errors";
 import type {
   AssetCreateBlob,
   AssetCreateLink,
@@ -15,6 +16,25 @@ export type AssetCreateLinkInput = AssetCreateLink;
 export type AssetUpdateInput = AssetUpdateBlob | AssetUpdateLink;
 export type Asset = GetAsset;
 export type AssetRefId = RefId;
+
+/**
+ * Result of {@link MediaService.download}. The endpoint's behaviour depends
+ * on the asset's `access`:
+ * - `PUBLIC` assets respond with a 30x redirect whose `Location` header
+ *   carries the externally-cacheable storage URL — useful when the
+ *   storefront wants to send the user there directly.
+ * - `PRIVATE` assets respond with the raw bytes (plus an `ETag` header
+ *   for caching). The asset is delivered through Cloudinary behind the
+ *   server-side service token, never publicly addressable.
+ */
+export type DownloadResult =
+  | { kind: "redirect"; url: string }
+  | {
+      kind: "bytes";
+      data: ArrayBuffer;
+      etag?: string;
+      contentType?: string;
+    };
 
 const SERVICE: AuthContext = { kind: "service" };
 
@@ -102,6 +122,85 @@ export class MediaService {
       path: `${this.base()}/${assetId}`,
       auth,
     });
+  }
+
+  /**
+   * Download an asset by id. Returns a discriminated union:
+   * - `{ kind: "redirect", url }` for `PUBLIC` assets (server-side 30x with
+   *   the storage URL in `Location`).
+   * - `{ kind: "bytes", data }` for `PRIVATE` assets (server-side 200 with
+   *   the asset bytes; `etag` + `contentType` headers are exposed for
+   *   caching). When the server reports `text/plain` Content-Type (the
+   *   OpenAPI-documented format), the SDK decodes the base64 stream into
+   *   an `ArrayBuffer` transparently; binary Content-Types are passed
+   *   through verbatim.
+   *
+   * Implementation note: uses `redirect: "manual"` so the redirect-location
+   * is observable. In Node.js this works; in a browser the redirect Location
+   * is intentionally hidden by fetch — there, `PUBLIC` downloads will
+   * surface as an opaque-redirect and the SDK throws. Browser code should
+   * use the asset's `url` field from `get()` for `LINK` assets, or the
+   * direct storage URL for `PUBLIC` `BLOB` assets (typically delivered via
+   * an `<img>` tag rather than `download()`).
+   */
+  async download(
+    assetId: string,
+    auth: AuthContext = SERVICE,
+  ): Promise<DownloadResult> {
+    const path = `${this.base()}/${assetId}/download`;
+    const res = await this.ctx.http.requestRaw(
+      { method: "GET", path, auth },
+      { redirect: "manual" },
+    );
+
+    // PUBLIC: server-side redirect — capture Location.
+    if (res.status >= 300 && res.status < 400) {
+      const url = res.headers.get("location");
+      if (!url) {
+        throw new EmporixError(
+          `media.download: ${res.status} response without a Location header`,
+          res.status,
+        );
+      }
+      return { kind: "redirect", url };
+    }
+
+    // PRIVATE: bytes.
+    if (res.ok) {
+      const etag = res.headers.get("etag") ?? undefined;
+      const contentType = res.headers.get("content-type") ?? undefined;
+      let data: ArrayBuffer;
+      if (contentType?.startsWith("text/plain")) {
+        // Per OpenAPI spec the server returns the byte stream as a
+        // base64-encoded text/plain body. Decode once into raw bytes
+        // so callers always see an ArrayBuffer.
+        const text = await res.text();
+        const bin = atob(text);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        data = arr.buffer;
+      } else {
+        data = await res.arrayBuffer();
+      }
+      return {
+        kind: "bytes",
+        data,
+        ...(etag !== undefined ? { etag } : {}),
+        ...(contentType !== undefined ? { contentType } : {}),
+      };
+    }
+
+    // Error: surface via the standard EmporixError hierarchy.
+    const text = await res.text();
+    let parsed: unknown = undefined;
+    if (text) {
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = text;
+      }
+    }
+    throw errorFromResponse(res.status, `GET ${path} → ${res.status}`, parsed);
   }
 
   /** Multipart upload sugar: builds `AssetCreateBlob` from input. */

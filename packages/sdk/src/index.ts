@@ -77,6 +77,7 @@ export type {
   AssetCreateLinkInput,
   AssetUpdateInput,
   AssetRefId,
+  DownloadResult,
 } from "./services/media";
 export { SegmentService } from "./services/segment";
 export type {

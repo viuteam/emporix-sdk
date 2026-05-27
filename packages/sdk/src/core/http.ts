@@ -137,4 +137,62 @@ export class HttpClient {
       throw errorFromResponse(res.status, `${o.method} ${o.path} → ${res.status}`, parsed);
     }
   }
+
+  /**
+   * Single-shot fetch that returns the raw {@link Response} unparsed. Used by
+   * endpoints whose responses are not JSON (binary downloads, redirect-only
+   * endpoints). Skips the retry-on-5xx and 401-reauth-once paths intentionally
+   * — those depend on parsing the JSON error body, which a raw consumer must
+   * handle itself if needed. Auth resolution + timeout + logging are still
+   * applied.
+   *
+   * `extra.redirect` is forwarded to `fetch` so callers can use `'manual'` to
+   * capture 30x responses with their `Location` header (Node fetch exposes
+   * the header in this mode; browser fetch returns an opaque response).
+   */
+  async requestRaw(
+    o: RequestOptions,
+    extra?: { redirect?: "follow" | "manual" | "error" },
+  ): Promise<Response> {
+    const requestId = `req-${++requestSeq}`;
+    const log = this.opts.logger.child({ requestId });
+    const url = new URL(this.opts.host + o.path);
+    for (const [k, v] of Object.entries(o.query ?? {})) {
+      if (v !== undefined) url.searchParams.set(k, String(v));
+    }
+    const token = await resolveToken(o.auth, this.opts.provider);
+    log.debug("http requestRaw", {
+      authKind: o.auth.kind,
+      method: o.method,
+      url: url.pathname,
+      redirect: extra?.redirect ?? "follow",
+    });
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      o.timeoutMs ?? this.opts.timeouts.readMs,
+    );
+    const isFormData =
+      typeof FormData !== "undefined" && o.body instanceof FormData;
+    const init: RequestInit = {
+      method: o.method,
+      headers: {
+        ...(o.headers ?? {}),
+        Authorization: `Bearer ${token}`,
+        ...(o.body !== undefined && !isFormData
+          ? { "Content-Type": "application/json" }
+          : {}),
+      },
+      signal: controller.signal,
+      ...(extra?.redirect ? { redirect: extra.redirect } : {}),
+    };
+    if (o.body !== undefined) {
+      init.body = isFormData ? (o.body as FormData) : JSON.stringify(o.body);
+    }
+    try {
+      return await fetch(url, init);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 }
