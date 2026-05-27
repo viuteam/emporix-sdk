@@ -53,14 +53,86 @@ await client.media.detachFromProduct(assetId, productId); // no-op if absent
 ## List media for a product (admin/server)
 
 ```ts
-const assets = await client.media.listForProduct(productId);
+const { items, hasNextPage, pageNumber, pageSize } =
+  await client.media.listForProduct(productId);
 ```
 
+`list()` and `listForProduct()` return the shared `PaginatedItems<Asset>`
+envelope (same shape as `products.list`, `categories.list`, etc.). The
+server's default page size is 60; pass `{ pageSize, pageNumber }` to walk
+beyond that. `hasNextPage` is `true` when the returned page is full
+(`items.length === pageSize`) — paginate until it becomes `false`.
+
 For the storefront read path, prefer `useProductMedia(productId)` or the
-`product.productMedia` field on `client.products.get(productId)`.
+`product.productMedia` field on `client.products.get(productId)` — the
+Media-service read scope is server-only.
+
+## Download
+
+```ts
+const result = await client.media.download(assetId);
+
+if (result.kind === "redirect") {
+  // PUBLIC asset — Emporix returns a 30x with the storage URL.
+  return Response.redirect(result.url);
+}
+// PRIVATE asset — bytes are returned in result.data (ArrayBuffer).
+return new Response(result.data, {
+  headers: {
+    ...(result.contentType ? { "Content-Type": result.contentType } : {}),
+    ...(result.etag ? { ETag: result.etag } : {}),
+  },
+});
+```
+
+`PUBLIC` assets resolve to `{ kind: "redirect", url }` (storage URL from the
+server's `Location` header). `PRIVATE` assets resolve to `{ kind: "bytes",
+data, etag?, contentType? }`. The SDK transparently decodes the
+OpenAPI-documented `text/plain` + base64 wire format into an
+`ArrayBuffer`; binary content-types pass through verbatim.
+
+**Browser limitation**: `download()` uses `redirect: "manual"` to capture
+the `Location` header. In Node this works. In a browser the redirect
+location is hidden by the fetch spec — `PUBLIC` downloads throw. Browser
+code should use the asset's `url` field (for `LINK` assets) or render the
+storage URL directly via `<img>` / `<a download>`.
+
+## Replace the bytes of an existing BLOB asset
+
+```ts
+await client.media.replaceFile(assetId, {
+  file: newBytes,
+  access: "PUBLIC",                 // immutable on the server — must match
+  filename: "hero-v2.jpg",
+  mimeType: "image/jpeg",
+  version: asset.metadata?.version, // optional optimistic-locking
+});
+```
+
+`replaceFile()` is sugar over `update(assetId, { kind: "blob", file, body })`
+that builds the `AssetUpdateBlob` body from the input. Use this instead of
+`remove` + `create` so the asset id (and all `refIds` pointing to it) stay
+stable.
+
+## Update an asset (metadata-only)
+
+```ts
+await client.media.update(assetId, {
+  kind: "json",
+  body: {
+    type: "BLOB",                   // immutable — must match the existing asset
+    access: "PUBLIC",               // immutable — must match
+    details: { filename: "renamed.jpg" },
+    metadata: { version: asset.metadata?.version ?? 1 },
+  },
+});
+```
+
+For BLOB file-replacement use `{ kind: "blob", file, body }` (or the
+`replaceFile()` sugar above). The discriminated input mirrors `create()`.
 
 ## Out of scope
 
-- `GET /assets/{id}/download` (PUBLIC redirect / PRIVATE bytes) — caller
-  can use `asset.url` for PUBLIC assets or fetch the endpoint directly.
 - Browser-side uploads — would require a BFF / token-exchange step.
+- Bulk operations — Emporix Media has no batch endpoint (unlike
+  `cart.itemsBatch`). Loops over `create` / `update` are the only path.
