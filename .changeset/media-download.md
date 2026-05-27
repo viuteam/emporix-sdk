@@ -1,5 +1,5 @@
 ---
-"@viu/emporix-sdk": minor
+"@viu/emporix-sdk": major
 ---
 
 Add `client.media.download(assetId, auth?)` for retrieving asset content via `GET /media/{tenant}/assets/{id}/download`. Returns a discriminated union:
