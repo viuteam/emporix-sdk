@@ -1,5 +1,9 @@
 # @viu/emporix-sdk
 
+[![CI](https://github.com/viuteam/emporix-sdk/actions/workflows/pr-check.yml/badge.svg?branch=main)](https://github.com/viuteam/emporix-sdk/actions/workflows/pr-check.yml)
+[![npm](https://img.shields.io/npm/v/@viu/emporix-sdk)](https://www.npmjs.com/package/@viu/emporix-sdk)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@viu/emporix-sdk)](https://bundlephobia.com/package/@viu/emporix-sdk)
+
 Framework-agnostic TypeScript SDK for the Emporix Commerce Engine. Native
 `fetch` only (Node 20.19+), zero runtime dependencies.
 
