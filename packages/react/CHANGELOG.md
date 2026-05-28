@@ -1,5 +1,12 @@
 # @viu/emporix-sdk-react
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [[`26640fe`](https://github.com/viuteam/emporix-sdk/commit/26640fe281083e6ce0475a547e292ac82ba7d9bf)]:
+  - @viu/emporix-sdk@2.0.0
+
 ## 1.0.0
 
 ### Minor Changes
