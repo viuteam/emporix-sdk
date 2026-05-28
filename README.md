@@ -1,5 +1,11 @@
 # emporix-sdk
 
+[![CI](https://github.com/viuteam/emporix-sdk/actions/workflows/pr-check.yml/badge.svg?branch=main)](https://github.com/viuteam/emporix-sdk/actions/workflows/pr-check.yml)
+[![@viu/emporix-sdk](https://img.shields.io/npm/v/@viu/emporix-sdk?label=%40viu%2Femporix-sdk)](https://www.npmjs.com/package/@viu/emporix-sdk)
+[![@viu/emporix-sdk-react](https://img.shields.io/npm/v/@viu/emporix-sdk-react?label=%40viu%2Femporix-sdk-react)](https://www.npmjs.com/package/@viu/emporix-sdk-react)
+[![license](https://img.shields.io/npm/l/@viu/emporix-sdk)](./LICENSE)
+[![node](https://img.shields.io/node/v/@viu/emporix-sdk)](https://nodejs.org)
+
 TypeScript SDK for the [Emporix Commerce Engine](https://developer.emporix.io),
 shipped as a pnpm workspace monorepo.
 

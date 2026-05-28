@@ -1,5 +1,8 @@
 # @viu/emporix-sdk-react
 
+[![CI](https://github.com/viuteam/emporix-sdk/actions/workflows/pr-check.yml/badge.svg?branch=main)](https://github.com/viuteam/emporix-sdk/actions/workflows/pr-check.yml)
+[![npm](https://img.shields.io/npm/v/@viu/emporix-sdk-react)](https://www.npmjs.com/package/@viu/emporix-sdk-react)
+
 React bindings for `@viu/emporix-sdk`, built on
 [`@tanstack/react-query`](https://tanstack.com/query) v5. Supports React 18 & 19.
 
