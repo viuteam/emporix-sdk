@@ -1,5 +1,23 @@
 # @viu/emporix-sdk
 
+## 2.1.0
+
+### Minor Changes
+
+- [#56](https://github.com/viuteam/emporix-sdk/pull/56) [`939a1b0`](https://github.com/viuteam/emporix-sdk/commit/939a1b0a24063db38545dc81f88c319f93e81833) Thanks [@amnael1](https://github.com/amnael1)! - Add AvailabilityService (`client.availability.get` / `.getMany`) and the
+  `useAvailability` / `useAvailabilities` React hooks for site-aware product
+  availability. `getMany` uses the batch `POST .../search` endpoint and returns
+  results in input order; an opt-in `defaultAvailableOnNotFound` treats products
+  with no stock record as available. New `@viu/emporix-sdk/availability` subpath export.
+
+- [#58](https://github.com/viuteam/emporix-sdk/pull/58) [`caaff28`](https://github.com/viuteam/emporix-sdk/commit/caaff2819e64cf42e4c58dfe4c04fa994312f901) Thanks [@amnael1](https://github.com/amnael1)! - Add PriceService.matchByContextChunked and the useMatchPricesChunked React hook:
+  split large match-prices-by-context requests into bounded-concurrency chunks
+  (default 50 items, 4 in flight) with per-chunk error handling.
+
+- [#57](https://github.com/viuteam/emporix-sdk/pull/57) [`0302ea3`](https://github.com/viuteam/emporix-sdk/commit/0302ea368e6d7feb0a064aac71a6f5314380deb3) Thanks [@amnael1](https://github.com/amnael1)! - Add ProductService.listVariantChildren / listVariantChildrenAll and the
+  useVariantChildren React hook to resolve the VARIANT children of a
+  PARENT_VARIANT product without hand-building the search query.
+
 ## 2.0.0
 
 ### Major Changes
