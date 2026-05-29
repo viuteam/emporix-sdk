@@ -1,0 +1,60 @@
+import type { ClientContext } from "../core/context";
+import type { AuthContext } from "../core/auth";
+import { EmporixNotFoundError } from "../core/errors";
+import type { AvailabilityWithBundle } from "../generated/availability";
+
+/**
+ * Site-aware product availability. Mirrors the Emporix Availability Service
+ * `AvailabilityWithBundle` shape (the single-product GET and the batch search
+ * both return the bundle-aware variant). There is no restock-date field.
+ */
+export type Availability = AvailabilityWithBundle;
+
+/** Shared options for {@link AvailabilityService} reads. */
+export interface AvailabilityOptions {
+  /**
+   * When `true`, a product with no availability record resolves to a default
+   * `{ available: true }` instead of throwing (single `get`) / being marked
+   * unavailable (`getMany`). Off by default — opt in for tenants that sell
+   * without stock management.
+   */
+  defaultAvailableOnNotFound?: boolean;
+}
+
+const ANON: AuthContext = { kind: "anonymous" };
+
+/**
+ * Reads product availability per site. Default auth is anonymous (like
+ * `PriceService.matchByContext`); pass a customer/raw/service context to use a
+ * different token. Requires the `availability.availability_view` scope on
+ * whichever token is used.
+ */
+export class AvailabilityService {
+  constructor(private readonly ctx: ClientContext) {}
+
+  /**
+   * Single product. Resolves the availability record, or — when
+   * `opts.defaultAvailableOnNotFound` is set — a default available record on 404.
+   */
+  async get(
+    productId: string,
+    siteCode: string,
+    auth: AuthContext = ANON,
+    opts: AvailabilityOptions = {},
+  ): Promise<Availability> {
+    try {
+      return await this.ctx.http.request<Availability>({
+        method: "GET",
+        path: `/availability/${this.ctx.tenant}/availability/${encodeURIComponent(
+          productId,
+        )}/${encodeURIComponent(siteCode)}`,
+        auth,
+      });
+    } catch (err) {
+      if (err instanceof EmporixNotFoundError && opts.defaultAvailableOnNotFound) {
+        return { productId, site: siteCode, available: true };
+      }
+      throw err;
+    }
+  }
+}
