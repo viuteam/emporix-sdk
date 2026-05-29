@@ -180,3 +180,79 @@ describe("ProductService", () => {
     expect(hit).toBe(false);
   });
 });
+
+describe("ProductService.listVariantChildren", () => {
+  it("resolves a parent with 3 children into a flat array", async () => {
+    let seenQ: string | null = null;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        seenQ = new URL(request.url).searchParams.get("q");
+        return HttpResponse.json([{ id: "v1" }, { id: "v2" }, { id: "v3" }]);
+      }),
+    );
+    const children = await svc().listVariantChildren("parent-1");
+    expect(seenQ).toBe("productType:VARIANT parentVariantId:parent-1");
+    expect(children.map((p) => p.id as string)).toEqual(["v1", "v2", "v3"]);
+  });
+
+  it("aggregates 250 children across 2 pages (default pageSize 200)", async () => {
+    let calls = 0;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        calls += 1;
+        const u = new URL(request.url);
+        const page = Number(u.searchParams.get("pageNumber") ?? "1");
+        const size = Number(u.searchParams.get("pageSize") ?? "0");
+        const count = page === 1 ? size : 50; // page 1 full (200), page 2 short (50)
+        const start = (page - 1) * size;
+        return HttpResponse.json(
+          Array.from({ length: count }, (_, i) => ({ id: `v${start + i}` })),
+        );
+      }),
+    );
+    const children = await svc().listVariantChildren("parent-1");
+    expect(children).toHaveLength(250);
+    expect(calls).toBe(2);
+  });
+
+  it("returns an empty array (no throw) when the parent has no children", async () => {
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", () => HttpResponse.json([])),
+    );
+    await expect(svc().listVariantChildren("parent-empty")).resolves.toEqual([]);
+  });
+
+  it("encodes a parentVariantId with spaces and special characters", async () => {
+    let seenQ: string | null = null;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        seenQ = new URL(request.url).searchParams.get("q");
+        return HttpResponse.json([]);
+      }),
+    );
+    await svc().listVariantChildren("p 1&x");
+    // searchParams.get decodes the value — proves the space and & were encoded
+    // (otherwise the & would split the query string and truncate q).
+    expect(seenQ).toBe("productType:VARIANT parentVariantId:p 1&x");
+  });
+
+  it("listVariantChildrenAll streams children across pages", async () => {
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        const u = new URL(request.url);
+        const page = Number(u.searchParams.get("pageNumber") ?? "1");
+        const size = Number(u.searchParams.get("pageSize") ?? "0");
+        const count = page === 1 ? size : 1;
+        const start = (page - 1) * size;
+        return HttpResponse.json(
+          Array.from({ length: count }, (_, i) => ({ id: `v${start + i}` })),
+        );
+      }),
+    );
+    const ids: string[] = [];
+    for await (const child of svc().listVariantChildrenAll("parent-1", { pageSize: 2 })) {
+      ids.push(child.id as string);
+    }
+    expect(ids).toEqual(["v0", "v1", "v2"]); // page 1: v0,v1 (full) → page 2: v2 (short)
+  });
+});

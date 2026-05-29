@@ -116,4 +116,36 @@ export class ProductService {
     return pages.flat();
   }
 
+  /**
+   * Streams the VARIANT children of a PARENT_VARIANT product, page by page,
+   * via the search query `productType:VARIANT parentVariantId:<id>`. Default
+   * pageSize 200. The query syntax (space-separated fields = implicit AND) is
+   * encapsulated here so consumers don't build it themselves.
+   */
+  listVariantChildrenAll(
+    parentVariantId: string,
+    params: { pageSize?: number } = {},
+    auth: AuthContext = ANON,
+  ): AsyncIterable<Product> {
+    const pageSize = params.pageSize ?? 200;
+    const q = `productType:VARIANT parentVariantId:${parentVariantId}`;
+    return iterateAll<Product>((pageNumber) => this.search(q, { pageNumber, pageSize }, auth));
+  }
+
+  /**
+   * Resolves ALL VARIANT children of a PARENT_VARIANT product into a flat
+   * array (loads every page). Default pageSize 200. Returns `[]` when there are
+   * no children — never throws.
+   */
+  async listVariantChildren(
+    parentVariantId: string,
+    params: { pageSize?: number } = {},
+    auth: AuthContext = ANON,
+  ): Promise<Product[]> {
+    const out: Product[] = [];
+    for await (const child of this.listVariantChildrenAll(parentVariantId, params, auth)) {
+      out.push(child);
+    }
+    return out;
+  }
 }

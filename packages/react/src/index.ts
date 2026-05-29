@@ -13,6 +13,7 @@ export {
   useProductsInfinite,
   useProductByCode,
   useProductSearch,
+  useVariantChildren,
   useCategory,
   useCategories,
   useCategoriesInfinite,
@@ -72,6 +73,7 @@ export type {
   CompanySwitcherApi,
   UseMyOrdersOptions,
   UseMyOrdersInfiniteOptions,
+  UseVariantChildrenOptions,
   UseAvailabilityOptions,
   UseAvailabilitiesOptions,
 } from "./hooks/index";
