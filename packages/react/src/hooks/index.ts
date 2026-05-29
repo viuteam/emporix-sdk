@@ -7,6 +7,8 @@ export {
   useProductByCode,
   useProductSearch,
 } from "./use-products";
+export { useVariantChildren } from "./use-variant-children";
+export type { UseVariantChildrenOptions } from "./use-variant-children";
 export {
   useCategory,
   useCategories,
