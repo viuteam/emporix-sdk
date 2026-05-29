@@ -57,4 +57,37 @@ export class AvailabilityService {
       throw err;
     }
   }
+
+  /**
+   * Batch read via `POST .../availability/search` (one request). Products with
+   * no availability record are absent from the response; each is synthesized as
+   * `{ available: false }` (or `{ available: true }` when
+   * `opts.defaultAvailableOnNotFound` is set). The result preserves input order
+   * and length. An empty `productIds` resolves to `[]` without a request.
+   */
+  async getMany(
+    productIds: string[],
+    siteCode: string,
+    auth: AuthContext = ANON,
+    opts: AvailabilityOptions = {},
+  ): Promise<Availability[]> {
+    if (productIds.length === 0) return [];
+    const found = await this.ctx.http.request<Availability[]>({
+      method: "POST",
+      path: `/availability/${this.ctx.tenant}/availability/search`,
+      auth,
+      query: { site: siteCode, pageSize: productIds.length },
+      body: productIds,
+    });
+    const byId = new Map<string, Availability>();
+    for (const a of found) if (a.productId) byId.set(a.productId, a);
+    return productIds.map(
+      (id) =>
+        byId.get(id) ?? {
+          productId: id,
+          site: siteCode,
+          available: Boolean(opts.defaultAvailableOnNotFound),
+        },
+    );
+  }
 }

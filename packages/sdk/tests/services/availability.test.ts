@@ -88,3 +88,51 @@ describe("AvailabilityService.get", () => {
     expect(r.available).toBe(true);
   });
 });
+
+describe("AvailabilityService.getMany", () => {
+  it("POSTs the id array to /search with site + pageSize and preserves input order", async () => {
+    let body: unknown = null;
+    let query: URLSearchParams | null = null;
+    server.use(
+      http.post("https://api.emporix.io/availability/acme/availability/search", async ({ request }) => {
+        body = await request.json();
+        query = new URL(request.url).searchParams;
+        // Returned out of order on purpose:
+        return HttpResponse.json([
+          { id: "main:p3", productId: "p3", site: "main", available: true },
+          { id: "main:p1", productId: "p1", site: "main", available: true, stockLevel: 2 },
+        ]);
+      }),
+    );
+    const r = await svc().getMany(["p1", "p2", "p3"], "main");
+    expect(body).toEqual(["p1", "p2", "p3"]);
+    expect((query as URLSearchParams | null)?.get("site")).toBe("main");
+    expect((query as URLSearchParams | null)?.get("pageSize")).toBe("3");
+    expect(r.map((a) => a.productId)).toEqual(["p1", "p2", "p3"]); // input order
+    expect(r[0]?.stockLevel).toBe(2);
+    expect(r[1]).toEqual({ productId: "p2", site: "main", available: false }); // missing → unavailable
+  });
+
+  it("marks missing products available when defaultAvailableOnNotFound is set", async () => {
+    server.use(
+      http.post("https://api.emporix.io/availability/acme/availability/search", () =>
+        HttpResponse.json([{ id: "main:p1", productId: "p1", site: "main", available: true }]),
+      ),
+    );
+    const r = await svc().getMany(["p1", "p2"], "main", undefined, { defaultAvailableOnNotFound: true });
+    expect(r[1]).toEqual({ productId: "p2", site: "main", available: true });
+  });
+
+  it("returns [] without making a request for an empty id list", async () => {
+    let called = false;
+    server.use(
+      http.post("https://api.emporix.io/availability/acme/availability/search", () => {
+        called = true;
+        return HttpResponse.json([]);
+      }),
+    );
+    const r = await svc().getMany([], "main");
+    expect(r).toEqual([]);
+    expect(called).toBe(false);
+  });
+});
