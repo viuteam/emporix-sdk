@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "outDir": "dist", "types": ["node"] },
+  "compilerOptions": { "outDir": "dist", "types": ["node"], "resolveJsonModule": true },
   "include": ["src", "tests", "scripts"]
 }

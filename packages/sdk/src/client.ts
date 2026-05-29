@@ -28,8 +28,7 @@ import { LocationsService } from "./services/locations";
 import { CustomerGroupsService } from "./services/customer-groups";
 import { OrdersService, SalesOrdersService } from "./services/orders";
 import { AvailabilityService } from "./services/availability";
-
-const SDK_VERSION = "0.0.0";
+import { SDK_VERSION } from "./version";
 
 /** The Emporix SDK entry point. One instance safely serves many concurrent shoppers. */
 export class EmporixClient {
