@@ -110,6 +110,11 @@
       "types": "./dist/orders.d.ts",
       "import": "./dist/orders.js",
       "require": "./dist/orders.cjs"
+    },
+    "./availability": {
+      "types": "./dist/availability.d.ts",
+      "import": "./dist/availability.js",
+      "require": "./dist/availability.cjs"
     }
   },
   "publishConfig": {

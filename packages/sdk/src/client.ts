@@ -27,6 +27,7 @@ import { ContactsService } from "./services/contacts";
 import { LocationsService } from "./services/locations";
 import { CustomerGroupsService } from "./services/customer-groups";
 import { OrdersService, SalesOrdersService } from "./services/orders";
+import { AvailabilityService } from "./services/availability";
 
 const SDK_VERSION = "0.0.0";
 
@@ -49,6 +50,7 @@ export class EmporixClient {
   readonly customerGroups: CustomerGroupsService;
   readonly orders: OrdersService;
   readonly salesOrders: SalesOrdersService;
+  readonly availability: AvailabilityService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
   /**
@@ -125,6 +127,7 @@ export class EmporixClient {
     this.customerGroups = new CustomerGroupsService(mk("iam"));
     this.orders = new OrdersService(mk("orders"));
     this.salesOrders = new SalesOrdersService(mk("sales-orders"));
+    this.availability = new AvailabilityService(mk("availability"));
   }
 
   /** Sets the runtime log level globally or for one service. */
