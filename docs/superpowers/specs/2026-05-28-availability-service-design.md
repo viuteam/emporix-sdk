@@ -223,10 +223,15 @@ Add AvailabilityService (`client.availability.get` / `.getMany`) and the
 availability, with an opt-in `defaultAvailableOnNotFound` fallback.
 ```
 
-Listing **both** packages explicitly as `minor` is deliberate: `@viu/emporix-sdk`
-is a `workspace:^` peer of the React package, so an unlisted React package would
-be force-**major**ed as a peer-dependent. Both go `2.0.0 → 2.1.0`; `linked`
-config keeps them equal.
+Both packages are listed explicitly as `minor`. Note that this alone is **not**
+enough: `@viu/emporix-sdk` is a `workspace:^` peer of the React package, and
+changesets force-**major**s peer-dependents by default — escalating both to
+`3.0.0` (via `linked`) regardless of the `minor` entries. The fix (verified at
+implementation time) is to set
+`___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH.onlyUpdatePeerDependentsWhenOutOfRange: true`
+in `.changeset/config.json`: peer-dependents are then only majored when the new
+version leaves the `^` range. `2.1.0` stays inside `^2.0.0`, so both bump
+`minor` → `2.1.0`, and every future additive SDK release behaves the same.
 
 ## Out of scope (YAGNI)
 
