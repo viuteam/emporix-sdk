@@ -85,3 +85,125 @@ describe("PriceService.match", () => {
     expect(res[0]?.priceId).toBe("pr2");
   });
 });
+
+describe("PriceService.matchByContextChunked", () => {
+  const mkInput = (n: number) => ({
+    items: Array.from({ length: n }, (_, i) => ({
+      itemId: { itemType: "PRODUCT", id: `p${i}` },
+      quantity: { quantity: 1 },
+    })),
+  });
+
+  // Echoes one MatchResponse per received item, keyed by itemRef.id.
+  const echoHandler = (onRequest?: () => void) =>
+    http.post(
+      "https://api.emporix.io/price/acme/match-prices-by-context",
+      async ({ request }) => {
+        onRequest?.();
+        const body = (await request.json()) as {
+          items?: { itemId?: { id?: string } }[];
+        };
+        const items = body.items ?? [];
+        return HttpResponse.json(
+          items.map((it) => ({
+            priceId: `pr-${it.itemId?.id}`,
+            itemRef: { itemType: "PRODUCT", id: it.itemId?.id },
+            effectiveValue: 1,
+          })),
+        );
+      },
+    );
+
+  it("splits 150 items into 3 requests at chunkSize 50 and returns every item", async () => {
+    let posts = 0;
+    server.use(echoHandler(() => { posts += 1; }));
+    const res = await svc().matchByContextChunked(mkInput(150), { chunkSize: 50 });
+    expect(posts).toBe(3);
+    expect(res).toHaveLength(150);
+    expect(new Set(res.map((r) => r.itemRef?.id)).size).toBe(150);
+  });
+
+  it("makes one request per item at chunkSize 1", async () => {
+    let posts = 0;
+    server.use(echoHandler(() => { posts += 1; }));
+    const res = await svc().matchByContextChunked(mkInput(5), { chunkSize: 1 });
+    expect(posts).toBe(5);
+    expect(res).toHaveLength(5);
+  });
+
+  it("returns an empty array without any request when items is empty", async () => {
+    let posts = 0;
+    server.use(echoHandler(() => { posts += 1; }));
+    const res = await svc().matchByContextChunked({ items: [] });
+    expect(res).toEqual([]);
+    expect(posts).toBe(0);
+  });
+
+  it("keeps successful chunks and calls onChunkError once when a chunk 500s", async () => {
+    // chunkSize 1 over [p0, BAD, p2] → 3 chunks; the BAD chunk 500s.
+    server.use(
+      http.post(
+        "https://api.emporix.io/price/acme/match-prices-by-context",
+        async ({ request }) => {
+          const body = (await request.json()) as { items?: { itemId?: { id?: string } }[] };
+          const id = body.items?.[0]?.itemId?.id;
+          if (id === "BAD") return HttpResponse.json({ code: 500 }, { status: 500 });
+          return HttpResponse.json([{ priceId: `pr-${id}`, itemRef: { id }, effectiveValue: 1 }]);
+        },
+      ),
+    );
+    const input = {
+      items: ["p0", "BAD", "p2"].map((id) => ({
+        itemId: { itemType: "PRODUCT", id },
+        quantity: { quantity: 1 },
+      })),
+    };
+    const errors: number[] = [];
+    const res = await svc().matchByContextChunked(input, {
+      chunkSize: 1,
+      onChunkError: (_err, idx) => errors.push(idx),
+    });
+    expect(res.map((r) => r.itemRef?.id).sort()).toEqual(["p0", "p2"]);
+    expect(errors).toEqual([1]); // the BAD chunk is index 1
+  });
+
+  it("throws on the first chunk failure when throwOnAnyChunkError is set", async () => {
+    server.use(
+      http.post("https://api.emporix.io/price/acme/match-prices-by-context", async ({ request }) => {
+        const body = (await request.json()) as { items?: { itemId?: { id?: string } }[] };
+        if (body.items?.[0]?.itemId?.id === "BAD") return HttpResponse.json({ code: 500 }, { status: 500 });
+        return HttpResponse.json([]);
+      }),
+    );
+    const input = {
+      items: ["p0", "BAD"].map((id) => ({ itemId: { itemType: "PRODUCT", id }, quantity: { quantity: 1 } })),
+    };
+    await expect(
+      svc().matchByContextChunked(input, { chunkSize: 1, throwOnAnyChunkError: true }),
+    ).rejects.toBeTruthy();
+  });
+
+  it("never runs more than `concurrency` requests in flight", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    server.use(
+      http.post("https://api.emporix.io/price/acme/match-prices-by-context", async ({ request }) => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((r) => setTimeout(r, 15));
+        const body = (await request.json()) as { items?: { itemId?: { id?: string } }[] };
+        inFlight -= 1;
+        return HttpResponse.json(
+          (body.items ?? []).map((it) => ({ priceId: `pr-${it.itemId?.id}`, itemRef: { id: it.itemId?.id }, effectiveValue: 1 })),
+        );
+      }),
+    );
+    await svc().matchByContextChunked(mkInput(8), { chunkSize: 1, concurrency: 2 });
+    expect(peak).toBeLessThanOrEqual(2);
+  });
+
+  it("validates chunkSize and concurrency are >= 1", async () => {
+    await expect(svc().matchByContextChunked(mkInput(1), { chunkSize: 0 })).rejects.toThrow(/chunkSize/);
+    await expect(svc().matchByContextChunked(mkInput(1), { concurrency: 0 })).rejects.toThrow(/concurrency/);
+  });
+});
