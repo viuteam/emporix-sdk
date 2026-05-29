@@ -1,0 +1,96 @@
+openapi: 3.0.0
+info:
+  title: Availability Service
+  version: 0.0.1
+servers:
+  - url: https://api.emporix.io
+tags:
+  - name: Availabilities
+paths:
+  /availability/{tenant}/availability/{productId}/{site}:
+    get:
+      tags: [Availabilities]
+      operationId: getProductAvailability
+      summary: Retrieve a product availability
+      parameters:
+        - { name: tenant, in: path, required: true, schema: { type: string } }
+        - { name: productId, in: path, required: true, schema: { type: string } }
+        - { name: site, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityWithBundle"
+  /availability/{tenant}/availability/search:
+    post:
+      tags: [Availabilities]
+      operationId: searchProductAvailabilities
+      summary: Retrieve availabilities for specified products
+      parameters:
+        - { name: tenant, in: path, required: true, schema: { type: string } }
+        - { name: site, in: query, required: false, schema: { type: string } }
+        - { name: pageSize, in: query, required: false, schema: { type: number } }
+        - { name: pageNumber, in: query, required: false, schema: { type: number } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityWithBundleList"
+components:
+  schemas:
+    DistributionChannel:
+      type: string
+      enum: [ASSORTMENT, HOME_DELIVERY, PICKUP]
+    Availability:
+      type: object
+      properties:
+        id: { type: string }
+        site: { type: string }
+        stockLevel: { type: number }
+        available: { type: boolean }
+        productId: { type: string }
+        vendorId: { type: string }
+        popularity: { type: integer }
+        distributionChannel: { $ref: "#/components/schemas/DistributionChannel" }
+        mixins: { type: object, additionalProperties: true }
+        metadata:
+          type: object
+          properties:
+            createdAt: { type: string, format: date-time }
+            modifiedAt: { type: string, format: date-time }
+            mixins: { type: object, additionalProperties: { type: string } }
+    AvailabilityWithBundle:
+      type: object
+      properties:
+        id: { type: string }
+        site: { type: string }
+        stockLevel: { type: number }
+        available: { type: boolean }
+        productId: { type: string }
+        vendorId: { type: string }
+        popularity: { type: integer }
+        distributionChannel: { $ref: "#/components/schemas/DistributionChannel" }
+        bundleAvailabilities: { $ref: "#/components/schemas/AvailabilityList" }
+        mixins: { type: object, additionalProperties: true }
+        metadata:
+          type: object
+          properties:
+            createdAt: { type: string, format: date-time }
+            modifiedAt: { type: string, format: date-time }
+            mixins: { type: object, additionalProperties: { type: string } }
+    AvailabilityList:
+      type: array
+      items: { $ref: "#/components/schemas/Availability" }
+    AvailabilityWithBundleList:
+      type: array
+      items: { $ref: "#/components/schemas/AvailabilityWithBundle" }

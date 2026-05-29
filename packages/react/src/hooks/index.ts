@@ -73,3 +73,7 @@ export type { UseReorderVars, UseReorderResult } from "./use-reorder";
 export { useSalesOrder } from "./use-sales-order";
 export { useUpdateSalesOrder } from "./use-update-sales-order";
 export type { UseUpdateSalesOrderVars } from "./use-update-sales-order";
+export { useAvailability } from "./use-availability";
+export type { UseAvailabilityOptions } from "./use-availability";
+export { useAvailabilities } from "./use-availabilities";
+export type { UseAvailabilitiesOptions } from "./use-availabilities";

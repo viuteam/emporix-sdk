@@ -65,8 +65,16 @@ export {
   useReorder,
   useSalesOrder,
   useUpdateSalesOrder,
+  useAvailability,
+  useAvailabilities,
 } from "./hooks/index";
-export type { CompanySwitcherApi, UseMyOrdersOptions, UseMyOrdersInfiniteOptions } from "./hooks/index";
+export type {
+  CompanySwitcherApi,
+  UseMyOrdersOptions,
+  UseMyOrdersInfiniteOptions,
+  UseAvailabilityOptions,
+  UseAvailabilitiesOptions,
+} from "./hooks/index";
 export type {
   CustomerSessionApi,
   CartMutationsApi,

@@ -23,6 +23,7 @@ export type ServiceName =
   | "iam"
   | "orders"
   | "sales-orders"
+  | "availability"
   | "http"
   | "auth";
 

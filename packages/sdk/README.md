@@ -115,11 +115,19 @@ require a server-only scope — every call defaults to a `service`
 on the product) or the `useProductMedia(productId)` hook, not by calling
 the Media service directly. See [`../../docs/media.md`](../../docs/media.md).
 
+## Availability
+
+`sdk.availability` reads site-aware product availability: `get(productId, siteCode)`
+for one product and `getMany(productIds, siteCode)` for a batch (single
+`POST .../search` request, result in input order). The opt-in
+`defaultAvailableOnNotFound` returns `{ available: true }` for products without a
+stock record. There is no restock-date field. See [`../../docs/availability.md`](../../docs/availability.md).
+
 ## Subpath exports
 
 `@viu/emporix-sdk` (everything) plus `./customer`, `./product`, `./category`,
 `./cart`, `./checkout`, `./payment`, `./price`, `./media`, `./segment`,
-`./companies`, `./contacts`, `./locations`, `./customer-groups` for tree-shaking.
+`./companies`, `./contacts`, `./locations`, `./customer-groups`, `./availability` for tree-shaking.
 
 ## Authors
 
