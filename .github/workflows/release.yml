@@ -11,8 +11,21 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
+      # Mint a short-lived GitHub App token so the release PR that
+      # changesets/action opens is attributed to the app (not GITHUB_TOKEN).
+      # Events from GITHUB_TOKEN never trigger other workflows, which left the
+      # required pr-check / changeset checks stuck on "Expected".
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
+          # Persist the app token so the version-bump push (synchronize event)
+          # is attributed to the app and triggers downstream checks.
+          token: ${{ steps.app-token.outputs.token }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -34,4 +47,4 @@ jobs:
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
