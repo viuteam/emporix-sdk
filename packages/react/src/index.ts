@@ -27,6 +27,7 @@ export {
   useCheckout,
   usePaymentModes,
   useMatchPrices,
+  useMatchPricesChunked,
   useProductMedia,
   useMySegments,
   useMySegmentItems,

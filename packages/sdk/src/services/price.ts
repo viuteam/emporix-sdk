@@ -12,6 +12,18 @@ export type PriceMatchInput = Match;
 /** A resolved price (full generated match-response schema). */
 export type PriceMatch = MatchResponse;
 
+/** Options for {@link PriceService.matchByContextChunked}. */
+export interface MatchByContextChunkedOptions {
+  /** Items per request. Default 50. Must be >= 1. */
+  chunkSize?: number;
+  /** Maximum number of requests in flight at once. Default 4. Must be >= 1. */
+  concurrency?: number;
+  /** Invoked once per failed chunk (default mode only — not when throwing). */
+  onChunkError?: (err: unknown, chunkIndex: number) => void;
+  /** When true, the first failing chunk rejects the whole call. Default false. */
+  throwOnAnyChunkError?: boolean;
+}
+
 const ANON: AuthContext = { kind: "anonymous" };
 const SERVICE: AuthContext = { kind: "service" };
 
@@ -59,5 +71,60 @@ export class PriceService {
       auth,
       body: input,
     });
+  }
+
+  /**
+   * Chunked variant of {@link matchByContext} for large `items` arrays. The
+   * Emporix backend handles only a limited number of items per request
+   * (production limit ~50), so this splits `input.items` into chunks and runs
+   * `matchByContext` with bounded concurrency.
+   *
+   * By default a failing chunk is skipped (its items are absent from the
+   * result) and `opts.onChunkError` is called once for it; pass
+   * `throwOnAnyChunkError: true` to reject on the first failure instead.
+   *
+   * **Result order is not guaranteed** — match entries back to your items by
+   * `priceId` / `itemRef.id`.
+   */
+  async matchByContextChunked(
+    input: PriceMatchByContextInput,
+    opts: MatchByContextChunkedOptions = {},
+    auth?: AuthContext,
+  ): Promise<PriceMatch[]> {
+    const chunkSize = opts.chunkSize ?? 50;
+    const concurrency = opts.concurrency ?? 4;
+    if (chunkSize < 1) throw new Error("chunkSize must be >= 1");
+    if (concurrency < 1) throw new Error("concurrency must be >= 1");
+
+    const items = input.items ?? [];
+    if (items.length === 0) return [];
+
+    const chunks: PriceMatchByContextInput[] = [];
+    for (let i = 0; i < items.length; i += chunkSize) {
+      chunks.push({ ...input, items: items.slice(i, i + chunkSize) });
+    }
+
+    const results: PriceMatch[][] = new Array(chunks.length);
+    let cursor = 0;
+
+    const worker = async (): Promise<void> => {
+      for (;;) {
+        const idx = cursor++;
+        const chunk = chunks[idx];
+        if (chunk === undefined) return; // past the end
+        try {
+          results[idx] = await this.matchByContext(chunk, auth);
+        } catch (err) {
+          if (opts.throwOnAnyChunkError) throw err;
+          results[idx] = [];
+          opts.onChunkError?.(err, idx);
+        }
+      }
+    };
+
+    const workerCount = Math.min(concurrency, chunks.length);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+    return results.flat();
   }
 }
