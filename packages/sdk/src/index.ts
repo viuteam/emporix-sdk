@@ -101,3 +101,5 @@ export * from "./locations";
 export * from "./customer-groups";
 export * from "./orders";
 export * from "./availability";
+export * from "./tenant-config";
+export * from "./client-config";
