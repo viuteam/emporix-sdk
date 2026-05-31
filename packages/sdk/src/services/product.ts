@@ -117,6 +117,51 @@ export class ProductService {
   }
 
   /**
+   * Bulk fetch by code. POSTs `/products/search` with `q="code:(c1,c2,…)"`,
+   * chunking when the list is larger than `options.chunkSize` (default 100).
+   * Duplicate codes are de-duplicated. Codes containing query-delimiter
+   * characters (`(`, `)`, `,`, whitespace, `"`) are dropped with a logged
+   * warning, because the Emporix `q` syntax uses them as delimiters and does
+   * not support escaping them in a plain IN-list. An empty list — or one with
+   * no safe codes — short-circuits with no HTTP call. **Order is not
+   * guaranteed** across chunks — re-index by `code` if order matters.
+   */
+  async searchByCodes(
+    codes: string[],
+    options: { chunkSize?: number } = {},
+    auth: AuthContext = ANON,
+  ): Promise<Product[]> {
+    const unique = [...new Set(codes)];
+    const unsafe = /[(),"\s]/;
+    const safe = unique.filter((c) => !unsafe.test(c));
+    const dropped = unique.filter((c) => unsafe.test(c));
+    if (dropped.length > 0) {
+      this.ctx.logger.warn(
+        "products.searchByCodes: dropped codes containing query-delimiter characters",
+        { dropped },
+      );
+    }
+    if (safe.length === 0) return [];
+    const chunkSize = options.chunkSize ?? 100;
+    const chunks: string[][] = [];
+    for (let i = 0; i < safe.length; i += chunkSize) {
+      chunks.push(safe.slice(i, i + chunkSize));
+    }
+    const pages = await Promise.all(
+      chunks.map((chunk) =>
+        this.ctx.http.request<Product[]>({
+          method: "POST",
+          path: `/product/${this.ctx.tenant}/products/search`,
+          query: { pageSize: chunk.length },
+          auth,
+          body: { q: `code:(${chunk.join(",")})` },
+        }),
+      ),
+    );
+    return pages.flat();
+  }
+
+  /**
    * Streams the VARIANT children of a PARENT_VARIANT product, page by page,
    * via the search query `productType:VARIANT parentVariantId:<id>`. Default
    * pageSize 200. The query syntax (space-separated fields = implicit AND) is
