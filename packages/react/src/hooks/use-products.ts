@@ -90,3 +90,31 @@ export function useProductSearch(
     staleTime: PRODUCTS_STALE_TIME,
   });
 }
+
+/**
+ * Bulk-fetches products by `code`. Order is not guaranteed — re-index by
+ * `code` if needed. Disabled when `codes` is empty.
+ */
+export function useProductsByCodes(
+  codes: string[],
+  options: { chunkSize?: number } & QueryOpts = {},
+): UseQueryResult<Product[]> {
+  const { client } = useEmporix();
+  const { ctx } = useReadAuth(options.auth);
+  const { siteCode } = useReadSite();
+  return useQuery({
+    queryKey: emporixKey("products-by-codes", [codes, options.chunkSize], {
+      tenant: client.tenant,
+      authKind: ctx.kind,
+      siteCode,
+    }),
+    enabled: codes.length > 0,
+    queryFn: () =>
+      client.products.searchByCodes(
+        codes,
+        options.chunkSize !== undefined ? { chunkSize: options.chunkSize } : {},
+        ctx,
+      ),
+    staleTime: 30_000,
+  });
+}

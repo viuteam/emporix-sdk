@@ -6,6 +6,7 @@ export {
   useProductsInfinite,
   useProductByCode,
   useProductSearch,
+  useProductsByCodes,
 } from "./use-products";
 export { useVariantChildren } from "./use-variant-children";
 export type { UseVariantChildrenOptions } from "./use-variant-children";

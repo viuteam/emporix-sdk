@@ -13,6 +13,7 @@ export {
   useProductsInfinite,
   useProductByCode,
   useProductSearch,
+  useProductsByCodes,
   useVariantChildren,
   useCategory,
   useCategories,
