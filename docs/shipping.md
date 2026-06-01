@@ -32,10 +32,32 @@ await client.shipping.listCgRelations("main");
 await client.shipping.getCgRelations("main", "C0123");
 ```
 
+## Delivery scheduling (Phase 2)
+
+All tenant-scoped under `/shipping/{tenant}` (no `site`).
+
+```ts
+// delivery windows
+const windows = await client.shipping.getCartDeliveryWindows("cart-1");
+await client.shipping.getAreaDeliveryWindows("area-1", "cart-1");
+await client.shipping.validateDeliveryWindow({ /* … */ });
+
+// delivery times + slots
+const times = await client.shipping.listDeliveryTimes();
+const { id: dtId } = await client.shipping.createDeliveryTime({ /* … */ });
+await client.shipping.patchDeliveryTime(dtId, [{ op: "replace", path: "/name", value: "AM" }]);
+const slots = await client.shipping.listSlots(dtId);
+await client.shipping.createSlot(dtId, { /* … */ });
+await client.shipping.deleteAllSlots(dtId);
+
+// delivery cycles
+const cycleId = await client.shipping.generateDeliveryCycle({ /* … */ });
+```
+
+`patchDeliveryTime` / `patchSlot` take a JSON-Patch op-array.
+`generateDeliveryCycle` returns the new cycle id.
+
 ## Overriding the token
 
 All methods take an optional trailing `auth` argument (default: the `"backend"`
 service credential set).
-
-> **Phase 2 (not yet bound):** delivery windows, delivery times + slots, and
-> delivery cycles.
