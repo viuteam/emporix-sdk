@@ -1,5 +1,14 @@
 # @viu/emporix-sdk-react
 
+## 2.3.0
+
+### Minor Changes
+
+- [#65](https://github.com/viuteam/emporix-sdk/pull/65) [`dca34d0`](https://github.com/viuteam/emporix-sdk/commit/dca34d044e54c305ea2a310ba349dc800ced331a) Thanks [@amnael1](https://github.com/amnael1)! - Add Shopping List bindings: `client.shoppingLists` (per-customer named lists —
+  list/create/replace/delete plus read-modify-write item helpers, last-write-wins)
+  and React hooks (`useShoppingLists`, `useCreateShoppingList`, `useAddToShoppingList`,
+  `useRemoveFromShoppingList`, `useSetShoppingListItemQuantity`, `useDeleteShoppingList`).
+
 ## 2.2.0
 
 ### Minor Changes
