@@ -82,6 +82,9 @@ export {
   useMyRewardPointsSummary,
   useRedeemOptions,
   useRedeemRewardPoints,
+  useMyReturns,
+  useReturn,
+  useCreateReturn,
 } from "./hooks/index";
 export type {
   CompanySwitcherApi,
