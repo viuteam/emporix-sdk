@@ -35,6 +35,7 @@ import { RagIndexerService } from "./services/ai-rag-indexer";
 import { SequentialIdService } from "./services/sequential-id";
 import { FeeService } from "./services/fee";
 import { WebhookService } from "./services/webhook";
+import { SchemaService } from "./services/schema";
 import { SDK_VERSION } from "./version";
 
 /** The Emporix SDK entry point. One instance safely serves many concurrent shoppers. */
@@ -64,6 +65,7 @@ export class EmporixClient {
   readonly sequentialIds: SequentialIdService;
   readonly fees: FeeService;
   readonly webhooks: WebhookService;
+  readonly schemas: SchemaService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
   /**
@@ -148,6 +150,7 @@ export class EmporixClient {
     this.sequentialIds = new SequentialIdService(mk("sequential-id"));
     this.fees = new FeeService(mk("fee"));
     this.webhooks = new WebhookService(mk("webhook"));
+    this.schemas = new SchemaService(mk("schema"));
   }
 
   /** Sets the runtime log level globally or for one service. */
