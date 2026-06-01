@@ -18,6 +18,7 @@ const SPECS: Record<string, string> = {
   "shopping-list": `${BASE}/checkout/shopping-list/api-reference/api.yml`,
   "ai-rag-indexer": `${BASE}/artificial-intelligence/ai-rag-indexer/api-reference/api.yml`,
   "sequential-id": `${BASE}/utilities/sequential-id/api-reference/api.yml`,
+  fee: `${BASE}/checkout/fee/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {
