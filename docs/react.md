@@ -410,6 +410,20 @@ const { code } = await redeem.mutateAsync({ redeemOptionId: "opt-1" });
 The three "my" hooks require a logged-in customer. Admin points management stays
 server-side. See [`./reward-points.md`](./reward-points.md).
 
+### Returns
+
+`useMyReturns` / `useReturn` — customer-only queries for the signed-in shopper's
+returns (list + one). `useCreateReturn` — mutation that files a return request.
+All require a logged-in customer and use the customer token.
+
+```tsx
+const { data: myReturns } = useMyReturns();
+const create = useCreateReturn();
+const { id } = await create.mutateAsync({ /* … */ });
+```
+
+Return update/delete stay server-side. See [`./returns.md`](./returns.md).
+
 ## Errors
 
 `EmporixError` flows unchanged through react-query's `error`. Wrap UI in
