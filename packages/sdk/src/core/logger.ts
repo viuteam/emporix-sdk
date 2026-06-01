@@ -30,6 +30,7 @@ export type ServiceName =
   | "sequential-id"
   | "fee"
   | "webhook"
+  | "schema"
   | "http"
   | "auth";
 
