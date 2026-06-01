@@ -12,6 +12,7 @@ import {
   useProductsInfinite,
   useProductByCode,
   useProductSearch,
+  useProductsByCodes,
 } from "../src/hooks/use-products";
 import type { ReactNode } from "react";
 
@@ -173,5 +174,28 @@ describe("useProducts — site-isolation (MS-2)", () => {
     const { result: rB } = renderHook(() => useProducts({ pageSize: 5 }), { wrapper: wrapB });
     await waitFor(() => expect(rB.current.isSuccess).toBe(true));
     expect(calls).toBe(2);
+  });
+});
+
+describe("useProductsByCodes", () => {
+  it("is disabled when codes is empty", () => {
+    const { result } = renderHook(() => useProductsByCodes([]), { wrapper: wrap() });
+    expect(result.current.fetchStatus).toBe("idle");
+  });
+
+  it("fetches products for the given codes", async () => {
+    server.use(
+      http.post("https://api.emporix.io/product/acme/products/search", async ({ request }) => {
+        const body = (await request.json()) as { q: string };
+        expect(body.q).toBe("code:(A,B)");
+        return HttpResponse.json([
+          { id: "1", code: "A" },
+          { id: "2", code: "B" },
+        ]);
+      }),
+    );
+    const { result } = renderHook(() => useProductsByCodes(["A", "B"]), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.map((p) => p.code)).toEqual(["A", "B"]);
   });
 });

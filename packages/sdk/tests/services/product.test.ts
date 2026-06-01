@@ -256,3 +256,78 @@ describe("ProductService.listVariantChildren", () => {
     expect(ids).toEqual(["v0", "v1", "v2"]); // page 1: v0,v1 (full) → page 2: v2 (short)
   });
 });
+
+describe("ProductService.searchByCodes", () => {
+  function svcWithLogger() {
+    const cfg = {
+      tenant: "acme", host: "https://api.emporix.io",
+      credentials: { backend: { clientId: "b", secret: "s" }, storefront: { clientId: "sf" } },
+      cache: { expirationBufferSeconds: 60, maxLifetimeSeconds: 3600 },
+    } as never;
+    const tokenProvider = new DefaultTokenProvider(cfg);
+    const logger = new MemoryLogger(new LevelResolver({ level: "warn" }), { service: "product" });
+    const httpClient = new HttpClient({
+      host: "https://api.emporix.io", provider: tokenProvider, logger,
+      retry: { maxAttempts: 1 }, timeouts: { connectMs: 1000, readMs: 1000 },
+    });
+    return { service: new ProductService({ tenant: "acme", http: httpClient, tokenProvider, logger }), logger };
+  }
+
+  it("chunks at 100 and returns the union (250 codes -> 3 POSTs)", async () => {
+    let calls = 0;
+    server.use(
+      http.post("https://api.emporix.io/product/acme/products/search", async ({ request }) => {
+        calls += 1;
+        const body = (await request.json()) as { q: string };
+        const inner = body.q.replace(/^code:\(/, "").replace(/\)$/, "");
+        return HttpResponse.json(inner.split(",").map((c) => ({ id: c, code: c })));
+      }),
+    );
+    const codes = Array.from({ length: 250 }, (_, i) => `c${i}`);
+    const products = await svc().searchByCodes(codes);
+    expect(calls).toBe(3);
+    expect(products).toHaveLength(250);
+    expect(new Set(products.map((p) => p.code))).toEqual(new Set(codes));
+  });
+
+  it("returns [] with no HTTP call for empty input", async () => {
+    let calls = 0;
+    server.use(
+      http.post("https://api.emporix.io/product/acme/products/search", () => {
+        calls += 1;
+        return HttpResponse.json([]);
+      }),
+    );
+    expect(await svc().searchByCodes([])).toEqual([]);
+    expect(calls).toBe(0);
+  });
+
+  it("de-duplicates codes before building the query", async () => {
+    let seenQ = "";
+    server.use(
+      http.post("https://api.emporix.io/product/acme/products/search", async ({ request }) => {
+        seenQ = ((await request.json()) as { q: string }).q;
+        return HttpResponse.json([{ id: "A", code: "A" }, { id: "B", code: "B" }]);
+      }),
+    );
+    await svc().searchByCodes(["A", "A", "B"]);
+    expect(seenQ).toBe("code:(A,B)");
+  });
+
+  it("drops codes with delimiter chars, queries the rest, and warns", async () => {
+    let seenQ = "";
+    server.use(
+      http.post("https://api.emporix.io/product/acme/products/search", async ({ request }) => {
+        seenQ = ((await request.json()) as { q: string }).q;
+        return HttpResponse.json([{ id: "A", code: "A" }]);
+      }),
+    );
+    const { service, logger } = svcWithLogger();
+    const products = await service.searchByCodes(["A", "B C", "D,E"]);
+    expect(seenQ).toBe("code:(A)");
+    expect(products.map((p) => p.code)).toEqual(["A"]);
+    const warn = logger.entries.find((e) => e.level === "warn");
+    expect(warn?.msg).toMatch(/dropped codes/i);
+    expect(warn?.fields.dropped).toEqual(["B C", "D,E"]);
+  });
+});

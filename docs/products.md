@@ -1,7 +1,27 @@
 # Products
 
 `client.products` reads the Emporix Product Service. Standard reads: `get`,
-`getByCode`, `list` / `listAll`, `search`, `searchByIds`.
+`getByCode`, `list` / `listAll`, `search`, `searchByIds`, `searchByCodes`.
+
+## Bulk fetch by id or code
+
+`searchByIds` and `searchByCodes` bulk-fetch via `POST /products/search`,
+chunking at 100 (override with `{ chunkSize }`). Order is **not** guaranteed —
+re-index the result by `id` / `code`.
+
+```ts
+const byId = await client.products.searchByIds(["id1", "id2"]);
+const byCode = await client.products.searchByCodes(["SKU-1", "SKU-2"]);
+```
+
+`searchByCodes` de-duplicates codes and **drops** any code containing `(`, `)`,
+`,`, whitespace, or `"` (logging a warning with the dropped codes), because the
+Emporix `q` syntax uses those characters as delimiters and does not support
+escaping them in a plain IN-list. An empty input — or one with no safe codes —
+returns `[]` without an HTTP call.
+
+In React: `useProductsByCodes(codes, { chunkSize? })` (disabled while `codes` is
+empty; 30s stale-time).
 
 ## Variant children
 
