@@ -1,5 +1,71 @@
 # @viu/emporix-sdk
 
+## 2.4.0
+
+### Minor Changes
+
+- [#82](https://github.com/viuteam/emporix-sdk/pull/82) [`4b55f1d`](https://github.com/viuteam/emporix-sdk/commit/4b55f1d3cd482b6a233a6e7a1ac7de063de89526) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix SEPA Export (`client.sepaExport`), Indexing (`client.indexing`), and
+  Unit Handling (`client.units`) bindings: SEPA export jobs + file retrieval;
+  search-index provider configurations + reindex; unit CRUD, unit types, and
+  conversion commands. Server-side only — these use the service (clientCredentials)
+  token.
+
+- [#77](https://github.com/viuteam/emporix-sdk/pull/77) [`7adb16a`](https://github.com/viuteam/emporix-sdk/commit/7adb16a289f8480bb87f8d9d271b8502c957239c) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Brand and Label Service bindings via `client.brands` and
+  `client.labels`: full CRUD (`listBrands`/`getBrand`/`createBrand`/`updateBrand`/
+  `patchBrand`/`deleteBrand` and the label equivalents). Server-side only — these
+  use the service (clientCredentials) token; brand reads also work anonymously.
+
+- [#78](https://github.com/viuteam/emporix-sdk/pull/78) [`83ed37e`](https://github.com/viuteam/emporix-sdk/commit/83ed37e4e38767358e06208e64cb87004b261744) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Country and Currency Service bindings via `client.countries`
+  (countries + regions: `listCountries`/`getCountry`/`patchCountry`/`listRegions`/
+  `getRegion`) and `client.currencies` (currencies + exchange rates: full CRUD on
+  both). Server-side only — these use the service (clientCredentials) token.
+
+- [#75](https://github.com/viuteam/emporix-sdk/pull/75) [`2174664`](https://github.com/viuteam/emporix-sdk/commit/21746648f890410a46c95c37b218bb6bbc98ebe7) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Coupon Service bindings via `client.coupons`: coupon CRUD
+  (`listCoupons`, `getCoupon`, `createCoupon`, `updateCoupon`, `patchCoupon`,
+  `deleteCoupon`), validation (`validateCoupon`), redemptions (`listRedemptions`,
+  `redeemCoupon`, `getRedemption`, `deleteRedemption`), and referral coupons
+  (`getReferralCoupon`, `createReferralCoupon`). Methods default to the service
+  token and are auth-overridable. Adds React hooks `useValidateCoupon` and
+  `useRedeemCoupon` for storefront validate/redeem (browser auth context).
+
+- [#81](https://github.com/viuteam/emporix-sdk/pull/81) [`f626ef6`](https://github.com/viuteam/emporix-sdk/commit/f626ef6ef25c6856c027402b854bf81bb14fe864) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Returns Service bindings via `client.returns`: CRUD over returns
+  (`listReturns`, `getReturn`, `createReturn`, `updateReturn`, `patchReturn`,
+  `deleteReturn`). Methods default to the service token and are auth-overridable;
+  `patchReturn` takes a JSON-Patch op-array. Adds React hooks `useMyReturns`,
+  `useReturn`, and `useCreateReturn` for customer self-service (browser customer
+  token).
+
+- [#76](https://github.com/viuteam/emporix-sdk/pull/76) [`2dddd6a`](https://github.com/viuteam/emporix-sdk/commit/2dddd6a213fa9d70bbaf0acc790eee51a7d813a8) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Reward Points Service bindings via `client.rewardPoints`: admin
+  customer-points management (`listAllSummaries`, `getCustomerPoints`,
+  `createCustomerPoints`, `deleteCustomerPoints`, `getCustomerSummary`,
+  `addPoints`, `redeemPoints`), the signed-in customer's own points
+  (`getMyPoints`, `getMySummary`, `redeemMyPoints` → coupon code), and redeem
+  options (`listRedeemOptions`, `createRedeemOption`, `updateRedeemOption`,
+  `deleteRedeemOption`). Admin methods default to the service token; the
+  `/public/*` methods require a customer token. Adds React hooks
+  `useMyRewardPoints`, `useMyRewardPointsSummary`, `useRedeemRewardPoints` and
+  `useRedeemOptions`.
+
+- [#80](https://github.com/viuteam/emporix-sdk/pull/80) [`46ddb50`](https://github.com/viuteam/emporix-sdk/commit/46ddb50f7fcf3f59269e60b5535db533cf984949) Thanks [@amnael1](https://github.com/amnael1)! - Extend `client.shipping` with delivery scheduling: delivery windows
+  (`getAreaDeliveryWindows`, `getCartDeliveryWindows`, `incrementDeliveryWindowCounter`,
+  `validateDeliveryWindow`), delivery times (`listDeliveryTimes`, `getDeliveryTime`,
+  `createDeliveryTime`, `createDeliveryTimesBulk`, `updateDeliveryTime`,
+  `patchDeliveryTime`, `deleteDeliveryTime`), delivery time slots (`listSlots`,
+  `getSlot`, `createSlot`, `updateSlot`, `patchSlot`, `deleteSlot`, `deleteAllSlots`),
+  and delivery cycles (`generateDeliveryCycle`). Server-side only.
+
+- [#79](https://github.com/viuteam/emporix-sdk/pull/79) [`04b138e`](https://github.com/viuteam/emporix-sdk/commit/04b138e4c3df69786e9bcdccc9a6ce0f1c329214) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Shipping Service bindings (Phase 1 — config) via `client.shipping`:
+  sites (`findSites`), zones and methods (full CRUD), cost/quote (`quote`,
+  `quoteMinimum`, `quoteSlot`), shipping groups, and customer-group relations.
+  Server-side only — these use the service (clientCredentials) token. Delivery
+  scheduling (windows, times, slots, cycles) is not yet bound.
+
+- [#73](https://github.com/viuteam/emporix-sdk/pull/73) [`ce6d3c1`](https://github.com/viuteam/emporix-sdk/commit/ce6d3c1d096e5f521b3d59dad9fb266fd1d743a3) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Tax Service bindings via `client.taxes`: CRUD over per-location tax
+  configurations (`listTaxConfigs`, `getTaxConfig`, `createTaxConfig`,
+  `updateTaxConfig`, `deleteTaxConfig`) and net/gross tax calculation
+  (`calculateTax`). Server-side only — these use the service (clientCredentials)
+  token and must not be called from a browser.
+
 ## 2.3.0
 
 ### Minor Changes

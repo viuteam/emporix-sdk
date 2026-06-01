@@ -1,5 +1,35 @@
 # @viu/emporix-sdk-react
 
+## 2.4.0
+
+### Minor Changes
+
+- [#75](https://github.com/viuteam/emporix-sdk/pull/75) [`2174664`](https://github.com/viuteam/emporix-sdk/commit/21746648f890410a46c95c37b218bb6bbc98ebe7) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Coupon Service bindings via `client.coupons`: coupon CRUD
+  (`listCoupons`, `getCoupon`, `createCoupon`, `updateCoupon`, `patchCoupon`,
+  `deleteCoupon`), validation (`validateCoupon`), redemptions (`listRedemptions`,
+  `redeemCoupon`, `getRedemption`, `deleteRedemption`), and referral coupons
+  (`getReferralCoupon`, `createReferralCoupon`). Methods default to the service
+  token and are auth-overridable. Adds React hooks `useValidateCoupon` and
+  `useRedeemCoupon` for storefront validate/redeem (browser auth context).
+
+- [#81](https://github.com/viuteam/emporix-sdk/pull/81) [`f626ef6`](https://github.com/viuteam/emporix-sdk/commit/f626ef6ef25c6856c027402b854bf81bb14fe864) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Returns Service bindings via `client.returns`: CRUD over returns
+  (`listReturns`, `getReturn`, `createReturn`, `updateReturn`, `patchReturn`,
+  `deleteReturn`). Methods default to the service token and are auth-overridable;
+  `patchReturn` takes a JSON-Patch op-array. Adds React hooks `useMyReturns`,
+  `useReturn`, and `useCreateReturn` for customer self-service (browser customer
+  token).
+
+- [#76](https://github.com/viuteam/emporix-sdk/pull/76) [`2dddd6a`](https://github.com/viuteam/emporix-sdk/commit/2dddd6a213fa9d70bbaf0acc790eee51a7d813a8) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Reward Points Service bindings via `client.rewardPoints`: admin
+  customer-points management (`listAllSummaries`, `getCustomerPoints`,
+  `createCustomerPoints`, `deleteCustomerPoints`, `getCustomerSummary`,
+  `addPoints`, `redeemPoints`), the signed-in customer's own points
+  (`getMyPoints`, `getMySummary`, `redeemMyPoints` → coupon code), and redeem
+  options (`listRedeemOptions`, `createRedeemOption`, `updateRedeemOption`,
+  `deleteRedeemOption`). Admin methods default to the service token; the
+  `/public/*` methods require a customer token. Adds React hooks
+  `useMyRewardPoints`, `useMyRewardPointsSummary`, `useRedeemRewardPoints` and
+  `useRedeemOptions`.
+
 ## 2.3.0
 
 ### Minor Changes
