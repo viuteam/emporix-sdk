@@ -1,0 +1,176 @@
+import type { ClientContext } from "../core/context";
+import type { AuthContext } from "../core/auth";
+import type {
+  TextRequest,
+  TextResponse,
+  CompletionRequest,
+  CompletionResponse,
+  Agent,
+  AgentInput,
+  AgentPatchOp,
+  AgentSearchQuery,
+  ChatRequest,
+  ChatResponse,
+  JobIdResponse,
+  DeleteAgentOptions,
+} from "./ai-types";
+
+export type {
+  TextRequest,
+  TextResponse,
+  CompletionMessage,
+  CompletionRequest,
+  CompletionResponse,
+  Agent,
+  AgentInput,
+  AgentPatchOp,
+  AgentSearchQuery,
+  ChatRequest,
+  ChatResponse,
+  JobIdResponse,
+  DeleteAgentOptions,
+} from "./ai-types";
+
+const SERVICE: AuthContext = { kind: "service" };
+
+/**
+ * Emporix AI Service (`/ai-service/{tenant}/…`): text generation, chat
+ * completions, and the agentic layer (agent CRUD + synchronous/asynchronous
+ * chat). Every endpoint requires a backend-only `ai.*` scope and the
+ * **service (clientCredentials) token** — default auth: service.
+ *
+ * Server-side use only; the service token must never reach a browser. A
+ * storefront chat (scope `ai.agentexecution_manage_own`) would require a
+ * BFF / token-proxy — out of scope for this SDK.
+ *
+ * The model is server-fixed per tenant; there is no `model` parameter.
+ */
+export class AiService {
+  constructor(private readonly ctx: ClientContext) {}
+
+  private base(): string {
+    return `/ai-service/${this.ctx.tenant}`;
+  }
+
+  /** Generate text from a single prompt (`POST /texts`). Honors `maxTokens`. */
+  async generateText(input: TextRequest, auth: AuthContext = SERVICE): Promise<TextResponse> {
+    return this.ctx.http.request<TextResponse>({
+      method: "POST",
+      path: `${this.base()}/texts`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Run a chat completion over a message list (`POST /completions`). No `maxTokens`. */
+  async complete(
+    input: CompletionRequest,
+    auth: AuthContext = SERVICE,
+  ): Promise<CompletionResponse> {
+    return this.ctx.http.request<CompletionResponse>({
+      method: "POST",
+      path: `${this.base()}/completions`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** List all agentic agents. */
+  async listAgents(auth: AuthContext = SERVICE): Promise<Agent[]> {
+    return this.ctx.http.request<Agent[]>({
+      method: "GET",
+      path: `${this.base()}/agentic/agents`,
+      auth,
+    });
+  }
+
+  /** Retrieve one agent by id. */
+  async getAgent(id: string, auth: AuthContext = SERVICE): Promise<Agent> {
+    return this.ctx.http.request<Agent>({
+      method: "GET",
+      path: `${this.base()}/agentic/agents/${encodeURIComponent(id)}`,
+      auth,
+    });
+  }
+
+  /** Create-or-replace an agent by id (`PUT`). Takes the agent write shape. */
+  async upsertAgent(id: string, agent: AgentInput, auth: AuthContext = SERVICE): Promise<Agent> {
+    return this.ctx.http.request<Agent>({
+      method: "PUT",
+      path: `${this.base()}/agentic/agents/${encodeURIComponent(id)}`,
+      auth,
+      body: agent,
+    });
+  }
+
+  /**
+   * Patch an agent with an op array (`PATCH`). `ops` use the upstream
+   * UPPERCASE enum (`ADD | REMOVE | REPLACE`) and are sent verbatim — this is
+   * NOT RFC-6902 JSON-Patch.
+   */
+  async patchAgent(
+    id: string,
+    ops: AgentPatchOp[],
+    auth: AuthContext = SERVICE,
+  ): Promise<Agent> {
+    return this.ctx.http.request<Agent>({
+      method: "PATCH",
+      path: `${this.base()}/agentic/agents/${encodeURIComponent(id)}`,
+      auth,
+      body: ops,
+    });
+  }
+
+  /**
+   * Delete an agent by id. Pass `{ force: true }` to delete an agent that is
+   * still referenced elsewhere (`?force=true`).
+   */
+  async deleteAgent(
+    id: string,
+    auth: AuthContext = SERVICE,
+    opts: DeleteAgentOptions = {},
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/agentic/agents/${encodeURIComponent(id)}`,
+      auth,
+      ...(opts.force ? { query: { force: "true" } } : {}),
+    });
+  }
+
+  /** Server-side agent search (`POST /agentic/agents/search`). */
+  async searchAgents(query: AgentSearchQuery, auth: AuthContext = SERVICE): Promise<Agent[]> {
+    return this.ctx.http.request<Agent[]>({
+      method: "POST",
+      path: `${this.base()}/agentic/agents/search`,
+      auth,
+      body: query,
+    });
+  }
+
+  /**
+   * Synchronous agent chat (`POST /agentic/chat`). Returns the response
+   * ARRAY verbatim (the upstream contract is an array, not a single object).
+   */
+  async chat(input: ChatRequest, auth: AuthContext = SERVICE): Promise<ChatResponse[]> {
+    return this.ctx.http.request<ChatResponse[]>({
+      method: "POST",
+      path: `${this.base()}/agentic/chat`,
+      auth,
+      body: input,
+    });
+  }
+
+  /**
+   * Fire-and-forget agent chat (`POST /agentic/chat-async`, HTTP 201).
+   * Returns the job-id ARRAY verbatim.
+   */
+  async chatAsync(input: ChatRequest, auth: AuthContext = SERVICE): Promise<JobIdResponse[]> {
+    return this.ctx.http.request<JobIdResponse[]>({
+      method: "POST",
+      path: `${this.base()}/agentic/chat-async`,
+      auth,
+      body: input,
+    });
+  }
+}
