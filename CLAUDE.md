@@ -10,7 +10,7 @@ A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published a
 
 | Path | Purpose | Released? |
 |---|---|---|
-| `packages/sdk` | Core SDK: HTTP, auth, services (Product, Category, Cart, Checkout, Customer, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups, TenantConfig, ClientConfig, ShoppingList, RagIndexer, SequentialId, Fee, Webhooks, Schema, AI, Tax, Coupon) | yes (`@viu/emporix-sdk`) |
+| `packages/sdk` | Core SDK: HTTP, auth, services (Product, Category, Cart, Checkout, Customer, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups, TenantConfig, ClientConfig, ShoppingList, RagIndexer, SequentialId, Fee, Webhooks, Schema, AI, Tax, Coupon, RewardPoints) | yes (`@viu/emporix-sdk`) |
 | `packages/react` | React-Query bindings: hooks, provider, storage adapters | yes (`@viu/emporix-sdk-react`) |
 | `examples/vite-spa` | Reference storefront (Vite + React Router) | no |
 | `examples/next-app-router` | Reference storefront (Next.js App Router) | no |
