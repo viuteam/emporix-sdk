@@ -39,6 +39,7 @@ export type ServiceName =
   | "label"
   | "country"
   | "currency"
+  | "shipping"
   | "http"
   | "auth";
 

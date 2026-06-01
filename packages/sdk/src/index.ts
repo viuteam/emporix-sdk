@@ -117,3 +117,4 @@ export * from "./brand";
 export * from "./label";
 export * from "./country";
 export * from "./currency";
+export * from "./shipping";
