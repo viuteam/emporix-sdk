@@ -393,6 +393,23 @@ if (validate.isSuccess) await redeem.mutateAsync({ code: "SUMMER", redemption })
 
 Coupon admin CRUD stays server-side (no read hooks). See [`./coupon.md`](./coupon.md).
 
+### Reward points
+
+`useMyRewardPoints` / `useMyRewardPointsSummary` — customer-only queries for the
+signed-in shopper's balance (a `number`) and detailed summary. `useRedeemOptions`
+— lists redeem options (works for guests and customers). `useRedeemRewardPoints`
+— mutation that redeems points for a coupon code (`{ code }`).
+
+```tsx
+const { data: balance } = useMyRewardPoints();
+const { data: options } = useRedeemOptions();
+const redeem = useRedeemRewardPoints();
+const { code } = await redeem.mutateAsync({ redeemOptionId: "opt-1" });
+```
+
+The three "my" hooks require a logged-in customer. Admin points management stays
+server-side. See [`./reward-points.md`](./reward-points.md).
+
 ## Errors
 
 `EmporixError` flows unchanged through react-query's `error`. Wrap UI in

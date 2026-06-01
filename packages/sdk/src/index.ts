@@ -112,3 +112,4 @@ export * from "./schema";
 export * from "./ai";
 export * from "./tax";
 export * from "./coupon";
+export * from "./reward-points";
