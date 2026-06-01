@@ -375,6 +375,24 @@ inaccessible. Surface this in the UI as a "discard cart" prompt.
 
 See `examples/vite-spa/src/GuestCheckout.tsx` for the full pattern.
 
+### Coupons
+
+`useValidateCoupon` / `useRedeemCoupon` — mutation hooks for the customer-facing
+coupon flows. Both call the Coupon Service with the browser auth context
+(customer if logged in, else anonymous) — never the service token. A redemption
+payload needs `orderTotal` and `discount`:
+
+```tsx
+const validate = useValidateCoupon();
+const redeem = useRedeemCoupon();
+const redemption = { orderCode: cart.id, orderTotal: { amount: cart.totalPrice, currency: cart.currency }, discount: { amount: 10, currency: cart.currency } };
+
+await validate.mutateAsync({ code: "SUMMER", redemption }); // onError → not redeemable
+if (validate.isSuccess) await redeem.mutateAsync({ code: "SUMMER", redemption });
+```
+
+Coupon admin CRUD stays server-side (no read hooks). See [`./coupon.md`](./coupon.md).
+
 ## Errors
 
 `EmporixError` flows unchanged through react-query's `error`. Wrap UI in
