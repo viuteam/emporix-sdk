@@ -25,6 +25,7 @@ export type ServiceName =
   | "sales-orders"
   | "availability"
   | "configuration"
+  | "shopping-list"
   | "http"
   | "auth";
 

@@ -103,3 +103,4 @@ export * from "./orders";
 export * from "./availability";
 export * from "./tenant-config";
 export * from "./client-config";
+export * from "./shopping-list";
