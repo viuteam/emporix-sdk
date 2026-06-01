@@ -12,6 +12,7 @@ const SPECS: Record<string, string> = {
   checkout: `${BASE}/checkout/checkout/api-reference/api.yml`,
   payment: `${BASE}/checkout/payment-gateway/api-reference/api.yml`,
   price: `${BASE}/prices-and-taxes/price-service/api-reference/api.yml`,
+  "tax-service": `${BASE}/prices-and-taxes/tax-service/api-reference/api.yml`,
   media: `${BASE}/media/media/api-reference/api.yml`,
   "customer-segment": `${BASE}/companies-and-customers/customer-segments/api-reference/api.yml`,
   configuration: `${BASE}/configuration/configuration-service/api-reference/api.yml`,
