@@ -27,6 +27,8 @@ const SPECS: Record<string, string> = {
   "reward-points": `${BASE}/rewards-and-promotions/reward-points/api-reference/api.yml`,
   "brand-service": `${BASE}/products-labels-and-brands/brand-service/api-reference/api.yml`,
   "label-service": `${BASE}/products-labels-and-brands/label-service/api-reference/api.yml`,
+  "country-service": `${BASE}/configuration/country-service/api-reference/api.yml`,
+  "currency-service": `${BASE}/configuration/currency-service/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {
