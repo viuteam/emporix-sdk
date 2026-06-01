@@ -16,6 +16,18 @@ import type {
   QuoteSlotInput,
   MinimumFee,
   ResourceCreated,
+  DeliveryWindow,
+  DeliveryWindowList,
+  DeliveryWindowValidation,
+  DeliveryTime,
+  DeliveryTimeList,
+  DeliveryTimeInput,
+  DeliveryTimeUpdate,
+  DeliverySlot,
+  DeliverySlotList,
+  DeliveryCycleInput,
+  ShippingPatch,
+  DeliveryCreated,
 } from "../../src/services/shipping-types";
 
 describe("shipping types", () => {
@@ -36,5 +48,20 @@ describe("shipping types", () => {
     expectTypeOf<QuoteSlotInput>().not.toBeNever();
     expectTypeOf<MinimumFee>().not.toBeNever();
     expectTypeOf<ResourceCreated>().not.toBeNever();
+  });
+
+  it("Phase-2 scheduling types are usable", () => {
+    expectTypeOf<DeliveryWindow>().not.toBeNever();
+    expectTypeOf<DeliveryWindowList>().not.toBeNever();
+    expectTypeOf<DeliveryWindowValidation>().not.toBeNever();
+    expectTypeOf<DeliveryTime>().not.toBeNever();
+    expectTypeOf<DeliveryTimeList>().toBeArray();
+    expectTypeOf<DeliveryTimeInput>().not.toBeNever();
+    expectTypeOf<DeliveryTimeUpdate>().not.toBeNever();
+    expectTypeOf<DeliverySlot>().not.toBeNever();
+    expectTypeOf<DeliverySlotList>().toBeArray();
+    expectTypeOf<DeliveryCycleInput>().not.toBeNever();
+    expectTypeOf<ShippingPatch>().toBeArray();
+    expectTypeOf<DeliveryCreated>().not.toBeNever();
   });
 });
