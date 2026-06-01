@@ -17,6 +17,17 @@ import type {
   QuoteSlotInput,
   MinimumFee,
   ResourceCreated,
+  DeliveryWindowList,
+  DeliveryWindowValidation,
+  DeliveryTime,
+  DeliveryTimeList,
+  DeliveryTimeInput,
+  DeliveryTimeUpdate,
+  DeliverySlot,
+  DeliverySlotList,
+  DeliveryCycleInput,
+  ShippingPatch,
+  DeliveryCreated,
 } from "./shipping-types";
 
 export type {
@@ -36,6 +47,18 @@ export type {
   QuoteSlotInput,
   MinimumFee,
   ResourceCreated,
+  DeliveryWindow,
+  DeliveryWindowList,
+  DeliveryWindowValidation,
+  DeliveryTime,
+  DeliveryTimeList,
+  DeliveryTimeInput,
+  DeliveryTimeUpdate,
+  DeliverySlot,
+  DeliverySlotList,
+  DeliveryCycleInput,
+  ShippingPatch,
+  DeliveryCreated,
 } from "./shipping-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -335,6 +358,196 @@ export class ShippingService {
       method: "DELETE",
       path: `${this.siteBase(site)}/cgrelations/${encodeURIComponent(customerId)}`,
       auth,
+    });
+  }
+
+  // --- Phase 2: delivery windows ---
+
+  /** Retrieve delivery windows for a delivery area + cart. */
+  async getAreaDeliveryWindows(deliveryAreaId: string, cartId: string, auth: AuthContext = SERVICE): Promise<DeliveryWindowList> {
+    return this.ctx.http.request<DeliveryWindowList>({
+      method: "GET",
+      path: `${this.base()}/areaDeliveryTimes/${encodeURIComponent(deliveryAreaId)}/${encodeURIComponent(cartId)}`,
+      auth,
+    });
+  }
+
+  /** Retrieve delivery windows for a cart. */
+  async getCartDeliveryWindows(cartId: string, auth: AuthContext = SERVICE): Promise<DeliveryWindowList> {
+    return this.ctx.http.request<DeliveryWindowList>({
+      method: "GET",
+      path: `${this.base()}/actualDeliveryWindows/${encodeURIComponent(cartId)}`,
+      auth,
+    });
+  }
+
+  /** Increment the delivery-window counter. */
+  async incrementDeliveryWindowCounter(input: DeliveryWindowValidation, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `${this.base()}/actualDeliveryWindows/incrementCounter`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Validate a delivery window. Resolves when valid; throws otherwise. */
+  async validateDeliveryWindow(input: DeliveryWindowValidation, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `${this.base()}/deliveryWindowValidation`,
+      auth,
+      body: input,
+    });
+  }
+
+  // --- Phase 2: delivery times ---
+
+  /** List all delivery times. */
+  async listDeliveryTimes(query: Record<string, string | number> = {}, auth: AuthContext = SERVICE): Promise<DeliveryTimeList> {
+    return this.ctx.http.request<DeliveryTimeList>({
+      method: "GET",
+      path: `${this.base()}/delivery-times`,
+      auth,
+      ...(Object.keys(query).length ? { query } : {}),
+    });
+  }
+
+  /** Retrieve one delivery time. */
+  async getDeliveryTime(deliveryTimeId: string, auth: AuthContext = SERVICE): Promise<DeliveryTime> {
+    return this.ctx.http.request<DeliveryTime>({
+      method: "GET",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}`,
+      auth,
+    });
+  }
+
+  /** Create a delivery time. */
+  async createDeliveryTime(input: DeliveryTimeInput, auth: AuthContext = SERVICE): Promise<DeliveryCreated> {
+    return this.ctx.http.request<DeliveryCreated>({
+      method: "POST",
+      path: `${this.base()}/delivery-times`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Create multiple delivery times (`POST /delivery-times/bulk`). */
+  async createDeliveryTimesBulk(inputs: DeliveryTimeInput[], auth: AuthContext = SERVICE): Promise<DeliveryCreated[]> {
+    return this.ctx.http.request<DeliveryCreated[]>({
+      method: "POST",
+      path: `${this.base()}/delivery-times/bulk`,
+      auth,
+      body: inputs,
+    });
+  }
+
+  /** Replace a delivery time. */
+  async updateDeliveryTime(deliveryTimeId: string, input: DeliveryTimeUpdate, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PUT",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Partially update a delivery time (JSON-Patch op array). */
+  async patchDeliveryTime(deliveryTimeId: string, ops: ShippingPatch, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PATCH",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}`,
+      auth,
+      body: ops,
+    });
+  }
+
+  /** Delete a delivery time. */
+  async deleteDeliveryTime(deliveryTimeId: string, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}`,
+      auth,
+    });
+  }
+
+  // --- Phase 2: delivery time slots ---
+
+  /** List slots of a delivery time. */
+  async listSlots(deliveryTimeId: string, auth: AuthContext = SERVICE): Promise<DeliverySlotList> {
+    return this.ctx.http.request<DeliverySlotList>({
+      method: "GET",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}/slots`,
+      auth,
+    });
+  }
+
+  /** Retrieve one slot. */
+  async getSlot(deliveryTimeId: string, slotId: string, auth: AuthContext = SERVICE): Promise<DeliverySlot> {
+    return this.ctx.http.request<DeliverySlot>({
+      method: "GET",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}/slots/${encodeURIComponent(slotId)}`,
+      auth,
+    });
+  }
+
+  /** Create a slot in a delivery time. */
+  async createSlot(deliveryTimeId: string, input: DeliverySlot, auth: AuthContext = SERVICE): Promise<DeliveryCreated> {
+    return this.ctx.http.request<DeliveryCreated>({
+      method: "POST",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}/slots`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Replace a slot. */
+  async updateSlot(deliveryTimeId: string, slotId: string, input: DeliverySlot, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PUT",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}/slots/${encodeURIComponent(slotId)}`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Partially update a slot (JSON-Patch op array). */
+  async patchSlot(deliveryTimeId: string, slotId: string, ops: ShippingPatch, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PATCH",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}/slots/${encodeURIComponent(slotId)}`,
+      auth,
+      body: ops,
+    });
+  }
+
+  /** Delete a slot. */
+  async deleteSlot(deliveryTimeId: string, slotId: string, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}/slots/${encodeURIComponent(slotId)}`,
+      auth,
+    });
+  }
+
+  /** Delete all slots of a delivery time. */
+  async deleteAllSlots(deliveryTimeId: string, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/delivery-times/${encodeURIComponent(deliveryTimeId)}/slots`,
+      auth,
+    });
+  }
+
+  // --- Phase 2: delivery cycles ---
+
+  /** Generate a delivery cycle (`POST /delivery-cycles/generate`). Returns the cycle id. */
+  async generateDeliveryCycle(input: DeliveryCycleInput, auth: AuthContext = SERVICE): Promise<string> {
+    return this.ctx.http.request<string>({
+      method: "POST",
+      path: `${this.base()}/delivery-cycles/generate`,
+      auth,
+      body: input,
     });
   }
 }

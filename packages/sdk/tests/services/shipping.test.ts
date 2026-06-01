@@ -184,3 +184,100 @@ describe("ShippingService — groups & cg-relations", () => {
     await expect(svc().deleteCgRelation("main", "C1")).resolves.toBeUndefined();
   });
 });
+
+describe("ShippingService — delivery windows", () => {
+  it("getAreaDeliveryWindows / getCartDeliveryWindows GET tenant-scoped paths", async () => {
+    let areaPath = "";
+    server.use(
+      http.get(`${BASE}/areaDeliveryTimes/area-1/cart-1`, ({ request }) => {
+        areaPath = new URL(request.url).pathname;
+        return HttpResponse.json([{ id: "w1" }]);
+      }),
+      http.get(`${BASE}/actualDeliveryWindows/cart-1`, () => HttpResponse.json([{ id: "w1" }])),
+    );
+    await svc().getAreaDeliveryWindows("area-1", "cart-1");
+    await svc().getCartDeliveryWindows("cart-1");
+    expect(areaPath).toBe("/shipping/acme/areaDeliveryTimes/area-1/cart-1");
+  });
+
+  it("incrementDeliveryWindowCounter / validateDeliveryWindow POST and resolve to void", async () => {
+    let counterBody: unknown = null;
+    server.use(
+      http.post(`${BASE}/actualDeliveryWindows/incrementCounter`, async ({ request }) => {
+        counterBody = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.post(`${BASE}/deliveryWindowValidation`, () => new HttpResponse(null, { status: 200 })),
+    );
+    await expect(svc().incrementDeliveryWindowCounter({ deliveryWindowId: "w1" } as never)).resolves.toBeUndefined();
+    expect(counterBody).toEqual({ deliveryWindowId: "w1" });
+    await expect(svc().validateDeliveryWindow({ deliveryWindowId: "w1" } as never)).resolves.toBeUndefined();
+  });
+});
+
+describe("ShippingService — delivery times", () => {
+  it("list / get / create / bulk / update / patch / delete", async () => {
+    let createBody: unknown = null;
+    let bulkBody: unknown = null;
+    let patchBody: unknown = null;
+    server.use(
+      http.get(`${BASE}/delivery-times`, () => HttpResponse.json([{ id: "dt1" }])),
+      http.get(`${BASE}/delivery-times/dt1`, () => HttpResponse.json({ id: "dt1" })),
+      http.post(`${BASE}/delivery-times`, async ({ request }) => {
+        createBody = await request.json();
+        return HttpResponse.json({ id: "dt1" }, { status: 201 });
+      }),
+      http.post(`${BASE}/delivery-times/bulk`, async ({ request }) => {
+        bulkBody = await request.json();
+        return HttpResponse.json([{ id: "dt1" }], { status: 201 });
+      }),
+      http.put(`${BASE}/delivery-times/dt1`, () => new HttpResponse(null, { status: 204 })),
+      http.patch(`${BASE}/delivery-times/dt1`, async ({ request }) => {
+        patchBody = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.delete(`${BASE}/delivery-times/dt1`, () => new HttpResponse(null, { status: 204 })),
+    );
+    await expect(svc().listDeliveryTimes()).resolves.toBeDefined();
+    expect((await svc().getDeliveryTime("dt1")) as { id?: string }).toEqual({ id: "dt1" });
+    expect((await svc().createDeliveryTime({ name: "Morning" } as never)).id).toBe("dt1");
+    expect(createBody).toEqual({ name: "Morning" });
+    await svc().createDeliveryTimesBulk([{ name: "Morning" }] as never);
+    expect(bulkBody).toEqual([{ name: "Morning" }]);
+    await expect(svc().updateDeliveryTime("dt1", { name: "AM" } as never)).resolves.toBeUndefined();
+    await svc().patchDeliveryTime("dt1", [{ op: "replace", path: "/name", value: "AM" }] as never);
+    expect(patchBody).toEqual([{ op: "replace", path: "/name", value: "AM" }]);
+    await expect(svc().deleteDeliveryTime("dt1")).resolves.toBeUndefined();
+  });
+});
+
+describe("ShippingService — slots & cycles", () => {
+  it("slots: list / get / create / update / patch / delete / deleteAll", async () => {
+    let createBody: unknown = null;
+    server.use(
+      http.get(`${BASE}/delivery-times/dt1/slots`, () => HttpResponse.json([{ id: "s1" }])),
+      http.get(`${BASE}/delivery-times/dt1/slots/s1`, () => HttpResponse.json({ id: "s1" })),
+      http.post(`${BASE}/delivery-times/dt1/slots`, async ({ request }) => {
+        createBody = await request.json();
+        return HttpResponse.json({ id: "s1" }, { status: 201 });
+      }),
+      http.put(`${BASE}/delivery-times/dt1/slots/s1`, () => new HttpResponse(null, { status: 204 })),
+      http.patch(`${BASE}/delivery-times/dt1/slots/s1`, () => new HttpResponse(null, { status: 204 })),
+      http.delete(`${BASE}/delivery-times/dt1/slots/s1`, () => new HttpResponse(null, { status: 204 })),
+      http.delete(`${BASE}/delivery-times/dt1/slots`, () => new HttpResponse(null, { status: 204 })),
+    );
+    await expect(svc().listSlots("dt1")).resolves.toBeDefined();
+    expect((await svc().getSlot("dt1", "s1")) as { id?: string }).toEqual({ id: "s1" });
+    expect((await svc().createSlot("dt1", { capacity: 10 } as never)).id).toBe("s1");
+    expect(createBody).toEqual({ capacity: 10 });
+    await expect(svc().updateSlot("dt1", "s1", { capacity: 12 } as never)).resolves.toBeUndefined();
+    await expect(svc().patchSlot("dt1", "s1", [{ op: "replace", path: "/capacity", value: 12 }] as never)).resolves.toBeUndefined();
+    await expect(svc().deleteSlot("dt1", "s1")).resolves.toBeUndefined();
+    await expect(svc().deleteAllSlots("dt1")).resolves.toBeUndefined();
+  });
+
+  it("generateDeliveryCycle POSTs and returns a string", async () => {
+    server.use(http.post(`${BASE}/delivery-cycles/generate`, () => HttpResponse.json("cycle-1", { status: 201 })));
+    await expect(svc().generateDeliveryCycle({ from: "2026-06-01" } as never)).resolves.toBe("cycle-1");
+  });
+});
