@@ -31,6 +31,7 @@ export type ServiceName =
   | "fee"
   | "webhook"
   | "schema"
+  | "ai"
   | "http"
   | "auth";
 
