@@ -31,6 +31,9 @@ const SPECS: Record<string, string> = {
   "currency-service": `${BASE}/configuration/currency-service/api-reference/api.yml`,
   shipping: `${BASE}/delivery-and-shipping/shipping/api-reference/api.yml`,
   returns: `${BASE}/orders/returns/api-reference/api.yml`,
+  "sepa-export": `${BASE}/orders/sepa-export/api-reference/api.yml`,
+  "indexing-service": `${BASE}/configuration/indexing-service/api-reference/api.yml`,
+  "unit-handling-service": `${BASE}/configuration/unit-handling-service/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {

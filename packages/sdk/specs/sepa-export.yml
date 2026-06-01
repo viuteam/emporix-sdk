@@ -1,0 +1,357 @@
+openapi: 3.0.1
+info:
+  title: SEPA Export
+  version: ''
+  description: SEPA Export API
+  contact:
+    email: documentation@emporix.com
+tags:
+  - name: Files
+  - name: Jobs
+servers:
+  - url: https://api.emporix.io
+paths:
+  /sepa-export/{tenant}/files/{fileId}:
+    get:
+      tags:
+        - Files
+      summary: Get SEPA Export file by ID for tenant
+      deprecated: true
+      description: |-
+        Downloads a specified SEPA Export file.
+      operationId: GET-sepa-export-download-file
+      parameters:
+        - name: tenant
+          in: path
+          description: |-
+            Your Emporix tenant name.
+            **Note**: The `tenant` should always be written in lowercase.
+          required: true
+          schema:
+            type: string
+          example: ""
+        - name: fileId
+          in: path
+          description: SEPA Export file unique identifier.
+          required: true
+          schema:
+            type: string
+          example: ""
+      responses:
+        "200":
+          description: SEPA export file.
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        "404":
+          $ref: '#/components/responses/NotFound_404'
+      security:
+        - OAuth2:
+            - sepaexport.media_view
+  /sepa-export/{tenant}/jobs:
+    get:
+      tags:
+        - Jobs
+      summary: Retrieving a list of export jobs
+      deprecated: true
+      description: |-
+        Retrieves a list of SEPA Export jobs.
+      operationId: GET-sepa-export-list-jobs
+      parameters:
+        - name: tenant
+          in: path
+          description: |-
+            Your Emporix tenant's name.
+            **Note**: The `tenant` should always be written in lowercase.
+          required: true
+          schema:
+            type: string
+          example: ""
+        - name: siteCode
+          in: query
+          description: |
+            Site code, defined when a site is created.
+          required: true
+          schema:
+            type: string
+        - name: pageNumber
+          in: query
+          description: |-
+            Page number to be retrieved. The number of the first page is 1.
+            **Note**: If the `pageNumber` parameter is passed, size of the pages must be specified in the `pageSize` parameter.
+          schema:
+            minimum: 1
+            type: integer
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          description: Number of export files to be retrieved per page.
+          schema:
+            minimum: 1
+            type: integer
+            format: int32
+            default: 16
+        - name: sort
+          in: query
+          description: |-
+            List of properties used to sort the results, separated by commas.
+            Possible values:
+            * `ASC`
+            * `DESC`
+          schema:
+            type: string
+            default: DESC
+            enum:
+              - ASC
+              - DESC
+      responses:
+        "200":
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobDetails'
+        '400':
+          $ref: '#/components/responses/BadRequest_400'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+      security:
+        - OAuth2:
+            - sepaexport.job_view
+    post:
+      tags:
+        - Jobs
+      summary: Creating a new export job
+      deprecated: true
+      description: |-
+        Creates a new SEPA Export job.
+      operationId: POST-sepa-export-create-job
+      parameters:
+        - name: tenant
+          in: path
+          description: |-
+            Your Emporix tenant's name.
+            **Note**: The `tenant` should always be written in lowercase.
+          required: true
+          schema:
+            type: string
+          example: ""
+      requestBody:
+        description: Create new job
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJob'
+            example:
+              siteCode: main
+        required: true
+      responses:
+        '201':
+          description: New job ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobId'
+        '400':
+          $ref: '#/components/responses/BadRequest_400'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '409':
+          $ref: '#/components/responses/Conflict_409'
+      security:
+        - OAuth2:
+            - sepaexport.job_manage
+components:
+  schemas:
+    CreateJob:
+      required:
+        - siteCode
+      type: object
+      properties:
+        siteCode:
+          minLength: 1
+          type: string
+    JobDetails:
+      type: object
+      properties:
+        jobId:
+          type: string
+          example: 884cf047-94a2-42ae-8a89-7084c3259ef2
+        status:
+          type: string
+        siteCode:
+          type: string
+          example: main
+        fileId:
+          type: string
+        active:
+          type: boolean
+        ordersExportedCount:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+    JobId:
+      required:
+        - id
+      type: object
+      properties:
+        id:
+          type: string
+    ResponseMessage:
+      required:
+        - message
+      type: object
+      properties:
+        message:
+          type: string
+    errorMessage:
+      title: Error
+      description: Schema for specific API errors.
+      type: object
+      properties:
+        code:
+          type: integer
+          description: HTTP status code.
+          minimum: 100
+          maximum: 599
+        status:
+          description: HTTP status.
+          type: string
+        message:
+          description: Descriptive error message for debugging.
+          type: string
+        details:
+          description: List of problems causing this error.
+          type: array
+          items:
+            title: Error Detail
+            description: Error details.
+            type: string
+        resourceId:
+          description: Id of the resource.
+          type: string
+      required:
+        - status
+        - code
+        - message
+  responses:
+    BadRequest_400:
+      description: Request syntactically incorrect. Details of the error are included in the response payload.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              _embedded:
+                type: object
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      properties:
+                        message:
+                          type: string
+                        path:
+                          type: string
+          examples:
+            Bad Request:
+              value:
+                message: Bad Request
+                _embedded:
+                  errors:
+                    - message: Required argument [String siteCode] not specified
+                      path: /siteCode
+    Unauthorized_401:
+      description: Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              fault:
+                type: object
+                properties:
+                  faultstring:
+                    type: string
+                  detail:
+                    type: object
+                    properties:
+                      errorcode:
+                        type: string
+          examples:
+            Invalid access token:
+              value:
+                fault:
+                  faultstring: Invalid access token
+                  detail:
+                    errorcode: oauth.v2.InvalidAccessToken
+            Access token expired:
+              value:
+                fault:
+                  faultstring: Access Token expired
+                  detail:
+                    errorcode: keymanagement.service.access_token_expired
+    Forbidden_403:
+      description: Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errorMessage'
+          examples:
+            Access to resource is forbidden:
+              value:
+                status: Bad request
+                code: 403
+                message: The access to the requested resource has been forbidden by the server..
+                details:
+                  - Missing required scopes
+    NotFound_404:
+      description: Given resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResponseMessage'
+          examples:
+            Resource not found:
+              value:
+                message: Given resource has not been found.
+    Conflict_409:
+      description: Another job is in progress. You can have only one job at the same time.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResponseMessage'
+          examples:
+            Conflict:
+              value:
+                message: Another job is in progress. You can have only one job at the same time.
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://api.emporix.io/oauth/token
+          scopes:
+            sepaexport.job_view: View SEPA export job
+            sepaexport.job_manage: Manage SEPA export job
+            sepaexport.media_view: View output from SEPA export

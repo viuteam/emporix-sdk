@@ -46,6 +46,9 @@ import { CountryService } from "./services/country";
 import { CurrencyService } from "./services/currency";
 import { ShippingService } from "./services/shipping";
 import { ReturnsService } from "./services/returns";
+import { SepaExportService } from "./services/sepa-export";
+import { IndexingService } from "./services/indexing";
+import { UnitHandlingService } from "./services/unit-handling";
 import { SDK_VERSION } from "./version";
 
 /** The Emporix SDK entry point. One instance safely serves many concurrent shoppers. */
@@ -86,6 +89,9 @@ export class EmporixClient {
   readonly currencies: CurrencyService;
   readonly shipping: ShippingService;
   readonly returns: ReturnsService;
+  readonly sepaExport: SepaExportService;
+  readonly indexing: IndexingService;
+  readonly units: UnitHandlingService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
   /**
@@ -181,6 +187,9 @@ export class EmporixClient {
     this.currencies = new CurrencyService(mk("currency"));
     this.shipping = new ShippingService(mk("shipping"));
     this.returns = new ReturnsService(mk("returns"));
+    this.sepaExport = new SepaExportService(mk("sepa-export"));
+    this.indexing = new IndexingService(mk("indexing"));
+    this.units = new UnitHandlingService(mk("unit-handling"));
   }
 
   /** Sets the runtime log level globally or for one service. */
