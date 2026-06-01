@@ -28,6 +28,7 @@ export type ServiceName =
   | "shopping-list"
   | "ai-rag-indexer"
   | "sequential-id"
+  | "fee"
   | "http"
   | "auth";
 
