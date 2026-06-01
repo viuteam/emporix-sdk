@@ -20,6 +20,7 @@ const SPECS: Record<string, string> = {
   "sequential-id": `${BASE}/utilities/sequential-id/api-reference/api.yml`,
   fee: `${BASE}/checkout/fee/api-reference/api.yml`,
   webhook: `${BASE}/webhooks/webhook-service/api-reference/api.yml`,
+  schema: `${BASE}/utilities/schema/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {
