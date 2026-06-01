@@ -41,6 +41,9 @@ export type ServiceName =
   | "currency"
   | "shipping"
   | "returns"
+  | "sepa-export"
+  | "indexing"
+  | "unit-handling"
   | "http"
   | "auth";
 
