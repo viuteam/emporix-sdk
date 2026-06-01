@@ -76,6 +76,8 @@ export {
   useUpdateSalesOrder,
   useAvailability,
   useAvailabilities,
+  useValidateCoupon,
+  useRedeemCoupon,
 } from "./hooks/index";
 export type {
   CompanySwitcherApi,
@@ -84,6 +86,7 @@ export type {
   UseVariantChildrenOptions,
   UseAvailabilityOptions,
   UseAvailabilitiesOptions,
+  CouponActionVars,
 } from "./hooks/index";
 export type {
   CustomerSessionApi,

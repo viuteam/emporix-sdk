@@ -89,3 +89,5 @@ export { useAvailability } from "./use-availability";
 export type { UseAvailabilityOptions } from "./use-availability";
 export { useAvailabilities } from "./use-availabilities";
 export type { UseAvailabilitiesOptions } from "./use-availabilities";
+export { useValidateCoupon, useRedeemCoupon } from "./use-coupons";
+export type { CouponActionVars } from "./use-coupons";
