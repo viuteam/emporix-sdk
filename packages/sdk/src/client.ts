@@ -45,6 +45,7 @@ import { LabelService } from "./services/label";
 import { CountryService } from "./services/country";
 import { CurrencyService } from "./services/currency";
 import { ShippingService } from "./services/shipping";
+import { ReturnsService } from "./services/returns";
 import { SDK_VERSION } from "./version";
 
 /** The Emporix SDK entry point. One instance safely serves many concurrent shoppers. */
@@ -84,6 +85,7 @@ export class EmporixClient {
   readonly countries: CountryService;
   readonly currencies: CurrencyService;
   readonly shipping: ShippingService;
+  readonly returns: ReturnsService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
   /**
@@ -178,6 +180,7 @@ export class EmporixClient {
     this.countries = new CountryService(mk("country"));
     this.currencies = new CurrencyService(mk("currency"));
     this.shipping = new ShippingService(mk("shipping"));
+    this.returns = new ReturnsService(mk("returns"));
   }
 
   /** Sets the runtime log level globally or for one service. */
