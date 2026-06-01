@@ -29,6 +29,7 @@ export type ServiceName =
   | "ai-rag-indexer"
   | "sequential-id"
   | "fee"
+  | "webhook"
   | "http"
   | "auth";
 
