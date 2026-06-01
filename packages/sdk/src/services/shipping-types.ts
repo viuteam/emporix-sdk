@@ -20,6 +20,15 @@ import type {
   QuoteSlot,
   MinimumFee as GenMinimumFee,
   ResourceCreatedResponse,
+  ActualDeliveryWindow,
+  ActualDeliveryWindows,
+  BasicDeliveryTime,
+  DeliveryTime as GenDeliveryTime,
+  UpdateDeliveryTime,
+  SlotCreation,
+  DeliveryCycle as GenDeliveryCycle,
+  DeliveryWindowValidationDto,
+  Patch,
 } from "../generated/shipping";
 
 /** A shipping-related site. */
@@ -60,3 +69,37 @@ export type MinimumFee = GenMinimumFee;
 
 /** Shared create response (resource location). */
 export type ResourceCreated = ResourceCreatedResponse;
+
+// --- Phase 2: delivery scheduling ---
+
+/** A delivery window for a cart/area. */
+export type DeliveryWindow = ActualDeliveryWindow;
+/** List of delivery windows. */
+export type DeliveryWindowList = ActualDeliveryWindows;
+/** Body for delivery-window validation / counter increment. */
+export type DeliveryWindowValidation = DeliveryWindowValidationDto;
+
+/** A delivery time (read shape). */
+export type DeliveryTime = GenDeliveryTime;
+/** List of delivery times (`GET /delivery-times`). */
+export type DeliveryTimeList = DeliveryTime[];
+/** Create body (`POST /delivery-times`). */
+export type DeliveryTimeInput = BasicDeliveryTime;
+/** Update body (`PUT /delivery-times/{id}`). */
+export type DeliveryTimeUpdate = UpdateDeliveryTime;
+
+/** A delivery time slot (read + write body). */
+export type DeliverySlot = SlotCreation;
+/** List of delivery time slots. */
+export type DeliverySlotList = DeliverySlot[];
+
+/** Body for `generateDeliveryCycle`. */
+export type DeliveryCycleInput = GenDeliveryCycle;
+
+/** JSON-Patch op-array (used by `patchDeliveryTime` / `patchSlot`). */
+export type ShippingPatch = Patch;
+
+/** Inline create response — the created resource's `{ id }`. */
+export interface DeliveryCreated {
+  id?: string;
+}
