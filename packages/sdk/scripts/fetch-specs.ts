@@ -30,6 +30,7 @@ const SPECS: Record<string, string> = {
   "country-service": `${BASE}/configuration/country-service/api-reference/api.yml`,
   "currency-service": `${BASE}/configuration/currency-service/api-reference/api.yml`,
   shipping: `${BASE}/delivery-and-shipping/shipping/api-reference/api.yml`,
+  returns: `${BASE}/orders/returns/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {
