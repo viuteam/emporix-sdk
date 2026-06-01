@@ -40,6 +40,8 @@ import { AiService } from "./services/ai";
 import { TaxService } from "./services/tax";
 import { CouponService } from "./services/coupon";
 import { RewardPointsService } from "./services/reward-points";
+import { BrandService } from "./services/brand";
+import { LabelService } from "./services/label";
 import { SDK_VERSION } from "./version";
 
 /** The Emporix SDK entry point. One instance safely serves many concurrent shoppers. */
@@ -74,6 +76,8 @@ export class EmporixClient {
   readonly taxes: TaxService;
   readonly coupons: CouponService;
   readonly rewardPoints: RewardPointsService;
+  readonly brands: BrandService;
+  readonly labels: LabelService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
   /**
@@ -163,6 +167,8 @@ export class EmporixClient {
     this.taxes = new TaxService(mk("tax"));
     this.coupons = new CouponService(mk("coupon"));
     this.rewardPoints = new RewardPointsService(mk("reward-points"));
+    this.brands = new BrandService(mk("brand"));
+    this.labels = new LabelService(mk("label"));
   }
 
   /** Sets the runtime log level globally or for one service. */
