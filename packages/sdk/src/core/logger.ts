@@ -26,6 +26,7 @@ export type ServiceName =
   | "availability"
   | "configuration"
   | "shopping-list"
+  | "ai-rag-indexer"
   | "http"
   | "auth";
 
