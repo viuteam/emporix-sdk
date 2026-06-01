@@ -1,5 +1,60 @@
 # @viu/emporix-sdk
 
+## 2.3.0
+
+### Minor Changes
+
+- [#67](https://github.com/viuteam/emporix-sdk/pull/67) [`97cda33`](https://github.com/viuteam/emporix-sdk/commit/97cda33466e633836c046ae00dbdde051352c5f2) Thanks [@amnael1](https://github.com/amnael1)! - Add AI RAG Indexer binding: `client.ragIndexer` exposes `ragMetadata()` and
+  `filterMetadata()` to discover the indexed embedding / filterable fields, plus
+  `reindex()` to trigger a full asynchronous index rebuild. Server-side only —
+  these use the service (clientCredentials) token (`ai.agent_read` /
+  `ai.agent_manage`) and must not be called from a browser.
+
+- [#72](https://github.com/viuteam/emporix-sdk/pull/72) [`7a3885a`](https://github.com/viuteam/emporix-sdk/commit/7a3885ad58d20c8e5726fa9e976a68588ea90e43) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix AI Service bindings via `client.ai`: text generation
+  (`generateText`), chat completions (`complete`), agent CRUD (`listAgents`,
+  `getAgent`, `upsertAgent`, `patchAgent`, `deleteAgent`, `searchAgents`), and
+  synchronous / asynchronous agentic chat (`chat`, `chatAsync`). Server-side only
+  — these use the service (clientCredentials) token and must not be called from a
+  browser; both chat endpoints return arrays. Templates, import/export,
+  logs/sessions and tokens are not yet bound.
+
+- [#69](https://github.com/viuteam/emporix-sdk/pull/69) [`c79332e`](https://github.com/viuteam/emporix-sdk/commit/c79332e80f478d2d5d71d820279eda74d55eb08c) Thanks [@amnael1](https://github.com/amnael1)! - Add Fee Service bindings: `client.fees` provides CRUD over fee definitions
+  (`list`/`get`/`create`/`update`/`delete`) plus item- and product-fee mappings
+  (`listItemFees`/`getItemFees`/`createItemFee`/`setItemFees`/`deleteItemFees`/
+  `searchItemFees`, `getProductFees`/`setProductFees`/`deleteProductFees`).
+  Server-side only — these use the service (clientCredentials) token and must not
+  be called from a browser.
+
+- [#71](https://github.com/viuteam/emporix-sdk/pull/71) [`993a563`](https://github.com/viuteam/emporix-sdk/commit/993a563a2d6e20dcf218a1367c3f2dd5e77cce0e) Thanks [@amnael1](https://github.com/amnael1)! - Add Schema Service bindings: `client.schemas` provides CRUD over schemas
+  (`listSchemas`/`getSchema`/`createSchema`/`updateSchema`/`deleteSchema`) plus
+  `validateSchemaFile`, entity types (`listTypes`/`setSchemaTypes`), custom
+  entities (`listCustomEntities`/`getCustomEntity`/`createCustomEntity`/
+  `updateCustomEntity`/`deleteCustomEntity`), and custom instances
+  (`listInstances`/`getInstance`/`createInstance`/`replaceInstance`/
+  `patchInstance`/`deleteInstance`/`searchInstances`). Server-side only — these
+  use the service (clientCredentials) token and must not be called from a
+  browser. References, export/import and bulk instance ops are not yet exposed.
+
+- [#68](https://github.com/viuteam/emporix-sdk/pull/68) [`9861d87`](https://github.com/viuteam/emporix-sdk/commit/9861d87a2e672400e2eaf1c90052bef62641c93f) Thanks [@amnael1](https://github.com/amnael1)! - Add Sequential ID Service binding: `client.sequentialIds` provides sequence
+  schema admin (`listSchemas`/`getSchema`/`createSchema`/`deleteSchema`/
+  `setActiveSchema`/`listSchemasByType`) and id generation (`nextId`,
+  `nextIdsBatch`). Server-side only — these use the service (clientCredentials)
+  token and must not be called from a browser.
+
+- [#65](https://github.com/viuteam/emporix-sdk/pull/65) [`dca34d0`](https://github.com/viuteam/emporix-sdk/commit/dca34d044e54c305ea2a310ba349dc800ced331a) Thanks [@amnael1](https://github.com/amnael1)! - Add Shopping List bindings: `client.shoppingLists` (per-customer named lists —
+  list/create/replace/delete plus read-modify-write item helpers, last-write-wins)
+  and React hooks (`useShoppingLists`, `useCreateShoppingList`, `useAddToShoppingList`,
+  `useRemoveFromShoppingList`, `useSetShoppingListItemQuantity`, `useDeleteShoppingList`).
+
+- [#70](https://github.com/viuteam/emporix-sdk/pull/70) [`21063a1`](https://github.com/viuteam/emporix-sdk/commit/21063a161029c9ea22278c08f89b59a36cb7fb01) Thanks [@amnael1](https://github.com/amnael1)! - Add Webhook Service bindings: `client.webhooks` provides the event-subscription
+  catalog + batch toggle (`listEventSubscriptions` / `updateEventSubscriptions`),
+  delivery-config CRUD (`listConfigs` / `getConfig` / `createConfig` /
+  `replaceConfig` / `patchConfig` / `deleteConfig`), `getStatistics`, and
+  `getDashboardAccess`. `updateEventSubscriptions` returns the HTTP-207 per-item
+  result array so callers can handle partial failures; `patchConfig` takes the
+  op-based (`UPSERT`/`REMOVE`) update array. Server-side only — these use the
+  service (clientCredentials) token and must not be called from a browser.
+
 ## 2.2.0
 
 ### Minor Changes
