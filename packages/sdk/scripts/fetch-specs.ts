@@ -14,6 +14,7 @@ const SPECS: Record<string, string> = {
   price: `${BASE}/prices-and-taxes/price-service/api-reference/api.yml`,
   media: `${BASE}/media/media/api-reference/api.yml`,
   "customer-segment": `${BASE}/companies-and-customers/customer-segments/api-reference/api.yml`,
+  configuration: `${BASE}/configuration/configuration-service/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {

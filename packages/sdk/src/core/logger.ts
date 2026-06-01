@@ -24,6 +24,7 @@ export type ServiceName =
   | "orders"
   | "sales-orders"
   | "availability"
+  | "configuration"
   | "http"
   | "auth";
 

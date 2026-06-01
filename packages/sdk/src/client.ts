@@ -28,6 +28,8 @@ import { LocationsService } from "./services/locations";
 import { CustomerGroupsService } from "./services/customer-groups";
 import { OrdersService, SalesOrdersService } from "./services/orders";
 import { AvailabilityService } from "./services/availability";
+import { TenantConfigService } from "./services/tenant-config";
+import { ClientConfigService } from "./services/client-config";
 import { SDK_VERSION } from "./version";
 
 /** The Emporix SDK entry point. One instance safely serves many concurrent shoppers. */
@@ -50,6 +52,8 @@ export class EmporixClient {
   readonly orders: OrdersService;
   readonly salesOrders: SalesOrdersService;
   readonly availability: AvailabilityService;
+  readonly tenantConfig: TenantConfigService;
+  readonly clientConfig: ClientConfigService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
   /**
@@ -127,6 +131,8 @@ export class EmporixClient {
     this.orders = new OrdersService(mk("orders"));
     this.salesOrders = new SalesOrdersService(mk("sales-orders"));
     this.availability = new AvailabilityService(mk("availability"));
+    this.tenantConfig = new TenantConfigService(mk("configuration"));
+    this.clientConfig = new ClientConfigService(mk("configuration"));
   }
 
   /** Sets the runtime log level globally or for one service. */
