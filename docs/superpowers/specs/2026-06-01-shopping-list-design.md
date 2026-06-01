@@ -35,7 +35,7 @@ so it warrants both an SDK binding and React hooks.
 | D1 | SDK surface | Low-level (`list`/`create`/`replace`/`delete`) **+ item helpers** (`addItem`/`removeItem`/`setItemQuantity`) via read-modify-write, **last-write-wins** (no version locking). |
 | D2 | Response normalization | The SDK normalizes the wire map into a clean `ShoppingList[]` (each with a `key`). Consumers never see the raw map. |
 | D3 | Auth | `auth: AuthContext` is a **required** parameter (no default) — like `LocationsService`. Customer token = own lists; service token = any customer. |
-| D4 | React | Customer-only hooks (`useCustomerOnlyCtx`); `customerId` derived from the session. Query stale-time 30s; mutations invalidate the lists query. |
+| D4 | React | Customer-only hooks (`useCustomerOnlyCtx`). The list query needs no `customerId` (token-resolved); write/item mutations receive `customerId` as a **mutation variable** (storage holds only the token, not the id). Stale-time 30s; mutations invalidate the lists query. |
 | D5 | Concurrency | Last-write-wins. No optimistic `metadata.version` handling (YAGNI for per-customer lists). |
 
 ## 3. SDK surface (`packages/sdk/src/services/shopping-list.ts`)
@@ -106,10 +106,15 @@ Customer-only (`useCustomerOnlyCtx`); `customerId` from the session/profile. Key
 - `useShoppingLists` returns the normalized lists (customer token from storage).
 - A mutation (e.g. `useAddToShoppingList`) invalidates and refetches the lists query.
 
-## 6. Verify during implementation
+## 6. Wire shapes (resolved from `api.yml`)
 
-- **Exact POST/PUT body shapes** (the wire map) — pin down from the generated types + `api.yml` in the codegen task; the item helpers' PUT body must match.
-- **`customerId` source in React** — confirm the field on the stored customer/session (likely `customer.id`) when building the hooks.
+- **POST** `/shopping-lists` body (own) = `{ name, items? }` → response `{ id }`.
+- **GET** `/shopping-lists` (`?name`) response = array of per-customer envelopes
+  `[{ customerId, <listName>: { name, items, mixins?, metadata? } }]` → SDK normalizes to `ShoppingList[]` (one entry per list-name key, `key` = that name).
+- **PUT** `/shopping-lists/{customerId}` body = a single list `{ name, items, mixins? }` (replaces the list identified by `name`).
+- **DELETE** `/shopping-lists/{customerId}` (`?name`; no `name` → all the customer's lists).
+- **`customerId` in React:** caller-supplied via mutation variables (storage exposes only the token).
+- Codegen still confirms exact generated type names; the thin public types in §3 absorb any naming differences.
 
 ## 7. Out of scope (YAGNI)
 
