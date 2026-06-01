@@ -37,6 +37,7 @@ import { FeeService } from "./services/fee";
 import { WebhookService } from "./services/webhook";
 import { SchemaService } from "./services/schema";
 import { AiService } from "./services/ai";
+import { TaxService } from "./services/tax";
 import { SDK_VERSION } from "./version";
 
 /** The Emporix SDK entry point. One instance safely serves many concurrent shoppers. */
@@ -68,6 +69,7 @@ export class EmporixClient {
   readonly webhooks: WebhookService;
   readonly schemas: SchemaService;
   readonly ai: AiService;
+  readonly taxes: TaxService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
   /**
@@ -154,6 +156,7 @@ export class EmporixClient {
     this.webhooks = new WebhookService(mk("webhook"));
     this.schemas = new SchemaService(mk("schema"));
     this.ai = new AiService(mk("ai"));
+    this.taxes = new TaxService(mk("tax"));
   }
 
   /** Sets the runtime log level globally or for one service. */

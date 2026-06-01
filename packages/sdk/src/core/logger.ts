@@ -32,6 +32,7 @@ export type ServiceName =
   | "webhook"
   | "schema"
   | "ai"
+  | "tax"
   | "http"
   | "auth";
 
