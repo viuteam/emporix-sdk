@@ -34,6 +34,7 @@ export type ServiceName =
   | "ai"
   | "tax"
   | "coupon"
+  | "reward-points"
   | "http"
   | "auth";
 
