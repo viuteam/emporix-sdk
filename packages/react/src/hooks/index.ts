@@ -8,6 +8,14 @@ export {
   useProductSearch,
   useProductsByCodes,
 } from "./use-products";
+export {
+  useShoppingLists,
+  useCreateShoppingList,
+  useDeleteShoppingList,
+  useAddToShoppingList,
+  useRemoveFromShoppingList,
+  useSetShoppingListItemQuantity,
+} from "./use-shopping-lists";
 export { useVariantChildren } from "./use-variant-children";
 export type { UseVariantChildrenOptions } from "./use-variant-children";
 export {
