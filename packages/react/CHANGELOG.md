@@ -1,5 +1,14 @@
 # @viu/emporix-sdk-react
 
+## 2.2.0
+
+### Minor Changes
+
+- [#63](https://github.com/viuteam/emporix-sdk/pull/63) [`bb2ce4f`](https://github.com/viuteam/emporix-sdk/commit/bb2ce4f891e50e07cee02e03340d2abe1133fdc0) Thanks [@amnael1](https://github.com/amnael1)! - Add `products.searchByCodes(codes, { chunkSize? })` — bulk-fetch products by
+  `code` via `POST /products/search` (`q="code:(…)"`), chunked at 100, analogous
+  to `searchByIds`. Codes with query-delimiter characters are dropped with a
+  warning. Adds the `useProductsByCodes` React hook (30s stale-time).
+
 ## 2.1.0
 
 ### Minor Changes

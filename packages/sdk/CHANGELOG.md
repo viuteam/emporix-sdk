@@ -1,5 +1,25 @@
 # @viu/emporix-sdk
 
+## 2.2.0
+
+### Minor Changes
+
+- [#61](https://github.com/viuteam/emporix-sdk/pull/61) [`4a869c9`](https://github.com/viuteam/emporix-sdk/commit/4a869c9aa60cce99b79b41b8470af367e1b4e249) Thanks [@amnael1](https://github.com/amnael1)! - Add Configuration Service bindings: `client.tenantConfig` and
+  `client.clientConfig` provide full CRUD (`list`/`get`/`create`/`update`/`delete`)
+  over tenant-wide and per-client configuration. Server-side only — these use the
+  service (clientCredentials) token and must not be called from a browser.
+
+- [#63](https://github.com/viuteam/emporix-sdk/pull/63) [`bb2ce4f`](https://github.com/viuteam/emporix-sdk/commit/bb2ce4f891e50e07cee02e03340d2abe1133fdc0) Thanks [@amnael1](https://github.com/amnael1)! - Add `products.searchByCodes(codes, { chunkSize? })` — bulk-fetch products by
+  `code` via `POST /products/search` (`q="code:(…)"`), chunked at 100, analogous
+  to `searchByIds`. Codes with query-delimiter characters are dropped with a
+  warning. Adds the `useProductsByCodes` React hook (30s stale-time).
+
+### Patch Changes
+
+- [#62](https://github.com/viuteam/emporix-sdk/pull/62) [`9747445`](https://github.com/viuteam/emporix-sdk/commit/9747445c13a27319462755c5333c9ae0a4741e68) Thanks [@amnael1](https://github.com/amnael1)! - Report the real package version as `sdkVersion` on every log line instead of the
+  hardcoded `0.0.0` placeholder. The version is now read from `package.json` and
+  inlined at build time (browser-safe, no runtime filesystem access).
+
 ## 2.1.0
 
 ### Minor Changes
