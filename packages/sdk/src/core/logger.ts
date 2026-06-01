@@ -37,6 +37,8 @@ export type ServiceName =
   | "reward-points"
   | "brand"
   | "label"
+  | "country"
+  | "currency"
   | "http"
   | "auth";
 
