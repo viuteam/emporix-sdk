@@ -78,6 +78,10 @@ export {
   useAvailabilities,
   useValidateCoupon,
   useRedeemCoupon,
+  useMyRewardPoints,
+  useMyRewardPointsSummary,
+  useRedeemOptions,
+  useRedeemRewardPoints,
 } from "./hooks/index";
 export type {
   CompanySwitcherApi,
