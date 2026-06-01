@@ -23,6 +23,7 @@ const SPECS: Record<string, string> = {
   fee: `${BASE}/checkout/fee/api-reference/api.yml`,
   webhook: `${BASE}/webhooks/webhook-service/api-reference/api.yml`,
   schema: `${BASE}/utilities/schema/api-reference/api.yml`,
+  coupon: `${BASE}/rewards-and-promotions/coupon/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {

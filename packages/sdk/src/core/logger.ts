@@ -33,6 +33,7 @@ export type ServiceName =
   | "schema"
   | "ai"
   | "tax"
+  | "coupon"
   | "http"
   | "auth";
 
