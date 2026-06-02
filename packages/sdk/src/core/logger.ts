@@ -48,6 +48,7 @@ export type ServiceName =
   | "vendor"
   | "pick-pack"
   | "customer-admin"
+  | "approval"
   | "http"
   | "auth";
 

@@ -53,6 +53,7 @@ import { CatalogService } from "./services/catalog";
 import { VendorService } from "./services/vendor";
 import { PickPackService } from "./services/pick-pack";
 import { CustomerAdminService } from "./services/customer-admin";
+import { ApprovalService } from "./services/approval";
 import { SDK_VERSION } from "./version";
 
 /** The Emporix SDK entry point. One instance safely serves many concurrent shoppers. */
@@ -100,6 +101,7 @@ export class EmporixClient {
   readonly vendors: VendorService;
   readonly pickPack: PickPackService;
   readonly customerAdmin: CustomerAdminService;
+  readonly approvals: ApprovalService;
   /** The validated tenant this client is bound to. */
   readonly tenant: string;
   /**
@@ -202,6 +204,7 @@ export class EmporixClient {
     this.vendors = new VendorService(mk("vendor"));
     this.pickPack = new PickPackService(mk("pick-pack"));
     this.customerAdmin = new CustomerAdminService(mk("customer-admin"));
+    this.approvals = new ApprovalService(mk("approval"));
   }
 
   /** Sets the runtime log level globally or for one service. */
