@@ -44,6 +44,22 @@ await sdk.products.list(undefined, auth.service("partner"));
 await sdk.customers.me(auth.raw(externalJwt));
 ```
 
+## Services
+
+The client exposes the full Emporix surface as namespaced services. Each is a
+property on the `EmporixClient` instance:
+
+| Area | Services |
+| --- | --- |
+| Catalog | `products`, `categories`, `prices`, `brands`, `labels`, `catalogs` |
+| Cart & checkout | `carts`, `checkout`, `payments`, `coupons`, `taxes`, `shipping`, `fees` |
+| Orders & fulfilment | `orders`, `salesOrders`, `returns`, `pickPack`, `availability`, `indexing` |
+| Customers & B2B | `customers`, `customerAdmin`, `companies`, `contacts`, `locations`, `customerGroups`, `approvals`, `rewardPoints`, `segments` |
+| Platform & config | `sites`, `sessionContext`, `tenantConfig`, `clientConfig`, `media`, `schemas`, `webhooks`, `sequentialIds`, `units`, `countries`, `currencies`, `vendors`, `shoppingLists`, `sepaExport`, `ai`, `ragIndexer` |
+
+The sections below highlight the most-used services; per-service guides live in
+[`../../docs/`](../../docs).
+
 ## Configuration
 
 | Option | Default | Notes |
@@ -125,9 +141,13 @@ stock record. There is no restock-date field. See [`../../docs/availability.md`]
 
 ## Subpath exports
 
-`@viu/emporix-sdk` (everything) plus `./customer`, `./product`, `./category`,
-`./cart`, `./checkout`, `./payment`, `./price`, `./media`, `./segment`,
-`./companies`, `./contacts`, `./locations`, `./customer-groups`, `./availability` for tree-shaking.
+`@viu/emporix-sdk` (the package root) re-exports **everything** — every service,
+type, and helper. Tree-shakeable subpaths are published for the high-traffic
+services: `./customer`, `./product`, `./category`, `./cart`, `./checkout`,
+`./payment`, `./price`, `./media`, `./segment`, `./companies`, `./contacts`,
+`./locations`, `./customer-groups`, `./orders`, `./availability`. All other
+services (Tax, Coupon, RewardPoints, Shipping, Returns, Catalog, Vendor,
+PickPack, CustomerAdmin, Approval, …) are reached from the package root.
 
 ## Authors
 

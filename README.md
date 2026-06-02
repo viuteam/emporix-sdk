@@ -13,7 +13,7 @@ shipped as a pnpm workspace monorepo.
 
 | Package | Description |
 | --- | --- |
-| [`@viu/emporix-sdk`](./packages/sdk) | Core, framework-agnostic SDK: auth, HTTP, logging + Customer, Product, Category, Cart, Checkout, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups (B2B) |
+| [`@viu/emporix-sdk`](./packages/sdk) | Core, framework-agnostic SDK: auth, HTTP, logging + the full Emporix service surface — **catalog** (Product, Category, Price, Brand, Label, Catalog), **cart & checkout** (Cart, Checkout, Payment, Coupon, Tax, Shipping, Fee), **orders & fulfilment** (Orders, SalesOrders, Returns, PickPack, Availability, Indexing), **customers & B2B** (Customer, CustomerAdmin, Companies, Contacts, Locations, CustomerGroups, Approval, RewardPoints, Segment), and **platform** (Site, SessionContext, TenantConfig, ClientConfig, Media, Schema, Webhooks, SequentialId, UnitHandling, Country, Currency, Vendor, ShoppingList, SepaExport, AI, RagIndexer) |
 | [`@viu/emporix-sdk-react`](./packages/react) | React bindings: provider, hooks, storage adapters, SSR helpers |
 
 Runnable examples live in [`examples/`](./examples): `node-server` (no React),
@@ -49,7 +49,8 @@ const me = await sdk.customers.me(auth.customer(customerToken));
 See [`packages/sdk/README.md`](./packages/sdk/README.md) and
 [`packages/react/README.md`](./packages/react/README.md) for full guides, plus
 [`docs/auth.md`](./docs/auth.md), [`docs/logging.md`](./docs/logging.md),
-[`docs/react.md`](./docs/react.md).
+[`docs/react.md`](./docs/react.md), and [`docs/`](./docs) for per-service guides
+(b2b, checkout, media, availability, returns, coupon, reward-points, approval, …).
 
 ## Development
 
