@@ -47,6 +47,7 @@ export type ServiceName =
   | "catalog"
   | "vendor"
   | "pick-pack"
+  | "customer-admin"
   | "http"
   | "auth";
 

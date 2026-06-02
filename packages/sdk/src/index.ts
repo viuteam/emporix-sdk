@@ -125,3 +125,4 @@ export * from "./unit-handling";
 export * from "./catalog";
 export * from "./vendor";
 export * from "./pick-pack";
+export * from "./customer-admin";
