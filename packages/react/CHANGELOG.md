@@ -1,5 +1,15 @@
 # @viu/emporix-sdk-react
 
+## 2.5.1
+
+### Patch Changes
+
+- [#90](https://github.com/viuteam/emporix-sdk/pull/90) [`3db7978`](https://github.com/viuteam/emporix-sdk/commit/3db79789f90ed8e5134fde809fe689375f03cfa4) Thanks [@amnael1](https://github.com/amnael1)! - Document analytics integration (Google Tag Manager / GA4 ecommerce) via the
+  telemetry channel. Adds `docs/analytics.md` — the `dataLayer` bridge, the GA4
+  ecommerce event mapping, a `useTrackedCart` wrapper, and SSR + consent notes —
+  plus an "Analytics & tracking" pointer in the package README. Docs-only; no API
+  changes.
+
 ## 2.5.0
 
 ### Minor Changes
