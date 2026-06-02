@@ -424,6 +424,23 @@ const { id } = await create.mutateAsync({ /* … */ });
 
 Return update/delete stay server-side. See [`./returns.md`](./returns.md).
 
+### Approvals
+
+`useApprovals` / `useApproval` — customer-only queries for the signed-in shopper's
+B2B approvals (list + one). `useCreateApproval` — files a cart/quote approval
+request. `useUpdateApproval` — approves/rejects via a JSON-Patch op-array. All
+require a logged-in customer and use the customer token.
+
+```tsx
+const { data: approvals } = useApprovals();
+const create = useCreateApproval();
+const { id } = await create.mutateAsync({ resource: { resourceType: "CART", resourceId } });
+const decide = useUpdateApproval();
+await decide.mutateAsync({ approvalId: id, ops: [{ op: "replace", path: "/status", value: "APPROVED" }] });
+```
+
+`checkPermitted` / `searchApprovers` stay server-side. See [`./approval.md`](./approval.md).
+
 ## Errors
 
 `EmporixError` flows unchanged through react-query's `error`. Wrap UI in
