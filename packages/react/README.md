@@ -82,6 +82,13 @@ call (default: `customer` if a token is stored, else `anonymous`).
 `prefetchProduct` / `prefetchCart` for server-side hydration. See
 [`../../docs/react.md`](../../docs/react.md).
 
+## Analytics & tracking
+
+A typed, no-op-by-default telemetry channel (`onTelemetry` + `useEmporixTelemetry`)
+feeds any analytics sink. For Google Tag Manager / GA4 ecommerce — the `dataLayer`
+bridge, GA4 event mapping, a `useTrackedCart` wrapper, SSR + consent — see
+[`../../docs/analytics.md`](../../docs/analytics.md).
+
 ## Subpath exports
 
 `.`, `./provider`, `./hooks`, `./storage`, `./ssr`.
