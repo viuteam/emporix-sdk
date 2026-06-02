@@ -36,6 +36,7 @@ const SPECS: Record<string, string> = {
   "unit-handling-service": `${BASE}/configuration/unit-handling-service/api-reference/api.yml`,
   catalog: `${BASE}/catalogs-and-categories/catalog/api-reference/api.yml`,
   "vendor-service": `${BASE}/companies-and-customers/vendor-service/api-reference/api.yml`,
+  "pick-pack": `${BASE}/orders/pick-pack/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {
