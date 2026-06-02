@@ -10,7 +10,7 @@ A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published a
 
 | Path | Purpose | Released? |
 |---|---|---|
-| `packages/sdk` | Core SDK: HTTP, auth, services (Product, Category, Cart, Checkout, Customer, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups, TenantConfig, ClientConfig, ShoppingList, RagIndexer, SequentialId, Fee, Webhooks, Schema, AI, Tax, Coupon, RewardPoints, Brand, Label, Country, Currency, Shipping, Returns, SepaExport, Indexing, UnitHandling, Catalog, Vendor, PickPack, CustomerAdmin, Approval) | yes (`@viu/emporix-sdk`) |
+| `packages/sdk` | Core SDK: HTTP, auth, services (Product, Category, Cart, Checkout, Customer, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups, Orders, SalesOrders, Availability, TenantConfig, ClientConfig, ShoppingList, RagIndexer, SequentialId, Fee, Webhooks, Schema, AI, Tax, Coupon, RewardPoints, Brand, Label, Country, Currency, Shipping, Returns, SepaExport, Indexing, UnitHandling, Catalog, Vendor, PickPack, CustomerAdmin, Approval) | yes (`@viu/emporix-sdk`) |
 | `packages/react` | React-Query bindings: hooks, provider, storage adapters | yes (`@viu/emporix-sdk-react`) |
 | `examples/vite-spa` | Reference storefront (Vite + React Router) | no |
 | `examples/next-app-router` | Reference storefront (Next.js App Router) | no |
@@ -32,7 +32,7 @@ A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published a
 
 ## Commitlint rules (enforced by husky)
 
-- **Allowed scopes** (one of): `repo, release, sdk, react, core, customer, product, category, cart, checkout, payment, price, media, segment, auth, http, logger, deps, docs, examples`.
+- **Allowed scopes** (one of): `repo, release, sdk, react, core, customer, product, category, cart, checkout, payment, price, media, segment, availability, auth, http, logger, deps, docs, examples`.
 - **First word after the scope must be lowercase verb**. `feat(react): add useCreateCart` ✓ — `feat(react): Add useCreateCart` ✗ (sentence-case rejected). Names like `CLAUDE.md` in the subject also trip the check; rephrase to `add claude.md` or similar.
 - Source: `commitlint.config.js` + `.husky/commit-msg`.
 
