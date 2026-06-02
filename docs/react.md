@@ -140,6 +140,10 @@ Event types emitted by the SDK:
 | `company:switched` | `useActiveCompany.setActiveCompany` | `from`, `to`, `durationMs` |
 | `custom` | Consumer | `name`, `props?` |
 
+For wiring this channel to **Google Tag Manager / GA4 ecommerce** (and analytics
+in general), see [`./analytics.md`](./analytics.md) — it covers the `dataLayer`
+bridge, the GA4 event mapping, a `useTrackedCart` wrapper, and SSR + consent.
+
 ## Hooks
 
 `useCustomerSession()` — `customerToken`, `customer` (auto-fetched when a token
