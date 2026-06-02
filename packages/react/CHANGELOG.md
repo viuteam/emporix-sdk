@@ -1,5 +1,27 @@
 # @viu/emporix-sdk-react
 
+## 2.5.0
+
+### Minor Changes
+
+- [#87](https://github.com/viuteam/emporix-sdk/pull/87) [`83f5797`](https://github.com/viuteam/emporix-sdk/commit/83f5797ed8f38b63d67b9d392c0410be7a75997b) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Approval Service bindings for B2B cart/quote approval workflows.
+
+  Core `client.approvals` (`ApprovalService`): `listApprovals`, `getApproval`,
+  `createApproval`, `updateApproval` (JSON-Patch approve/reject), `deleteApproval`,
+  `checkPermitted`, and `searchApprovers`. Every endpoint is customer-token-only.
+
+  React: `useApprovals`, `useApproval`, `useCreateApproval`, and `useUpdateApproval`
+  (customer-only) for B2B approval self-service.
+
+### Patch Changes
+
+- [#88](https://github.com/viuteam/emporix-sdk/pull/88) [`ea9fc34`](https://github.com/viuteam/emporix-sdk/commit/ea9fc34c78e4620f3da2bf17040739f3dfd19669) Thanks [@amnael1](https://github.com/amnael1)! - Refresh package READMEs to reflect the full service and hook surface. The
+  `@viu/emporix-sdk` README now lists all 44 services (grouped by area) and the
+  correct published subpath exports; the `@viu/emporix-sdk-react` README documents
+  every exported hook (orders, availability, coupon, reward-points, returns,
+  approvals, shopping-lists, and the chunked price hook). Docs-only — no API
+  changes.
+
 ## 2.4.0
 
 ### Minor Changes

@@ -1,5 +1,46 @@
 # @viu/emporix-sdk
 
+## 2.5.0
+
+### Minor Changes
+
+- [#87](https://github.com/viuteam/emporix-sdk/pull/87) [`83f5797`](https://github.com/viuteam/emporix-sdk/commit/83f5797ed8f38b63d67b9d392c0410be7a75997b) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Approval Service bindings for B2B cart/quote approval workflows.
+
+  Core `client.approvals` (`ApprovalService`): `listApprovals`, `getApproval`,
+  `createApproval`, `updateApproval` (JSON-Patch approve/reject), `deleteApproval`,
+  `checkPermitted`, and `searchApprovers`. Every endpoint is customer-token-only.
+
+  React: `useApprovals`, `useApproval`, `useCreateApproval`, and `useUpdateApproval`
+  (customer-only) for B2B approval self-service.
+
+- [#83](https://github.com/viuteam/emporix-sdk/pull/83) [`1e473ad`](https://github.com/viuteam/emporix-sdk/commit/1e473ad0abe057450abcb777d0e29312cda37530) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Catalog Management (`client.catalogs`) and Vendor Service
+  (`client.vendors`) bindings: catalog CRUD (incl. catalogs-for-category) and
+  vendor + vendor-location CRUD with vendor search. Server-side only — these use
+  the service (clientCredentials) token.
+
+- [#86](https://github.com/viuteam/emporix-sdk/pull/86) [`38c2510`](https://github.com/viuteam/emporix-sdk/commit/38c2510eefef3a69a941761d412163535cb6aad9) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix tenant-managed Customer Service bindings via `client.customerAdmin`:
+  admin/seller CRUD over customer profiles (`listCustomers`, `searchCustomers`,
+  `getCustomer`, `createCustomer`, `upsertCustomer`, `patchCustomer`,
+  `deleteCustomer`) and their addresses (`listAddresses`, `getAddress`,
+  `addAddress`, `upsertAddress`, `patchAddress`, `deleteAddress`, `addAddressTags`,
+  `removeAddressTags`). Server-side only — distinct from the storefront
+  `client.customers`.
+
+- [#85](https://github.com/viuteam/emporix-sdk/pull/85) [`c874141`](https://github.com/viuteam/emporix-sdk/commit/c874141484731d383e5732b7b358062d412460e4) Thanks [@amnael1](https://github.com/amnael1)! - Add Emporix Pick-Pack Service bindings via `client.pickPack`: packlist orders
+  (`listOrders`, `getOrder`, `updateOrder`, `finishOrder`, `listOrderCycles`),
+  assignees (`addAssignee`, `removeAssignee`), packaging (`updatePackaging`),
+  packing events (`createEvent`, `listEvents`), and recalculation jobs
+  (`triggerRecalculation`, `getRecalculationJob`). Server-side only.
+
+### Patch Changes
+
+- [#88](https://github.com/viuteam/emporix-sdk/pull/88) [`ea9fc34`](https://github.com/viuteam/emporix-sdk/commit/ea9fc34c78e4620f3da2bf17040739f3dfd19669) Thanks [@amnael1](https://github.com/amnael1)! - Refresh package READMEs to reflect the full service and hook surface. The
+  `@viu/emporix-sdk` README now lists all 44 services (grouped by area) and the
+  correct published subpath exports; the `@viu/emporix-sdk-react` README documents
+  every exported hook (orders, availability, coupon, reward-points, returns,
+  approvals, shopping-lists, and the chunked price hook). Docs-only — no API
+  changes.
+
 ## 2.4.0
 
 ### Minor Changes
