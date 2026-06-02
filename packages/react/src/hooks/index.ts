@@ -98,3 +98,10 @@ export {
   useRedeemRewardPoints,
 } from "./use-reward-points";
 export { useMyReturns, useReturn, useCreateReturn } from "./use-returns";
+export {
+  useApprovals,
+  useApproval,
+  useCreateApproval,
+  useUpdateApproval,
+} from "./use-approvals";
+export type { UseUpdateApprovalVars } from "./use-approvals";
