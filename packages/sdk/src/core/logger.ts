@@ -44,6 +44,8 @@ export type ServiceName =
   | "sepa-export"
   | "indexing"
   | "unit-handling"
+  | "catalog"
+  | "vendor"
   | "http"
   | "auth";
 
