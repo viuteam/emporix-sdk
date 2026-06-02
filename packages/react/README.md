@@ -38,15 +38,24 @@ per request/render.
 | Hook | Purpose |
 | --- | --- |
 | `useCustomerSession()` | `customerToken`, `customer`, `isAuthenticated`, `login`, `signup`, `logout`, `refresh` |
-| `useProduct` / `useProducts` / `useProductsInfinite` / `useProductByCode` / `useProductSearch` | product reads |
-| `useCategory` / `useCategories` / `useCategoryTree` / `useProductsInCategory(Infinite)` | category reads |
+| `useUpdateCustomer` / `useChangePassword` / `usePasswordReset` | account management |
+| `useCustomerAddresses` / `useAddressMutations` | address CRUD |
+| `useProduct` / `useProducts` / `useProductsInfinite` / `useProductByCode` / `useProductsByCodes` / `useProductSearch` / `useVariantChildren` | product reads |
+| `useCategory` / `useCategories` / `useCategoriesInfinite` / `useCategoryTree` / `useProductsInCategory(Infinite)` | category reads |
 | `useCart(cartId?)` / `useActiveCart(opts?)` / `useCreateCart()` | cart read + bootstrap |
 | `useCartMutations(cartId?)` | add/update/remove/clear/coupons/addresses — optimistic + rollback |
 | `useCheckout()` / `usePaymentModes()` | checkout flow + payment-mode list |
-| `useMatchPrices()` / `useProductMedia()` | price + media reads |
+| `useMatchPrices()` / `useMatchPricesChunked()` | price matching (chunked variant for large carts) |
+| `useProductMedia()` | product media reads |
+| `useMyOrders` / `useMyOrdersInfinite` / `useOrder` / `useCancelOrder` / `useOrderTransition` / `useReorder` | order history + actions |
+| `useSalesOrder` / `useUpdateSalesOrder` | sales-order read + update |
+| `useAvailability` / `useAvailabilities` | site-aware availability reads |
+| `useValidateCoupon` / `useRedeemCoupon` | coupon validation + redemption |
+| `useMyRewardPoints` / `useMyRewardPointsSummary` / `useRedeemOptions` / `useRedeemRewardPoints` | reward points |
+| `useMyReturns` / `useReturn` / `useCreateReturn` | returns (RMA) self-service |
+| `useApprovals` / `useApproval` / `useCreateApproval` / `useUpdateApproval` | B2B approval workflows |
+| `useShoppingLists` / `useCreateShoppingList` / `useDeleteShoppingList` / `useAddToShoppingList` / `useRemoveFromShoppingList` / `useSetShoppingListItemQuantity` | shopping lists |
 | `useMySegments` / `useMySegmentItems` / `useMySegment{Products,Categories}(Infinite)` / `useMySegmentCategoryTree` | customer-segment reads |
-| `useUpdateCustomer` / `useChangePassword` / `usePasswordReset` | account management |
-| `useCustomerAddresses` / `useAddressMutations` | address CRUD |
 | `useSites` / `useDefaultSite` / `useSiteContext` | multi-site context |
 | `useActiveCompany` / `useCompanySwitcher` | active legal entity (B2B) |
 | `useMyCompanies` / `useCompany` / `useCompanyContacts` / `useCompanyLocations` / `useCompanyGroups` | B2B reads |
