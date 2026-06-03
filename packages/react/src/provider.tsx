@@ -72,6 +72,18 @@ export interface EmporixProviderProps {
    * never breaks the provider.
    */
   onTelemetry?: (event: EmporixTelemetryEvent) => void;
+  /**
+   * Opt in to reactive customer-token auto-refresh: on a `customer`-kind 401,
+   * the SDK refreshes once (via the stored refresh token + anonymous auth) and
+   * retries. Default: false (the customer token stays caller-owned).
+   */
+  autoRefreshCustomerToken?: boolean;
+  /**
+   * Called when a customer-token refresh is needed but fails (refresh token
+   * expired/revoked) or no refresh token is stored. Use to drive logout /
+   * redirect to login.
+   */
+  onCustomerSessionExpired?: () => void;
   children: ReactNode;
 }
 
@@ -84,6 +96,8 @@ export function EmporixProvider({
   initialSiteCode,
   initialActiveLegalEntityId,
   onTelemetry,
+  autoRefreshCustomerToken,
+  onCustomerSessionExpired,
   children,
 }: EmporixProviderProps): React.JSX.Element {
   const value = useMemo<EmporixContextValue>(() => {
@@ -218,6 +232,40 @@ export function EmporixProvider({
       unsubStorage?.();
     };
   }, [qc, onTelemetry, client, value.storage, safeEmit]);
+
+  // Opt-in reactive customer-token auto-refresh. Registered on the client so
+  // the core HttpClient can refresh-and-retry a customer 401. Single-flight is
+  // handled in the core registry. Off unless `autoRefreshCustomerToken`.
+  useEffect(() => {
+    if (!autoRefreshCustomerToken) return;
+    const storage = value.storage;
+    client.setCustomerTokenRefresher({
+      refresh: async () => {
+        const refreshToken = storage.getRefreshToken();
+        if (!refreshToken) {
+          safeEmit({ type: "auth.refresh", kind: "customer", success: false, tenant: client.tenant });
+          onCustomerSessionExpired?.();
+          return null;
+        }
+        try {
+          const legalEntityId = storage.getActiveLegalEntityId() ?? undefined;
+          const s = await client.customers.refresh({
+            refreshToken,
+            ...(legalEntityId ? { legalEntityId } : {}),
+          });
+          storage.setCustomerToken(s.customerToken);
+          if (s.refreshToken) storage.setRefreshToken(s.refreshToken);
+          safeEmit({ type: "auth.refresh", kind: "customer", success: true, tenant: client.tenant });
+          return s.customerToken;
+        } catch {
+          safeEmit({ type: "auth.refresh", kind: "customer", success: false, tenant: client.tenant });
+          onCustomerSessionExpired?.();
+          return null;
+        }
+      },
+    });
+    return () => client.setCustomerTokenRefresher(null);
+  }, [autoRefreshCustomerToken, client, value.storage, safeEmit, onCustomerSessionExpired]);
 
   return (
     <EmporixContext.Provider value={value}>
