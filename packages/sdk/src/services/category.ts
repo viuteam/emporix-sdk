@@ -57,7 +57,14 @@ export class CategoryService {
     });
   }
 
-  /** One page of products in a category. */
+  /**
+   * One page of products in a category. The category service exposes products
+   * as **assignments** (`/categories/{id}/assignments`) — references, not full
+   * products — so this fetches a page of assignments, keeps the `PRODUCT`
+   * references, and resolves them to full products via `/products/search`.
+   * `hasNextPage` reflects the assignments page (the source of truth for
+   * pagination).
+   */
   async productsIn(
     categoryId: string,
     params: { pageNumber?: number; pageSize?: number } = {},
@@ -65,13 +72,27 @@ export class CategoryService {
   ): Promise<PaginatedItems<Product>> {
     const pageNumber = params.pageNumber ?? 1;
     const pageSize = params.pageSize ?? 50;
-    const items = await this.ctx.http.request<Product[]>({
+    const assignments = await this.ctx.http.request<Array<{ ref?: { id?: string; type?: string } }>>({
       method: "GET",
-      path: `/category/${this.ctx.tenant}/categories/${categoryId}/products`,
+      path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments`,
       query: { pageNumber, pageSize },
       auth,
     });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    const hasNextPage = assignments.length === pageSize;
+    const productIds = assignments
+      .map((a) => (a.ref?.type?.toUpperCase() === "PRODUCT" ? a.ref.id : undefined))
+      .filter((id): id is string => Boolean(id));
+    if (productIds.length === 0) {
+      return { items: [], pageNumber, pageSize, hasNextPage };
+    }
+    const items = await this.ctx.http.request<Product[]>({
+      method: "POST",
+      path: `/product/${this.ctx.tenant}/products/search`,
+      query: { pageSize: productIds.length },
+      auth,
+      body: { q: `id:(${productIds.join(",")})` },
+    });
+    return { items, pageNumber, pageSize, hasNextPage };
   }
 
   /**

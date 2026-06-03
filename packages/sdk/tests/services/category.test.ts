@@ -124,26 +124,51 @@ describe("CategoryService", () => {
     expect(short.items).toEqual([{ id: "c3" }]);
   });
 
-  it("productsIn() returns PaginatedItems<Product>", async () => {
-    let seen: URLSearchParams | null = null;
+  it("productsIn() resolves category assignments to products", async () => {
+    let assignQuery: URLSearchParams | null = null;
+    let searchBody: unknown = null;
     server.use(
+      // 1. category assignments (references to products + other resources)
       http.get(
-        "https://api.emporix.io/category/acme/categories/c1/products",
+        "https://api.emporix.io/category/acme/categories/c1/assignments",
         ({ request }) => {
-          seen = new URL(request.url).searchParams;
-          return HttpResponse.json([{ id: "p1" }, { id: "p2" }]);
+          assignQuery = new URL(request.url).searchParams;
+          return HttpResponse.json([
+            { id: "a1", ref: { id: "p1", type: "PRODUCT", url: "…" } },
+            { id: "a2", ref: { id: "cat-sub", type: "CATEGORY", url: "…" } },
+            { id: "a3", ref: { id: "p2", type: "PRODUCT", url: "…" } },
+          ]);
         },
       ),
+      // 2. resolve the PRODUCT references to full products
+      http.post("https://api.emporix.io/product/acme/products/search", async ({ request }) => {
+        searchBody = await request.json();
+        return HttpResponse.json([{ id: "p1" }, { id: "p2" }]);
+      }),
     );
-    const page = await svc().productsIn("c1", { pageNumber: 1, pageSize: 2 });
+    const page = await svc().productsIn("c1", { pageNumber: 1, pageSize: 3 });
     expect(page).toEqual({
       items: [{ id: "p1" }, { id: "p2" }],
       pageNumber: 1,
-      pageSize: 2,
-      hasNextPage: true,
+      pageSize: 3,
+      hasNextPage: true, // assignments page was full (length === pageSize)
     });
-    expect((seen as URLSearchParams | null)?.get("pageNumber")).toBe("1");
-    expect((seen as URLSearchParams | null)?.get("pageSize")).toBe("2");
+    // assignments paged with the caller's params
+    expect((assignQuery as URLSearchParams | null)?.get("pageNumber")).toBe("1");
+    expect((assignQuery as URLSearchParams | null)?.get("pageSize")).toBe("3");
+    // only PRODUCT refs resolved; CATEGORY ref skipped
+    expect(searchBody).toEqual({ q: "id:(p1,p2)" });
+  });
+
+  it("productsIn() returns an empty page when a category has no product assignments", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories/c1/assignments", () =>
+        HttpResponse.json([{ id: "a2", ref: { id: "cat-sub", type: "CATEGORY", url: "…" } }]),
+      ),
+    );
+    const page = await svc().productsIn("c1", { pageNumber: 1, pageSize: 24 });
+    expect(page.items).toEqual([]);
+    expect(page.hasNextPage).toBe(false);
   });
 
   it("listAll() iterates categories across pages", async () => {
