@@ -74,12 +74,14 @@ export function productImages(p: Product): Media[] {
   return (p as ReadProduct).media ?? [];
 }
 
-/** Build the `matchByContext` items payload for a set of products. */
-export function priceMatchItems(products: Product[]): Array<{ itemId: { itemType: string; id: string } }> {
+/** Build the `matchByContext` items payload for a set of products (quantity is required). */
+export function priceMatchItems(
+  products: Product[],
+): Array<{ itemId: { itemType: string; id: string }; quantity: { quantity: number } }> {
   return products
     .map((p) => (p as ReadProduct).id)
     .filter((id): id is string => Boolean(id))
-    .map((id) => ({ itemId: { itemType: "PRODUCT", id } }));
+    .map((id) => ({ itemId: { itemType: "PRODUCT", id }, quantity: { quantity: 1 } }));
 }
 
 export interface PriceVM {

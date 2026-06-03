@@ -12,6 +12,7 @@ export function SetupScreen({ onSubmit }: { onSubmit: (c: DemoConfig) => void })
   const [host, setHost] = useState("");
   const [siteCode, setSiteCode] = useState("");
   const [currency, setCurrency] = useState("");
+  const [targetLocation, setTargetLocation] = useState("");
   const [touched, setTouched] = useState(false);
 
   const tenantError = touched && !isValidTenant(tenant) ? "Lowercase, 3–16 chars (a–z, 0–9)." : undefined;
@@ -21,7 +22,7 @@ export function SetupScreen({ onSubmit }: { onSubmit: (c: DemoConfig) => void })
     e.preventDefault();
     setTouched(true);
     if (!isValidTenant(tenant) || !clientId.trim()) return;
-    onSubmit({ tenant, storefrontClientId: clientId, host, siteCode, currency });
+    onSubmit({ tenant, storefrontClientId: clientId, host, siteCode, currency, targetLocation });
   }
 
   return (
@@ -78,7 +79,8 @@ export function SetupScreen({ onSubmit }: { onSubmit: (c: DemoConfig) => void })
           <div className="stack" style={{ marginTop: "var(--s-3)" }}>
             <Field label="Host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="https://api.emporix.io" />
             <Field label="Site code" value={siteCode} onChange={(e) => setSiteCode(e.target.value)} placeholder="main" />
-            <Field label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="CHF" />
+            <Field label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="CHF" hint="Currency + country are needed for prices to resolve." />
+            <Field label="Country (targetLocation)" value={targetLocation} onChange={(e) => setTargetLocation(e.target.value)} placeholder="CH" />
           </div>
         </details>
         <div style={{ marginTop: "var(--s-4)" }}>

@@ -14,9 +14,10 @@ import { Search } from "./pages/Search";
 import { Category } from "./pages/Category";
 
 function buildClient(c: DemoConfig): EmporixClient {
-  const context: { siteCode?: string; currency?: string } = {};
+  const context: { siteCode?: string; currency?: string; targetLocation?: string } = {};
   if (c.siteCode) context.siteCode = c.siteCode;
   if (c.currency) context.currency = c.currency;
+  if (c.targetLocation) context.targetLocation = c.targetLocation;
   return new EmporixClient({
     tenant: c.tenant,
     ...(c.host ? { host: c.host } : {}),
