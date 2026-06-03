@@ -1,0 +1,111 @@
+/* Catalogue — asymmetric editorial grid + product cards. */
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--gutter) var(--gutter);
+}
+@media (min-width: 48rem) {
+  .product-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  /* asymmetry: the lead item commands two columns */
+  .product-grid > .pc--lead {
+    grid-column: span 2;
+  }
+}
+@media (min-width: 68rem) {
+  .product-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.pc {
+  display: block;
+  color: inherit;
+}
+.pc__media {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.pc--lead .pc__media {
+  aspect-ratio: 3 / 2;
+}
+.pc__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.8s var(--ease);
+}
+.pc:hover .pc__media img {
+  transform: scale(1.045);
+}
+.pc__ph {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(120% 120% at 30% 20%, var(--paper-3), var(--paper-2));
+}
+.pc__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--s-3);
+}
+.pc__name {
+  font-family: var(--font-display);
+  font-size: var(--step-1);
+  font-weight: 440;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+.pc__name .u-underline {
+  background-position: 0 95%;
+}
+.pc__price {
+  font-size: var(--step-0);
+  margin-top: 2px;
+}
+
+/* Hero */
+.hero {
+  display: grid;
+  gap: var(--s-4);
+  padding-block: clamp(var(--s-6), 4vw, var(--s-8)) var(--s-6);
+  border-bottom: 1px solid var(--line);
+}
+.hero__title {
+  max-width: 16ch;
+}
+.hero__lead {
+  max-width: 46ch;
+  color: var(--ink-2);
+  font-size: var(--step-1);
+}
+
+/* Category nav — horizontal rule of links */
+.catnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  padding-block: var(--s-5);
+}
+.catnav a {
+  font-family: var(--font-display);
+  font-size: var(--step-1);
+  color: var(--ink-2);
+}
+.catnav a:hover {
+  color: var(--oxblood);
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-block: var(--s-6) var(--s-5);
+}

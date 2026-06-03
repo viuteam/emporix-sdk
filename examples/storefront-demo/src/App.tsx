@@ -9,6 +9,9 @@ import { ToastProvider } from "./app/Toasts";
 import { RouteError } from "./app/RouteError";
 import { pushTelemetry } from "./app/telemetry-store";
 import { Placeholder } from "./pages/Placeholder";
+import { Home } from "./pages/Home";
+import { Search } from "./pages/Search";
+import { Category } from "./pages/Category";
 
 function buildClient(c: DemoConfig): EmporixClient {
   const context: { siteCode?: string; currency?: string } = {};
@@ -44,9 +47,9 @@ function DemoApp({ config, reset }: { config: DemoConfig; reset: () => void }) {
           <AppShell tenant={config.tenant} onReset={reset}>
             <RouteError>
               <Routes>
-                <Route path="/" element={<Placeholder title="Catalogue" />} />
-                <Route path="/search" element={<Placeholder title="Search" />} />
-                <Route path="/category/:id" element={<Placeholder title="Category" />} />
+                <Route path="/" element={<Home />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/category/:id" element={<Category />} />
                 <Route path="/product/:idOrCode" element={<Placeholder title="Product" />} />
                 <Route path="/cart" element={<Placeholder title="Cart" />} />
                 <Route path="/checkout" element={<Placeholder title="Checkout" />} />

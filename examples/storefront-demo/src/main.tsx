@@ -5,6 +5,7 @@ import "@fontsource-variable/fraunces/wght-italic.css";
 import "@fontsource-variable/hanken-grotesk";
 import "./styles/tokens.css";
 import "./styles/global.css";
+import "./styles/catalog.css";
 import { App } from "./App";
 
 const root = document.getElementById("root");
