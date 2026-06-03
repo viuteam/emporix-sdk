@@ -12,13 +12,14 @@ export {
 export type {
   LogLevel, Logger, LogFields, LoggerConfig, LoggerObjectConfig, ServiceName,
 } from "./core/logger";
-export { auth, resolveToken, DefaultTokenProvider } from "./core/auth";
+export { auth, resolveToken, DefaultTokenProvider, CustomerRefreshRegistry } from "./core/auth";
 export type {
   AuthKind,
   AuthContext,
   AnonymousSession,
   TokenProvider,
   AnonymousSessionStore,
+  CustomerTokenRefresher,
 } from "./core/auth";
 export { HttpClient } from "./core/http";
 export type { RequestOptions, HttpClientOptions } from "./core/http";
