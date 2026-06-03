@@ -1,5 +1,22 @@
 # @viu/emporix-sdk
 
+## 2.6.0
+
+### Minor Changes
+
+- [#92](https://github.com/viuteam/emporix-sdk/pull/92) [`45a2bd8`](https://github.com/viuteam/emporix-sdk/commit/45a2bd8d83cb46d775301790cb2efc60805efc90) Thanks [@amnael1](https://github.com/amnael1)! - Add opt-in reactive customer-token auto-refresh.
+
+  Core: `EmporixClient.setCustomerTokenRefresher(refresher)` registers a
+  single-flight `CustomerTokenRefresher`; on a `customer`-kind 401 the HTTP layer
+  refreshes once and retries. Off by default — the customer token stays
+  caller-owned.
+
+  React: `EmporixProvider` gains `autoRefreshCustomerToken` and
+  `onCustomerSessionExpired`. When enabled, a customer 401 is transparently
+  refreshed via the stored refresh token (anonymous-authorized
+  `GET /refreshauthtoken`) and the request is retried; B2B `legalEntityId` is
+  preserved.
+
 ## 2.5.0
 
 ### Minor Changes
