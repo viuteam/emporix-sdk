@@ -1,43 +1,67 @@
-import { Button } from "./components/ui/Button";
-import { Field, SelectField } from "./components/ui/Field";
-import { Tag } from "./components/ui/Tag";
-import { Loading } from "./components/ui/Spinner";
-import { EmptyState } from "./components/ui/EmptyState";
+import { useMemo } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { EmporixClient } from "@viu/emporix-sdk";
+import { EmporixProvider, createLocalStorageStorage } from "@viu/emporix-sdk-react";
+import { ConfigGate } from "./config/ConfigGate";
+import type { DemoConfig } from "./config/useDemoConfig";
+import { AppShell } from "./app/AppShell";
+import { ToastProvider } from "./app/Toasts";
+import { RouteError } from "./app/RouteError";
+import { pushTelemetry } from "./app/telemetry-store";
+import { Placeholder } from "./pages/Placeholder";
 
-// Temporary design-system showcase — replaced by the router in Task 4.
-export function App() {
+function buildClient(c: DemoConfig): EmporixClient {
+  const context: { siteCode?: string; currency?: string } = {};
+  if (c.siteCode) context.siteCode = c.siteCode;
+  if (c.currency) context.currency = c.currency;
+  return new EmporixClient({
+    tenant: c.tenant,
+    ...(c.host ? { host: c.host } : {}),
+    credentials: {
+      storefront: {
+        clientId: c.storefrontClientId,
+        ...(Object.keys(context).length ? { context } : {}),
+      },
+    },
+    logger: { level: "warn" },
+  });
+}
+
+function DemoApp({ config, reset }: { config: DemoConfig; reset: () => void }) {
+  const client = useMemo(() => buildClient(config), [config]);
+  const storage = useMemo(() => createLocalStorageStorage(), []);
+
   return (
-    <main className="container" style={{ paddingBlock: "var(--s-7)" }}>
-      <p className="eyebrow reveal">Emporix · Storefront Demo</p>
-      <h1 className="reveal" style={{ marginBlock: "var(--s-3) var(--s-5)" }}>
-        Editorial <span style={{ fontStyle: "italic", color: "var(--oxblood)" }}>Luxe</span>
-        <br /> design system
-      </h1>
-      <hr className="rule" />
-
-      <section className="stack reveal" style={{ marginTop: "var(--s-6)" }}>
-        <div className="cluster">
-          <Button variant="accent">Add to bag</Button>
-          <Button variant="solid">Checkout</Button>
-          <Button variant="outline">Continue</Button>
-          <Button variant="ghost">Cancel</Button>
-          <Tag accent>New</Tag>
-          <Tag>Knitwear</Tag>
-          <span className="price" style={{ fontSize: "var(--step-1)" }}>CHF 189.00</span>
-        </div>
-
-        <div style={{ maxWidth: "26rem" }} className="stack">
-          <Field label="Email" type="email" placeholder="you@example.com" />
-          <Field label="Password" type="password" error="Required" />
-          <SelectField label="Site">
-            <option>main</option>
-            <option>secondary</option>
-          </SelectField>
-        </div>
-
-        <Loading label="Loading catalogue" />
-        <EmptyState title="Nothing here yet">Your bag is empty — discover the new season.</EmptyState>
-      </section>
-    </main>
+    <EmporixProvider
+      client={client}
+      storage={storage}
+      autoRefreshCustomerToken
+      onTelemetry={pushTelemetry}
+      {...(config.siteCode ? { initialSiteCode: config.siteCode } : {})}
+    >
+      <ToastProvider>
+        <BrowserRouter>
+          <AppShell tenant={config.tenant} onReset={reset}>
+            <RouteError>
+              <Routes>
+                <Route path="/" element={<Placeholder title="Catalogue" />} />
+                <Route path="/search" element={<Placeholder title="Search" />} />
+                <Route path="/category/:id" element={<Placeholder title="Category" />} />
+                <Route path="/product/:idOrCode" element={<Placeholder title="Product" />} />
+                <Route path="/cart" element={<Placeholder title="Cart" />} />
+                <Route path="/checkout" element={<Placeholder title="Checkout" />} />
+                <Route path="/account/*" element={<Placeholder title="Account" />} />
+                <Route path="/reset-password" element={<Placeholder title="Reset password" />} />
+                <Route path="*" element={<Placeholder title="Not found" />} />
+              </Routes>
+            </RouteError>
+          </AppShell>
+        </BrowserRouter>
+      </ToastProvider>
+    </EmporixProvider>
   );
+}
+
+export function App() {
+  return <ConfigGate>{(config, reset) => <DemoApp config={config} reset={reset} />}</ConfigGate>;
 }
