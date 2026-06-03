@@ -77,7 +77,7 @@ asymmetric grid, large type, one sharp accent.
 - Storage: `createLocalStorageStorage()` so the customer session + cart survive
   reloads.
 
-## Routes (react-router 6, SPA)
+## Routes (react-router 7, SPA)
 
 | Path | Page | Hooks |
 |---|---|---|
@@ -139,12 +139,33 @@ in README that this creates real orders → use a test tenant.
 - Picked up by the `examples/*` workspace glob automatically.
 - Scripts mirror vite-spa: `dev` (vite), `build` (vite build), `typecheck`
   (`tsc --noEmit`), `test`/`lint` (noop echoes — keeps `pnpm -r` green).
-- Deps: `react@^18.3`, `react-dom@^18.3`, `react-router-dom@^6.26`,
-  `@tanstack/react-query@^5.51`, `@viu/emporix-sdk` + `-react` (`workspace:*`),
-  `@fontsource-variable/fraunces`, `@fontsource-variable/hanken-grotesk`.
-  Dev: vite 5, `@vitejs/plugin-react` 4, typescript 5.6, `@types/react(-dom)` 18.
+- **Toolchain: current majors** (this example intentionally runs newer
+  versions than the other examples — see validation note below):
+  - `react@^19`, `react-dom@^19`, `@types/react@^19`, `@types/react-dom@^19`
+  - `react-router-dom@^7` (keeps the v6 `<Routes>` / `createBrowserRouter` API)
+  - `@tanstack/react-query@^5.51` (v5 supports React 19)
+  - `@viu/emporix-sdk` + `@viu/emporix-sdk-react` (`workspace:*`)
+  - `@fontsource-variable/fraunces`, `@fontsource-variable/hanken-grotesk`
+  - Dev: latest `vite` + matching `@vitejs/plugin-react`, `typescript@^5.6`.
+- The plan's scaffold step installs these with `pnpm add` (latest within the
+  pinned majors) and **records the resolved versions** in the example's
+  `package.json` — rather than guessing patch numbers here.
 - `tsconfig.json` extends `../../tsconfig.base.json` (same as vite-spa). Examples
   typecheck against built `dist/` → CI must build SDK first (already the rule).
+
+### Version validation (React 19)
+
+- `@viu/emporix-sdk-react`'s peer is `"react": "^18.0.0 || ^19.0.0"`, so **React
+  19 is supported**; the package ships React-version-agnostic (react is a peer,
+  not bundled).
+- The rest of the repo currently sits on React 18.3.1 (lockfile + the other
+  examples). **pnpm resolves React per importer**, so this example can run React
+  19 while `packages/*` and the other examples stay on 18.3 — no duplicate-React
+  runtime conflict, because the example's own tree resolves a single React 19
+  that satisfies the SDK's peer.
+- `@tanstack/react-query@^5` and `react-router-dom@^7` both support React 19.
+- Trade-off accepted: this adds a second React major to the lockfile. Justified
+  by the goal — the demo should showcase the **current** stack.
 - README: setup (tenant + storefront clientId), run command, the real-order
   warning, and a flow checklist.
 
@@ -170,3 +191,7 @@ green; setup gate → catalog renders). Not added to Playwright.
 - `@fontsource-variable` package names must be verified at install.
 - Real-order flow depends on the tenant having a usable payment mode + shipping;
   the demo surfaces whatever `usePaymentModes` returns and lets the tenant decide.
+- At scaffold, verify the `vite` ↔ `@vitejs/plugin-react` major pairing and that
+  `react-router-dom@7`'s `<Routes>`/`createBrowserRouter` usage matches the v6
+  patterns in `vite-spa` (RR7 keeps them; confirm no codemod is needed). Pin
+  whatever `pnpm add` resolves.
