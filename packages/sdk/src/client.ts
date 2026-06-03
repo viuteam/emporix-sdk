@@ -1,5 +1,10 @@
 import { validateConfig, type EmporixConfig, type ResolvedConfig } from "./core/config";
-import { DefaultTokenProvider, type TokenProvider } from "./core/auth";
+import {
+  DefaultTokenProvider,
+  CustomerRefreshRegistry,
+  type TokenProvider,
+  type CustomerTokenRefresher,
+} from "./core/auth";
 import { HttpClient } from "./core/http";
 import {
   LevelResolver,
@@ -118,6 +123,7 @@ export class EmporixClient {
    */
   readonly config: ResolvedConfig;
   private readonly resolver: LevelResolver;
+  private readonly customerRefresh: CustomerRefreshRegistry;
 
   constructor(config: EmporixConfig) {
     const cfg = validateConfig(config);
@@ -145,6 +151,9 @@ export class EmporixClient {
     const tokenProvider: TokenProvider = cfg.tokenProvider ?? new DefaultTokenProvider(cfg);
     this.tokenProvider = tokenProvider;
 
+    const customerRefresh = new CustomerRefreshRegistry();
+    this.customerRefresh = customerRefresh;
+
     const mk = (service: ServiceName): ClientContext => ({
       tenant: cfg.tenant,
       tokenProvider,
@@ -155,6 +164,7 @@ export class EmporixClient {
         logger: root.child({ service: "http" }),
         retry: cfg.retry,
         timeouts: cfg.timeouts,
+        customerRefresh,
       }),
     });
 
@@ -215,5 +225,15 @@ export class EmporixClient {
   /** Returns the effective log level for a service. */
   getLogLevel(service: ServiceName): LogLevel {
     return this.resolver.get(service);
+  }
+
+  /**
+   * Registers (or clears with `null`) a customer-token refresher. When set, a
+   * `customer`-kind 401 triggers one refresh-and-retry. Off by default — the
+   * customer token stays caller-owned. The React `EmporixProvider` wires this
+   * automatically via `autoRefreshCustomerToken`.
+   */
+  setCustomerTokenRefresher(refresher: CustomerTokenRefresher | null): void {
+    this.customerRefresh.set(refresher);
   }
 }

@@ -151,6 +151,10 @@ is present), `isAuthenticated`, `isLoading`, `login`, `signup`, `logout`,
 `refresh`. `login` stores the token and invalidates customer + cart queries;
 `logout` clears the token and removes those queries.
 
+To refresh the customer token automatically on a 401, opt in with the
+`autoRefreshCustomerToken` provider prop (+ `onCustomerSessionExpired`). See
+[Customer token auto-refresh](./auth.md#customer-token-auto-refresh-opt-in).
+
 After a successful `login` (or `socialLogin` / `exchangeToken`), the hook runs a best-effort cart-onboarding step: it pulls the customer's open cart from Emporix (`client.carts.getCurrent({ siteCode, create: true })`), merges any guest cart-id from storage into it, and writes the customer-cart-id back to `storage.setCartId(...)`. The UI sees the cart immediately on the next render. See [Customer cart on login](./auth.md#customer-cart-on-login) for the full flow and skip conditions.
 
 Query hooks (`useProduct(s)`, `useProductsInfinite`, `useCategory(ies)`,

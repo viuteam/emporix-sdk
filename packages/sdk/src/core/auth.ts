@@ -11,6 +11,20 @@ export type AuthContext =
   | { kind: "customer"; token: string }
   | { kind: "raw"; token: string };
 
+/**
+ * Supplies a fresh customer token when a `customer`-kind request 401s. The host
+ * (e.g. EmporixProvider) implements this; the SDK never refreshes the
+ * caller-owned customer token unless a refresher is registered.
+ */
+export interface CustomerTokenRefresher {
+  /**
+   * Called on a `customer`-kind 401. Receives the token that just failed;
+   * returns a fresh customer token to retry with, or `null` to give up (the
+   * 401 then propagates as EmporixAuthError).
+   */
+  refresh(expiredToken: string): Promise<string | null>;
+}
+
 /** An obtained anonymous storefront session. */
 export interface AnonymousSession {
   accessToken: string;
@@ -88,6 +102,36 @@ export async function resolveToken(ctx: AuthContext, provider: TokenProvider): P
     case "customer":
     case "raw":
       return ctx.token;
+  }
+}
+
+/**
+ * Late-bindable, single-flight holder for an optional
+ * {@link CustomerTokenRefresher}. Single-flight is required because Emporix
+ * rotates the refresh token on each refresh — concurrent refreshes would
+ * invalidate each other. Off (returns `null`) until a refresher is set.
+ */
+export class CustomerRefreshRegistry {
+  private refresher: CustomerTokenRefresher | null = null;
+  private inflight: Promise<string | null> | null = null;
+
+  set(refresher: CustomerTokenRefresher | null): void {
+    this.refresher = refresher;
+  }
+
+  get enabled(): boolean {
+    return this.refresher !== null;
+  }
+
+  /** Concurrent callers share one in-flight refresh. */
+  refresh(expiredToken: string): Promise<string | null> {
+    if (!this.refresher) return Promise.resolve(null);
+    if (this.inflight) return this.inflight;
+    const p = Promise.resolve(this.refresher.refresh(expiredToken)).finally(() => {
+      this.inflight = null;
+    });
+    this.inflight = p;
+    return p;
   }
 }
 

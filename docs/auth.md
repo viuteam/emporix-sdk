@@ -34,6 +34,63 @@ single process).
   server-side (`GET /customer/{tenant}/logout`); `useCustomerSession().logout()`
   does this best-effort before clearing the local session.
 
+By default a `customer` 401 propagates. You can opt in to reactive auto-refresh
+— see below.
+
+## Customer token auto-refresh (opt-in)
+
+Customer access tokens are long-lived (Emporix: **30 days**) but do expire and
+can be revoked. You can opt in to a **reactive** refresh: on a `customer`-kind
+401, refresh once via the stored refresh token and retry the original request.
+It is **off by default** — the customer token stays caller-owned.
+
+**React** — set the provider prop:
+
+```tsx
+<EmporixProvider
+  client={client}
+  storage={storage}
+  autoRefreshCustomerToken
+  onCustomerSessionExpired={() => {
+    // refresh impossible (no/expired refresh token) — drive logout/redirect.
+    // May fire more than once (once per failed in-flight request) — make it idempotent.
+  }}
+>
+```
+
+When enabled, a customer 401 triggers `GET /customer/{tenant}/refreshauthtoken`
+(authorized with the SDK's anonymous token), the new `customerToken` +
+rotated `refreshToken` are written to storage, and the request is retried with
+the fresh token. B2B `legalEntityId` (from `storage.getActiveLegalEntityId()`)
+is preserved across the refresh. Telemetry: an `auth.refresh { kind: "customer" }`
+event is emitted (success or failure).
+
+**Non-React / core** — register a refresher directly:
+
+```ts
+client.setCustomerTokenRefresher({
+  refresh: async (expiredToken) => {
+    // return a fresh customer token, or null to give up (401 then propagates)
+    const s = await client.customers.refresh({ refreshToken: myStoredRefreshToken });
+    persist(s.customerToken, s.refreshToken);
+    return s.customerToken;
+  },
+});
+// client.setCustomerTokenRefresher(null) to disable.
+```
+
+Guarantees and limits:
+
+- **Single-flight.** Concurrent customer-401s share **one** refresh — Emporix
+  rotates the refresh token, so parallel refreshes would invalidate each other.
+- **Retry-once.** A request is refreshed at most once; if it still 401s, the
+  error propagates.
+- **`saasToken` is not restored** by auto-refresh (it is not persisted and the
+  refresh response omits it) — re-login to restore `saas-token` continuity.
+- **`requestRaw` is not covered** (binary/redirect endpoints).
+- On the server, create the client **per request** — the refresher registry is
+  per-client, so a shared instance must not carry per-user customer tokens.
+
 ## Persisting anonymous sessions
 
 The SDK can persist the anonymous refresh token + `sessionId` across page

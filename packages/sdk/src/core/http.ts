@@ -1,4 +1,9 @@
-import { type AuthContext, type TokenProvider, resolveToken } from "./auth";
+import {
+  type AuthContext,
+  type TokenProvider,
+  type CustomerRefreshRegistry,
+  resolveToken,
+} from "./auth";
 import { errorFromResponse } from "./errors";
 import type { Logger } from "./logger";
 
@@ -24,6 +29,8 @@ export interface HttpClientOptions {
   timeouts: { connectMs: number; readMs: number };
   /** Override the retry backoff delay (ms → Promise). Defaults to a real timer. */
   sleep?: (ms: number) => Promise<void>;
+  /** Opt-in customer-token refresher registry (off unless a refresher is set). */
+  customerRefresh?: CustomerRefreshRegistry;
 }
 
 let requestSeq = 0;
@@ -54,9 +61,11 @@ export class HttpClient {
     const sdkManaged = o.auth.kind === "service" || o.auth.kind === "anonymous";
     const maxAttempts = this.opts.retry.maxAttempts;
     let reauthed = false;
+    let customerToken = o.auth.kind === "customer" ? o.auth.token : undefined;
+    let customerReauthed = false;
 
     for (let attempt = 1; ; attempt++) {
-      const token = await resolveToken(o.auth, this.opts.provider);
+      const token = customerToken ?? (await resolveToken(o.auth, this.opts.provider));
       log.debug("http request", {
         authKind: o.auth.kind,
         method: o.method,
@@ -116,6 +125,19 @@ export class HttpClient {
           }
           log.warn("sdk-managed 401, re-authing once", { authKind: o.auth.kind });
           continue;
+        }
+        if (
+          o.auth.kind === "customer" &&
+          !customerReauthed &&
+          this.opts.customerRefresh?.enabled
+        ) {
+          customerReauthed = true;
+          const fresh = await this.opts.customerRefresh.refresh(customerToken!);
+          if (fresh) {
+            customerToken = fresh;
+            log.warn("customer 401, refreshed once", { authKind: o.auth.kind });
+            continue;
+          }
         }
         throw errorFromResponse(res.status, `${o.method} ${o.path} → 401`, parsed);
       }
