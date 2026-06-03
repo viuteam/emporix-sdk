@@ -31,8 +31,8 @@ const server = setupServer(
   http.get("https://api.emporix.io/category/acme/categories", () =>
     HttpResponse.json([{ id: "c1" }]),
   ),
-  http.get("https://api.emporix.io/category/acme/categories/tree", () =>
-    HttpResponse.json({ id: "root", children: [] }),
+  http.get("https://api.emporix.io/category/acme/category-trees", () =>
+    HttpResponse.json([{ id: "root", name: "Root" }]),
   ),
   http.post("https://api.emporix.io/customer/acme/signup", () =>
     HttpResponse.json({ id: "c1", contactEmail: "a@b.co" }),
@@ -93,14 +93,14 @@ describe("remaining query hooks", () => {
         p: useProducts({ pageSize: 1 }),
         pi: useProductsInfinite({ pageSize: 1 }),
         c: useCategories(),
-        t: useCategoryTree("root"),
+        t: useCategoryTree(),
       }),
       { wrapper: wrap() },
     );
     await waitFor(() => expect(result.current.p.data?.items).toHaveLength(1));
     await waitFor(() => expect(result.current.pi.data?.pages[0]?.items).toHaveLength(1));
     await waitFor(() => expect(result.current.c.data?.items).toHaveLength(1));
-    await waitFor(() => expect(result.current.t.data?.id).toBe("root"));
+    await waitFor(() => expect(result.current.t.data?.[0]?.id).toBe("root"));
   });
 
   it("query hooks accept an explicit auth override", async () => {

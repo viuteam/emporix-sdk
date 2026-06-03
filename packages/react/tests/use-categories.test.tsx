@@ -8,6 +8,7 @@ import { EmporixProvider } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
 import {
   useCategory,
+  useSubcategories,
   useCategories,
   useProductsInCategory,
   useProductsInCategoryInfinite,
@@ -49,6 +50,22 @@ describe("category hooks", () => {
     await waitFor(() => expect(result.current.data?.name).toBe("Books"));
   });
 
+  it("useSubcategories resolves CATEGORY assignments (disabled without an id)", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories/c1/assignments", () =>
+        HttpResponse.json([{ ref: { id: "sub1", type: "CATEGORY", url: "" } }]),
+      ),
+      http.post("https://api.emporix.io/category/acme/categories/search", () =>
+        HttpResponse.json([{ id: "sub1", name: "Shirts" }]),
+      ),
+    );
+    const idle = renderHook(() => useSubcategories(undefined), { wrapper: wrap() });
+    expect(idle.result.current.fetchStatus).toBe("idle");
+
+    const { result } = renderHook(() => useSubcategories("c1"), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.data?.[0]?.id).toBe("sub1"));
+  });
+
   it("useCategories returns PaginatedItems<Category>", async () => {
     server.use(
       http.get("https://api.emporix.io/category/acme/categories", () =>
@@ -72,15 +89,21 @@ describe("useProductsInCategory", () => {
     expect(result.current.fetchStatus).toBe("idle");
   });
 
-  it("GETs products by category id with pageSize", async () => {
+  it("resolves category assignments to products with pageSize", async () => {
     let seenQuery: URLSearchParams | undefined;
     server.use(
       http.get(
-        "https://api.emporix.io/category/acme/categories/c1/products",
+        "https://api.emporix.io/category/acme/categories/c1/assignments",
         ({ request }) => {
           seenQuery = new URL(request.url).searchParams;
-          return HttpResponse.json([{ id: "p1" }, { id: "p2" }]);
+          return HttpResponse.json([
+            { ref: { id: "p1", type: "PRODUCT", url: "" } },
+            { ref: { id: "p2", type: "PRODUCT", url: "" } },
+          ]);
         },
+      ),
+      http.post("https://api.emporix.io/product/acme/products/search", () =>
+        HttpResponse.json([{ id: "p1" }, { id: "p2" }]),
       ),
     );
     const { result } = renderHook(
@@ -104,15 +127,23 @@ describe("useProductsInCategoryInfinite", () => {
     let calls = 0;
     server.use(
       http.get(
-        "https://api.emporix.io/category/acme/categories/c1/products",
+        "https://api.emporix.io/category/acme/categories/c1/assignments",
         ({ request }) => {
           calls += 1;
           const page = Number(new URL(request.url).searchParams.get("pageNumber") ?? "1");
           return page === 1
-            ? HttpResponse.json([{ id: "p1" }, { id: "p2" }])
-            : HttpResponse.json([{ id: "p3" }]);
+            ? HttpResponse.json([
+                { ref: { id: "p1", type: "PRODUCT", url: "" } },
+                { ref: { id: "p2", type: "PRODUCT", url: "" } },
+              ])
+            : HttpResponse.json([{ ref: { id: "p3", type: "PRODUCT", url: "" } }]);
         },
       ),
+      http.post("https://api.emporix.io/product/acme/products/search", async ({ request }) => {
+        const body = (await request.json()) as { q: string };
+        const ids = body.q.replace(/^id:\(|\)$/g, "").split(",");
+        return HttpResponse.json(ids.map((id) => ({ id })));
+      }),
     );
     const { result } = renderHook(
       () => useProductsInCategoryInfinite("c1", { pageSize: 2 }),

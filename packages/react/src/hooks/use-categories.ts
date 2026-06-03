@@ -6,7 +6,6 @@ import {
 import {
   type PaginatedItems,
   type Category,
-  type CategoryNode,
   type Product,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
@@ -28,6 +27,23 @@ export function useCategory(
   return useQuery({
     queryKey: emporixKey("category", [categoryId], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
     queryFn: () => client.categories.get(categoryId, ctx),
+    staleTime: CATEGORIES_STALE_TIME,
+  });
+}
+
+/** Direct child categories of a category (hierarchy drill-down). Disabled when id is empty. */
+export function useSubcategories(
+  categoryId: string | undefined,
+  params: { pageNumber?: number; pageSize?: number } = {},
+  options: QueryOpts = {},
+): UseQueryResult<Category[]> {
+  const { client } = useEmporix();
+  const { ctx } = useReadAuth(options.auth);
+  const { siteCode } = useReadSite();
+  return useQuery({
+    queryKey: emporixKey("subcategories", [categoryId ?? null, params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    enabled: typeof categoryId === "string" && categoryId !== "",
+    queryFn: () => client.categories.subcategories(categoryId as string, params, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
 }
@@ -66,17 +82,14 @@ export function useCategoriesInfinite(
   });
 }
 
-/** Fetches the category tree. */
-export function useCategoryTree(
-  rootId?: string,
-  options: QueryOpts = {},
-): UseQueryResult<CategoryNode> {
+/** The catalogue's root categories (published category trees) for top-level nav. */
+export function useCategoryTree(options: QueryOpts = {}): UseQueryResult<Category[]> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
   const { siteCode } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("category-tree", [rootId ?? null], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
-    queryFn: () => client.categories.tree(rootId, ctx),
+    queryKey: emporixKey("category-tree", [], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryFn: () => client.categories.tree(ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
 }

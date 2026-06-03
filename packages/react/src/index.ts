@@ -22,6 +22,7 @@ export {
   useSetShoppingListItemQuantity,
   useVariantChildren,
   useCategory,
+  useSubcategories,
   useCategories,
   useCategoriesInfinite,
   useCategoryTree,

@@ -50,7 +50,10 @@ const server = setupServer(
     const page = Number(new URL(request.url).searchParams.get("pageNumber") ?? "1");
     return HttpResponse.json(page === 1 ? [{ id: "c1" }, { id: "c2" }] : []);
   }),
-  http.get("https://api.emporix.io/category/acme/categories/c1/products", () =>
+  http.get("https://api.emporix.io/category/acme/categories/c1/assignments", () =>
+    HttpResponse.json([{ id: "a1", ref: { id: "p1", type: "PRODUCT", url: "…" } }]),
+  ),
+  http.post("https://api.emporix.io/product/acme/products/search", () =>
     HttpResponse.json([{ id: "p1" }]),
   ),
   // cart
