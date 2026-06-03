@@ -17,7 +17,8 @@ export async function loginAction(formData: FormData): Promise<void> {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
   const session = await sdk.customers.login({ email, password });
-  cookies().set("emporix.customerToken", session.customerToken, {
+  // Next 15: `cookies()` is async.
+  (await cookies()).set("emporix.customerToken", session.customerToken, {
     httpOnly: true,
     sameSite: "lax",
     secure: true,

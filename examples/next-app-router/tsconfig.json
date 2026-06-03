@@ -2,13 +2,32 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "preserve",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "module": "esnext",
     "moduleResolution": "bundler",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "noEmit": true,
-    "plugins": [{ "name": "next" }],
-    "verbatimModuleSyntax": false
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "verbatimModuleSyntax": false,
+    "allowJs": true,
+    "incremental": true,
+    "resolveJsonModule": true
   },
-  "include": ["next-env.d.ts", "app", ".next/types/**/*.ts"]
+  "include": [
+    "next-env.d.ts",
+    "app",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

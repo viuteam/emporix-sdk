@@ -4,12 +4,13 @@ import { Providers } from "./providers";
 
 export const metadata = { title: "Emporix SDK — Next App Router example" };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: ReactNode;
-}): React.JSX.Element {
-  const token = cookies().get("emporix.customerToken")?.value;
+}): Promise<React.JSX.Element> {
+  // Next 15: `cookies()` is async.
+  const token = (await cookies()).get("emporix.customerToken")?.value;
   const providerProps = token !== undefined ? { initialCustomerToken: token } : {};
   return (
     <html lang="en">
