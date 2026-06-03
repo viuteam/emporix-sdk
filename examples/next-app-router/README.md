@@ -1,6 +1,6 @@
 # Emporix SDK — Next.js App Router example
 
-Next.js 14 App Router: RSC catalog (SDK called directly on the server),
+Next.js 15 App Router (React 19): RSC catalog (SDK called directly on the server),
 client-side cart hooks, and a customer login Server Action that sets an
 httpOnly cookie hydrated into the provider via `initialCustomerToken`.
 
