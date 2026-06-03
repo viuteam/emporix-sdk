@@ -20,6 +20,7 @@ export { useVariantChildren } from "./use-variant-children";
 export type { UseVariantChildrenOptions } from "./use-variant-children";
 export {
   useCategory,
+  useSubcategories,
   useCategories,
   useCategoriesInfinite,
   useCategoryTree,

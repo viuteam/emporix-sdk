@@ -1,12 +1,24 @@
 ---
-"@viu/emporix-sdk": patch
+"@viu/emporix-sdk": minor
+"@viu/emporix-sdk-react": minor
 ---
 
-Fix `client.categories.productsIn(...)`, which requested a non-existent
-`/category/{tenant}/categories/{id}/products` route and always 404'd. The
-category service exposes products as **assignments**, so `productsIn` now
-fetches `/categories/{id}/assignments`, keeps the `PRODUCT` references, and
-resolves them to full products via `/products/search` — preserving its
-`PaginatedItems<Product>` contract (pagination follows the assignments page).
-Categories with no product assignments now return an empty page instead of
-throwing.
+Fix and extend the Category service for catalogue + hierarchy browsing. Several
+methods targeted routes that don't exist on the deployed category service
+(verified against a live tenant):
+
+- **`categories.productsIn(...)`** requested a non-existent
+  `/categories/{id}/products` route (always 404). It now resolves products via
+  category **assignments** (`/categories/{id}/assignments` → keep `PRODUCT`
+  refs → `/products/search`), preserving its `PaginatedItems<Product>` contract;
+  categories with no products return an empty page instead of throwing.
+- **`categories.tree()`** pointed at a non-existent `/categories/{...}Tree`
+  route. It now reads `/category-trees` and returns the catalogue's **root
+  categories** (`Promise<Category[]>`) for top-level navigation. (Return type
+  changed from the previous nested-node shape; the `rootId` argument is removed.)
+- **New `categories.subcategories(categoryId)`** (+ React `useSubcategories`):
+  a category's direct child categories, resolved from `CATEGORY` assignment refs
+  (mirrors `productsIn`). Returns `[]` when there are none.
+
+React `useCategoryTree()` now returns `Category[]` (root categories) and takes no
+`rootId`.

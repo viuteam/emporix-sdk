@@ -47,14 +47,43 @@ export class CategoryService {
     return iterateAll<Category>((pageNumber) => this.list({ pageNumber, pageSize }, auth));
   }
 
-  /** Fetches the category tree, optionally rooted at `rootId`. */
-  async tree(rootId?: string, auth: AuthContext = ANON): Promise<CategoryNode> {
-    return this.ctx.http.request<CategoryNode>({
+  /**
+   * The catalogue's **root categories** — the published category trees
+   * (`GET /category-trees`). Use these for top-level storefront navigation;
+   * drill into a node's children with {@link subcategories}.
+   */
+  async tree(auth: AuthContext = ANON): Promise<Category[]> {
+    return this.ctx.http.request<Category[]>({
       method: "GET",
-      path: `/category/${this.ctx.tenant}/categories/tree`,
-      query: rootId ? { rootId } : {},
+      path: `/category/${this.ctx.tenant}/category-trees`,
       auth,
     });
+  }
+
+  /**
+   * Direct child categories of a category (for hierarchy drill-down). Mirrors
+   * {@link productsIn}: reads the category's **assignments** and keeps the
+   * `CATEGORY` references, resolving them to full categories. Returns an empty
+   * array when the category has no child categories.
+   */
+  async subcategories(
+    categoryId: string,
+    params: { pageNumber?: number; pageSize?: number } = {},
+    auth: AuthContext = ANON,
+  ): Promise<Category[]> {
+    const pageNumber = params.pageNumber ?? 1;
+    const pageSize = params.pageSize ?? 50;
+    const assignments = await this.ctx.http.request<Array<{ ref?: { id?: string; type?: string } }>>({
+      method: "GET",
+      path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments`,
+      query: { pageNumber, pageSize },
+      auth,
+    });
+    const categoryIds = assignments
+      .map((a) => (a.ref?.type?.toUpperCase() === "CATEGORY" ? a.ref.id : undefined))
+      .filter((id): id is string => Boolean(id));
+    if (categoryIds.length === 0) return [];
+    return this.searchByIds(categoryIds, {}, auth);
   }
 
   /**

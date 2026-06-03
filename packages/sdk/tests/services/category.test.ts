@@ -17,10 +17,9 @@ const server = setupServer(
   http.get("https://api.emporix.io/category/acme/categories/c1", () =>
     HttpResponse.json({ id: "c1", name: "Books" }),
   ),
-  http.get("https://api.emporix.io/category/acme/categories/tree", ({ request }) => {
-    const u = new URL(request.url);
-    return HttpResponse.json({ id: u.searchParams.get("rootId") ?? "root", children: [] });
-  }),
+  http.get("https://api.emporix.io/category/acme/category-trees", () =>
+    HttpResponse.json([{ id: "t1", name: "Sport" }, { id: "t2", name: "Wellness" }]),
+  ),
 );
 beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
@@ -45,8 +44,36 @@ describe("CategoryService", () => {
   it("get() returns a category", async () => {
     expect((await svc().get("c1")).name).toBe("Books");
   });
-  it("tree() passes rootId when provided", async () => {
-    expect((await svc().tree("root-7")).id).toBe("root-7");
+  it("tree() returns the catalogue's root categories", async () => {
+    const roots = await svc().tree();
+    expect(roots.map((c) => c.id)).toEqual(["t1", "t2"]);
+  });
+  it("subcategories() resolves CATEGORY assignments to child categories", async () => {
+    let searchBody: unknown = null;
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories/c1/assignments", () =>
+        HttpResponse.json([
+          { ref: { id: "sub1", type: "CATEGORY", url: "…" } },
+          { ref: { id: "p9", type: "PRODUCT", url: "…" } }, // product ref ignored
+          { ref: { id: "sub2", type: "category", url: "…" } }, // lowercase tolerated
+        ]),
+      ),
+      http.post("https://api.emporix.io/category/acme/categories/search", async ({ request }) => {
+        searchBody = await request.json();
+        return HttpResponse.json([{ id: "sub1", name: "Shirts" }, { id: "sub2", name: "Trousers" }]);
+      }),
+    );
+    const subs = await svc().subcategories("c1", { pageSize: 50 });
+    expect(subs.map((s) => s.id)).toEqual(["sub1", "sub2"]);
+    expect(searchBody).toEqual({ q: "id:(sub1,sub2)" });
+  });
+  it("subcategories() returns [] when a category has no child categories", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories/c1/assignments", () =>
+        HttpResponse.json([{ ref: { id: "p1", type: "PRODUCT", url: "…" } }]),
+      ),
+    );
+    expect(await svc().subcategories("c1")).toEqual([]);
   });
   it("returns generated category fields the old facade dropped", async () => {
     server.use(
