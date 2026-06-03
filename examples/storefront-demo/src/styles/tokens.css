@@ -1,0 +1,52 @@
+/* Editorial Luxe — design tokens. One source of truth for the aesthetic. */
+:root {
+  /* Palette — warm paper, deep ink, a single oxblood accent. */
+  --paper: #f7f3ec;
+  --paper-2: #efe7d8;
+  --paper-3: #e9dfcc;
+  --ink: #14110d;
+  --ink-2: #3a342b;
+  --oxblood: #6b1f1f;
+  --oxblood-2: #511616;
+  --muted: #8a8175;
+  --line: #e3dccf;
+  --line-2: #d6ccb8;
+  --good: #3f5b3a;
+
+  /* Type */
+  --font-display: "Fraunces Variable", "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body: "Hanken Grotesk Variable", "Hanken Grotesk", system-ui, sans-serif;
+
+  /* Fluid type scale */
+  --step--2: clamp(0.69rem, 0.67rem + 0.1vw, 0.75rem);
+  --step--1: clamp(0.83rem, 0.79rem + 0.2vw, 0.94rem);
+  --step-0: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --step-1: clamp(1.2rem, 1.1rem + 0.5vw, 1.5rem);
+  --step-2: clamp(1.6rem, 1.35rem + 1.2vw, 2.4rem);
+  --step-3: clamp(2.1rem, 1.65rem + 2.2vw, 3.4rem);
+  --step-4: clamp(2.7rem, 1.9rem + 3.8vw, 5.2rem);
+
+  /* Space */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2.5rem;
+  --s-7: 4rem;
+  --s-8: 6rem;
+  --gutter: clamp(1.1rem, 0.5rem + 2.6vw, 3rem);
+  --maxw: 80rem;
+
+  --radius: 2px;
+  --radius-lg: 4px;
+  --line-w: 1px;
+
+  /* Depth — restrained, editorial */
+  --shadow-1: 0 1px 0 var(--line), 0 8px 24px -18px rgba(20, 17, 13, 0.45);
+  --shadow-2: 0 18px 50px -28px rgba(20, 17, 13, 0.5);
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur: 0.5s;
+}
