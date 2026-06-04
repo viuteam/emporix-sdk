@@ -3,8 +3,7 @@ export type {
   LegalEntity,
   LegalEntityCreate,
   LegalEntityUpdate,
-  LegalEntityType,
   AccountLimit,
   LegalInfo,
-  CustomerGroupRef,
+  CustomerGroup,
 } from "./generated/customer-management";

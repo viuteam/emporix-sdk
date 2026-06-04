@@ -176,9 +176,9 @@ describe("company mutation hooks", () => {
     let createReturned: unknown;
     await act(async () => {
       createReturned = await result.current.c.mutateAsync({
-        legalEntityId: "le-1",
         name: "HQ",
         type: "HEADQUARTER",
+        contactDetails: { city: "Zürich" },
       });
     });
     expect((createReturned as { id?: string }).id).toBe("loc-new");

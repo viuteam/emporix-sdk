@@ -49,10 +49,13 @@ export class LocationsService {
     });
   }
 
-  /** Patches a location. */
+  /**
+   * Patches a location. PATCH endpoint, so the body is a partial of the
+   * generated `LocationUpdate` shape.
+   */
   async update(
     locationId: string,
-    patch: LocationUpdate,
+    patch: Partial<LocationUpdate>,
     auth: AuthContext,
   ): Promise<Location> {
     return this.ctx.http.request<Location>({
