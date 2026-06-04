@@ -66,7 +66,7 @@ export function productName(p: Product): string {
   return pickText((p as ReadProduct).name, (p as ReadProduct).code ?? "");
 }
 
-/** Strip HTML tags → plain text (Emporix descriptions may contain markup). */
+/** Last-resort tag strip (SSR / no-DOM fallback for the HTML sanitizer). */
 function stripHtml(s: string): string {
   return s
     .replace(/<[^>]*>/g, " ")
@@ -75,8 +75,37 @@ function stripHtml(s: string): string {
     .trim();
 }
 
+const UNSAFE_TAGS = "script,style,iframe,object,embed,link,meta,base,form,input,template";
+
+/**
+ * Sanitize merchant-authored description HTML for safe rendering. Emporix
+ * descriptions may contain markup; we keep it (so it renders, not stripped)
+ * but drop script/style/embeds, `on*` handlers and `javascript:` URLs, and
+ * harden links. Uses the browser DOMParser — robust parsing, no dependency.
+ * For untrusted / user-generated HTML prefer a vetted sanitizer (e.g. DOMPurify).
+ */
+export function sanitizeHtml(html: string): string {
+  if (typeof DOMParser === "undefined") return stripHtml(html); // no-DOM fallback
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll(UNSAFE_TAGS).forEach((el) => el.remove());
+  doc.querySelectorAll("*").forEach((el) => {
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      if (name.startsWith("on") || /^\s*javascript:/i.test(attr.value)) {
+        el.removeAttribute(attr.name);
+      }
+    }
+    if (el.tagName === "A" && el.getAttribute("href")) {
+      el.setAttribute("rel", "noopener noreferrer nofollow");
+      el.setAttribute("target", "_blank");
+    }
+  });
+  return doc.body.innerHTML.trim();
+}
+
+/** Product description as sanitized HTML, ready for `dangerouslySetInnerHTML`. */
 export function productDescription(p: Product): string {
-  return stripHtml(pickText((p as ReadProduct).description, ""));
+  return sanitizeHtml(pickText((p as ReadProduct).description, ""));
 }
 
 export function productImages(p: Product): Media[] {

@@ -50,7 +50,15 @@ export function Product() {
               {money(price.amount, price.currency)}
             </p>
           ) : null}
-          {desc ? <p className="muted" style={{ marginTop: "var(--s-4)", maxWidth: "52ch" }}>{desc}</p> : null}
+          {desc ? (
+            // Description may contain merchant HTML — render it (sanitized in
+            // `productDescription`) rather than stripping the markup.
+            <div
+              className="pdp__desc muted"
+              style={{ marginTop: "var(--s-4)", maxWidth: "52ch" }}
+              dangerouslySetInnerHTML={{ __html: desc }}
+            />
+          ) : null}
           <VariantPicker productId={id} />
           <AddToCartBar productId={id} productName={name} price={price} />
         </div>

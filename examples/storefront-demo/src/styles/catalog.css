@@ -125,6 +125,23 @@
     top: 6rem;
   }
 }
+/* Rendered merchant HTML description — basic prose rhythm. */
+.pdp__desc > :first-child { margin-top: 0; }
+.pdp__desc > :last-child { margin-bottom: 0; }
+.pdp__desc p { margin-block: 0.6em; }
+.pdp__desc ul,
+.pdp__desc ol { margin-block: 0.6em; padding-inline-start: 1.4em; }
+.pdp__desc li { margin-block: 0.2em; }
+.pdp__desc a { color: var(--oxblood); text-decoration: underline; }
+.pdp__desc h2,
+.pdp__desc h3,
+.pdp__desc h4 {
+  font-family: var(--font-display, inherit);
+  color: var(--ink);
+  margin-block: 0.8em 0.3em;
+}
+.pdp__desc img { max-width: 100%; height: auto; border-radius: var(--radius-sm, 4px); }
+
 .pdp__hero {
   aspect-ratio: 1 / 1;
   background: var(--paper-2);
