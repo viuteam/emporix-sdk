@@ -1,5 +1,62 @@
 # @viu/emporix-sdk-react
 
+## 2.9.0
+
+### Minor Changes
+
+- [#108](https://github.com/viuteam/emporix-sdk/pull/108) [`056cb62`](https://github.com/viuteam/emporix-sdk/commit/056cb622106fa5854ec9ebbee6e91c4820e62b29) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): generate customer-management types from the real OpenAPI spec
+
+  Replaces the hand-written customer-management mirror (B2B legal-entities /
+  contact-assignments / locations) with codegen output from the vendored
+  "Customer Management Service" spec, so Companies/Contacts/Locations return the
+  real API shape. The `update` methods (and the matching `useUpdateCompany` /
+  `useUpdateContactAssignment` / `useUpdateLocation` hooks) now type their PATCH
+  body as `Partial<*Update>` to reflect the partial-update endpoint. `LegalEntity.id`
+  and sibling ids are optional in the generated shape, matching the wire contract.
+
+- [#109](https://github.com/viuteam/emporix-sdk/pull/109) [`f90e05b`](https://github.com/viuteam/emporix-sdk/commit/f90e05b97f6c022660bc36ac3656e2f48bf78e69) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): generate IAM types, add group member mutations
+
+  Replaces the last hand-written `generated/` mirror (`iam`) with codegen from the
+  vendored "IAM Service" spec, so `customerGroups.listForCompany` returns the real
+  group shape (`GroupsQueryDocument` — note: the wire uses `code`/`userType`, not
+  the previously-mirrored `role`, which never existed on the API). Ships the
+  previously-deferred group member mutations now that the endpoints are confirmed:
+  `customerGroups.addMember` / `removeMember`, plus the `useAddGroupMember` /
+  `useRemoveGroupMember` React hooks. No hand-written generated mirrors remain.
+
+- [#107](https://github.com/viuteam/emporix-sdk/pull/107) [`975290c`](https://github.com/viuteam/emporix-sdk/commit/975290c7bd6129754d82e131186cade633394836) Thanks [@amnael1](https://github.com/amnael1)! - feat(product): add searchByName free-text helper + useProductNameSearch
+
+  `products.searchByName(term)` builds the Emporix `name:(~<term>)` regex filter
+  (escaping metacharacters) and delegates to `search`, so consumers no longer
+  hand-build the `q` DSL — a bare free-text term otherwise 400s with
+  "No value for key …". Adds the `useProductNameSearch` React hook (disabled on
+  empty/whitespace).
+
+### Patch Changes
+
+- [#106](https://github.com/viuteam/emporix-sdk/pull/106) [`04b95ea`](https://github.com/viuteam/emporix-sdk/commit/04b95eab1fbf6b09ca29b0e3a98605e5ef938c6c) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): generate order-v2 types from the real OpenAPI spec
+
+  Replaces the hand-written `order-v2` type mirror (which invented `items`,
+  `{amount,currency}` totals and a top-level `orderNumber`) with codegen output
+  from the vendored Emporix Order Service spec. `OrdersService` and
+  `SalesOrdersService` now return the real API shape:
+  - line items are `entries` (not `items`); each entry has `itemYrn`,
+    `orderedAmount`/`amount`, and a nested `product`
+  - `totalPrice`/`subTotalPrice` are numbers + a top-level `currency`; rich
+    net/gross/tax lives in `calculatedPrice`
+  - `orderNumber` is under `mixins.generalAttributes`
+  - `SalesOrderPatch` is now `Partial<OrderUpdateDto>` (the real PATCH body)
+
+  Public type surface: `Order`, `OrderEntry`, `OrderStatus`, `SalesOrder`,
+  `Transition`, `SalesOrderPatch`. The unused fictional re-exports (`OrderItem`,
+  `OrderMoney`, `OrderCustomer`, `OrderAddress`, `OrderPayment`, `OrderDelivery`,
+  `OrderTaxLine`, `OrderMetadata`, `OrderTransition`) are removed — they had no
+  runtime counterpart.
+
+  `useReorder` now reads `entries` and re-adds each with its `itemYrn` + price row
+  (`priceId`/amounts/currency) — the cart requires a price, so the previous
+  `{ product: { id } }` body always failed; reorder now actually works.
+
 ## 2.8.0
 
 ### Minor Changes
