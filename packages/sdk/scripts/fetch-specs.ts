@@ -43,6 +43,7 @@ const SPECS: Record<string, string> = {
   // lives under the repo's `client-management` dir; the SDK module is `customer-management`.
   "customer-management": `${BASE}/companies-and-customers/client-management/api-reference/api.yml`,
   "approval-service": `${BASE}/companies-and-customers/approval-service/approval-api-reference/api.yml`,
+  iam: `${BASE}/users-and-permissions/iam/api-reference/api.yml`,
 };
 
 async function main(): Promise<void> {

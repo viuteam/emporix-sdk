@@ -16,6 +16,8 @@ import {
   useCreateLocation,
   useUpdateLocation,
   useDeleteLocation,
+  useAddGroupMember,
+  useRemoveGroupMember,
 } from "../src/hooks/use-company-mutations";
 import { useMyCompanies } from "../src/hooks/use-my-companies";
 import type { ReactNode } from "react";
@@ -191,5 +193,37 @@ describe("company mutation hooks", () => {
       await result.current.d.mutateAsync("loc-new");
     });
     await waitFor(() => expect(result.current.d.isSuccess).toBe(true));
+  });
+
+  it("useAddGroupMember POSTs the assignment, useRemoveGroupMember DELETEs", async () => {
+    const { Wrapper } = wrap();
+    let postBody: unknown = null;
+    server.use(
+      http.post("https://api.emporix.io/iam/acme/groups/grp-1/users", async ({ request }) => {
+        postBody = await request.json();
+        return HttpResponse.json({ id: "assign-1" }, { status: 201 });
+      }),
+      http.delete(
+        "https://api.emporix.io/iam/acme/groups/grp-1/users/cust-9",
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    const { result } = renderHook(
+      () => ({ add: useAddGroupMember(), remove: useRemoveGroupMember() }),
+      { wrapper: Wrapper },
+    );
+    let added: unknown;
+    await act(async () => {
+      added = await result.current.add.mutateAsync({
+        groupId: "grp-1",
+        member: { userId: "cust-9", userType: "CUSTOMER" },
+      });
+    });
+    expect((added as { id?: string }).id).toBe("assign-1");
+    expect(postBody).toEqual({ userId: "cust-9", userType: "CUSTOMER" });
+    await act(async () => {
+      await result.current.remove.mutateAsync({ groupId: "grp-1", userId: "cust-9" });
+    });
+    await waitFor(() => expect(result.current.remove.isSuccess).toBe(true));
   });
 });

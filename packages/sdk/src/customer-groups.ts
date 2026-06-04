@@ -1,2 +1,5 @@
 export { CustomerGroupsService } from "./services/customer-groups";
-export type { IamGroup, IamGroupB2B } from "./generated/iam";
+export type {
+  GroupsQueryDocument as IamGroup,
+  AssignmentCreateRequest as IamGroupMemberAssignment,
+} from "./generated/iam";
