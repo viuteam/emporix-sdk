@@ -139,6 +139,13 @@ export function productYrn(tenant: string, productId: string): string {
   return `urn:yaas:hybris:product:product:${tenant};${productId}`;
 }
 
+/** Extract the product id from a cart item's `itemYrn` (`…;<productId>`). */
+export function productIdFromYrn(yrn: string | undefined): string {
+  if (!yrn) return "";
+  const semi = yrn.lastIndexOf(";");
+  return semi >= 0 ? yrn.slice(semi + 1) : "";
+}
+
 // --- Cart ---
 
 type ReadPrice = { amount?: number; effectiveAmount?: number; totalValue?: number; currency?: string };
@@ -167,6 +174,8 @@ type ReadCartItem = {
 
 export interface CartLineVM {
   id: string;
+  /** Product id (from `itemYrn`) — the cart item carries no product details, so names are resolved separately. */
+  productId: string;
   name: string;
   quantity: number;
   image?: string;
@@ -180,9 +189,13 @@ export interface CartLineVM {
 export function toCartLine(item: unknown): CartLineVM {
   const r = item as ReadCartItem;
   const quantity = r.quantity ?? 1;
+  const productId = (r.product?.id as string | undefined) ?? productIdFromYrn(r.itemYrn);
   const vm: CartLineVM = {
     id: r.id ?? "",
-    name: pickText(r.product?.name, r.product?.id ?? ""),
+    productId,
+    // The cart GET returns an empty `product`; fall back to the id until the
+    // name is resolved (see the Cart page's name lookup).
+    name: pickText(r.product?.name, ""),
     quantity,
   };
   if (r.itemYrn) vm.itemYrn = r.itemYrn;

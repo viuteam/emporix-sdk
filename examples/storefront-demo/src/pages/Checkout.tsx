@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useActiveCart, useCheckout, useCustomerSession, useEmporix } from "@viu/emporix-sdk-react";
 import { cartLines, cartTotal } from "../lib/adapters";
+import { useProductNames } from "../lib/useProductNames";
 import { money } from "../lib/format";
 import { Button } from "../components/ui/Button";
 import { Field } from "../components/ui/Field";
@@ -22,6 +23,7 @@ export function Checkout() {
   const cartId = (cart as { id?: string } | null)?.id;
   const lines = cartLines(cart);
   const total = cartTotal(cart);
+  const names = useProductNames(lines.map((l) => l.productId));
 
   const [form, setForm] = useState({
     email: "",
@@ -154,7 +156,7 @@ export function Checkout() {
           <ul style={{ listStyle: "none", padding: 0, marginTop: "var(--s-3)" }}>
             {lines.map((l) => (
               <li key={l.id} className="cart__total" style={{ paddingBlock: "var(--s-1)", fontSize: "var(--step--1)" }}>
-                <span className="muted">{l.name} × {l.quantity}</span>
+                <span className="muted">{(names[l.productId] ?? l.name ?? l.productId)} × {l.quantity}</span>
                 <span className="price">{l.lineTotal ? money(l.lineTotal.amount, l.lineTotal.currency) : ""}</span>
               </li>
             ))}

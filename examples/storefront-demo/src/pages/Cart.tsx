@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useActiveCart, useCartMutations } from "@viu/emporix-sdk-react";
 import { cartLines, cartTotal, cartCoupons, type CartLineVM } from "../lib/adapters";
+import { useProductNames } from "../lib/useProductNames";
 import { money } from "../lib/format";
 import { Button } from "../components/ui/Button";
 import { Loading } from "../components/ui/Spinner";
@@ -20,6 +21,7 @@ export function Cart() {
   const lines = cartLines(cart);
   const total = cartTotal(cart);
   const coupons = cartCoupons(cart);
+  const names = useProductNames(lines.map((l) => l.productId));
 
   async function setQty(line: CartLineVM, q: number) {
     if (q < 1) return;
@@ -78,7 +80,9 @@ export function Cart() {
                 {l.image ? <img src={l.image} alt="" /> : <div className="pc__ph" />}
               </div>
               <div className="cart__line-main">
-                <span className="serif" style={{ fontSize: "var(--step-1)" }}>{l.name}</span>
+                <span className="serif" style={{ fontSize: "var(--step-1)" }}>
+                  {names[l.productId] ?? l.name ?? l.productId}
+                </span>
                 <div className="cluster" style={{ gap: "var(--s-4)", marginTop: "var(--s-2)" }}>
                   <div className="qty" role="group" aria-label="Quantity">
                     <button type="button" onClick={() => void setQty(l, l.quantity - 1)} aria-label="Decrease">–</button>
