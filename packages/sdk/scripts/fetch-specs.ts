@@ -30,6 +30,7 @@ const SPECS: Record<string, string> = {
   "country-service": `${BASE}/configuration/country-service/api-reference/api.yml`,
   "currency-service": `${BASE}/configuration/currency-service/api-reference/api.yml`,
   shipping: `${BASE}/delivery-and-shipping/shipping/api-reference/api.yml`,
+  "order-v2": `${BASE}/orders/order/api-reference/api.yml`,
   returns: `${BASE}/orders/returns/api-reference/api.yml`,
   "sepa-export": `${BASE}/orders/sepa-export/api-reference/api.yml`,
   "indexing-service": `${BASE}/configuration/indexing-service/api-reference/api.yml`,

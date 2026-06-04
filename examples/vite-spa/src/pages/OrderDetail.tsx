@@ -22,21 +22,24 @@ export function OrderDetail(): React.JSX.Element {
   const canCancel = order.status === "CREATED";
   return (
     <section>
-      <h2>Order {order.orderNumber}</h2>
+      <h2>Order {order.id}</h2>
       <p>Status: {order.status}</p>
-      <p>Total: {order.totalPrice.amount} {order.totalPrice.currency}</p>
+      <p>Total: {order.totalPrice} {order.currency}</p>
       <h3>Items</h3>
       <ul>
-        {order.items.map((it) => (
-          <li key={it.id}>
-            {displayProductName(it.productName, it.productId)} × {it.quantity} — {it.totalPrice.amount} {it.totalPrice.currency}
-          </li>
-        ))}
+        {order.entries.map((it) => {
+          const product = it.product as { name?: unknown; id?: string } | undefined;
+          return (
+            <li key={it.id}>
+              {displayProductName(product?.name, product?.id ?? "")} × {it.orderedAmount ?? it.amount} — {it.totalPrice} {order.currency}
+            </li>
+          );
+        })}
       </ul>
       {canCancel && (
         <button
           disabled={cancel.isPending}
-          onClick={() => void cancel.mutateAsync(order.id)}
+          onClick={() => { if (order.id) void cancel.mutateAsync(order.id); }}
         >
           {cancel.isPending ? "Cancelling…" : "Cancel order"}
         </button>
@@ -44,6 +47,7 @@ export function OrderDetail(): React.JSX.Element {
       <button
         disabled={reorder.isPending}
         onClick={async () => {
+          if (!order.id) return;
           const r = await reorder.mutateAsync({ orderId: order.id });
           setReorderResult({ added: r.added, errors: r.errors.length });
         }}

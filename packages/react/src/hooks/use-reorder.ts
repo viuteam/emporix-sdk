@@ -42,13 +42,37 @@ export function useReorder(): UseMutationResult<UseReorderResult, unknown, UseRe
       const cartId = storage.getCartId();
       if (!cartId) throw new Error("useReorder: no active cart id in storage");
 
-      if (order.items.length === 0) return { added: 0, errors: [] };
-
-      const batchBody = order.items.map((item) => ({
-        product: { id: item.productId },
-        quantity: item.quantity,
-      })) as never;
-      const res = await client.carts.addItemsBatch(cartId, batchBody, ctx);
+      // The cart requires a price row (priceId + amounts) per item, so re-add
+      // each order entry with the price it was ordered at. Entries lacking an
+      // itemYrn or a complete price can't be re-added and are skipped.
+      // (Prices are re-validated server-side at checkout; a stale priceId may
+      // be rejected then — re-resolve via matchByContext if that matters.)
+      const batchBody = (order.entries ?? [])
+        .map((entry) => {
+          const p = entry.price;
+          if (
+            !entry.itemYrn ||
+            !p?.priceId ||
+            p.originalAmount === undefined ||
+            p.effectiveAmount === undefined ||
+            !p.currency
+          ) {
+            return null;
+          }
+          return {
+            itemYrn: entry.itemYrn,
+            quantity: entry.orderedAmount ?? entry.amount,
+            price: {
+              priceId: p.priceId,
+              originalAmount: p.originalAmount,
+              effectiveAmount: p.effectiveAmount,
+              currency: p.currency,
+            },
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+      if (batchBody.length === 0) return { added: 0, errors: [] };
+      const res = await client.carts.addItemsBatch(cartId, batchBody as never, ctx);
       let added = 0;
       const errors: unknown[] = [];
       for (const entry of res) {

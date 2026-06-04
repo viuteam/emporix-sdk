@@ -5,18 +5,12 @@ export {
   type GetOrderOptions,
   type OrderTransitionOptions,
   type UpdateSalesOrderOptions,
+  type SalesOrderPatch,
 } from "./services/orders";
 export type {
   Order,
-  OrderItem,
+  OrderEntry,
   OrderStatus,
-  OrderMoney,
-  OrderCustomer,
-  OrderAddress,
-  OrderPayment,
-  OrderDelivery,
-  OrderTaxLine,
-  OrderMetadata,
-  OrderTransition,
-  SalesOrderPatch,
+  SalesOrder,
+  Transition,
 } from "./generated/order-v2";

@@ -41,11 +41,20 @@ describe("useOrder", () => {
   it("fetches a single order", async () => {
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders/o-1", () =>
-        HttpResponse.json({ id: "o-1", orderNumber: "ORD-1", status: "CREATED", currency: "CHF", totalPrice: { amount: 10, currency: "CHF" }, items: [] }),
+        HttpResponse.json({
+          id: "o-1",
+          status: "CREATED",
+          currency: "CHF",
+          totalPrice: 10,
+          entries: [],
+          customer: { id: "c1", email: "a@b.co" },
+          mixins: { generalAttributes: { orderNumber: "ORD-1" } },
+        }),
       ),
     );
     const { result } = renderHook(() => useOrder("o-1"), { wrapper: wrap() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.orderNumber).toBe("ORD-1");
+    expect(result.current.data?.id).toBe("o-1");
+    expect(result.current.data?.status).toBe("CREATED");
   });
 });
