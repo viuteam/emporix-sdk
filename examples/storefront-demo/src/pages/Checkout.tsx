@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { useActiveCart, useCheckout, useCustomerSession, useEmporix } from "@viu/emporix-sdk-react";
 import { cartLines, cartTotal } from "../lib/adapters";
 import { useProductNames } from "../lib/useProductNames";
@@ -14,8 +13,10 @@ import { useToast, errorMessage } from "../app/Toasts";
 
 export function Checkout() {
   const { storage, client } = useEmporix();
-  const qc = useQueryClient();
-  const { data: cart, isLoading } = useActiveCart({ create: true });
+  const [orderId, setOrderId] = useState<string | null>(null);
+  // Once the order is placed the cart is closed — stop bootstrapping, otherwise
+  // `getCurrent` re-adopts the just-closed cart id and every later fetch 404s.
+  const { data: cart, isLoading } = useActiveCart({ create: orderId === null });
   const { isAuthenticated, customer, saasToken } = useCustomerSession();
   const { placeOrder } = useCheckout();
   const { notify } = useToast();
@@ -39,7 +40,6 @@ export function Checkout() {
     city: "Zürich",
     country: "CH",
   });
-  const [orderId, setOrderId] = useState<string | null>(null);
 
   const email = isAuthenticated ? (customer as { contactEmail?: string } | null)?.contactEmail ?? form.email : form.email;
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -78,11 +78,12 @@ export function Checkout() {
         ...(isAuthenticated && saasToken ? { saasToken } : {}),
       });
       setOrderId((r as { orderId?: string }).orderId ?? null);
-      // The cart is CLOSED on Emporix after a successful order — drop it locally
-      // so a fresh cart bootstraps on the next visit.
+      // The cart is CLOSED on Emporix after a successful order — drop it
+      // locally. `useActiveCart` subscribes to this change and stops querying
+      // the now-closed cart (a fresh cart bootstraps on demand). Do NOT
+      // invalidate the cart query here: that would force an immediate refetch
+      // of the just-closed cart id → 404.
       storage.setCartId(null);
-      void qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
-      void qc.invalidateQueries({ queryKey: ["emporix", "active-cart"] });
     } catch (err) {
       notify(errorMessage(err), "error");
     }
