@@ -1,5 +1,16 @@
 # @viu/emporix-sdk
 
+## 2.8.0
+
+### Minor Changes
+
+- [#98](https://github.com/viuteam/emporix-sdk/pull/98) [`108a724`](https://github.com/viuteam/emporix-sdk/commit/108a724f1d4342532ae8d575faa501d54d8c591f) Thanks [@amnael1](https://github.com/amnael1)! - Support partial cart-item updates. `client.carts.updateItem(cartId, itemId,
+patch, auth, { partial: true })` now sends `?partial=true`, so a quantity-only
+  change can be `{ quantity }` instead of a full item replace (which otherwise
+  requires re-sending `itemYrn` + the `price` row). The React
+  `useCartMutations().updateItem` mutation accepts an optional `partial` flag in
+  its variables. Default behavior is unchanged.
+
 ## 2.7.0
 
 ### Minor Changes

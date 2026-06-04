@@ -1,5 +1,63 @@
 # @viu/emporix-sdk-react
 
+## 2.8.0
+
+### Minor Changes
+
+- [#98](https://github.com/viuteam/emporix-sdk/pull/98) [`108a724`](https://github.com/viuteam/emporix-sdk/commit/108a724f1d4342532ae8d575faa501d54d8c591f) Thanks [@amnael1](https://github.com/amnael1)! - Support partial cart-item updates. `client.carts.updateItem(cartId, itemId,
+patch, auth, { partial: true })` now sends `?partial=true`, so a quantity-only
+  change can be `{ quantity }` instead of a full item replace (which otherwise
+  requires re-sending `itemYrn` + the `price` row). The React
+  `useCartMutations().updateItem` mutation accepts an optional `partial` flag in
+  its variables. Default behavior is unchanged.
+
+- [#100](https://github.com/viuteam/emporix-sdk/pull/100) [`b4be158`](https://github.com/viuteam/emporix-sdk/commit/b4be1589b2fb0db44852233efe2a5d575a2e2795) Thanks [@amnael1](https://github.com/amnael1)! - `useCustomerSession()` now exposes the current `saasToken`. It was already
+  tracked internally (from `login` / `exchangeToken`) but not returned — so
+  consumers couldn't pass it to `useCheckout().placeOrder({ ..., saasToken })` for
+  customer checkout, or to saas-token-gated order reads.
+
+### Patch Changes
+
+- [#101](https://github.com/viuteam/emporix-sdk/pull/101) [`e010a5a`](https://github.com/viuteam/emporix-sdk/commit/e010a5ab8f35c92ed946522558db33b2febff5de) Thanks [@amnael1](https://github.com/amnael1)! - fix(react): refresh the cart after a 204-only mutation
+
+  `useCartMutations` assumed every cart write echoes the full updated cart.
+  A partial quantity update (`updateItem(..., { partial: true })`) returns
+  `204 No Content`, which the SDK resolves to `undefined` — and
+  `setQueryData(key, undefined)` is a no-op in React Query, so the cart cache
+  stayed stale and the UI did not reflect the change. The mutation now adopts
+  a real cart body when one is returned and otherwise invalidates the cart
+  query so it refetches. This also makes coupon/address/remove mutations
+  reconcile with the server when they return no body.
+
+- [#103](https://github.com/viuteam/emporix-sdk/pull/103) [`2e5c767`](https://github.com/viuteam/emporix-sdk/commit/2e5c76715f5d08358dd9342ef65d7c4c0d8b9aef) Thanks [@amnael1](https://github.com/amnael1)! - fix(react): drop the cart on logout and react to cart-id clearing
+
+  Two related cleanup gaps caused follow-up errors after logout and checkout:
+  - `useCustomerSession().logout()` cleared the customer token but left the
+    stored `cartId`. The cart belonged to the customer and isn't accessible
+    anonymously, so the cart query immediately refetched it and got a `403`.
+    Logout now clears `cartId` too.
+  - `useActiveCart` cached the cart id in local state and never reacted to
+    external `storage.setCartId(null)` (logout, or the post-order cleanup that
+    closes the cart). It kept fetching the dead cart id — a `403` after logout,
+    a `404` after checkout. It now subscribes to storage cart-id changes and
+    syncs, so clearing the id stops the fetch (and a logged-out cart page
+    bootstraps a fresh anonymous cart on demand).
+
+- [#102](https://github.com/viuteam/emporix-sdk/pull/102) [`020722b`](https://github.com/viuteam/emporix-sdk/commit/020722b2cb696bdc347538205ea4fad884451d88) Thanks [@amnael1](https://github.com/amnael1)! - fix(react): share the customer session across hook instances
+
+  `useCustomerSession` kept its session in a per-instance `useState`. The
+  `token` slot was mirrored from storage (so `isAuthenticated` was consistent),
+  but the in-memory `saasToken` and `refreshToken` lived only in the component
+  instance that called `login()`. A different consumer — e.g. the checkout page
+  reading `saasToken` for the `saas-token` header — saw `null`, so customer
+  checkout failed with `401 "Saas TOKEN is invalid"`.
+
+  The session now lives in a shared, per-storage store consumed via
+  `useSyncExternalStore`, so every `useCustomerSession()` reads the same
+  `{ token, refreshToken, saasToken }`. A login in one component is immediately
+  visible to all others. The tokens remain in-memory only (still cleared on a
+  full reload, by design).
+
 ## 2.7.0
 
 ### Minor Changes
