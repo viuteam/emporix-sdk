@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
-import { useCategories } from "@viu/emporix-sdk-react";
+import { useCategoryTree } from "@viu/emporix-sdk-react";
 import { catId, catLabel } from "../lib/adapters";
 
+// Top-level navigation = the curated category-tree roots (not the flat
+// `categories.list()` dump, which mixes in every leaf category).
 export function CategoryNav() {
-  const { data } = useCategories({ pageSize: 12 });
-  const cats = data?.items ?? [];
+  const { data } = useCategoryTree();
+  const cats = data ?? [];
   if (cats.length === 0) return null;
   return (
     <nav className="catnav" aria-label="Categories">
