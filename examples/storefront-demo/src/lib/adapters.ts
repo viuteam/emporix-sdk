@@ -230,3 +230,74 @@ export function cartCoupons(cart: unknown): string[] {
   const c = cart as { coupons?: Array<{ code?: string }> } | null | undefined;
   return (c?.coupons ?? []).map((x) => x.code).filter((x): x is string => Boolean(x));
 }
+
+// --- Orders ---
+
+type ReadOrderItem = {
+  id?: string;
+  productId?: string;
+  productName?: unknown;
+  imageUrl?: string;
+  quantity?: number;
+  unitPrice?: ReadPrice;
+  totalPrice?: ReadPrice;
+};
+type ReadOrder = {
+  id?: string;
+  orderNumber?: string;
+  status?: string;
+  totalPrice?: ReadPrice;
+  items?: ReadOrderItem[];
+  metadata?: { createdAt?: string };
+};
+
+export interface OrderVM {
+  id: string;
+  number: string;
+  status: string;
+  total?: PriceVM;
+  createdAt?: string;
+  itemCount: number;
+}
+
+export function orderVM(o: unknown): OrderVM {
+  const r = (o ?? {}) as ReadOrder;
+  const vm: OrderVM = {
+    id: r.id ?? "",
+    number: r.orderNumber ?? r.id ?? "",
+    status: r.status ?? "—",
+    itemCount: r.items?.length ?? 0,
+  };
+  const total = toPriceVM(r.totalPrice);
+  if (total) vm.total = total;
+  if (r.metadata?.createdAt) vm.createdAt = r.metadata.createdAt;
+  return vm;
+}
+
+export interface OrderItemVM {
+  id: string;
+  productId: string;
+  name: string;
+  quantity: number;
+  image?: string;
+  unit?: PriceVM;
+  lineTotal?: PriceVM;
+}
+
+export function orderItems(o: unknown): OrderItemVM[] {
+  const items = ((o ?? {}) as ReadOrder).items ?? [];
+  return items.map((i) => {
+    const vm: OrderItemVM = {
+      id: i.id ?? "",
+      productId: i.productId ?? "",
+      name: pickText(i.productName, i.productId ?? ""),
+      quantity: i.quantity ?? 0,
+    };
+    if (i.imageUrl) vm.image = i.imageUrl;
+    const unit = toPriceVM(i.unitPrice);
+    if (unit) vm.unit = unit;
+    const line = toPriceVM(i.totalPrice);
+    if (line) vm.lineTotal = line;
+    return vm;
+  });
+}

@@ -19,6 +19,11 @@ import { Account } from "./pages/Account";
 import { Profile } from "./pages/account/Profile";
 import { Addresses } from "./pages/account/Addresses";
 import { ResetPassword } from "./pages/account/ResetPassword";
+import { Orders } from "./pages/account/Orders";
+import { OrderDetail } from "./pages/account/OrderDetail";
+import { Returns } from "./pages/account/Returns";
+import { Rewards } from "./pages/account/Rewards";
+import { Lists } from "./pages/account/Lists";
 
 function buildClient(c: DemoConfig): EmporixClient {
   const context: { siteCode?: string; currency?: string; targetLocation?: string } = {};
@@ -64,6 +69,11 @@ function DemoApp({ config, reset }: { config: DemoConfig; reset: () => void }) {
                 <Route path="/account" element={<Account />} />
                 <Route path="/account/profile" element={<Profile />} />
                 <Route path="/account/addresses" element={<Addresses />} />
+                <Route path="/account/orders" element={<Orders />} />
+                <Route path="/account/orders/:id" element={<OrderDetail />} />
+                <Route path="/account/returns" element={<Returns />} />
+                <Route path="/account/rewards" element={<Rewards />} />
+                <Route path="/account/lists" element={<Lists />} />
                 <Route path="/account/*" element={<Placeholder title="Account" />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="*" element={<Placeholder title="Not found" />} />
