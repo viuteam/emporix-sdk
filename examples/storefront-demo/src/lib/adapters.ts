@@ -66,8 +66,17 @@ export function productName(p: Product): string {
   return pickText((p as ReadProduct).name, (p as ReadProduct).code ?? "");
 }
 
+/** Strip HTML tags → plain text (Emporix descriptions may contain markup). */
+function stripHtml(s: string): string {
+  return s
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function productDescription(p: Product): string {
-  return pickText((p as ReadProduct).description, "");
+  return stripHtml(pickText((p as ReadProduct).description, ""));
 }
 
 export function productImages(p: Product): Media[] {
@@ -87,10 +96,13 @@ export function priceMatchItems(
 export interface PriceVM {
   amount: number;
   currency: string;
+  /** The matched price's id — required by the cart when adding internal-type products. */
+  priceId?: string;
 }
 
 type ReadMatch = {
   itemRef?: { id?: string };
+  priceId?: string;
   effectiveValue?: number;
   totalValue?: number;
   originalValue?: number;
@@ -116,5 +128,67 @@ export function priceForProduct(matches: PriceMatch[] | undefined, productId: st
   if (!m) return undefined;
   const amount = m.effectiveValue ?? m.totalValue;
   if (amount === undefined || !m.currency) return undefined;
-  return { amount, currency: m.currency };
+  return { amount, currency: m.currency, ...(m.priceId ? { priceId: m.priceId } : {}) };
+}
+
+/** The YRN the cart's `addItem` expects for a product (verified against viu). */
+export function productYrn(tenant: string, productId: string): string {
+  return `urn:yaas:hybris:product:product:${tenant};${productId}`;
+}
+
+// --- Cart ---
+
+type ReadPrice = { amount?: number; effectiveAmount?: number; currency?: string };
+type ReadCartItem = {
+  id?: string;
+  quantity?: number;
+  product?: { id?: string; name?: unknown; media?: Media[] };
+  totalPrice?: ReadPrice;
+  unitPrice?: ReadPrice;
+};
+
+function toPriceVM(p: ReadPrice | undefined): PriceVM | undefined {
+  const amount = p?.amount ?? p?.effectiveAmount;
+  if (amount === undefined || !p?.currency) return undefined;
+  return { amount, currency: p.currency };
+}
+
+export interface CartLineVM {
+  id: string;
+  name: string;
+  quantity: number;
+  image?: string;
+  unit?: PriceVM;
+  lineTotal?: PriceVM;
+}
+
+export function toCartLine(item: unknown): CartLineVM {
+  const r = item as ReadCartItem;
+  const vm: CartLineVM = {
+    id: r.id ?? "",
+    name: pickText(r.product?.name, r.product?.id ?? ""),
+    quantity: r.quantity ?? 1,
+  };
+  const image = imageOf(r.product?.media);
+  if (image) vm.image = image;
+  const unit = toPriceVM(r.unitPrice);
+  if (unit) vm.unit = unit;
+  const total = toPriceVM(r.totalPrice);
+  if (total) vm.lineTotal = total;
+  return vm;
+}
+
+export function cartLines(cart: unknown): CartLineVM[] {
+  const items = (cart as { items?: unknown[] }).items ?? [];
+  return items.map(toCartLine);
+}
+
+export function cartTotal(cart: unknown): PriceVM | undefined {
+  return toPriceVM((cart as { totalPrice?: ReadPrice }).totalPrice);
+}
+
+/** Coupon codes currently applied to the cart (best-effort across shapes). */
+export function cartCoupons(cart: unknown): string[] {
+  const c = cart as { coupons?: Array<{ code?: string }> };
+  return (c.coupons ?? []).map((x) => x.code).filter((x): x is string => Boolean(x));
 }

@@ -16,7 +16,7 @@ export function ProductCard({
 }) {
   return (
     <Link
-      to={`/product/${encodeURIComponent(vm.code)}`}
+      to={`/product/${encodeURIComponent(vm.id)}`}
       className={`pc reveal${lead ? " pc--lead" : ""}`}
       style={{ "--i": index % 12 } as CSSProperties}
     >
