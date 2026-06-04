@@ -253,4 +253,31 @@ describe("CartService.addItemsBatch", () => {
       svc().addItemsBatch("cart-1", [], { kind: "service" } as never),
     ).rejects.toBeInstanceOf(EmporixValidationError);
   });
+
+  it("updateItem sends ?partial=true when requested (partial PUT)", async () => {
+    let search = "?unset";
+    let body: unknown = null;
+    server.use(
+      http.put("https://api.emporix.io/cart/acme/carts/c1/items/0", async ({ request }) => {
+        search = new URL(request.url).search;
+        body = await request.json();
+        return HttpResponse.json({ id: "c1" });
+      }),
+    );
+    await svc().updateItem("c1", "0", { quantity: 2 } as never, { kind: "anonymous" }, { partial: true });
+    expect(search).toContain("partial=true");
+    expect(body).toEqual({ quantity: 2 });
+  });
+
+  it("updateItem omits the partial query by default", async () => {
+    let search = "?unset";
+    server.use(
+      http.put("https://api.emporix.io/cart/acme/carts/c1/items/0", ({ request }) => {
+        search = new URL(request.url).search;
+        return HttpResponse.json({ id: "c1" });
+      }),
+    );
+    await svc().updateItem("c1", "0", { quantity: 2 } as never, { kind: "anonymous" });
+    expect(search).toBe("");
+  });
 });

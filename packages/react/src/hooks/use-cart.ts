@@ -46,7 +46,7 @@ type Mut<TVars> = UseMutationResult<Cart, unknown, TVars, { previous: Cart | und
 /** Cart write operations with optimistic cache updates and rollback. */
 export interface CartMutationsApi {
   addItem: Mut<CartItemInput>;
-  updateItem: Mut<{ itemId: string; patch: CartItemUpdate }>;
+  updateItem: Mut<{ itemId: string; patch: CartItemUpdate; partial?: boolean }>;
   removeItem: Mut<{ itemId: string }>;
   clear: Mut<void>;
   applyCoupon: Mut<{ code: string }>;
@@ -134,7 +134,9 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
             }
           : prev,
     ),
-    updateItem: make((id, v) => client.carts.updateItem(id, v.itemId, v.patch, ctx)),
+    updateItem: make((id, v) =>
+      client.carts.updateItem(id, v.itemId, v.patch, ctx, v.partial ? { partial: true } : {}),
+    ),
     removeItem: make(
       (id, v) => client.carts.removeItem(id, v.itemId, ctx),
       (prev, v) =>

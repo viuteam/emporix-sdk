@@ -139,18 +139,25 @@ export class CartService {
     });
   }
 
-  /** Updates an item. */
+  /**
+   * Updates an item. By default this is a **full replace** — the server expects
+   * the complete item (e.g. `itemYrn` + the `price` row). Pass
+   * `{ partial: true }` to send a **partial update** (`?partial=true`), e.g. a
+   * quantity-only change with just `{ quantity }`.
+   */
   async updateItem(
     cartId: string,
     itemId: string,
     patch: CartItemUpdate,
     auth: AuthContext,
+    opts: { partial?: boolean } = {},
   ): Promise<Cart> {
     return this.ctx.http.request<Cart>({
       method: "PUT",
       path: `${this.base()}/${cartId}/items/${itemId}`,
       auth: requireCartAuth(auth),
       body: patch,
+      ...(opts.partial ? { query: { partial: "true" } } : {}),
     });
   }
 
