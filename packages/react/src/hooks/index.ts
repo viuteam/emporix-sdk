@@ -6,6 +6,7 @@ export {
   useProductsInfinite,
   useProductByCode,
   useProductSearch,
+  useProductNameSearch,
   useProductsByCodes,
 } from "./use-products";
 export {
