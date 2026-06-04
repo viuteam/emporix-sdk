@@ -1,13 +1,17 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
-import type { IamGroup } from "../generated/iam";
+import type {
+  GroupsQueryDocument,
+  AssignmentCreateRequest,
+} from "../generated/iam";
 
 /**
- * Read-only access to IAM customer groups for a legal entity.
+ * Access to IAM customer groups for a legal entity.
  *
- * Member-management endpoints (`addMember`/`removeMember`) are deferred —
- * the exact IAM path/body shape isn't in the SDK input set yet. They will
- * land in a small follow-up plan once the API reference is confirmed.
+ * `listForCompany` requires `iam.group_read`; the member mutations
+ * (`addMember`/`removeMember`) require `iam.group_manage` — typically only
+ * granted to Admin-group customers; a 403 surfaces as
+ * `EmporixInsufficientScopeError`.
  */
 export class CustomerGroupsService {
   constructor(private readonly ctx: ClientContext) {}
@@ -17,11 +21,34 @@ export class CustomerGroupsService {
   }
 
   /** Lists customer groups belonging to one legal entity. */
-  async listForCompany(legalEntityId: string, auth: AuthContext): Promise<IamGroup[]> {
-    return this.ctx.http.request<IamGroup[]>({
+  async listForCompany(legalEntityId: string, auth: AuthContext): Promise<GroupsQueryDocument[]> {
+    return this.ctx.http.request<GroupsQueryDocument[]>({
       method: "GET",
       path: this.base(),
       query: { "b2b.legalEntityId": legalEntityId },
+      auth,
+    });
+  }
+
+  /** Adds a user (customer or employee) to a group. */
+  async addMember(
+    groupId: string,
+    member: AssignmentCreateRequest,
+    auth: AuthContext,
+  ): Promise<{ id: string }> {
+    return this.ctx.http.request<{ id: string }>({
+      method: "POST",
+      path: `${this.base()}/${groupId}/users`,
+      auth,
+      body: member,
+    });
+  }
+
+  /** Removes a user from a group. */
+  async removeMember(groupId: string, userId: string, auth: AuthContext): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/${groupId}/users/${userId}`,
       auth,
     });
   }

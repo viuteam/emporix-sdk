@@ -15,6 +15,7 @@ import {
   type Location,
   type LocationCreate,
   type LocationUpdate,
+  type IamGroupMemberAssignment,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 
@@ -147,5 +148,37 @@ export function useDeleteLocation(): UseMutationResult<void, unknown, string> {
     mutationFn: (id) => client.locations.delete(id, resolveAuth()),
     onSuccess: () =>
       qc.invalidateQueries({ predicate: (q) => q.queryKey.includes("locations") }),
+  });
+}
+
+// ---- Group members ----
+
+export function useAddGroupMember(): UseMutationResult<
+  { id: string },
+  unknown,
+  { groupId: string; member: IamGroupMemberAssignment }
+> {
+  const { client } = useEmporix();
+  const resolveAuth = useCustomerAuthResolver();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, member }) =>
+      client.customerGroups.addMember(groupId, member, resolveAuth()),
+    onSuccess: () => qc.invalidateQueries({ predicate: (q) => q.queryKey.includes("groups") }),
+  });
+}
+
+export function useRemoveGroupMember(): UseMutationResult<
+  void,
+  unknown,
+  { groupId: string; userId: string }
+> {
+  const { client } = useEmporix();
+  const resolveAuth = useCustomerAuthResolver();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, userId }) =>
+      client.customerGroups.removeMember(groupId, userId, resolveAuth()),
+    onSuccess: () => qc.invalidateQueries({ predicate: (q) => q.queryKey.includes("groups") }),
   });
 }

@@ -25,7 +25,7 @@ const server = setupServer(
     HttpResponse.json([{ id: "loc-1", name: "HQ", type: "HEADQUARTER" }]),
   ),
   http.get("https://api.emporix.io/iam/acme/groups", () =>
-    HttpResponse.json([{ id: "grp-admin", role: "ADMIN", b2b: { legalEntityId: "le-1" } }]),
+    HttpResponse.json([{ id: "grp-admin", code: "ADMIN", b2b: { legalEntityId: "le-1" } }]),
   ),
 );
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -61,6 +61,6 @@ describe("useCompanyContacts / useCompanyLocations / useCompanyGroups", () => {
   it("useCompanyGroups fetches IAM groups for one company", async () => {
     const { result } = renderHook(() => useCompanyGroups("le-1"), { wrapper: wrap() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.[0]?.role).toBe("ADMIN");
+    expect(result.current.data?.[0]?.code).toBe("ADMIN");
   });
 });

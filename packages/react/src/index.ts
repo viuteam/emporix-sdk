@@ -67,6 +67,8 @@ export {
   useCreateLocation,
   useUpdateLocation,
   useDeleteLocation,
+  useAddGroupMember,
+  useRemoveGroupMember,
   useCompanySwitcher,
   useMyOrders,
   useMyOrdersInfinite,
