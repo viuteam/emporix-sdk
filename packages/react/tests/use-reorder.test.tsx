@@ -44,8 +44,8 @@ describe("useReorder", () => {
           id: "o-1", status: "COMPLETED", currency: "CHF", totalPrice: 30,
           customer: { id: "c1", email: "a@b.co" },
           entries: [
-            { id: "i1", product: { id: "p-1" }, orderedAmount: 2 },
-            { id: "i2", product: { id: "p-2" }, orderedAmount: 1 },
+            { id: "i1", itemYrn: "urn:yaas:hybris:product:product:acme;p-1", orderedAmount: 2, price: { priceId: "pr-1", originalAmount: 10, effectiveAmount: 10, currency: "CHF" } },
+            { id: "i2", itemYrn: "urn:yaas:hybris:product:product:acme;p-2", orderedAmount: 1, price: { priceId: "pr-2", originalAmount: 10, effectiveAmount: 10, currency: "CHF" } },
           ],
         }),
       ),
@@ -68,9 +68,10 @@ describe("useReorder", () => {
     expect(res?.errors).toEqual([]);
     expect(Array.isArray(batchBody)).toBe(true);
     expect((batchBody as unknown[]).length).toBe(2);
-    expect((batchBody as Array<{ product?: { id?: string }; quantity?: number }>)[0]).toMatchObject({
-      product: { id: "p-1" },
+    expect((batchBody as Array<{ itemYrn?: string; quantity?: number; price?: { priceId?: string } }>)[0]).toMatchObject({
+      itemYrn: "urn:yaas:hybris:product:product:acme;p-1",
       quantity: 2,
+      price: { priceId: "pr-1" },
     });
   });
 
@@ -81,8 +82,8 @@ describe("useReorder", () => {
           id: "o-1", status: "COMPLETED", currency: "CHF", totalPrice: 20,
           customer: { id: "c1", email: "a@b.co" },
           entries: [
-            { id: "i1", product: { id: "p-ok" }, orderedAmount: 1 },
-            { id: "i2", product: { id: "p-gone" }, orderedAmount: 1 },
+            { id: "i1", itemYrn: "urn:yaas:hybris:product:product:acme;p-ok", orderedAmount: 1, price: { priceId: "pr-ok", originalAmount: 10, effectiveAmount: 10, currency: "CHF" } },
+            { id: "i2", itemYrn: "urn:yaas:hybris:product:product:acme;p-gone", orderedAmount: 1, price: { priceId: "pr-gone", originalAmount: 10, effectiveAmount: 10, currency: "CHF" } },
           ],
         }),
       ),

@@ -21,4 +21,8 @@ Public type surface: `Order`, `OrderEntry`, `OrderStatus`, `SalesOrder`,
 `Transition`, `SalesOrderPatch`. The unused fictional re-exports (`OrderItem`,
 `OrderMoney`, `OrderCustomer`, `OrderAddress`, `OrderPayment`, `OrderDelivery`,
 `OrderTaxLine`, `OrderMetadata`, `OrderTransition`) are removed — they had no
-runtime counterpart. `useReorder` now reads `entries`.
+runtime counterpart.
+
+`useReorder` now reads `entries` and re-adds each with its `itemYrn` + price row
+(`priceId`/amounts/currency) — the cart requires a price, so the previous
+`{ product: { id } }` body always failed; reorder now actually works.
