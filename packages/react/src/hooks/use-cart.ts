@@ -220,6 +220,19 @@ export function useActiveCart(opts?: {
   // Explicit opt overrides; otherwise pick up the active company.
   const effectiveLegalEntityId = opts?.legalEntityId ?? activeCompany?.id;
 
+  // Sync local cartId with external storage changes. Logout and post-order
+  // cleanup clear `storage.cartId`; without this the cart query would keep
+  // fetching the now-invalid cart id (a 403 after logout, a 404 after the cart
+  // is closed on checkout). A re-set to a fresh id propagates the same way.
+  useEffect(() => {
+    if (!storage.subscribeAll) return;
+    return storage.subscribeAll((key) => {
+      if (key !== "cartId") return;
+      const next = storage.getCartId();
+      setCartId((prev) => (prev === next ? prev : next));
+    });
+  }, [storage]);
+
   useEffect(() => {
     if (cartId !== null) return;
     if (!opts?.create) return;

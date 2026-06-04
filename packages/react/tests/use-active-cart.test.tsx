@@ -70,6 +70,24 @@ describe("useActiveCart", () => {
     expect(result.current.data?.items).toHaveLength(1);
   });
 
+  it("drops the cart when the stored cart id is cleared (logout / post-order)", async () => {
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts/cart-stored", () =>
+        HttpResponse.json({ id: "cart-stored", items: [{ id: "i1" }] }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    storage.setCartId("cart-stored");
+    const { result } = renderHook(() => useActiveCart(), { wrapper: wrap(storage) });
+    await waitFor(() => expect(result.current.data?.id).toBe("cart-stored"));
+    // Clearing the cart id externally (e.g. logout/checkout) must propagate so
+    // the hook stops returning — and refetching — the now-invalid cart.
+    act(() => {
+      storage.setCartId(null);
+    });
+    await waitFor(() => expect(result.current.data).toBeNull());
+  });
+
   it("bootstraps a new cart with create:true when storage.cartId is null", async () => {
     let getCurrentCall: URLSearchParams | undefined;
     server.use(
