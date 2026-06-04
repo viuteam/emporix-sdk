@@ -187,6 +187,10 @@ export function useCustomerSession(): CustomerSessionApi {
     storage.setCustomerToken(null);
     storage.setRefreshToken(null);
     storage.setActiveLegalEntityId(null);
+    // Drop the cart reference: the cart belonged to the customer and is not
+    // accessible anonymously, so keeping it would make the cart query 403
+    // right after logout. A fresh anonymous cart bootstraps on demand.
+    storage.setCartId(null);
     setSession(EMPTY_SESSION);
     qc.removeQueries({ queryKey: ["emporix", "customer"] });
     qc.removeQueries({ queryKey: ["emporix", "cart"] });

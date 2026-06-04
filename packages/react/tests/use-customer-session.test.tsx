@@ -113,6 +113,16 @@ describe("useCustomerSession", () => {
     expect(result.current.isAuthenticated).toBe(false);
   });
 
+  it("logout clears the stored cart id (the customer cart is invalid anonymously)", async () => {
+    const storage = createMemoryStorage({ initial: "cust" });
+    storage.setCartId("cart1");
+    const { result } = renderHook(() => useCustomerSession(), { wrapper: wrapper(storage) });
+    await act(async () => {
+      await result.current.logout();
+    });
+    expect(storage.getCartId()).toBeNull();
+  });
+
   it("logout still clears locally when the server logout fails", async () => {
     server.use(
       http.get(
