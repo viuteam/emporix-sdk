@@ -25,10 +25,15 @@ export function Checkout() {
   const total = cartTotal(cart);
   const names = useProductNames(lines.map((l) => l.productId));
 
+  // A logged-in checkout must identify the customer by id — Emporix returns
+  // "Cannot found customer" otherwise. Guest checkout omits it.
+  const cust = customer as { id?: string; firstName?: string; lastName?: string } | null;
+  const customerId = cust?.id;
+
   const [form, setForm] = useState({
     email: "",
-    firstName: "Guest",
-    lastName: "Shopper",
+    firstName: cust?.firstName || "Guest",
+    lastName: cust?.lastName || "Shopper",
     street: "Rämistrasse 71",
     zipCode: "8006",
     city: "Zürich",
@@ -52,6 +57,8 @@ export function Checkout() {
     const input = {
       cartId,
       customer: {
+        // Logged-in customer must be identified by id; guest must not.
+        ...(isAuthenticated && customerId ? { id: customerId } : {}),
         email,
         firstName: form.firstName,
         lastName: form.lastName,

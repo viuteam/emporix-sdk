@@ -233,23 +233,53 @@ export function cartCoupons(cart: unknown): string[] {
 
 // --- Orders ---
 
+// Emporix returns two order shapes: the LIST/normalized shape (`items`,
+// `totalPrice: {amount,currency}`, top-level `orderNumber`) and the GET-by-id
+// raw shape (`entries`, `totalPrice: <number>` + top-level `currency`,
+// `orderNumber` under `mixins.generalAttributes`). These helpers read both.
+
+/** A money value that may be a plain number (currency lives elsewhere) or a `{amount|value, currency}` object. */
+type ReadMoneyish = number | { amount?: number; value?: number; currency?: string } | null | undefined;
+
+function moneyVM(v: ReadMoneyish, fallbackCurrency?: string): PriceVM | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v === "number") {
+    return fallbackCurrency ? { amount: v, currency: fallbackCurrency } : undefined;
+  }
+  const amount = v.amount ?? v.value;
+  const currency = v.currency ?? fallbackCurrency;
+  if (amount === undefined || !currency) return undefined;
+  return { amount, currency };
+}
+
 type ReadOrderItem = {
   id?: string;
   productId?: string;
   productName?: unknown;
+  product?: { id?: string; name?: unknown; localizedName?: Record<string, string>; media?: Media[] };
   imageUrl?: string;
   quantity?: number;
-  unitPrice?: ReadPrice;
-  totalPrice?: ReadPrice;
+  orderedAmount?: number;
+  amount?: number;
+  unitPrice?: ReadMoneyish;
+  totalPrice?: ReadMoneyish;
 };
 type ReadOrder = {
   id?: string;
   orderNumber?: string;
   status?: string;
-  totalPrice?: ReadPrice;
+  currency?: string;
+  totalPrice?: ReadMoneyish;
   items?: ReadOrderItem[];
+  entries?: ReadOrderItem[];
+  created?: string;
   metadata?: { createdAt?: string };
+  mixins?: { generalAttributes?: { orderNumber?: string } };
 };
+
+function orderLineItems(r: ReadOrder): ReadOrderItem[] {
+  return r.items ?? r.entries ?? [];
+}
 
 export interface OrderVM {
   id: string;
@@ -264,13 +294,14 @@ export function orderVM(o: unknown): OrderVM {
   const r = (o ?? {}) as ReadOrder;
   const vm: OrderVM = {
     id: r.id ?? "",
-    number: r.orderNumber ?? r.id ?? "",
+    number: r.orderNumber ?? r.mixins?.generalAttributes?.orderNumber ?? r.id ?? "",
     status: r.status ?? "—",
-    itemCount: r.items?.length ?? 0,
+    itemCount: orderLineItems(r).length,
   };
-  const total = toPriceVM(r.totalPrice);
+  const total = moneyVM(r.totalPrice, r.currency);
   if (total) vm.total = total;
-  if (r.metadata?.createdAt) vm.createdAt = r.metadata.createdAt;
+  const createdAt = r.created ?? r.metadata?.createdAt;
+  if (createdAt) vm.createdAt = createdAt;
   return vm;
 }
 
@@ -285,18 +316,20 @@ export interface OrderItemVM {
 }
 
 export function orderItems(o: unknown): OrderItemVM[] {
-  const items = ((o ?? {}) as ReadOrder).items ?? [];
-  return items.map((i) => {
+  const r = (o ?? {}) as ReadOrder;
+  const currency = r.currency;
+  return orderLineItems(r).map((i) => {
     const vm: OrderItemVM = {
       id: i.id ?? "",
-      productId: i.productId ?? "",
-      name: pickText(i.productName, i.productId ?? ""),
-      quantity: i.quantity ?? 0,
+      productId: i.productId ?? i.product?.id ?? "",
+      name: pickText(i.product?.name ?? i.product?.localizedName ?? i.productName, i.productId ?? ""),
+      quantity: i.quantity ?? i.orderedAmount ?? i.amount ?? 0,
     };
-    if (i.imageUrl) vm.image = i.imageUrl;
-    const unit = toPriceVM(i.unitPrice);
+    const image = i.imageUrl ?? imageOf(i.product?.media);
+    if (image) vm.image = image;
+    const unit = moneyVM(i.unitPrice, currency);
     if (unit) vm.unit = unit;
-    const line = toPriceVM(i.totalPrice);
+    const line = moneyVM(i.totalPrice, currency);
     if (line) vm.lineTotal = line;
     return vm;
   });
