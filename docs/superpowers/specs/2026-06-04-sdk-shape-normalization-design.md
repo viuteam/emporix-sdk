@@ -63,6 +63,17 @@ The two candidates are **opposite situations** — this drives their different f
   is to **codegen `order-v2` from the real spec** (replacing the mirror), exactly as
   the header anticipates.
 
+### Codegen mechanism (verified)
+`packages/sdk/scripts/generate.ts` iterates `packages/sdk/specs/*.yml`, runs
+`@hey-api/openapi-ts` (types only) → `src/generated/<filename>/`, and prepends the
+AUTO-GENERATED banner. 35 services each ship a `.yml`; only **`order-v2`,
+`customer-management`, `iam`** are hand-written — **because their `.yml` is simply
+missing** from `specs/`. SalesOrder types are therefore **not generated either**:
+both `OrdersService` and `SalesOrdersService` import the same hand-written
+`generated/order-v2` mirror. Adding `specs/order-v2.yml` (one Order-Service spec
+covers both `/orders` and `/salesorders`) and running `generate` replaces the mirror
+in place — imports (`../generated/order-v2`) stay stable.
+
 ### Live order shape (single-GET == list), reference
 Top-level keys: `id, status, created, lastStatusChange, cartId, entries[],
 discounts[], customer, billingAddress, shippingAddress, payments[], shipping{total,
@@ -93,14 +104,20 @@ with `itemId` added and `itemRef` deprecated. Non-breaking.
 
 ## Candidate 2 — Order types from the real spec (Phase 2)
 
-**Preferred fix:** obtain the `order-v2` OpenAPI spec, wire it into the codegen
-pipeline (as `price`/`cart`/`customer` already are), generate, and replace the
-hand-written mirror. Update the `OrdersService`/`SalesOrdersService` re-exports and
-the façade. Both services share the same generated `Order` type.
+**Preferred fix (concrete):**
+1. Obtain the **Order Service OpenAPI spec** from Emporix (developer portal —
+   confirmed available; it documents `entries`/`calculatedPrice` etc. correctly).
+2. Save it as `packages/sdk/specs/order-v2.yml` (filename = output dir → keeps
+   `../generated/order-v2` imports stable). One spec covers both `/orders` and
+   `/salesorders`.
+3. `pnpm -F @viu/emporix-sdk generate` → replaces the hand-written mirror with
+   generated types.
+4. **Re-export churn:** the generated component names won't match the hand-invented
+   `Order`/`OrderItem`/`OrderMoney`. Update the service re-exports/aliases and the
+   façade accordingly. Replace the fictional order test fixtures with the real shape.
 
-**Prerequisite:** the order-v2 OpenAPI input file is **not in the repo**. If it
-cannot be obtained, the fallback is to **hand-correct the mirror to the verified
-live shape** below (still a single source, shared by both services).
+**Fallback (only if the spec truly cannot be obtained):** hand-correct the mirror to
+the verified live shape below — still a single source shared by both services.
 
 **Corrected `Order` shape (faithful to the live API, "as much as possible"):**
 - `entries` (not `items`); `orderNumber` is **derived note**: on the wire it lives in
@@ -175,8 +192,9 @@ where possible, otherwise a clearly-noted minor with migration notes.
 
 ## Open questions / prerequisites
 
-1. **order-v2 OpenAPI spec file** — obtainable from Emporix to enable codegen? If not,
-   hand-correct the mirror to the verified shape.
+1. ~~**order-v2 OpenAPI spec file** — obtainable?~~ **Resolved:** Emporix publishes the
+   Order Service OpenAPI; the codegen just needs `specs/order-v2.yml` added. (Confirm
+   the exact spec covers `/salesorders/{id}` too — same service, expected yes.)
 2. **`salesorders` GET shape** — verify with a service token (assumed identical).
 3. **Order list with other statuses** — verify shape against a finalized order.
 4. **`orderNumber` convenience** — expose a curated top-level `orderNumber` (from
