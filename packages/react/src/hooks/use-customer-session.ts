@@ -1,21 +1,22 @@
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { auth, type Customer, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "../storage";
 import { EmporixSiteContext, useEmporix, type SiteContextValue } from "../provider";
 import { bootstrapCart } from "./internal/bootstrap-cart";
+import {
+  getCustomerSessionStore,
+  type CustomerSessionState,
+} from "./internal/customer-session-store";
 
 /**
  * Internal: the three session tokens the hook tracks. Bundled so login/
  * applySession/logout/refresh all flip the session atomically — partial
  * updates use the setter-callback form (e.g. external storage notifications
- * that only change `token`).
+ * that only change `token`). State lives in a per-storage shared store so
+ * every consumer (auth form, checkout, header) observes the same session.
  */
-interface SessionState {
-  token: string | null;
-  refreshToken: string | null;
-  saasToken: string | null;
-}
+type SessionState = CustomerSessionState;
 
 const EMPTY_SESSION: SessionState = {
   token: null,
@@ -66,18 +67,17 @@ export function useCustomerSession(): CustomerSessionApi {
   const qc = useQueryClient();
   // Optional — present when wrapped in an EmporixProvider (always true post-MS-2).
   const siteCtx = useContext(EmporixSiteContext);
-  // Single session-state object. `token` is mirrored from storage at mount,
-  // `refreshToken` and `saasToken` are in-session only (not persisted).
-  const [session, setSession] = useState<SessionState>(() => ({
-    token: storage.getCustomerToken(),
-    refreshToken: null,
-    saasToken: null,
-  }));
+  // Single session-state object held in a per-storage shared store so all
+  // consumers see the same in-memory `refreshToken`/`saasToken`. `token` is
+  // mirrored from storage; `refreshToken`/`saasToken` are in-session only.
+  const store = useMemo(() => getCustomerSessionStore(storage), [storage]);
+  const session = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  const setSession = store.setState;
 
   useEffect(() => {
     // External token change (e.g. another tab) updates only the `token` slot.
     return storage.subscribe?.((t) => setSession((s) => ({ ...s, token: t })));
-  }, [storage]);
+  }, [storage, setSession]);
 
   const meQuery = useQuery({
     queryKey: ["emporix", "customer", "me", { tenant: client.tenant, hasToken: session.token !== null }],
@@ -117,7 +117,7 @@ export function useCustomerSession(): CustomerSessionApi {
       await qc.invalidateQueries({ queryKey: ["emporix", "customer"], refetchType: "none" });
       await qc.invalidateQueries({ queryKey: ["emporix", "cart"], refetchType: "none" });
     },
-    [client, storage, qc, siteCtx],
+    [client, storage, qc, siteCtx, setSession],
   );
 
   const signup = useCallback(
@@ -152,7 +152,7 @@ export function useCustomerSession(): CustomerSessionApi {
       await qc.invalidateQueries({ queryKey: ["emporix", "customer"], refetchType: "none" });
       await qc.invalidateQueries({ queryKey: ["emporix", "cart"], refetchType: "none" });
     },
-    [client, storage, qc, siteCtx],
+    [client, storage, qc, siteCtx, setSession],
   );
 
   const socialLogin = useCallback(
@@ -190,7 +190,7 @@ export function useCustomerSession(): CustomerSessionApi {
     setSession(EMPTY_SESSION);
     qc.removeQueries({ queryKey: ["emporix", "customer"] });
     qc.removeQueries({ queryKey: ["emporix", "cart"] });
-  }, [client, session.token, storage, qc]);
+  }, [client, session.token, storage, qc, setSession]);
 
   const refresh = useCallback(async () => {
     await meQuery.refetch();
@@ -211,7 +211,7 @@ export function useCustomerSession(): CustomerSessionApi {
     }));
     await qc.invalidateQueries({ queryKey: ["emporix", "customer"] });
     await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
-  }, [client, storage, qc, session.refreshToken, session.saasToken]);
+  }, [client, storage, qc, session.refreshToken, session.saasToken, setSession]);
 
   return {
     customerToken: session.token,
