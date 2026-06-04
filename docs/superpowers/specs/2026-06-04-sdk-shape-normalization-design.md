@@ -33,6 +33,11 @@ every consumer gets faithful, correctly-typed data — while leaving genuine
 - **Live verification is mandatory.** The generated/mirrored types have proven
   unreliable; every field mapping is verified against the live `viu` tenant, not
   trusted from the OpenAPI doc.
+- **Faithful to the real API.** The SDK returns Emporix's *actual* response shape,
+  correctly typed from the published spec. Hand-curated/mirrored modules that can
+  drift from the deployment are replaced by codegen (`SalesOrders` included). Where
+  the published spec itself is stale vs the deployment (price-match), a minimal
+  service-layer normalization bridges the gap until Emporix fixes the spec.
 
 ## Verified findings (2026-06-04, live `viu`)
 
@@ -116,6 +121,11 @@ with `itemId` added and `itemRef` deprecated. Non-breaking.
    `Order`/`OrderItem`/`OrderMoney`. Update the service re-exports/aliases and the
    façade accordingly. Replace the fictional order test fixtures with the real shape.
 
+**SalesOrders are generated too.** The one Order-Service spec covers `/orders` *and*
+`/salesorders/{id}`, so `SalesOrdersService` stops importing a hand-written mirror and
+returns the real generated shape — same as `OrdersService`. No separate salesorder
+spec/module is needed.
+
 **Fallback (only if the spec truly cannot be obtained):** hand-correct the mirror to
 the verified live shape below — still a single source shared by both services.
 
@@ -153,6 +163,25 @@ hook `useProductNameSearch` as a follow-on.
 Export a pure `productIdFromYrn(yrn): string` (parse `…;<productId>`). Used by the
 order item mapping to populate `productId`, and by cart consumers. No auto-fetch.
 
+## Hand-written modules — full SDK inventory (analysis)
+
+Only **three** `generated/` modules are hand-written (all carry the *"Not generated …
+replaced by codegen when the spec lands"* header); the other 33 are real codegen. These
+three are the only places the SDK risks **not** returning the real API response:
+
+| Module | API scope | Risk | Plan |
+|---|---|---|---|
+| `order-v2` | `/orders`, `/orders/{id}`, transitions, `/salesorders/{id}` | **confirmed wrong** vs live | codegen from `specs/order-v2.yml` (Phase 2; covers SalesOrders) |
+| `customer-management` | Legal Entities, Contact Assignments, Locations (B2B), 18 types | same risk class; **not yet live-verified** | codegen from `specs/customer-management.yml` (Phase 4) |
+| `iam` | minimal B2B group read, 2 types | partial by design | codegen when its spec is confirmed (follow-up) |
+
+The `services/*-types.ts` layer is **mostly faithful** — thin re-export aliases over
+`generated/`. Its inline `interface`s are predominantly SDK ergonomics (`*Draft`,
+`*Query`, `*Options`, request builders), which are legitimately hand-written and **out
+of scope**. A few small hand-defined *response* types in niche services (`ai-types`:
+`TextResponse`/`ChatResponse`/…; `sequential-id`: `NextIdResponse`) are low-priority —
+note, don't action, unless a consumer reports drift.
+
 ## Mapping pattern
 
 - One pure `normalize*(raw)` function per service, applied to the HTTP result before
@@ -178,10 +207,16 @@ order item mapping to populate `productId`, and by cart consumers. No auto-fetch
 
 1. **Phase 1** — Price-match `normalizeMatch` (`itemId` canonical, `itemRef`
    deprecated-but-populated, richer fields) + `productIdFromYrn` util. Small, high value.
-2. **Phase 2** — Orders: obtain spec → codegen → replace mirror (or hand-correct to the
-   verified shape); shared by `OrdersService` + `SalesOrdersService`; replace the
-   fictional test fixtures. Larger.
+2. **Phase 2** — Orders + SalesOrders: add `specs/order-v2.yml` → codegen → replace
+   mirror (or hand-correct to the verified shape); shared by `OrdersService` +
+   `SalesOrdersService`; re-point façade re-exports; replace the fictional test
+   fixtures with the real shape. Larger.
 3. **Phase 3** — `products.searchByName` (+ optional React hook). Additive convenience.
+4. **Phase 4** — `customer-management`: add `specs/customer-management.yml` → codegen →
+   replace mirror; re-point the B2B services (Companies/Contacts/Locations). Live-verify
+   first (needs B2B setup on the tenant).
+5. **Follow-up** — `iam`: codegen once its spec/endpoints are confirmed (read + the
+   deferred membership mutations).
 
 ## Versioning
 
