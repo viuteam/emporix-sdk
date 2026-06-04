@@ -69,6 +69,7 @@ export type {
 export { PriceService } from "./services/price";
 export type {
   PriceMatch,
+  PriceMatchItemRef,
   PriceMatchByContextInput,
   PriceMatchInput,
   MatchByContextChunkedOptions,

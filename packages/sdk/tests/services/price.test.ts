@@ -207,3 +207,38 @@ describe("PriceService.matchByContextChunked", () => {
     await expect(svc().matchByContextChunked(mkInput(1), { concurrency: 0 })).rejects.toThrow(/concurrency/);
   });
 });
+
+describe("PriceService — itemId normalization", () => {
+  it("exposes itemId and mirrors it to the deprecated itemRef", async () => {
+    server.use(
+      http.post("https://api.emporix.io/price/acme/match-prices-by-context", () =>
+        HttpResponse.json([
+          {
+            priceId: "pr1",
+            effectiveValue: 1,
+            currency: "CHF",
+            itemId: { itemType: "PRODUCT", id: "p-1", name: { en: "Widget", de: "Widget" } },
+          },
+        ]),
+      ),
+    );
+    const [m] = await svc().matchByContext({ items: [{ itemId: { itemType: "PRODUCT", id: "p-1" } }] });
+    expect(m).toBeDefined();
+    expect(m?.itemId).toEqual({ itemType: "PRODUCT", id: "p-1", name: { en: "Widget", de: "Widget" } });
+    expect(m?.itemRef).toEqual({ itemType: "PRODUCT", id: "p-1" }); // mirrored (deprecated)
+  });
+
+  it("matchByContextChunked returns normalized rows", async () => {
+    server.use(
+      http.post("https://api.emporix.io/price/acme/match-prices-by-context", () =>
+        HttpResponse.json([{ priceId: "pr1", itemId: { itemType: "PRODUCT", id: "p-1" } }]),
+      ),
+    );
+    const out = await svc().matchByContextChunked(
+      { items: [{ itemId: { itemType: "PRODUCT", id: "p-1" } }] },
+      { chunkSize: 1 },
+    );
+    expect(out[0]?.itemId?.id).toBe("p-1");
+    expect(out[0]?.itemRef?.id).toBe("p-1");
+  });
+});
