@@ -74,6 +74,25 @@ describe("useCustomerSession", () => {
     await waitFor(() => expect(result.current.customer?.contactEmail).toBe("a@b.co"));
   });
 
+  it("shares the in-memory saasToken across hook instances", async () => {
+    // Two independent useCustomerSession() consumers under one provider —
+    // mirrors the auth form (logs in) and the checkout page (reads saasToken).
+    // The saasToken is in-memory only, so it must come from a shared store;
+    // otherwise the checkout instance never sees it and customer checkout 401s.
+    const { result } = renderHook(
+      () => ({ a: useCustomerSession(), b: useCustomerSession() }),
+      { wrapper: wrapper() },
+    );
+    await act(async () => {
+      await result.current.a.login({ email: "a@b.co", password: "p" });
+    });
+    await waitFor(() => expect(result.current.a.saasToken).toBe("saas"));
+    // Instance B must observe the session established by instance A.
+    expect(result.current.b.saasToken).toBe("saas");
+    expect(result.current.b.refreshToken).toBe("crt");
+    expect(result.current.b.isAuthenticated).toBe(true);
+  });
+
   it("logout calls the server then clears the token", async () => {
     let logoutHit = false;
     server.use(
