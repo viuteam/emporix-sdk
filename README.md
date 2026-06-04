@@ -17,8 +17,11 @@ shipped as a pnpm workspace monorepo.
 | [`@viu/emporix-sdk-react`](./packages/react) | React bindings: provider, hooks, storage adapters, SSR helpers |
 
 Runnable examples live in [`examples/`](./examples): `node-server` (no React),
-`vite-spa` (CSR), `next-app-router` (RSC + Server Actions). Example packages are
-private and never published.
+`vite-spa` (CSR), `next-app-router` (RSC + Server Actions), and
+[`storefront-demo`](./examples/storefront-demo) — a complete storefront
+(catalog → checkout → account self-service) configured with a tenant + public
+client id at runtime (**places real orders**). Example packages are private and
+never published.
 
 ## Install
 
