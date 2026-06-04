@@ -13,6 +13,7 @@ export {
   useProductsInfinite,
   useProductByCode,
   useProductSearch,
+  useProductNameSearch,
   useProductsByCodes,
   useShoppingLists,
   useCreateShoppingList,

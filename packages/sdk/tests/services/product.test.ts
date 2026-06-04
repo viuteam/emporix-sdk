@@ -331,3 +331,19 @@ describe("ProductService.searchByCodes", () => {
     expect(warn?.fields.dropped).toEqual(["B C", "D,E"]);
   });
 });
+
+describe("ProductService.searchByName", () => {
+  it("builds a name:(~…) filter and escapes regex metacharacters", async () => {
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "p1" }]);
+      }),
+    );
+    await svc().searchByName("in time");
+    expect((seen as URLSearchParams | null)?.get("q")).toBe("name:(~in time)");
+    await svc().searchByName("a.b*(c)");
+    expect((seen as URLSearchParams | null)?.get("q")).toBe("name:(~a\\.b\\*\\(c\\))");
+  });
+});

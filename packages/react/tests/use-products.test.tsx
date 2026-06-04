@@ -12,6 +12,7 @@ import {
   useProductsInfinite,
   useProductByCode,
   useProductSearch,
+  useProductNameSearch,
   useProductsByCodes,
 } from "../src/hooks/use-products";
 import type { ReactNode } from "react";
@@ -197,5 +198,25 @@ describe("useProductsByCodes", () => {
     const { result } = renderHook(() => useProductsByCodes(["A", "B"]), { wrapper: wrap() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.map((p) => p.code)).toEqual(["A", "B"]);
+  });
+});
+
+describe("useProductNameSearch", () => {
+  it("builds a name:(~…) filter from a free-text term", async () => {
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "p1" }]);
+      }),
+    );
+    const { result } = renderHook(() => useProductNameSearch("in time"), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect((seen as URLSearchParams | null)?.get("q")).toBe("name:(~in time)");
+  });
+
+  it("is disabled for an empty term", () => {
+    const { result } = renderHook(() => useProductNameSearch(""), { wrapper: wrap() });
+    expect(result.current.fetchStatus).toBe("idle");
   });
 });

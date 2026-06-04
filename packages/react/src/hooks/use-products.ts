@@ -91,6 +91,23 @@ export function useProductSearch(
   });
 }
 
+/** Free-text product search by name (builds the Emporix `name:(~…)` filter). Disabled when empty/whitespace. */
+export function useProductNameSearch(
+  term: string | undefined,
+  params: { pageNumber?: number; pageSize?: number } = {},
+  options: QueryOpts = {},
+): UseQueryResult<PaginatedItems<Product>> {
+  const { client } = useEmporix();
+  const { ctx } = useReadAuth(options.auth);
+  const { siteCode } = useReadSite();
+  return useQuery({
+    queryKey: emporixKey("product-name-search", [term, params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    enabled: typeof term === "string" && term.trim() !== "",
+    queryFn: () => client.products.searchByName(term as string, params, ctx),
+    staleTime: PRODUCTS_STALE_TIME,
+  });
+}
+
 /**
  * Bulk-fetches products by `code`. Order is not guaranteed — re-index by
  * `code` if needed. Disabled when `codes` is empty.
