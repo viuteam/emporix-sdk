@@ -86,6 +86,21 @@ export class ProductService {
   }
 
   /**
+   * Free-text product search by name. The product `q` is a `field:value` DSL,
+   * so a bare term (e.g. "in time") 400s with "No value for key …". This builds
+   * a `name:(~<term>)` regex filter (regex metacharacters escaped) and delegates
+   * to {@link search}.
+   */
+  async searchByName(
+    query: string,
+    params: { pageNumber?: number; pageSize?: number } = {},
+    auth: AuthContext = ANON,
+  ): Promise<PaginatedItems<Product>> {
+    const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return this.search(`name:(~${escaped})`, params, auth);
+  }
+
+  /**
    * Bulk fetch by id. POSTs `/products/search` with `q="id:(id1,id2,…)"`,
    * chunking when the list is larger than `options.chunkSize` (default
    * 100). An empty list short-circuits with no HTTP call. **Order is not
