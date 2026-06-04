@@ -31,6 +31,12 @@ export interface CustomerSessionApi {
   isLoading: boolean;
   /** Current refresh token (in-session; set by `login`). */
   refreshToken: string | null;
+  /**
+   * Current SaaS token (in-session; set by `login`/`exchangeToken`). Pass it to
+   * `useCheckout().placeOrder({ ..., saasToken })` for customer checkout and to
+   * saas-token-gated order reads.
+   */
+  saasToken: string | null;
   login: (input: { email: string; password: string }) => Promise<void>;
   signup: (input: { email: string; password: string }) => Promise<void>;
   /** Authorization-Code SSO: exchanges an IdP `code` for a customer session. */
@@ -210,6 +216,7 @@ export function useCustomerSession(): CustomerSessionApi {
   return {
     customerToken: session.token,
     refreshToken: session.refreshToken,
+    saasToken: session.saasToken,
     customer: meQuery.data ?? null,
     isAuthenticated: session.token !== null,
     isLoading: meQuery.isLoading && session.token !== null,

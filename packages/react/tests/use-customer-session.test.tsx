@@ -70,6 +70,7 @@ describe("useCustomerSession", () => {
     });
     expect(storage.getCustomerToken()).toBe("cust");
     expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.saasToken).toBe("saas");
     await waitFor(() => expect(result.current.customer?.contactEmail).toBe("a@b.co"));
   });
 
