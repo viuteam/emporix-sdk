@@ -24,13 +24,8 @@ export function Cart() {
   async function setQty(line: CartLineVM, q: number) {
     if (q < 1) return;
     try {
-      // viu's PUT replaces the line, so itemYrn + price row must be re-sent.
-      const patch = {
-        quantity: q,
-        ...(line.itemYrn ? { itemYrn: line.itemYrn } : {}),
-        ...(line.price ? { price: line.price } : {}),
-      };
-      await m.updateItem.mutateAsync({ itemId: line.id, patch: patch as never });
+      // `partial: true` → quantity-only update; no need to re-send itemYrn/price.
+      await m.updateItem.mutateAsync({ itemId: line.id, patch: { quantity: q } as never, partial: true });
     } catch (e) {
       notify(errorMessage(e), "error");
     }
