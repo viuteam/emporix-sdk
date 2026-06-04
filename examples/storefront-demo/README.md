@@ -13,6 +13,29 @@ It doubles as a reference: each screen is a worked example of the hooks, and
 > order**, and the account flows create/modify **real** addresses, returns and
 > shopping lists. **Use a test / sandbox tenant** — not production.
 
+## Live demo & deployment
+
+This demo is built and deployed to GitHub Pages by `.github/workflows/pages.yml`
+on every push to `main` (no build artifacts are committed). Once enabled it is
+served at:
+
+```
+https://viuteam.github.io/emporix-sdk/
+```
+
+It ships **no tenant binding and no secrets** — open the page and enter a tenant
++ public storefront client id on the setup screen (kept in `localStorage`).
+
+**One-time setup (repo owner):**
+
+- GitHub → **Settings → Pages → Source → "GitHub Actions"**.
+- In the Emporix tenant you demo against, allow the `https://viuteam.github.io`
+  origin (CORS, and OAuth redirect URIs if you use the login redirect).
+
+**Custom domain / different repo:** the Pages sub-path is set via `VITE_BASE` in
+the workflow (`/emporix-sdk/`). For a custom domain set `VITE_BASE=/` and add a
+`CNAME`.
+
 ## Run
 
 ```bash
