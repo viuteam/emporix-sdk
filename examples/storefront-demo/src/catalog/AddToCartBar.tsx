@@ -32,7 +32,12 @@ export function AddToCartBar({
       await addItem.mutateAsync({
         itemYrn: productYrn(client.tenant, productId),
         quantity: qty,
-        priceId: price.priceId,
+        price: {
+          priceId: price.priceId,
+          originalAmount: price.amount,
+          effectiveAmount: price.amount,
+          currency: price.currency,
+        },
       } as never);
       notify(`Added ${qty} × ${productName} to your bag`, "success");
     } catch (e) {

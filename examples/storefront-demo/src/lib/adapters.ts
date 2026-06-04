@@ -101,6 +101,9 @@ export interface PriceVM {
 }
 
 type ReadMatch = {
+  // Live response keys the product under `itemId`; the generated type calls it
+  // `itemRef`. Match either.
+  itemId?: { id?: string };
   itemRef?: { id?: string };
   priceId?: string;
   effectiveValue?: number;
@@ -124,7 +127,7 @@ export function catId(c: unknown): string {
 
 /** Find the matched price for a product id within a `matchByContext` result. */
 export function priceForProduct(matches: PriceMatch[] | undefined, productId: string): PriceVM | undefined {
-  const m = (matches as ReadMatch[] | undefined)?.find((x) => x.itemRef?.id === productId);
+  const m = (matches as ReadMatch[] | undefined)?.find((x) => (x.itemId?.id ?? x.itemRef?.id) === productId);
   if (!m) return undefined;
   const amount = m.effectiveValue ?? m.totalValue;
   if (amount === undefined || !m.currency) return undefined;
