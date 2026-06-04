@@ -56,7 +56,7 @@ function DemoApp({ config, reset }: { config: DemoConfig; reset: () => void }) {
       {...(config.siteCode ? { initialSiteCode: config.siteCode } : {})}
     >
       <ToastProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <AppShell tenant={config.tenant} onReset={reset}>
             <RouteError>
               <Routes>
