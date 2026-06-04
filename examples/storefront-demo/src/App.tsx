@@ -13,6 +13,7 @@ import { Home } from "./pages/Home";
 import { Search } from "./pages/Search";
 import { Category } from "./pages/Category";
 import { Product } from "./pages/Product";
+import { Cart } from "./pages/Cart";
 
 function buildClient(c: DemoConfig): EmporixClient {
   const context: { siteCode?: string; currency?: string; targetLocation?: string } = {};
@@ -53,7 +54,7 @@ function DemoApp({ config, reset }: { config: DemoConfig; reset: () => void }) {
                 <Route path="/search" element={<Search />} />
                 <Route path="/category/:id" element={<Category />} />
                 <Route path="/product/:idOrCode" element={<Product />} />
-                <Route path="/cart" element={<Placeholder title="Cart" />} />
+                <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<Placeholder title="Checkout" />} />
                 <Route path="/account/*" element={<Placeholder title="Account" />} />
                 <Route path="/reset-password" element={<Placeholder title="Reset password" />} />

@@ -141,20 +141,29 @@ export function productYrn(tenant: string, productId: string): string {
 
 // --- Cart ---
 
-type ReadPrice = { amount?: number; effectiveAmount?: number; currency?: string };
-type ReadCartItem = {
-  id?: string;
-  quantity?: number;
-  product?: { id?: string; name?: unknown; media?: Media[] };
-  totalPrice?: ReadPrice;
-  unitPrice?: ReadPrice;
-};
+type ReadPrice = { amount?: number; effectiveAmount?: number; totalValue?: number; currency?: string };
 
-function toPriceVM(p: ReadPrice | undefined): PriceVM | undefined {
-  const amount = p?.amount ?? p?.effectiveAmount;
+function toPriceVM(p: ReadPrice | undefined | null): PriceVM | undefined {
+  const amount = p?.amount ?? p?.effectiveAmount ?? p?.totalValue;
   if (amount === undefined || !p?.currency) return undefined;
   return { amount, currency: p.currency };
 }
+
+/** The `PriceRowItem` the cart stores/echoes per line — re-sent on update. */
+export interface CartLinePrice {
+  priceId: string;
+  originalAmount: number;
+  effectiveAmount: number;
+  currency: string;
+}
+type ReadCartItem = {
+  id?: string;
+  itemYrn?: string;
+  quantity?: number;
+  product?: { id?: string; name?: unknown; media?: Media[] };
+  price?: Partial<CartLinePrice>;
+  totalPrice?: ReadPrice;
+};
 
 export interface CartLineVM {
   id: string;
@@ -163,35 +172,48 @@ export interface CartLineVM {
   image?: string;
   unit?: PriceVM;
   lineTotal?: PriceVM;
+  /** Echoed identifiers/price row — the cart requires them back on updates (PUT replaces the line). */
+  itemYrn?: string;
+  price?: CartLinePrice;
 }
 
 export function toCartLine(item: unknown): CartLineVM {
   const r = item as ReadCartItem;
+  const quantity = r.quantity ?? 1;
   const vm: CartLineVM = {
     id: r.id ?? "",
     name: pickText(r.product?.name, r.product?.id ?? ""),
-    quantity: r.quantity ?? 1,
+    quantity,
   };
+  if (r.itemYrn) vm.itemYrn = r.itemYrn;
   const image = imageOf(r.product?.media);
   if (image) vm.image = image;
-  const unit = toPriceVM(r.unitPrice);
-  if (unit) vm.unit = unit;
-  const total = toPriceVM(r.totalPrice);
-  if (total) vm.lineTotal = total;
+
+  const p = r.price;
+  if (p?.priceId && p.currency && p.effectiveAmount !== undefined) {
+    vm.price = {
+      priceId: p.priceId,
+      originalAmount: p.originalAmount ?? p.effectiveAmount,
+      effectiveAmount: p.effectiveAmount,
+      currency: p.currency,
+    };
+    vm.unit = { amount: p.effectiveAmount, currency: p.currency };
+    vm.lineTotal = { amount: p.effectiveAmount * quantity, currency: p.currency };
+  }
   return vm;
 }
 
 export function cartLines(cart: unknown): CartLineVM[] {
-  const items = (cart as { items?: unknown[] }).items ?? [];
+  const items = (cart as { items?: unknown[] } | null | undefined)?.items ?? [];
   return items.map(toCartLine);
 }
 
 export function cartTotal(cart: unknown): PriceVM | undefined {
-  return toPriceVM((cart as { totalPrice?: ReadPrice }).totalPrice);
+  return toPriceVM((cart as { totalPrice?: ReadPrice } | null | undefined)?.totalPrice);
 }
 
 /** Coupon codes currently applied to the cart (best-effort across shapes). */
 export function cartCoupons(cart: unknown): string[] {
-  const c = cart as { coupons?: Array<{ code?: string }> };
-  return (c.coupons ?? []).map((x) => x.code).filter((x): x is string => Boolean(x));
+  const c = cart as { coupons?: Array<{ code?: string }> } | null | undefined;
+  return (c?.coupons ?? []).map((x) => x.code).filter((x): x is string => Boolean(x));
 }
