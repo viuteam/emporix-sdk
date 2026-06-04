@@ -95,6 +95,39 @@ describe("useCartMutations", () => {
     await waitFor(() => expect(result.current.cart.data?.items).toHaveLength(1));
   });
 
+  it("updateItem with a 204 No Content response refetches so the UI updates", async () => {
+    // A partial quantity update returns `204 No Content` on Emporix — the SDK
+    // resolves that to `undefined`. The mutation must NOT clobber the cache
+    // with the empty body (setQueryData(undefined) is a no-op → stale UI); it
+    // must refetch so the new quantity shows.
+    let qty = 1;
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts/cart1", () =>
+        HttpResponse.json({ id: "cart1", items: [{ id: "i1", quantity: qty }] }),
+      ),
+      http.put("https://api.emporix.io/cart/acme/carts/cart1/items/i1", () => {
+        qty = 5;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const wrapper = wrap();
+    const { result } = renderHook(
+      () => ({ cart: useCart("cart1"), mut: useCartMutations("cart1") }),
+      { wrapper },
+    );
+    const readQty = () =>
+      (result.current.cart.data?.items?.[0] as { quantity?: number } | undefined)?.quantity;
+    await waitFor(() => expect(readQty()).toBe(1));
+    await act(async () => {
+      await result.current.mut.updateItem.mutateAsync({
+        itemId: "i1",
+        patch: { quantity: 5 } as never,
+        partial: true,
+      });
+    });
+    await waitFor(() => expect(readQty()).toBe(5));
+  });
+
   it("useCartMutations() throws when storage has no cartId at mutate-time", async () => {
     const { result } = renderHook(() => useCartMutations(), { wrapper: wrap() });
     await expect(

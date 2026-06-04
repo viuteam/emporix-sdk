@@ -111,7 +111,16 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
         if (c) qc.setQueryData(c.key, c.previous);
       },
       onSuccess: (cart, _v, c) => {
-        if (c) qc.setQueryData(c.key, cart);
+        if (!c) return;
+        // Most cart writes echo the full updated cart. Some (e.g. a partial
+        // quantity update → 204 No Content) resolve to `undefined`; passing
+        // that to setQueryData is a no-op, leaving the UI stale. Adopt a real
+        // cart body directly; otherwise refetch so the UI reflects the server.
+        if (cart && Array.isArray((cart as Cart).items)) {
+          qc.setQueryData(c.key, cart);
+        } else {
+          void qc.invalidateQueries({ queryKey: c.key });
+        }
       },
     });
   }
