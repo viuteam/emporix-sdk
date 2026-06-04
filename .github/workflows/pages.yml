@@ -1,0 +1,67 @@
+name: Deploy storefront-demo to Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/storefront-demo/**"
+      - "packages/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Allow the deploy job to publish to Pages via OIDC.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One in-flight Pages deploy at a time; don't cancel a running deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build storefront-demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The demo imports @viu/emporix-sdk(-react) from their built dist/.
+      - name: Build packages
+        run: pnpm -r --filter "./packages/*" build
+
+      - name: Build storefront-demo
+        run: pnpm -F @viu/emporix-examples-storefront-demo build
+        env:
+          # Project-page sub-path. For a custom domain set this to "/".
+          VITE_BASE: /emporix-sdk/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: examples/storefront-demo/dist
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
