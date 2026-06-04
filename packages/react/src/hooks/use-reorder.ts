@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
-import { auth, type Order } from "@viu/emporix-sdk";
+import { auth, productIdFromYrn, type Order } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { emporixKey } from "./internal/query-keys";
 
@@ -42,11 +42,12 @@ export function useReorder(): UseMutationResult<UseReorderResult, unknown, UseRe
       const cartId = storage.getCartId();
       if (!cartId) throw new Error("useReorder: no active cart id in storage");
 
-      if (order.items.length === 0) return { added: 0, errors: [] };
+      const entries = order.entries ?? [];
+      if (entries.length === 0) return { added: 0, errors: [] };
 
-      const batchBody = order.items.map((item) => ({
-        product: { id: item.productId },
-        quantity: item.quantity,
+      const batchBody = entries.map((entry) => ({
+        product: { id: (entry.product as { id?: string } | undefined)?.id ?? productIdFromYrn(entry.itemYrn) },
+        quantity: entry.orderedAmount ?? entry.amount,
       })) as never;
       const res = await client.carts.addItemsBatch(cartId, batchBody, ctx);
       let added = 0;

@@ -88,11 +88,22 @@ describe("OrdersService.get", () => {
   it("GETs /orders/{id} and returns the order", async () => {
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders/o-1", () =>
-        HttpResponse.json({ id: "o-1", orderNumber: "ORD-1", status: "CREATED", currency: "CHF", totalPrice: { amount: 10, currency: "CHF" }, items: [] }),
+        HttpResponse.json({
+          id: "o-1",
+          status: "CREATED",
+          currency: "CHF",
+          totalPrice: 10,
+          entries: [
+            { id: "e1", itemYrn: "urn:yaas:hybris:product:product:acme;p1", orderedAmount: 1, unitPrice: 10, totalPrice: 10 },
+          ],
+          customer: { id: "c1", email: "a@b.co" },
+          mixins: { generalAttributes: { orderNumber: "ORD-1" } },
+        }),
       ),
     );
     const r = await svc().get("o-1", CUST);
-    expect(r.orderNumber).toBe("ORD-1");
+    expect(r.id).toBe("o-1");
+    expect(r.status).toBe("CREATED");
   });
 
   it("maps 404 to EmporixNotFoundError", async () => {

@@ -14,7 +14,7 @@ export function OrderHistory(): React.JSX.Element {
         {orders.map((o) => (
           <li key={o.id}>
             <Link to={`/account/orders/${o.id}`}>
-              {o.orderNumber} — {o.status} — {o.totalPrice.amount} {o.totalPrice.currency}
+              {o.id} — {o.status} — {o.totalPrice} {o.currency}
             </Link>
           </li>
         ))}

@@ -1,10 +1,13 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import type { AuthContext } from "../core/auth";
-import type {
-  Order,
-  OrderStatus,
-  SalesOrderPatch,
-} from "../generated/order-v2";
+import type { Order, OrderStatus, OrderUpdateDto } from "../generated/order-v2";
+
+/**
+ * Salesorder PATCH body. The generated `orderUpdateDto` models a full order
+ * (it requires `entries`/`customer`), but `PATCH /salesorders/{id}` accepts a
+ * subset — so the SDK exposes a partial of it.
+ */
+export type SalesOrderPatch = Partial<OrderUpdateDto>;
 
 /** Optional fields supported by the order-v2 list endpoint. */
 export interface ListMyOrdersOptions {

@@ -41,11 +41,11 @@ describe("useReorder", () => {
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders/o-1", () =>
         HttpResponse.json({
-          id: "o-1", orderNumber: "ORD-1", status: "COMPLETED", currency: "CHF",
-          totalPrice: { amount: 30, currency: "CHF" },
-          items: [
-            { id: "i1", productId: "p-1", quantity: 2, unitPrice: { amount: 10, currency: "CHF" }, totalPrice: { amount: 20, currency: "CHF" } },
-            { id: "i2", productId: "p-2", quantity: 1, unitPrice: { amount: 10, currency: "CHF" }, totalPrice: { amount: 10, currency: "CHF" } },
+          id: "o-1", status: "COMPLETED", currency: "CHF", totalPrice: 30,
+          customer: { id: "c1", email: "a@b.co" },
+          entries: [
+            { id: "i1", product: { id: "p-1" }, orderedAmount: 2 },
+            { id: "i2", product: { id: "p-2" }, orderedAmount: 1 },
           ],
         }),
       ),
@@ -78,11 +78,11 @@ describe("useReorder", () => {
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders/o-1", () =>
         HttpResponse.json({
-          id: "o-1", orderNumber: "ORD-1", status: "COMPLETED", currency: "CHF",
-          totalPrice: { amount: 20, currency: "CHF" },
-          items: [
-            { id: "i1", productId: "p-ok", quantity: 1, unitPrice: { amount: 10, currency: "CHF" }, totalPrice: { amount: 10, currency: "CHF" } },
-            { id: "i2", productId: "p-gone", quantity: 1, unitPrice: { amount: 10, currency: "CHF" }, totalPrice: { amount: 10, currency: "CHF" } },
+          id: "o-1", status: "COMPLETED", currency: "CHF", totalPrice: 20,
+          customer: { id: "c1", email: "a@b.co" },
+          entries: [
+            { id: "i1", product: { id: "p-ok" }, orderedAmount: 1 },
+            { id: "i2", product: { id: "p-gone" }, orderedAmount: 1 },
           ],
         }),
       ),
@@ -109,8 +109,8 @@ describe("useReorder", () => {
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders/o-empty", () =>
         HttpResponse.json({
-          id: "o-empty", orderNumber: "ORD-E", status: "COMPLETED", currency: "CHF",
-          totalPrice: { amount: 0, currency: "CHF" }, items: [],
+          id: "o-empty", status: "COMPLETED", currency: "CHF", totalPrice: 0,
+          customer: { id: "c1", email: "a@b.co" }, entries: [],
         }),
       ),
       http.post("https://api.emporix.io/cart/acme/carts/cart-1/itemsBatch", () => {
