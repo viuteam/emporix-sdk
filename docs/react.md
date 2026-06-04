@@ -33,7 +33,7 @@ The core SDK has **no** React dependency; React lives only in this package.
 Storage choices have security implications (XSS for `localStorage`, CSRF for
 cookies) the SDK cannot make for you — hence opt-in, never automatic.
 
-Each adapter persists five pieces under predictable keys:
+Each adapter persists six pieces under predictable keys:
 
 - `emporix.customerToken` — string, set by `useCustomerSession.login/logout`.
 - `emporix.cartId` — string, set by `useCreateCart`, cleared by the consumer.
@@ -44,6 +44,158 @@ Each adapter persists five pieces under predictable keys:
 - `emporix.refreshToken` — string, mirrored from the customer session by
   `useCustomerSession` on every login/refresh. Required for B2B
   refresh-on-switch; cleared on logout.
+
+### Writing a custom storage adapter
+
+A storage backend is any object implementing the `EmporixStorage` interface
+(`packages/react/src/storage/index.ts`); pass your instance to
+`<EmporixProvider storage={…}>`. The three built-ins are the canonical templates —
+`memory.ts` is the simplest: copy it and swap the backing store.
+
+The contract is six `get*`/`set*` pairs (one per key above), plus two **optional**
+subscription hooks:
+
+| Hook | Purpose | Skip it? |
+| --- | --- | --- |
+| `subscribe(listener)` | Fires on **customer-token** change. Drives the shared `useCustomerSession` store (`useSyncExternalStore`) so login/logout/refresh re-render every consumer. | Omit only if you don't need reactive auth — components then won't see token changes until their next render. |
+| `subscribeAll(listener)` | Fires the **changed key** (`EmporixStorageKey`). Telemetry only (`storage.write` events). | Safe to omit. |
+
+`null` always means "absent". `get/setAnonymousSession` round-trip a
+`PersistedAnonymousSession` (`{ refreshToken, sessionId }`). Two helpers are exported
+from `./storage/index` for reuse: `createListenerSet()` (swallow-on-throw fan-out) and
+`parseAnonymousSession()` (safe JSON parse).
+
+#### Minimal skeleton
+
+```ts
+import type { EmporixStorage } from "@viu/emporix-sdk-react";
+
+export function createMyStorage(): EmporixStorage {
+  // back these by whatever you like (signal, IndexedDB, RN AsyncStorage, …)
+  return {
+    getCustomerToken: () => null,
+    setCustomerToken: (t) => {},
+    getCartId: () => null,
+    setCartId: (id) => {},
+    getAnonymousSession: () => null,
+    setAnonymousSession: (s) => {},
+    getSiteCode: () => null,
+    setSiteCode: (c) => {},
+    getActiveLegalEntityId: () => null,
+    setActiveLegalEntityId: (id) => {},
+    getRefreshToken: () => null,
+    setRefreshToken: (t) => {},
+    // optional: subscribe(listener) / subscribeAll(listener)
+  };
+}
+```
+
+#### Example: a Zustand-backed adapter
+
+Zustand is itself a subscribable store, so it maps onto `EmporixStorage` directly —
+and because it is *your* store too, your components read the same session state
+reactively. Install `zustand`, then:
+
+```ts
+// session-store.ts
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import type { EmporixStorage, PersistedAnonymousSession } from "@viu/emporix-sdk-react";
+
+interface SessionState {
+  customerToken: string | null;
+  cartId: string | null;
+  anonymousSession: PersistedAnonymousSession | null;
+  siteCode: string | null;
+  activeLegalEntityId: string | null;
+  refreshToken: string | null;
+}
+
+// Exported → components read reactively: useSessionStore((s) => s.customerToken)
+export const useSessionStore = create<SessionState>()(
+  persist(
+    () => ({
+      customerToken: null,
+      cartId: null,
+      anonymousSession: null,
+      siteCode: null,
+      activeLegalEntityId: null,
+      refreshToken: null,
+    }),
+    {
+      name: "emporix.session",
+      // SSR-safe: no localStorage on the server
+      storage: createJSONStorage(() =>
+        typeof window !== "undefined" ? window.localStorage : undefined,
+      ),
+    },
+  ),
+);
+
+export function createZustandStorage(): EmporixStorage {
+  const s = useSessionStore; // StoreApi: getState / setState / subscribe
+  return {
+    getCustomerToken: () => s.getState().customerToken,
+    setCustomerToken: (t) => s.setState({ customerToken: t }),
+    // store.subscribe catches every token change (incl. app writes + rehydration)
+    subscribe: (l) =>
+      s.subscribe((st, prev) => {
+        if (st.customerToken !== prev.customerToken) l(st.customerToken);
+      }),
+
+    getCartId: () => s.getState().cartId,
+    setCartId: (id) => s.setState({ cartId: id }),
+    getAnonymousSession: () => s.getState().anonymousSession,
+    setAnonymousSession: (a) => s.setState({ anonymousSession: a }),
+    getSiteCode: () => s.getState().siteCode,
+    setSiteCode: (c) => s.setState({ siteCode: c }),
+    getActiveLegalEntityId: () => s.getState().activeLegalEntityId,
+    setActiveLegalEntityId: (id) => s.setState({ activeLegalEntityId: id }),
+    getRefreshToken: () => s.getState().refreshToken,
+    setRefreshToken: (t) => s.setState({ refreshToken: t }),
+
+    // optional: emit the changed key for telemetry
+    subscribeAll: (listener) => {
+      const KEYS = [
+        "customerToken", "cartId", "siteCode",
+        "anonymousSession", "activeLegalEntityId", "refreshToken",
+      ] as const;
+      return s.subscribe((st, prev) => {
+        for (const k of KEYS) if (st[k] !== prev[k]) listener(k);
+      });
+    },
+  };
+}
+```
+
+```tsx
+<EmporixProvider client={client} storage={createZustandStorage()}>…</EmporixProvider>
+```
+
+#### Behaviour with Zustand
+
+- **Identical to the built-ins from the SDK's side.** The SDK only calls the
+  `EmporixStorage` methods; it never imports Zustand. Login/logout/refresh call
+  `setCustomerToken` → `setState` → `subscribe` fires → the `useCustomerSession` store
+  re-renders consumers, exactly like `createLocalStorageStorage`.
+- **Single source of truth, bidirectional.** Wiring `subscribe` to `store.subscribe`
+  means the SDK also notices token changes your *app* makes, while your app reads
+  token/cart/etc. reactively from the same store via `useSessionStore`.
+- **Only the token is observed.** `subscribe` is token-only by contract; the other five
+  keys are read on demand. Mutate session state through the SDK hooks
+  (`useCustomerSession`, `useActiveCompany.setActiveCompany`, `useSiteContext.setSite`, …),
+  **not** raw `setState`, or React-Query caches won't be invalidated. `subscribeAll`
+  is telemetry-only and drives no refetch.
+- **Persistence.** With `persist` over **synchronous** `localStorage`, the store
+  rehydrates before the provider's first read, so the SDK sees the persisted token
+  immediately (same UX as `createLocalStorageStorage`). With an **async** backing store
+  (IndexedDB, RN AsyncStorage) there is a hydration gap — the SDK may read `null` on the
+  first tick and treat the user as anonymous until rehydration completes. Without
+  `persist` it behaves like `createMemoryStorage`, but app-wide reactive.
+- **SSR.** Guard `localStorage` (as shown); on the server the store starts all-`null`
+  (anonymous) — identical to the memory fallback.
+- **Cross-tab.** `persist` does not sync across tabs by default — same as the built-in
+  `localStorage` adapter. Add a `storage`-event listener if you need it.
 
 ### Caching & quota
 
