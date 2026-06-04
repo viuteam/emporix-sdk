@@ -69,7 +69,10 @@ describe("LocationsService", () => {
       }),
     );
     for (const type of ["HEADQUARTER", "WAREHOUSE", "OFFICE"] as const) {
-      const r = await harness().create({ legalEntityId: "le-1", name: type, type }, CUST);
+      const r = await harness().create(
+        { name: type, type, contactDetails: { city: "Zürich" } },
+        CUST,
+      );
       expect(r.id).toBe("loc-new");
     }
     expect(bodies).toHaveLength(3);

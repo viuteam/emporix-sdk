@@ -49,10 +49,13 @@ export class CompaniesService {
     });
   }
 
-  /** Patches a legal entity. */
+  /**
+   * Patches a legal entity. The endpoint is a PATCH, so the body is a partial
+   * of the generated `LegalEntityUpdate` (full-replace) shape.
+   */
   async update(
     legalEntityId: string,
-    patch: LegalEntityUpdate,
+    patch: Partial<LegalEntityUpdate>,
     auth: AuthContext,
   ): Promise<LegalEntity> {
     return this.ctx.http.request<LegalEntity>({

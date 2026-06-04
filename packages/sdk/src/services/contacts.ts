@@ -40,10 +40,13 @@ export class ContactsService {
     });
   }
 
-  /** Patches a contact assignment. */
+  /**
+   * Patches a contact assignment. PATCH endpoint, so the body is a partial of
+   * the generated `ContactAssignmentUpdate` shape.
+   */
   async update(
     contactAssignmentId: string,
-    patch: ContactAssignmentUpdate,
+    patch: Partial<ContactAssignmentUpdate>,
     auth: AuthContext,
   ): Promise<ContactAssignment> {
     return this.ctx.http.request<ContactAssignment>({

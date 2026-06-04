@@ -47,7 +47,7 @@ export function useCreateCompany(): UseMutationResult<{ id: string }, unknown, L
 export function useUpdateCompany(): UseMutationResult<
   LegalEntity,
   unknown,
-  { id: string; patch: LegalEntityUpdate }
+  { id: string; patch: Partial<LegalEntityUpdate> }
 > {
   const { client } = useEmporix();
   const resolveAuth = useCustomerAuthResolver();
@@ -88,7 +88,7 @@ export function useAssignContact(): UseMutationResult<
 export function useUpdateContactAssignment(): UseMutationResult<
   ContactAssignment,
   unknown,
-  { id: string; patch: ContactAssignmentUpdate }
+  { id: string; patch: Partial<ContactAssignmentUpdate> }
 > {
   const { client } = useEmporix();
   const resolveAuth = useCustomerAuthResolver();
@@ -127,7 +127,7 @@ export function useCreateLocation(): UseMutationResult<{ id: string }, unknown, 
 export function useUpdateLocation(): UseMutationResult<
   Location,
   unknown,
-  { id: string; patch: LocationUpdate }
+  { id: string; patch: Partial<LocationUpdate> }
 > {
   const { client } = useEmporix();
   const resolveAuth = useCustomerAuthResolver();

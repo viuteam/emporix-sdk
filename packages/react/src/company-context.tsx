@@ -142,7 +142,7 @@ export function CompanyContextProvider({
       if (matched) {
         setActive(matched);
         if (storage.getActiveLegalEntityId() !== matched.id) {
-          storage.setActiveLegalEntityId(matched.id);
+          storage.setActiveLegalEntityId(matched.id ?? null);
         }
       } else if (companies.length === 1) {
         await switchTo(companies[0] ?? null);
