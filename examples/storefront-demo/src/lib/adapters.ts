@@ -112,6 +112,18 @@ export function productImages(p: Product): Media[] {
   return (p as ReadProduct).media ?? [];
 }
 
+/**
+ * Build an Emporix product-search `q` from free-text input. The product `q` is
+ * a `field:value` DSL where `~` is a regex (partial) match; a bare term such as
+ * "in time" otherwise 400s ("No value for key 'in time'"). We match the product
+ * `name`, wrap in `(~ … )` so terms with spaces are valid, and escape regex
+ * metacharacters so the term matches literally.
+ */
+export function productSearchQuery(term: string): string {
+  const escaped = term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return `name:(~${escaped})`;
+}
+
 /** Build the `matchByContext` items payload for a set of products (quantity is required). */
 export function priceMatchItems(
   products: Product[],

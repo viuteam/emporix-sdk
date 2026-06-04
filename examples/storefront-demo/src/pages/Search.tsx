@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import { useProductSearch } from "@viu/emporix-sdk-react";
 import { ProductGrid } from "../catalog/ProductGrid";
+import { productSearchQuery } from "../lib/adapters";
 import { usePrices } from "../lib/usePrices";
 import { Loading } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -8,7 +9,10 @@ import { EmptyState } from "../components/ui/EmptyState";
 export function Search() {
   const [params] = useSearchParams();
   const q = params.get("q") ?? "";
-  const { data, isLoading, isFetching } = useProductSearch(q, { pageSize: 24 });
+  // The URL keeps the raw term (for display/sharing); the API needs a valid
+  // Emporix `q` filter, so translate free text → `name:(~…)`.
+  const filter = q.trim() ? productSearchQuery(q) : "";
+  const { data, isLoading, isFetching } = useProductSearch(filter, { pageSize: 24 });
   const products = data?.items ?? [];
   const priceOf = usePrices(products);
 
