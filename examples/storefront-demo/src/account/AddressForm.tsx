@@ -59,7 +59,7 @@ export function AddressForm({ editing, onDone }: { editing?: Address | null; onD
       <div className="cluster" style={{ gap: "var(--s-4)" }}>
         <Field label="ZIP" value={form.zipCode} onChange={set("zipCode")} autoComplete="postal-code" />
         <Field label="City" value={form.city} onChange={set("city")} autoComplete="address-level2" />
-        <Field label="Country" value={form.country} onChange={set("country")} autoComplete="country" placeholder="CH" />
+        <Field label="Country" value={form.country} onChange={set("country")} autoComplete="country" placeholder="DE" />
       </div>
       <Field label="Phone" value={form.contactPhone} onChange={set("contactPhone")} autoComplete="tel" />
       <div className="cluster" style={{ gap: "var(--s-3)" }}>

@@ -164,7 +164,7 @@ export function priceForProduct(matches: PriceMatch[] | undefined, productId: st
   return { amount, currency: m.currency, ...(m.priceId ? { priceId: m.priceId } : {}) };
 }
 
-/** The YRN the cart's `addItem` expects for a product (verified against viu). */
+/** The YRN the cart's `addItem` expects for a product (verified against the Emporix cart API). */
 export function productYrn(tenant: string, productId: string): string {
   return `urn:yaas:hybris:product:product:${tenant};${productId}`;
 }

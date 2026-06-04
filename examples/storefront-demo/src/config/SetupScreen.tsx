@@ -59,7 +59,7 @@ export function SetupScreen({ onSubmit }: { onSubmit: (c: DemoConfig) => void })
           label="Tenant"
           value={tenant}
           onChange={(e) => setTenant(e.target.value)}
-          placeholder="viu"
+          placeholder="your-tenant"
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
@@ -79,8 +79,8 @@ export function SetupScreen({ onSubmit }: { onSubmit: (c: DemoConfig) => void })
           <div className="stack" style={{ marginTop: "var(--s-3)" }}>
             <Field label="Host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="https://api.emporix.io" />
             <Field label="Site code" value={siteCode} onChange={(e) => setSiteCode(e.target.value)} placeholder="main" />
-            <Field label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="CHF" hint="Currency + country are needed for prices to resolve." />
-            <Field label="Country (targetLocation)" value={targetLocation} onChange={(e) => setTargetLocation(e.target.value)} placeholder="CH" />
+            <Field label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="EUR" hint="Currency + country are needed for prices to resolve." />
+            <Field label="Country (targetLocation)" value={targetLocation} onChange={(e) => setTargetLocation(e.target.value)} placeholder="DE" />
           </div>
         </details>
         <div style={{ marginTop: "var(--s-4)" }}>

@@ -7,7 +7,7 @@ export interface DemoConfig {
   host?: string;
   siteCode?: string;
   currency?: string;
-  /** ISO country code for the pricing context (e.g. `CH`). Needed for price resolution. */
+  /** ISO country code for the pricing context (e.g. `DE`). Needed for price resolution. */
   targetLocation?: string;
 }
 

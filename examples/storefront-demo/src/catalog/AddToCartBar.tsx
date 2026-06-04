@@ -22,7 +22,7 @@ export function AddToCartBar({
   const nav = useNavigate();
   const [qty, setQty] = useState(1);
 
-  // viu requires a priceId on internal-type cart items — so only priced
+  // Emporix requires a priceId on internal-type cart items — so only priced
   // products are purchasable. Surface that instead of letting the API 400.
   const purchasable = Boolean(price?.priceId);
 
