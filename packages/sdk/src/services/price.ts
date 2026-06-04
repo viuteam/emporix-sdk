@@ -9,8 +9,46 @@ export type PriceMatchByContextInput = MatchByContext;
 /** Explicit-context match request body (generated). */
 export type PriceMatchInput = Match;
 
-/** A resolved price (full generated match-response schema). */
-export type PriceMatch = MatchResponse;
+/** Item (product or price) a price was matched for. */
+export interface PriceMatchItemRef {
+  itemType?: string;
+  id?: string;
+  /** Localized (or plain) product name — present on the live API, absent from the OpenAPI doc. */
+  name?: Record<string, string> | string;
+}
+
+/**
+ * A resolved price. Superset of the generated match-response schema: the
+ * deployed API returns the matched item under `itemId` (with a localized
+ * `name`), while the OpenAPI doc/codegen call it `itemRef`.
+ */
+export type PriceMatch = Omit<MatchResponse, "itemRef"> & {
+  /** Item the price was matched for, as returned by the API. */
+  itemId?: PriceMatchItemRef;
+  /**
+   * @deprecated The OpenAPI doc names this `itemRef`, but the deployed API
+   * returns `itemId`. Mirrored from `itemId` for back-compat — prefer `itemId`.
+   */
+  itemRef?: PriceMatchItemRef;
+};
+
+/**
+ * Normalizes a raw match row: the deployed API returns `itemId`, while the
+ * codegen type calls it `itemRef`. Expose `itemId` canonically and mirror it
+ * to the deprecated `itemRef` so existing consumers keep working.
+ */
+function normalizeMatch(raw: MatchResponse): PriceMatch {
+  const itemId = (raw as MatchResponse & { itemId?: PriceMatchItemRef }).itemId ?? raw.itemRef;
+  const base = raw as PriceMatch;
+  if (!itemId) return base;
+  // Mirror only id/type into the deprecated itemRef (drop name); build without
+  // explicit `undefined` for exactOptionalPropertyTypes.
+  const itemRef: PriceMatchItemRef = {
+    ...(itemId.itemType !== undefined ? { itemType: itemId.itemType } : {}),
+    ...(itemId.id !== undefined ? { id: itemId.id } : {}),
+  };
+  return { ...base, itemId, itemRef };
+}
 
 /** Options for {@link PriceService.matchByContextChunked}. */
 export interface MatchByContextChunkedOptions {
@@ -52,12 +90,13 @@ export class PriceService {
     input: PriceMatchByContextInput,
     auth?: AuthContext,
   ): Promise<PriceMatch[]> {
-    return this.ctx.http.request<PriceMatch[]>({
+    const rows = await this.ctx.http.request<MatchResponse[]>({
       method: "POST",
       path: `/price/${this.ctx.tenant}/match-prices-by-context`,
       auth: requireContextAuth(auth),
       body: input,
     });
+    return rows.map(normalizeMatch);
   }
 
   /**
@@ -65,12 +104,13 @@ export class PriceService {
    * (requires `price.price_read` / `price.price_manage`).
    */
   async match(input: PriceMatchInput, auth: AuthContext = SERVICE): Promise<PriceMatch[]> {
-    return this.ctx.http.request<PriceMatch[]>({
+    const rows = await this.ctx.http.request<MatchResponse[]>({
       method: "POST",
       path: `/price/${this.ctx.tenant}/match-prices`,
       auth,
       body: input,
     });
+    return rows.map(normalizeMatch);
   }
 
   /**
@@ -84,7 +124,7 @@ export class PriceService {
    * `throwOnAnyChunkError: true` to reject on the first failure instead.
    *
    * **Result order is not guaranteed** — match entries back to your items by
-   * `priceId` / `itemRef.id`.
+   * `priceId` / `itemId.id`.
    */
   async matchByContextChunked(
     input: PriceMatchByContextInput,

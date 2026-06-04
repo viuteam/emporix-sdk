@@ -26,6 +26,7 @@ export type { RequestOptions, HttpClientOptions } from "./core/http";
 export { EmporixClient } from "./client";
 export type { ClientContext, PaginatedItems } from "./core/context";
 export { iterateAll } from "./core/context";
+export { productIdFromYrn } from "./core/yrn";
 export { CustomerService } from "./services/customer";
 export type {
   Customer,
@@ -68,6 +69,7 @@ export type {
 export { PriceService } from "./services/price";
 export type {
   PriceMatch,
+  PriceMatchItemRef,
   PriceMatchByContextInput,
   PriceMatchInput,
   MatchByContextChunkedOptions,
