@@ -1,5 +1,19 @@
 # @viu/emporix-sdk-react
 
+## 2.11.0
+
+### Minor Changes
+
+- [#114](https://github.com/viuteam/emporix-sdk/pull/114) [`ac2b2c8`](https://github.com/viuteam/emporix-sdk/commit/ac2b2c890521da017b3ef44ff15bdf6b16d69bb9) Thanks [@amnael1](https://github.com/amnael1)! - feat: invoke Emporix cloud functions
+
+  Adds `client.cloudFunctions.invoke<TRes, TReq>(functionId, { method?, path?,
+body?, query?, headers? }, auth)` — a generic call to tenant cloud functions
+  (`/cloud-functions/{tenant}/functions/{id}[/sub]`), with GET/POST/PUT/DELETE and
+  service / customer / anonymous / raw auth (default anonymous). Adds the React
+  hooks `useInvokeCloudFunction` (mutation, any method) and `useCloudFunction`
+  (GET-style query with caching), both with auto-auth (customer-if-token-else-
+  anonymous) and an optional override.
+
 ## 2.10.0
 
 ### Minor Changes
