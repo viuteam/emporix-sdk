@@ -1,5 +1,23 @@
 # @viu/emporix-sdk-react
 
+## 2.10.0
+
+### Minor Changes
+
+- [#112](https://github.com/viuteam/emporix-sdk/pull/112) [`1f87a9b`](https://github.com/viuteam/emporix-sdk/commit/1f87a9b54ddde591716eba7427e04573113b17f9) Thanks [@amnael1](https://github.com/amnael1)! - feat: runtime currency switching
+
+  Adds `EmporixClient.setStorefrontContext({ currency, siteCode, targetLocation })`
+  to re-bind the anonymous price context at runtime (invalidating the anon session
+  so the next login re-mints with the new currency — covers the pre-cart guest
+  case `sessionContext.patch` cannot). Adds `useSiteContext().setCurrency(code)`,
+  which re-binds the context, clears the currency-bound guest cart, and PATCHes an
+  existing server session context. The storefront-demo gains a currency dropdown
+  populated from the active site's `availableCurrencies`.
+
+  On reload, the site-context `currency` now seeds from the client's configured
+  `context.currency` (instead of always deriving from the site default), so a
+  persisted currency choice is respected.
+
 ## 2.9.0
 
 ### Minor Changes
