@@ -72,5 +72,13 @@ export function useDemoConfig() {
     clearConfig();
     setConfig(null);
   }, []);
-  return { config, save, reset };
+  // Persist a partial change WITHOUT triggering a client rebuild — used to
+  // remember the active currency for the next reload.
+  const persist = useCallback(
+    (partial: Partial<DemoConfig>) => {
+      if (config) writeConfig({ ...config, ...partial });
+    },
+    [config],
+  );
+  return { config, save, reset, persist };
 }
