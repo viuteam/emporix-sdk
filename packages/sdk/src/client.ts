@@ -39,6 +39,7 @@ import { ShoppingListService } from "./services/shopping-list";
 import { RagIndexerService } from "./services/ai-rag-indexer";
 import { SequentialIdService } from "./services/sequential-id";
 import { FeeService } from "./services/fee";
+import { CloudFunctionsService } from "./services/cloud-functions";
 import { WebhookService } from "./services/webhook";
 import { SchemaService } from "./services/schema";
 import { AiService } from "./services/ai";
@@ -87,6 +88,7 @@ export class EmporixClient {
   readonly ragIndexer: RagIndexerService;
   readonly sequentialIds: SequentialIdService;
   readonly fees: FeeService;
+  readonly cloudFunctions: CloudFunctionsService;
   readonly webhooks: WebhookService;
   readonly schemas: SchemaService;
   readonly ai: AiService;
@@ -195,6 +197,7 @@ export class EmporixClient {
     this.ragIndexer = new RagIndexerService(mk("ai-rag-indexer"));
     this.sequentialIds = new SequentialIdService(mk("sequential-id"));
     this.fees = new FeeService(mk("fee"));
+    this.cloudFunctions = new CloudFunctionsService(mk("cloud-functions"));
     this.webhooks = new WebhookService(mk("webhook"));
     this.schemas = new SchemaService(mk("schema"));
     this.ai = new AiService(mk("ai"));

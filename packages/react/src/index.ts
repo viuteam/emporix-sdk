@@ -70,6 +70,8 @@ export {
   useAddGroupMember,
   useRemoveGroupMember,
   useCompanySwitcher,
+  useInvokeCloudFunction,
+  useCloudFunction,
   useMyOrders,
   useMyOrdersInfinite,
   useOrder,
@@ -98,6 +100,7 @@ export type {
   UseAvailabilityOptions,
   UseAvailabilitiesOptions,
   CouponActionVars,
+  InvokeCloudFunctionVars,
 } from "./hooks/index";
 export type {
   CustomerSessionApi,

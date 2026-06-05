@@ -73,6 +73,11 @@ export {
   useRemoveGroupMember,
 } from "./use-company-mutations";
 export { useCompanySwitcher } from "./use-company-switcher";
+export {
+  useInvokeCloudFunction,
+  useCloudFunction,
+  type InvokeCloudFunctionVars,
+} from "./use-cloud-functions";
 export type { CompanySwitcherApi } from "./use-company-switcher";
 export { useMyOrders } from "./use-my-orders";
 export type { UseMyOrdersOptions } from "./use-my-orders";
