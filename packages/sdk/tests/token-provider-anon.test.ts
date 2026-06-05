@@ -278,3 +278,31 @@ describe("DefaultTokenProvider.onRefresh", () => {
     expect(events).toEqual([]);
   });
 });
+
+describe("DefaultTokenProvider.setAnonymousContext", () => {
+  it("overrides the login currency and forces a fresh login", async () => {
+    let url = "";
+    server.use(
+      http.get("https://api.emporix.io/customerlogin/auth/anonymous/login", ({ request }) => {
+        url = request.url;
+        loginHits += 1;
+        return HttpResponse.json({
+          access_token: `anon-${loginHits}`, token_type: "Bearer", expires_in: 3599,
+          refresh_token: "rt", sessionId: "s",
+        });
+      }),
+    );
+    const ctxCfg = {
+      ...cfg,
+      credentials: { storefront: { clientId: "sf", context: { currency: "CHF", siteCode: "main" } } },
+    };
+    const p = new DefaultTokenProvider(ctxCfg as never);
+    await p.getAnonymousToken();                  // login #1 (CHF)
+    p.setAnonymousContext!({ currency: "USD" });  // override + invalidate
+    await p.getAnonymousToken();                  // login #2 (USD)
+    const u = new URL(url);
+    expect(u.searchParams.get("currency")).toBe("USD");
+    expect(u.searchParams.get("siteCode")).toBe("main"); // unrelated field preserved
+    expect(loginHits).toBe(2);                    // invalidation forced a fresh login
+  });
+});

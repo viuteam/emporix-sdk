@@ -217,6 +217,21 @@ export class EmporixClient {
     this.approvals = new ApprovalService(mk("approval"));
   }
 
+  /**
+   * Re-binds the storefront price context (currency / siteCode / targetLocation)
+   * for anonymous pricing and invalidates the current anonymous session, so the
+   * next request re-mints a token bound to the new context. Use this to switch
+   * currency at runtime. Carts are currency-bound — clear the cart after a
+   * currency change (the React `setCurrency` does this for you).
+   */
+  setStorefrontContext(ctx: {
+    currency?: string;
+    siteCode?: string;
+    targetLocation?: string;
+  }): void {
+    this.tokenProvider.setAnonymousContext?.(ctx);
+  }
+
   /** Sets the runtime log level globally or for one service. */
   setLogLevel(level: LogLevel, opts: { service?: ServiceName; force?: boolean } = {}): void {
     this.resolver.set(level, opts.service, opts.force ?? false);
