@@ -321,7 +321,9 @@ function SiteContextProvider({
     if (fromStorage !== null) return fromStorage;
     return client.config?.credentials?.storefront?.context?.siteCode ?? null;
   });
-  const [currency, setCurrencyState] = useState<string | null>(null);
+  const [currency, setCurrencyState] = useState<string | null>(
+    () => client.config?.credentials?.storefront?.context?.currency ?? null,
+  );
   const [targetLocation, setTargetLocation] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<Error | null>(null);

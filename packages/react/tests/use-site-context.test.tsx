@@ -400,3 +400,44 @@ describe("useSiteContext — setCurrency", () => {
     expect(result.current.currency).toBe("USD");
   });
 });
+
+describe("useSiteContext — currency seeding", () => {
+  it("seeds currency from the client's configured context and does not override it from the site DTO", async () => {
+    const client = new EmporixClient({
+      tenant: "acme",
+      credentials: {
+        backend: { clientId: "b", secret: "s" },
+        storefront: { clientId: "sf", context: { siteCode: "main", currency: "EUR" } },
+      },
+      logger: false,
+    });
+    const storage = createMemoryStorage();
+    let siteFetched = false;
+    server.use(
+      http.get("https://api.emporix.io/site/acme/sites/main", () => {
+        siteFetched = true;
+        return HttpResponse.json({
+          code: "main", name: "Main", active: true, default: true,
+          defaultLanguage: "de", languages: ["de"],
+          currency: "CHF", availableCurrencies: ["CHF", "EUR"],
+          homeBase: { address: { country: "CH", zipCode: "8000" } },
+          shipToCountries: ["CH"],
+        });
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const Wrapper = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={storage} queryClient={queryClient} initialSiteCode="main">
+        {children}
+      </EmporixProvider>
+    );
+    const { result } = renderHook(() => useSiteContext(), { wrapper: Wrapper });
+
+    // Seeded synchronously from config — not null, not the site default (CHF).
+    expect(result.current.currency).toBe("EUR");
+    // Let mount effects flush; the derivation must skip (currency already set).
+    await waitFor(() => expect(result.current.siteCode).toBe("main"));
+    expect(result.current.currency).toBe("EUR");
+    expect(siteFetched).toBe(false);
+  });
+});
