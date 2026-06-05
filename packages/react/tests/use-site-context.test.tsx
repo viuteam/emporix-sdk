@@ -435,9 +435,10 @@ describe("useSiteContext — currency seeding", () => {
 
     // Seeded synchronously from config — not null, not the site default (CHF).
     expect(result.current.currency).toBe("EUR");
-    // Let mount effects flush; the derivation must skip (currency already set).
-    await waitFor(() => expect(result.current.siteCode).toBe("main"));
+    // The mount-derivation still fetches the site DTO (to fill targetLocation),
+    // but it must NOT override the seeded currency with the site default (CHF).
+    await waitFor(() => expect(result.current.targetLocation).toBe("CH"));
+    expect(siteFetched).toBe(true);
     expect(result.current.currency).toBe("EUR");
-    expect(siteFetched).toBe(false);
   });
 });

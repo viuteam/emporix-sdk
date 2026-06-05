@@ -330,8 +330,10 @@ function SiteContextProvider({
 
   // Mount-time derivation: if a siteCode is already resolved, fetch its DTO
   // once so currency + targetLocation populate without a user-driven switch.
+  // A currency seeded from the client config is NOT overridden (the user's /
+  // persisted choice wins); only fields still `null` are filled in.
   useEffect(() => {
-    if (!siteCode || currency !== null) return;
+    if (!siteCode || (currency !== null && targetLocation !== null)) return;
     let cancelled = false;
     const token = storage.getCustomerToken();
     const authCtx = token ? auth.customer(token) : auth.anonymous();
@@ -347,7 +349,7 @@ function SiteContextProvider({
     })
       .then((site) => {
         if (cancelled) return;
-        setCurrencyState(site.currency);
+        if (currency === null) setCurrencyState(site.currency);
         setTargetLocation(site.homeBase?.address?.country ?? null);
       })
       .catch(() => {
