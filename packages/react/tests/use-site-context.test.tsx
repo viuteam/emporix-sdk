@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { renderHook, act, waitFor } from "@testing-library/react";
@@ -362,5 +362,83 @@ describe("useSiteContext — site DTO derivation (MS-4)", () => {
     });
     await waitFor(() => expect(result.current.currency).toBe("CHF"));
     expect(result.current.targetLocation).toBe("CH");
+  });
+});
+
+describe("useSiteContext — setCurrency", () => {
+  it("re-binds the context, clears the cart, patches the session, updates currency", async () => {
+    const client = makeClient();
+    const storage = createMemoryStorage();
+    storage.setCartId("old-cart");
+    storage.setSiteCode("main");
+    const spy = vi.spyOn(client, "setStorefrontContext");
+    let patchBody: { currency?: string; siteCode?: string } | undefined;
+    server.use(
+      http.get("https://api.emporix.io/session-context/acme/me/context", () =>
+        HttpResponse.json({ currency: "CHF", siteCode: "main", metadata: { version: 7 } }),
+      ),
+      http.patch("https://api.emporix.io/session-context/acme/me/context", async ({ request }) => {
+        patchBody = (await request.json()) as typeof patchBody;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const Wrapper = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={storage} queryClient={queryClient} initialSiteCode="main">
+        {children}
+      </EmporixProvider>
+    );
+    const { result } = renderHook(() => useSiteContext(), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.setCurrency("USD");
+    });
+
+    expect(spy).toHaveBeenCalledWith({ currency: "USD" });
+    expect(storage.getCartId()).toBeNull(); // carts are currency-bound
+    expect(patchBody?.currency).toBe("USD"); // existing session updated
+    expect(result.current.currency).toBe("USD");
+  });
+});
+
+describe("useSiteContext — currency seeding", () => {
+  it("seeds currency from the client's configured context and does not override it from the site DTO", async () => {
+    const client = new EmporixClient({
+      tenant: "acme",
+      credentials: {
+        backend: { clientId: "b", secret: "s" },
+        storefront: { clientId: "sf", context: { siteCode: "main", currency: "EUR" } },
+      },
+      logger: false,
+    });
+    const storage = createMemoryStorage();
+    let siteFetched = false;
+    server.use(
+      http.get("https://api.emporix.io/site/acme/sites/main", () => {
+        siteFetched = true;
+        return HttpResponse.json({
+          code: "main", name: "Main", active: true, default: true,
+          defaultLanguage: "de", languages: ["de"],
+          currency: "CHF", availableCurrencies: ["CHF", "EUR"],
+          homeBase: { address: { country: "CH", zipCode: "8000" } },
+          shipToCountries: ["CH"],
+        });
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const Wrapper = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={storage} queryClient={queryClient} initialSiteCode="main">
+        {children}
+      </EmporixProvider>
+    );
+    const { result } = renderHook(() => useSiteContext(), { wrapper: Wrapper });
+
+    // Seeded synchronously from config — not null, not the site default (CHF).
+    expect(result.current.currency).toBe("EUR");
+    // The mount-derivation still fetches the site DTO (to fill targetLocation),
+    // but it must NOT override the seeded currency with the site default (CHF).
+    await waitFor(() => expect(result.current.targetLocation).toBe("CH"));
+    expect(siteFetched).toBe(true);
+    expect(result.current.currency).toBe("EUR");
   });
 });

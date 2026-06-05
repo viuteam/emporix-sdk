@@ -5,9 +5,13 @@ import { SetupScreen } from "./SetupScreen";
 export function ConfigGate({
   children,
 }: {
-  children: (config: DemoConfig, reset: () => void) => ReactNode;
+  children: (
+    config: DemoConfig,
+    reset: () => void,
+    persist: (partial: Partial<DemoConfig>) => void,
+  ) => ReactNode;
 }) {
-  const { config, save, reset } = useDemoConfig();
+  const { config, save, reset, persist } = useDemoConfig();
   if (!config) return <SetupScreen onSubmit={save} />;
-  return <>{children(config, reset)}</>;
+  return <>{children(config, reset, persist)}</>;
 }

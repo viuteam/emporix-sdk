@@ -29,6 +29,13 @@ export interface SiteContextValue {
    * (the cache was already invalidated, the UI already moved on).
    */
   setSite: (code: string | null) => Promise<void>;
+  /**
+   * Switch the active currency at runtime. Re-binds the anonymous price context
+   * (so guest pricing changes even before a cart exists), clears the
+   * currency-bound guest cart, and PATCHes an existing server session context.
+   * The chosen currency must be in the active site's `availableCurrencies`.
+   */
+  setCurrency: (currency: string) => Promise<void>;
   isSwitching: boolean;
   switchError: Error | null;
 }
@@ -314,15 +321,19 @@ function SiteContextProvider({
     if (fromStorage !== null) return fromStorage;
     return client.config?.credentials?.storefront?.context?.siteCode ?? null;
   });
-  const [currency, setCurrency] = useState<string | null>(null);
+  const [currency, setCurrencyState] = useState<string | null>(
+    () => client.config?.credentials?.storefront?.context?.currency ?? null,
+  );
   const [targetLocation, setTargetLocation] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<Error | null>(null);
 
   // Mount-time derivation: if a siteCode is already resolved, fetch its DTO
   // once so currency + targetLocation populate without a user-driven switch.
+  // A currency seeded from the client config is NOT overridden (the user's /
+  // persisted choice wins); only fields still `null` are filled in.
   useEffect(() => {
-    if (!siteCode || currency !== null) return;
+    if (!siteCode || (currency !== null && targetLocation !== null)) return;
     let cancelled = false;
     const token = storage.getCustomerToken();
     const authCtx = token ? auth.customer(token) : auth.anonymous();
@@ -338,7 +349,7 @@ function SiteContextProvider({
     })
       .then((site) => {
         if (cancelled) return;
-        setCurrency(site.currency);
+        if (currency === null) setCurrencyState(site.currency);
         setTargetLocation(site.homeBase?.address?.country ?? null);
       })
       .catch(() => {
@@ -360,7 +371,7 @@ function SiteContextProvider({
       void qc.invalidateQueries({ queryKey: ["emporix"] });
 
       if (code === null) {
-        setCurrency(null);
+        setCurrencyState(null);
         setTargetLocation(null);
         return;
       }
@@ -382,7 +393,7 @@ function SiteContextProvider({
         });
         const nextCurrency = site.currency;
         const nextTarget = site.homeBase?.address?.country ?? null;
-        setCurrency(nextCurrency);
+        setCurrencyState(nextCurrency);
         setTargetLocation(nextTarget);
         // 3) Push everything into the session-context PATCH.
         await client.sessionContext.patch(
@@ -402,16 +413,45 @@ function SiteContextProvider({
     [client, storage, qc],
   );
 
+  const setCurrency = useCallback(
+    async (next: string) => {
+      // Carts are currency-bound — drop the guest cart so a fresh one is created.
+      storage.setCartId(null);
+      setCurrencyState(next);
+      setSwitchError(null);
+      // Re-bind the anonymous price context so guest pricing uses the new
+      // currency even before a session/cart exists (sessionContext.patch can't).
+      client.setStorefrontContext({ currency: next });
+      void qc.invalidateQueries({ queryKey: ["emporix"] });
+      setIsSwitching(true);
+      try {
+        const token = storage.getCustomerToken();
+        const authCtx = token ? auth.customer(token) : auth.anonymous();
+        // Update an existing server session context (no-op / returns false pre-cart).
+        await client.sessionContext.patch(
+          { currency: next, ...(siteCode ? { siteCode } : {}) },
+          authCtx,
+        );
+      } catch (e) {
+        setSwitchError(e instanceof Error ? e : new Error(String(e)));
+      } finally {
+        setIsSwitching(false);
+      }
+    },
+    [client, storage, qc, siteCode],
+  );
+
   const value = useMemo<SiteContextValue>(
     () => ({
       siteCode,
       currency,
       targetLocation,
       setSite,
+      setCurrency,
       isSwitching,
       switchError,
     }),
-    [siteCode, currency, targetLocation, setSite, isSwitching, switchError],
+    [siteCode, currency, targetLocation, setSite, setCurrency, isSwitching, switchError],
   );
 
   return <EmporixSiteContext.Provider value={value}>{children}</EmporixSiteContext.Provider>;

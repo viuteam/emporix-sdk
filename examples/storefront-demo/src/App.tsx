@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { EmporixClient } from "@viu/emporix-sdk";
-import { EmporixProvider, createLocalStorageStorage } from "@viu/emporix-sdk-react";
+import { EmporixProvider, createLocalStorageStorage, useSiteContext } from "@viu/emporix-sdk-react";
 import { ConfigGate } from "./config/ConfigGate";
 import type { DemoConfig } from "./config/useDemoConfig";
 import { AppShell } from "./app/AppShell";
@@ -43,7 +43,30 @@ function buildClient(c: DemoConfig): EmporixClient {
   });
 }
 
-function DemoApp({ config, reset }: { config: DemoConfig; reset: () => void }) {
+/**
+ * Persists the active currency into DemoConfig (localStorage) whenever it
+ * changes, so a full page reload rebuilds the client with that currency. Must
+ * render inside EmporixProvider (uses the site context). Renders nothing.
+ */
+function CurrencyPersistor({ onPersist }: { onPersist: (currency: string) => void }) {
+  const { currency } = useSiteContext();
+  const ref = useRef(onPersist);
+  ref.current = onPersist;
+  useEffect(() => {
+    if (currency) ref.current(currency);
+  }, [currency]);
+  return null;
+}
+
+function DemoApp({
+  config,
+  reset,
+  persistCurrency,
+}: {
+  config: DemoConfig;
+  reset: () => void;
+  persistCurrency: (currency: string) => void;
+}) {
   const client = useMemo(() => buildClient(config), [config]);
   const storage = useMemo(() => createLocalStorageStorage(), []);
 
@@ -55,6 +78,7 @@ function DemoApp({ config, reset }: { config: DemoConfig; reset: () => void }) {
       onTelemetry={pushTelemetry}
       {...(config.siteCode ? { initialSiteCode: config.siteCode } : {})}
     >
+      <CurrencyPersistor onPersist={persistCurrency} />
       <ToastProvider>
         <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <AppShell tenant={config.tenant} onReset={reset}>
@@ -87,5 +111,11 @@ function DemoApp({ config, reset }: { config: DemoConfig; reset: () => void }) {
 }
 
 export function App() {
-  return <ConfigGate>{(config, reset) => <DemoApp config={config} reset={reset} />}</ConfigGate>;
+  return (
+    <ConfigGate>
+      {(config, reset, persist) => (
+        <DemoApp config={config} reset={reset} persistCurrency={(c) => persist({ currency: c })} />
+      )}
+    </ConfigGate>
+  );
 }

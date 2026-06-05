@@ -70,6 +70,16 @@ export interface TokenProvider {
    */
   attachAnonymousStore?(store: AnonymousSessionStore): void;
   /**
+   * Override the storefront context (currency/site/country) used for the next
+   * anonymous login, then invalidate the current anonymous session so it
+   * re-mints with the new context. No-op for providers without anon support.
+   */
+  setAnonymousContext?(ctx: {
+    currency?: string;
+    siteCode?: string;
+    targetLocation?: string;
+  }): void;
+  /**
    * Subscribe to token-refresh events. Optional — implementations may no-op.
    * Returns an unsubscribe function. `DefaultTokenProvider` emits for the
    * anonymous-login / anonymous-refresh paths.
@@ -148,6 +158,9 @@ export class DefaultTokenProvider implements TokenProvider {
   private anon: (AnonymousSession & { expiresAt: number }) | undefined;
   private anonLock: Promise<AnonymousSession> | undefined;
   private anonStore?: AnonymousSessionStore;
+  private contextOverride:
+    | { currency?: string; siteCode?: string; targetLocation?: string }
+    | undefined;
   private readonly refreshListeners = new Set<
     (event: { kind: "anonymous" | "customer"; success: boolean }) => void
   >();
@@ -288,6 +301,16 @@ export class DefaultTokenProvider implements TokenProvider {
     this.anonStore?.write(null);
   }
 
+  setAnonymousContext(ctx: {
+    currency?: string;
+    siteCode?: string;
+    targetLocation?: string;
+  }): void {
+    const base = this.contextOverride ?? this.cfg.credentials.storefront?.context ?? {};
+    this.contextOverride = { ...base, ...ctx };
+    this.invalidateAnonymous();
+  }
+
   /** Force a stale access token while keeping the refresh token + sessionId. */
   expireAnonymous(): void {
     if (this.anon) this.anon = { ...this.anon, expiresAt: 0 };
@@ -306,8 +329,9 @@ export class DefaultTokenProvider implements TokenProvider {
     const url = new URL(`${this.cfg.host}/customerlogin/auth/anonymous/${mode}`);
     url.searchParams.set("tenant", this.cfg.tenant);
     url.searchParams.set("client_id", sf.clientId);
-    // Context is config-fixed → single anon slot stays correct (no per-call ctx).
-    const c = sf.context;
+    // Context is the runtime override (set via setAnonymousContext) if present,
+    // else the config-fixed context.
+    const c = this.contextOverride ?? sf.context;
     if (c?.currency) url.searchParams.set("currency", c.currency);
     if (c?.siteCode) url.searchParams.set("siteCode", c.siteCode);
     if (c?.targetLocation) url.searchParams.set("targetLocation", c.targetLocation);
