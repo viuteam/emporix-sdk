@@ -12,3 +12,7 @@ case `sessionContext.patch` cannot). Adds `useSiteContext().setCurrency(code)`,
 which re-binds the context, clears the currency-bound guest cart, and PATCHes an
 existing server session context. The storefront-demo gains a currency dropdown
 populated from the active site's `availableCurrencies`.
+
+On reload, the site-context `currency` now seeds from the client's configured
+`context.currency` (instead of always deriving from the site default), so a
+persisted currency choice is respected.
