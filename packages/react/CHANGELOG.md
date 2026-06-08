@@ -1,5 +1,11 @@
 # @viu/emporix-sdk-react
 
+## 2.12.0
+
+### Minor Changes
+
+- [#116](https://github.com/viuteam/emporix-sdk/pull/116) [`5411502`](https://github.com/viuteam/emporix-sdk/commit/5411502fdde0737ad457812e28a86c505f938282) Thanks [@amnael1](https://github.com/amnael1)! - Add a runtime language switch. `client.setStorefrontContext({ language })` now sets an `Accept-Language` header on every read. React's `useSiteContext()` exposes `language` + `setLanguage(lang)` (modeled on `setCurrency`), persists the choice via `EmporixStorage` (`emporix.language`), mirrors it into the server session context, and keys localized reads (products, categories, segments, cart, shopping lists, orders) by language so the cache never serves stale-language text. A new `initialLanguage` provider prop seeds the active language.
+
 ## 2.11.0
 
 ### Minor Changes
