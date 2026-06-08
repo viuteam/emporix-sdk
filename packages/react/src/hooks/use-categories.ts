@@ -23,9 +23,9 @@ export function useCategory(
 ): UseQueryResult<Category> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("category", [categoryId], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("category", [categoryId], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     queryFn: () => client.categories.get(categoryId, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
@@ -39,9 +39,9 @@ export function useSubcategories(
 ): UseQueryResult<Category[]> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("subcategories", [categoryId ?? null, params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("subcategories", [categoryId ?? null, params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     enabled: typeof categoryId === "string" && categoryId !== "",
     queryFn: () => client.categories.subcategories(categoryId as string, params, ctx),
     staleTime: CATEGORIES_STALE_TIME,
@@ -55,9 +55,9 @@ export function useCategories(
 ): UseQueryResult<PaginatedItems<Category>> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("categories", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("categories", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     queryFn: () => client.categories.list(params, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
@@ -70,9 +70,9 @@ export function useCategoriesInfinite(
 ): UseInfiniteQueryResult<{ pages: PaginatedItems<Category>[]; pageParams: number[] }> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useEmporixInfinite<Category>({
-    queryKey: emporixKey("categories-infinite", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("categories-infinite", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     fetchPage: (pageNumber) =>
       client.categories.list(
         params.pageSize !== undefined ? { pageNumber, pageSize: params.pageSize } : { pageNumber },
@@ -86,9 +86,9 @@ export function useCategoriesInfinite(
 export function useCategoryTree(options: QueryOpts = {}): UseQueryResult<Category[]> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("category-tree", [], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("category-tree", [], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     queryFn: () => client.categories.tree(ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
@@ -102,9 +102,9 @@ export function useProductsInCategory(
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("products-in-category", [categoryId, params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("products-in-category", [categoryId, params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     enabled: typeof categoryId === "string" && categoryId !== "",
     queryFn: () => client.categories.productsIn(categoryId as string, params, ctx),
     staleTime: CATEGORIES_STALE_TIME,
@@ -119,9 +119,9 @@ export function useProductsInCategoryInfinite(
 ): UseInfiniteQueryResult<{ pages: PaginatedItems<Product>[]; pageParams: number[] }> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useEmporixInfinite<Product>({
-    queryKey: emporixKey("products-in-category-infinite", [categoryId, params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("products-in-category-infinite", [categoryId, params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     enabled: typeof categoryId === "string" && categoryId !== "",
     fetchPage: (pageNumber) =>
       client.categories.productsIn(

@@ -16,9 +16,9 @@ const PRODUCTS_STALE_TIME = 60_000; // 1 minute — catalog listings + prices.
 export function useProduct(productId: string, options: QueryOpts = {}): UseQueryResult<Product> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("product", [productId], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("product", [productId], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     queryFn: () => client.products.get(productId, undefined, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
@@ -31,9 +31,9 @@ export function useProducts(
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("products", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("products", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     queryFn: () => client.products.list(params, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
@@ -46,9 +46,9 @@ export function useProductsInfinite(
 ): UseInfiniteQueryResult<{ pages: PaginatedItems<Product>[]; pageParams: number[] }> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useEmporixInfinite<Product>({
-    queryKey: emporixKey("products-infinite", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("products-infinite", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     fetchPage: (pageNumber) =>
       client.products.list(
         params.pageSize !== undefined ? { pageNumber, pageSize: params.pageSize } : { pageNumber },
@@ -65,9 +65,9 @@ export function useProductByCode(
 ): UseQueryResult<Product> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("product-by-code", [code], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("product-by-code", [code], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     enabled: typeof code === "string" && code !== "",
     queryFn: () => client.products.getByCode(code as string, ctx),
     staleTime: PRODUCTS_STALE_TIME,
@@ -82,9 +82,9 @@ export function useProductSearch(
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("product-search", [query, params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("product-search", [query, params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     enabled: typeof query === "string" && query.trim() !== "",
     queryFn: () => client.products.search(query as string, params, ctx),
     staleTime: PRODUCTS_STALE_TIME,
@@ -99,9 +99,9 @@ export function useProductNameSearch(
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("product-name-search", [term, params], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("product-name-search", [term, params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     enabled: typeof term === "string" && term.trim() !== "",
     queryFn: () => client.products.searchByName(term as string, params, ctx),
     staleTime: PRODUCTS_STALE_TIME,
@@ -118,12 +118,13 @@ export function useProductsByCodes(
 ): UseQueryResult<Product[]> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
     queryKey: emporixKey("products-by-codes", [codes, options.chunkSize], {
       tenant: client.tenant,
       authKind: ctx.kind,
       siteCode,
+      language,
     }),
     enabled: codes.length > 0,
     queryFn: () =>

@@ -21,7 +21,7 @@ export function useMyOrders(
 ): UseQueryResult<PaginatedItems<Order>> {
   const { client, storage } = useEmporix();
   const { activeCompany } = useActiveCompany();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   const token = storage.getCustomerToken();
   const effectiveLE: string | undefined =
     options.legalEntityId === null
@@ -31,7 +31,7 @@ export function useMyOrders(
     queryKey: emporixKey(
       "orders",
       ["mine", effectiveLE ?? null, options.status ?? null, options.pageNumber ?? 1, options.pageSize ?? null],
-      { tenant: client.tenant, authKind: token ? "customer" : "anonymous", siteCode },
+      { tenant: client.tenant, authKind: token ? "customer" : "anonymous", siteCode, language },
     ),
     enabled: token !== null,
     queryFn: () =>

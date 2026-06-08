@@ -19,7 +19,7 @@ export function useMyOrdersInfinite(
 ): UseInfiniteQueryResult<{ pages: PaginatedItems<Order>[]; pageParams: number[] }> {
   const { client, storage } = useEmporix();
   const { activeCompany } = useActiveCompany();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   const token = storage.getCustomerToken();
   const effectiveLE: string | undefined =
     options.legalEntityId === null
@@ -29,7 +29,7 @@ export function useMyOrdersInfinite(
     queryKey: emporixKey(
       "orders",
       ["mine-infinite", effectiveLE ?? null, options.status ?? null, options.pageSize ?? null],
-      { tenant: client.tenant, authKind: token ? "customer" : "anonymous", siteCode },
+      { tenant: client.tenant, authKind: token ? "customer" : "anonymous", siteCode, language },
     ),
     enabled: token !== null,
     fetchPage: (pageNumber) =>

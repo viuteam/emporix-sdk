@@ -20,12 +20,12 @@ export function useVariantChildren(
 ): UseQueryResult<Product[]> {
   const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
     queryKey: emporixKey(
       "variant-children",
       [parentVariantId, { pageSize: options.pageSize }],
-      { tenant: client.tenant, authKind: ctx.kind, siteCode },
+      { tenant: client.tenant, authKind: ctx.kind, siteCode, language },
     ),
     enabled: typeof parentVariantId === "string" && parentVariantId !== "",
     queryFn: () =>

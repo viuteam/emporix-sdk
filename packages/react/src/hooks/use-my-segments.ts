@@ -29,9 +29,9 @@ export function useMySegments(
 ): UseQueryResult<Segment[]> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "segment", "list", { tenant: client.tenant, query, siteCode }],
+    queryKey: ["emporix", "segment", "list", { tenant: client.tenant, query, siteCode, language }],
     enabled: token !== null,
     queryFn: () => client.segments.list(query, customerCtx(token)),
     staleTime: SEGMENTS_STALE_TIME,
@@ -49,9 +49,9 @@ export function useMySegmentItems(
 ): UseQueryResult<SegmentItem[]> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "segment", "items", { tenant: client.tenant, query, siteCode }],
+    queryKey: ["emporix", "segment", "items", { tenant: client.tenant, query, siteCode, language }],
     enabled: token !== null,
     queryFn: () => client.segments.listItems(query, customerCtx(token)),
     staleTime: SEGMENTS_STALE_TIME,
@@ -64,9 +64,9 @@ export function useMySegmentCategoryTree(
 ): UseQueryResult<SegmentCategoryTree> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "segment", "categoryTree", { tenant: client.tenant, query, siteCode }],
+    queryKey: ["emporix", "segment", "categoryTree", { tenant: client.tenant, query, siteCode, language }],
     enabled: token !== null,
     queryFn: () => client.segments.getCategoryTree(query, customerCtx(token)),
     staleTime: SEGMENTS_STALE_TIME,
@@ -86,9 +86,9 @@ export function useMySegmentProducts(
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "segment", "myProducts", { tenant: client.tenant, query, siteCode }],
+    queryKey: ["emporix", "segment", "myProducts", { tenant: client.tenant, query, siteCode, language }],
     enabled: token !== null,
     queryFn: () => client.segments.listMyProducts(query, customerCtx(token)),
     staleTime: SEGMENTS_STALE_TIME,
@@ -111,13 +111,13 @@ export function useMySegmentProductsInfinite(
 ) {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useEmporixInfinite<Product>({
     queryKey: [
       "emporix",
       "segment",
       "myProductsInfinite",
-      { tenant: client.tenant, query, siteCode },
+      { tenant: client.tenant, query, siteCode, language },
     ],
     enabled: token !== null,
     fetchPage: (pageNumber) =>
@@ -142,9 +142,9 @@ export function useMySegmentCategories(
 ): UseQueryResult<PaginatedItems<Category>> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: ["emporix", "segment", "myCategories", { tenant: client.tenant, query, siteCode }],
+    queryKey: ["emporix", "segment", "myCategories", { tenant: client.tenant, query, siteCode, language }],
     enabled: token !== null,
     queryFn: () => client.segments.listMyCategories(query, customerCtx(token)),
     staleTime: SEGMENTS_STALE_TIME,
@@ -166,13 +166,13 @@ export function useMySegmentCategoriesInfinite(
 ) {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useEmporixInfinite<Category>({
     queryKey: [
       "emporix",
       "segment",
       "myCategoriesInfinite",
-      { tenant: client.tenant, query, siteCode },
+      { tenant: client.tenant, query, siteCode, language },
     ],
     enabled: token !== null,
     fetchPage: (pageNumber) =>
