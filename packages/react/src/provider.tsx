@@ -390,6 +390,14 @@ function SiteContextProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteCode]);
 
+  // Push the initially-resolved language (prop / storage / config) to the SDK so
+  // the very first reads carry `Accept-Language` — React state alone does not
+  // reach the client. Mount-only; later changes go through setLanguage / setSite.
+  useEffect(() => {
+    if (language) client.setStorefrontContext({ language });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const setSite = useCallback(
     async (code: string | null) => {
       // 1) Optimistic flip — UI moves immediately.
