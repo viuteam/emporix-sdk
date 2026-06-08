@@ -8,13 +8,16 @@ interface SchemaLike {
   metadata?: { version?: number; url?: string };
   attributes?: unknown[];
 }
+interface PageLike {
+  items: SchemaLike[];
+  hasNextPage?: boolean;
+}
 interface SchemaClientLike {
   schemas: {
-    listSchemas: (q?: {
-      type?: string;
-      pageNumber?: number;
-      pageSize?: number;
-    }) => Promise<{ items: SchemaLike[]; total: number }>;
+    listSchemas: (
+      q?: { type?: string; pageNumber?: number; pageSize?: number },
+      auth?: AuthLike,
+    ) => Promise<PageLike>;
   };
 }
 interface AuthLike {
@@ -36,15 +39,16 @@ export function schemaService(opts: {
   return {
     async list(): Promise<RawMixin[]> {
       const all: SchemaLike[] = [];
+      const pageSize = 100;
       let page = 1;
       for (;;) {
-        const res = await opts.client.schemas.listSchemas({
-          pageNumber: page,
-          pageSize: 100,
-          ...(opts.types?.[0] ? { type: opts.types[0] } : {}),
-        });
+        const res = await opts.client.schemas.listSchemas(
+          { pageNumber: page, pageSize, ...(opts.types?.[0] ? { type: opts.types[0] } : {}) },
+          opts.auth,
+        );
         all.push(...res.items);
-        if (all.length >= res.total || res.items.length === 0) break;
+        const more = res.hasNextPage ?? res.items.length === pageSize;
+        if (!more || res.items.length === 0) break;
         page += 1;
       }
       const out: RawMixin[] = [];

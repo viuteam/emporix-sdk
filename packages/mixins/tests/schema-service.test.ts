@@ -62,6 +62,20 @@ describe("schemaService adapter", () => {
     });
   });
 
+  it("forwards the auth context to listSchemas", async () => {
+    let received: unknown;
+    const client = {
+      schemas: {
+        listSchemas: async (_q: unknown, a: unknown) => {
+          received = a;
+          return { items: [] };
+        },
+      },
+    } as never;
+    await schemaService({ client, auth: { kind: "anonymous" } }).list();
+    expect(received).toEqual({ kind: "anonymous" });
+  });
+
   it("skips incomplete schemas and defaults entity to UNKNOWN when no types", async () => {
     server.use(http.get("https://cdn/ok.v2.json", () => HttpResponse.json({ type: "object" })));
     const client = fakeClient([
