@@ -36,7 +36,7 @@ export interface HttpClientOptions {
    * carries `Accept-Language: <language>`. Mutated at runtime via
    * `EmporixClient.setStorefrontContext({ language })`.
    */
-  requestContext?: { language?: string };
+  requestContext?: { language?: string | undefined };
 }
 
 let requestSeq = 0;

@@ -126,6 +126,7 @@ export class EmporixClient {
   readonly config: ResolvedConfig;
   private readonly resolver: LevelResolver;
   private readonly customerRefresh: CustomerRefreshRegistry;
+  private readonly requestContext: { language?: string | undefined };
 
   constructor(config: EmporixConfig) {
     const cfg = validateConfig(config);
@@ -156,6 +157,9 @@ export class EmporixClient {
     const customerRefresh = new CustomerRefreshRegistry();
     this.customerRefresh = customerRefresh;
 
+    this.requestContext = { language: cfg.credentials.storefront?.context?.language };
+    const requestContext = this.requestContext;
+
     const mk = (service: ServiceName): ClientContext => ({
       tenant: cfg.tenant,
       tokenProvider,
@@ -167,6 +171,7 @@ export class EmporixClient {
         retry: cfg.retry,
         timeouts: cfg.timeouts,
         customerRefresh,
+        requestContext,
       }),
     });
 
@@ -226,13 +231,25 @@ export class EmporixClient {
    * next request re-mints a token bound to the new context. Use this to switch
    * currency at runtime. Carts are currency-bound — clear the cart after a
    * currency change (the React `setCurrency` does this for you).
+   *
+   * Also sets the storefront `language` (an `Accept-Language` header on every
+   * read); a language-only change does NOT re-mint the token.
    */
   setStorefrontContext(ctx: {
     currency?: string;
     siteCode?: string;
     targetLocation?: string;
+    language?: string;
   }): void {
-    this.tokenProvider.setAnonymousContext?.(ctx);
+    if (ctx.language !== undefined) {
+      this.requestContext.language = ctx.language || undefined;
+    }
+    const { language: _language, ...priceContext } = ctx;
+    // Only currency/site/target re-mint the anonymous token; a language-only
+    // change is just a request header and must NOT trigger a re-mint.
+    if (Object.keys(priceContext).length > 0) {
+      this.tokenProvider.setAnonymousContext?.(priceContext);
+    }
   }
 
   /** Sets the runtime log level globally or for one service. */
