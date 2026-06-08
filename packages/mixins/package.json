@@ -1,6 +1,6 @@
 {
   "name": "@viu/emporix-mixins",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Generic toolkit to resolve and sync Emporix mixins as typed values.",
   "license": "MIT",
   "author": {
@@ -25,26 +25,51 @@
   ],
   "type": "module",
   "sideEffects": false,
-  "engines": { "node": ">=20.19.0" },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" },
-    "./codegen": { "types": "./dist/codegen.d.ts", "import": "./dist/codegen.js", "require": "./dist/codegen.cjs" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./codegen": {
+      "types": "./dist/codegen.d.ts",
+      "import": "./dist/codegen.js",
+      "require": "./dist/codegen.cjs"
+    },
     "./package.json": "./package.json"
   },
-  "bin": { "emporix-mixins": "./dist/cli.js" },
-  "files": ["dist"],
+  "bin": {
+    "emporix-mixins": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "test": "vitest run --coverage",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": { "jiti": "^2.4.0" },
-  "optionalDependencies": { "json-schema-to-typescript": "^15.0.0" },
-  "peerDependencies": { "@viu/emporix-sdk": "workspace:^", "ajv": "^8.0.0" },
+  "dependencies": {
+    "jiti": "^2.4.0"
+  },
+  "optionalDependencies": {
+    "json-schema-to-typescript": "^15.0.0"
+  },
+  "peerDependencies": {
+    "@viu/emporix-sdk": "workspace:^",
+    "ajv": "^8.0.0"
+  },
   "peerDependenciesMeta": {
-    "@viu/emporix-sdk": { "optional": true },
-    "ajv": { "optional": true }
+    "@viu/emporix-sdk": {
+      "optional": true
+    },
+    "ajv": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -60,5 +85,7 @@
     "typescript": "^5.6.0",
     "vitest": "^2.0.0"
   },
-  "publishConfig": { "access": "public" }
+  "publishConfig": {
+    "access": "public"
+  }
 }
