@@ -18,6 +18,7 @@ export function emporixKey<TArgs extends readonly unknown[]>(
     tenant: string;
     authKind: string;
     siteCode?: string | null;
+    language?: string | null;
   },
 ): readonly ["emporix", string, ...TArgs, Record<string, unknown>] {
   const meta: Record<string, unknown> = {
@@ -26,6 +27,9 @@ export function emporixKey<TArgs extends readonly unknown[]>(
   };
   if (context.siteCode !== undefined) {
     meta.siteCode = context.siteCode;
+  }
+  if (context.language !== undefined) {
+    meta.language = context.language;
   }
   return ["emporix", resource, ...args, meta] as const;
 }
