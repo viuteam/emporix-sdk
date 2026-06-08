@@ -24,6 +24,7 @@ import { OrderDetail } from "./pages/account/OrderDetail";
 import { Returns } from "./pages/account/Returns";
 import { Rewards } from "./pages/account/Rewards";
 import { Lists } from "./pages/account/Lists";
+import { Mixins } from "./pages/account/Mixins";
 
 function buildClient(c: DemoConfig): EmporixClient {
   const context: { siteCode?: string; currency?: string; targetLocation?: string } = {};
@@ -98,6 +99,7 @@ function DemoApp({
                 <Route path="/account/returns" element={<Returns />} />
                 <Route path="/account/rewards" element={<Rewards />} />
                 <Route path="/account/lists" element={<Lists />} />
+                <Route path="/account/mixins" element={<Mixins />} />
                 <Route path="/account/*" element={<Placeholder title="Account" />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="*" element={<Placeholder title="Not found" />} />
