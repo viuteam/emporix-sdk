@@ -204,3 +204,34 @@ describe("siteCode storage", () => {
     expect(s.getSiteCode()).toBe("main");
   });
 });
+
+describe("language storage", () => {
+  it("memory: getLanguage returns null, then the set value", () => {
+    const s = createMemoryStorage();
+    expect(s.getLanguage()).toBeNull();
+    s.setLanguage("de");
+    expect(s.getLanguage()).toBe("de");
+    s.setLanguage(null);
+    expect(s.getLanguage()).toBeNull();
+  });
+
+  it("localStorage: persists language under emporix.language", () => {
+    localStorage.clear();
+    const s = createLocalStorageStorage();
+    s.setLanguage("de");
+    expect(localStorage.getItem("emporix.language")).toBe("de");
+    expect(s.getLanguage()).toBe("de");
+    s.setLanguage(null);
+    expect(localStorage.getItem("emporix.language")).toBeNull();
+  });
+
+  it("cookie: round-trips language through document.cookie", () => {
+    for (const c of document.cookie.split("; ")) {
+      const [k] = c.split("=");
+      document.cookie = `${k}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    }
+    const s = createCookieStorage({ secure: false, sameSite: "lax" });
+    s.setLanguage("de");
+    expect(s.getLanguage()).toBe("de");
+  });
+});

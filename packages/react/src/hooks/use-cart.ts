@@ -27,14 +27,14 @@ import { useActiveCompany } from "../company-context";
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
   const { client, storage } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   const { activeCompany } = useActiveCompany();
   const resolvedId = cartId ?? storage.getCartId() ?? undefined;
   return useQuery({
     queryKey: emporixKey(
       "cart",
       [resolvedId ?? null, activeCompany?.id ?? null],
-      { tenant: client.tenant, authKind: ctx.kind, siteCode },
+      { tenant: client.tenant, authKind: ctx.kind, siteCode, language },
     ),
     enabled: resolvedId !== undefined,
     queryFn: () => client.carts.get(resolvedId as string, ctx),
@@ -68,7 +68,7 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
   const { client, storage } = useEmporix();
   const qc = useQueryClient();
   const { ctx } = useReadAuth();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   const { activeCompany } = useActiveCompany();
 
   const resolveId = (): string => {
@@ -84,7 +84,7 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
     emporixKey(
       "cart",
       [id, activeCompany?.id ?? null],
-      { tenant: client.tenant, authKind: ctx.kind, siteCode },
+      { tenant: client.tenant, authKind: ctx.kind, siteCode, language },
     );
 
   function make<TVars>(

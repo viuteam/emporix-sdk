@@ -10,6 +10,7 @@ const DEFAULT_TOKEN_KEY = "emporix.customerToken";
 const CART_KEY = "emporix.cartId";
 const ANON_KEY = "emporix.anonymousSession";
 const SITE_KEY = "emporix.siteCode";
+const LANGUAGE_KEY = "emporix.language";
 const ACTIVE_LE_KEY = "emporix.activeLegalEntityId";
 const REFRESH_KEY = "emporix.refreshToken";
 
@@ -56,6 +57,12 @@ export function createLocalStorageStorage(opts: { key?: string } = {}): EmporixS
       if (code === null) ls.removeItem(SITE_KEY);
       else ls.setItem(SITE_KEY, code);
       all.notify("siteCode");
+    },
+    getLanguage: () => ls.getItem(LANGUAGE_KEY),
+    setLanguage: (l) => {
+      if (l === null) ls.removeItem(LANGUAGE_KEY);
+      else ls.setItem(LANGUAGE_KEY, l);
+      all.notify("language");
     },
     getActiveLegalEntityId: () => ls.getItem(ACTIVE_LE_KEY),
     setActiveLegalEntityId: (id) => {

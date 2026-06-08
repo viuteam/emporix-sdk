@@ -2,6 +2,7 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { auth, type Order } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { emporixKey } from "./internal/query-keys";
+import { useReadSite } from "./internal/use-read-site";
 
 export interface UseOrderOptions {
   saasToken?: string;
@@ -14,10 +15,12 @@ export function useOrder(
 ): UseQueryResult<Order> {
   const { client, storage } = useEmporix();
   const token = storage.getCustomerToken();
+  const { language } = useReadSite();
   return useQuery({
     queryKey: emporixKey("orders", [orderId ?? null], {
       tenant: client.tenant,
       authKind: token ? "customer" : "anonymous",
+      language,
     }),
     enabled: token !== null && orderId !== undefined,
     queryFn: () =>

@@ -43,6 +43,7 @@ function wrap(
   opts: {
     storage?: EmporixStorage;
     initialSiteCode?: string;
+    initialLanguage?: string;
     staticSite?: string;
   } = {},
 ) {
@@ -55,6 +56,7 @@ function wrap(
       storage={storage}
       queryClient={queryClient}
       {...(opts.initialSiteCode !== undefined ? { initialSiteCode: opts.initialSiteCode } : {})}
+      {...(opts.initialLanguage !== undefined ? { initialLanguage: opts.initialLanguage } : {})}
     >
       {children}
     </EmporixProvider>
@@ -440,5 +442,124 @@ describe("useSiteContext — currency seeding", () => {
     await waitFor(() => expect(result.current.targetLocation).toBe("CH"));
     expect(siteFetched).toBe(true);
     expect(result.current.currency).toBe("EUR");
+  });
+});
+
+describe("useSiteContext — language initial resolution", () => {
+  it("uses initialLanguage prop when provided", () => {
+    const { result } = renderHook(() => useSiteContext(), {
+      wrapper: wrap({ initialLanguage: "de" }),
+    });
+    expect(result.current.language).toBe("de");
+  });
+
+  it("falls back to storage.getLanguage() when no prop", () => {
+    const storage = createMemoryStorage();
+    storage.setLanguage("fr");
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap({ storage }) });
+    expect(result.current.language).toBe("fr");
+  });
+
+  it("falls back to null when nothing is configured", () => {
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap() });
+    expect(result.current.language).toBeNull();
+  });
+});
+
+describe("useSiteContext — setLanguage", () => {
+  it("updates state + storage, sets the storefront context, patches the session", async () => {
+    const client = makeClient();
+    const storage = createMemoryStorage();
+    storage.setSiteCode("main");
+    const spy = vi.spyOn(client, "setStorefrontContext");
+    let patchBody: { language?: string; siteCode?: string } | undefined;
+    server.use(
+      http.get("https://api.emporix.io/session-context/acme/me/context", () =>
+        HttpResponse.json({ sessionId: "s", siteCode: "main", metadata: { version: 3 } }),
+      ),
+      http.patch("https://api.emporix.io/session-context/acme/me/context", async ({ request }) => {
+        patchBody = (await request.json()) as typeof patchBody;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const Wrapper = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={storage} queryClient={queryClient} initialSiteCode="main">
+        {children}
+      </EmporixProvider>
+    );
+    const { result } = renderHook(() => useSiteContext(), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.setLanguage("de");
+    });
+
+    expect(result.current.language).toBe("de");
+    expect(storage.getLanguage()).toBe("de");
+    expect(spy).toHaveBeenCalledWith({ language: "de" });
+    expect(patchBody?.language).toBe("de");
+  });
+
+  it("does NOT clear the cart on language switch", async () => {
+    const storage = createMemoryStorage();
+    storage.setCartId("keep-me");
+    server.use(
+      http.get(
+        "https://api.emporix.io/session-context/acme/me/context",
+        () => new HttpResponse(null, { status: 404 }),
+      ),
+    );
+    const { result } = renderHook(() => useSiteContext(), { wrapper: wrap({ storage }) });
+    await act(async () => {
+      await result.current.setLanguage("de");
+    });
+    expect(storage.getCartId()).toBe("keep-me");
+  });
+});
+
+describe("useSiteContext — language mount-derive", () => {
+  it("seeds language from the site defaultLanguage when none is set", async () => {
+    server.use(
+      http.get("https://api.emporix.io/site/acme/sites/main", () =>
+        HttpResponse.json({
+          code: "main", name: "Main", active: true, default: true,
+          defaultLanguage: "de", languages: ["de", "en"],
+          currency: "CHF",
+          homeBase: { address: { country: "CH", zipCode: "8000" } },
+          shipToCountries: ["CH"],
+        }),
+      ),
+    );
+    const { result } = renderHook(() => useSiteContext(), {
+      wrapper: wrap({ initialSiteCode: "main" }),
+    });
+    await waitFor(() => expect(result.current.language).toBe("de"));
+  });
+});
+
+describe("useSiteContext — language reset on site switch", () => {
+  it("resets language to the new site defaultLanguage when the active one is unsupported", async () => {
+    server.use(
+      http.get("https://api.emporix.io/site/acme/sites/fr-site", () =>
+        HttpResponse.json({
+          code: "fr-site", name: "FR", active: true, default: false,
+          defaultLanguage: "fr", languages: ["fr"],
+          currency: "EUR",
+          homeBase: { address: { country: "FR", zipCode: "75001" } },
+          shipToCountries: ["FR"],
+        }),
+      ),
+      http.get(
+        "https://api.emporix.io/session-context/acme/me/context",
+        () => new HttpResponse(null, { status: 404 }),
+      ),
+    );
+    const { result } = renderHook(() => useSiteContext(), {
+      wrapper: wrap({ initialLanguage: "de", initialSiteCode: "old" }),
+    });
+    await act(async () => {
+      await result.current.setSite("fr-site");
+    });
+    expect(result.current.language).toBe("fr");
   });
 });

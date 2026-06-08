@@ -17,6 +17,8 @@ export interface SiteContextValue {
   currency: string | null;
   /** MS-4 populates this from the active site's DTO. */
   targetLocation: string | null;
+  /** Active language for localized reads (Accept-Language). `null` = site/tenant default. */
+  language: string | null;
   /**
    * Asynchronous site switch. Updates local state + storage immediately
    * (optimistic), then PATCHes `/session-context/{tenant}/me/context` so
@@ -36,6 +38,13 @@ export interface SiteContextValue {
    * The chosen currency must be in the active site's `availableCurrencies`.
    */
   setCurrency: (currency: string) => Promise<void>;
+  /**
+   * Switch the active language at runtime. Sets the `Accept-Language` request
+   * header (via `setStorefrontContext`), invalidates the React-Query cache so
+   * localized reads refetch, and PATCHes an existing server session context.
+   * Does NOT clear the cart (language does not affect pricing).
+   */
+  setLanguage: (language: string) => Promise<void>;
   isSwitching: boolean;
   switchError: Error | null;
 }
@@ -65,6 +74,12 @@ export interface EmporixProviderProps {
    * `client.config.credentials.storefront.context.siteCode` → `null`.
    */
   initialSiteCode?: string;
+  /**
+   * Initial active language. Resolution order: this prop → `storage.getLanguage()`
+   * → `client.config.credentials.storefront.context.language` → `null` (then
+   * seeded from the active site's `defaultLanguage` on mount).
+   */
+  initialLanguage?: string;
   /**
    * Initial active legal-entity id (B2B). When set, the CompanyContext
    * provider tries to match it against `companies.listMine()` once the
@@ -101,6 +116,7 @@ export function EmporixProvider({
   storage,
   initialCustomerToken,
   initialSiteCode,
+  initialLanguage,
   initialActiveLegalEntityId,
   onTelemetry,
   autoRefreshCustomerToken,
@@ -282,6 +298,7 @@ export function EmporixProvider({
             client={client}
             storage={value.storage}
             {...(initialSiteCode !== undefined ? { initialSiteCode } : {})}
+            {...(initialLanguage !== undefined ? { initialLanguage } : {})}
           >
             <CompanyContextProvider
               client={client}
@@ -307,11 +324,13 @@ function SiteContextProvider({
   client,
   storage,
   initialSiteCode,
+  initialLanguage,
   children,
 }: {
   client: EmporixClient;
   storage: EmporixStorage;
   initialSiteCode?: string;
+  initialLanguage?: string;
   children: ReactNode;
 }): React.JSX.Element {
   const qc = useQueryClient();
@@ -324,6 +343,12 @@ function SiteContextProvider({
   const [currency, setCurrencyState] = useState<string | null>(
     () => client.config?.credentials?.storefront?.context?.currency ?? null,
   );
+  const [language, setLanguageState] = useState<string | null>(() => {
+    if (initialLanguage !== undefined) return initialLanguage;
+    const fromStorage = storage.getLanguage();
+    if (fromStorage !== null) return fromStorage;
+    return client.config?.credentials?.storefront?.context?.language ?? null;
+  });
   const [targetLocation, setTargetLocation] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<Error | null>(null);
@@ -333,7 +358,7 @@ function SiteContextProvider({
   // A currency seeded from the client config is NOT overridden (the user's /
   // persisted choice wins); only fields still `null` are filled in.
   useEffect(() => {
-    if (!siteCode || (currency !== null && targetLocation !== null)) return;
+    if (!siteCode || (currency !== null && targetLocation !== null && language !== null)) return;
     let cancelled = false;
     const token = storage.getCustomerToken();
     const authCtx = token ? auth.customer(token) : auth.anonymous();
@@ -351,6 +376,10 @@ function SiteContextProvider({
         if (cancelled) return;
         if (currency === null) setCurrencyState(site.currency);
         setTargetLocation(site.homeBase?.address?.country ?? null);
+        if (language === null && site.defaultLanguage) {
+          setLanguageState(site.defaultLanguage);
+          client.setStorefrontContext({ language: site.defaultLanguage });
+        }
       })
       .catch(() => {
         // Best-effort — silent. setSite-driven derivation surfaces real errors.
@@ -360,6 +389,14 @@ function SiteContextProvider({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteCode]);
+
+  // Push the initially-resolved language (prop / storage / config) to the SDK so
+  // the very first reads carry `Accept-Language` — React state alone does not
+  // reach the client. Mount-only; later changes go through setLanguage / setSite.
+  useEffect(() => {
+    if (language) client.setStorefrontContext({ language });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setSite = useCallback(
     async (code: string | null) => {
@@ -395,6 +432,11 @@ function SiteContextProvider({
         const nextTarget = site.homeBase?.address?.country ?? null;
         setCurrencyState(nextCurrency);
         setTargetLocation(nextTarget);
+        // Reset the language if the new site doesn't support the active one.
+        if (site.languages && !site.languages.includes(language ?? "") && site.defaultLanguage) {
+          setLanguageState(site.defaultLanguage);
+          client.setStorefrontContext({ language: site.defaultLanguage });
+        }
         // 3) Push everything into the session-context PATCH.
         await client.sessionContext.patch(
           {
@@ -410,7 +452,7 @@ function SiteContextProvider({
         setIsSwitching(false);
       }
     },
-    [client, storage, qc],
+    [client, storage, qc, language],
   );
 
   const setCurrency = useCallback(
@@ -441,17 +483,45 @@ function SiteContextProvider({
     [client, storage, qc, siteCode],
   );
 
+  const setLanguage = useCallback(
+    async (next: string) => {
+      storage.setLanguage(next);
+      setLanguageState(next);
+      setSwitchError(null);
+      // Header source — applies to anonymous + pre-session reads too.
+      client.setStorefrontContext({ language: next });
+      void qc.invalidateQueries({ queryKey: ["emporix"] });
+      setIsSwitching(true);
+      try {
+        const token = storage.getCustomerToken();
+        const authCtx = token ? auth.customer(token) : auth.anonymous();
+        // Update an existing server session context (no-op / returns false pre-cart).
+        await client.sessionContext.patch(
+          { language: next, ...(siteCode ? { siteCode } : {}) },
+          authCtx,
+        );
+      } catch (e) {
+        setSwitchError(e instanceof Error ? e : new Error(String(e)));
+      } finally {
+        setIsSwitching(false);
+      }
+    },
+    [client, storage, qc, siteCode],
+  );
+
   const value = useMemo<SiteContextValue>(
     () => ({
       siteCode,
       currency,
       targetLocation,
+      language,
       setSite,
       setCurrency,
+      setLanguage,
       isSwitching,
       switchError,
     }),
-    [siteCode, currency, targetLocation, setSite, setCurrency, isSwitching, switchError],
+    [siteCode, currency, targetLocation, language, setSite, setCurrency, setLanguage, isSwitching, switchError],
   );
 
   return <EmporixSiteContext.Provider value={value}>{children}</EmporixSiteContext.Provider>;

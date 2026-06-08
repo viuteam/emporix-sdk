@@ -31,6 +31,12 @@ export interface HttpClientOptions {
   sleep?: (ms: number) => Promise<void>;
   /** Opt-in customer-token refresher registry (off unless a refresher is set). */
   customerRefresh?: CustomerRefreshRegistry;
+  /**
+   * Shared storefront request context. When `language` is set, every request
+   * carries `Accept-Language: <language>`. Mutated at runtime via
+   * `EmporixClient.setStorefrontContext({ language })`.
+   */
+  requestContext?: { language?: string | undefined };
 }
 
 let requestSeq = 0;
@@ -49,6 +55,25 @@ export class HttpClient {
   constructor(private readonly opts: HttpClientOptions) {
     this.sleep =
       opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  }
+
+  private buildHeaders(
+    o: RequestOptions,
+    token: string,
+    isFormData: boolean,
+  ): Record<string, string> {
+    return {
+      ...(this.opts.requestContext?.language
+        ? { "Accept-Language": this.opts.requestContext.language }
+        : {}),
+      ...(o.headers ?? {}),
+      Authorization: `Bearer ${token}`,
+      // JSON bodies: set Content-Type. FormData bodies: let `fetch`
+      // emit `multipart/form-data; boundary=...` itself.
+      ...(o.body !== undefined && !isFormData
+        ? { "Content-Type": "application/json" }
+        : {}),
+    };
   }
 
   async request<T = unknown>(o: RequestOptions): Promise<T> {
@@ -82,15 +107,7 @@ export class HttpClient {
         typeof FormData !== "undefined" && o.body instanceof FormData;
       const init: RequestInit = {
         method: o.method,
-        headers: {
-          ...(o.headers ?? {}),
-          Authorization: `Bearer ${token}`,
-          // JSON bodies: set Content-Type. FormData bodies: let `fetch`
-          // emit `multipart/form-data; boundary=...` itself.
-          ...(o.body !== undefined && !isFormData
-            ? { "Content-Type": "application/json" }
-            : {}),
-        },
+        headers: this.buildHeaders(o, token, isFormData),
         signal: controller.signal,
       };
       if (o.body !== undefined) {
@@ -198,13 +215,7 @@ export class HttpClient {
       typeof FormData !== "undefined" && o.body instanceof FormData;
     const init: RequestInit = {
       method: o.method,
-      headers: {
-        ...(o.headers ?? {}),
-        Authorization: `Bearer ${token}`,
-        ...(o.body !== undefined && !isFormData
-          ? { "Content-Type": "application/json" }
-          : {}),
-      },
+      headers: this.buildHeaders(o, token, isFormData),
       signal: controller.signal,
       ...(extra?.redirect ? { redirect: extra.redirect } : {}),
     };

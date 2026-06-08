@@ -11,6 +11,7 @@ export function createMemoryStorage(opts: { initial?: string } = {}): EmporixSto
   let cartId: string | null = null;
   let anon: PersistedAnonymousSession | null = null;
   let siteCode: string | null = null;
+  let language: string | null = null;
   let activeLegalEntityId: string | null = null;
   let refreshToken: string | null = null;
   const tokenListeners = new Set<(t: string | null) => void>();
@@ -40,6 +41,11 @@ export function createMemoryStorage(opts: { initial?: string } = {}): EmporixSto
     setSiteCode: (code) => {
       siteCode = code;
       all.notify("siteCode");
+    },
+    getLanguage: () => language,
+    setLanguage: (l) => {
+      language = l;
+      all.notify("language");
     },
     getActiveLegalEntityId: () => activeLegalEntityId,
     setActiveLegalEntityId: (id) => {

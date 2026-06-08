@@ -24,9 +24,9 @@ export function useShoppingLists(
 ): UseQueryResult<ShoppingList[]> {
   const { client } = useEmporix();
   const ctx = useCustomerOnlyCtx();
-  const { siteCode } = useReadSite();
+  const { siteCode, language } = useReadSite();
   return useQuery({
-    queryKey: emporixKey("shopping-lists", [opts.name ?? null], { tenant: client.tenant, authKind: ctx.kind, siteCode }),
+    queryKey: emporixKey("shopping-lists", [opts.name ?? null], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
     queryFn: () => client.shoppingLists.list(ctx, opts),
     staleTime: SHOPPING_LIST_STALE_TIME,
   });

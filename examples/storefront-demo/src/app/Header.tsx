@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteCurrencySwitcher } from "./SiteCurrencySwitcher";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { CartBadge } from "./CartBadge";
 import { AccountMenu } from "./AccountMenu";
 
@@ -43,6 +44,7 @@ export function Header() {
           />
         </form>
         <nav className="cluster" style={{ gap: "var(--s-4)", marginLeft: "auto", fontSize: "var(--step--1)" }}>
+          <LanguageSwitcher />
           <SiteCurrencySwitcher />
           <Link to="/" className="u-underline">Shop</Link>
           <AccountMenu />

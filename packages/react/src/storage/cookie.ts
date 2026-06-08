@@ -10,6 +10,7 @@ const DEFAULT_TOKEN_NAME = "emporix.customerToken";
 const CART_NAME = "emporix.cartId";
 const ANON_NAME = "emporix.anonymousSession";
 const SITE_NAME = "emporix.siteCode";
+const LANGUAGE_NAME = "emporix.language";
 const ACTIVE_LE_NAME = "emporix.activeLegalEntityId";
 const REFRESH_NAME = "emporix.refreshToken";
 
@@ -65,6 +66,11 @@ export function createCookieStorage(
     setSiteCode: (code) => {
       writeCookie(SITE_NAME, code);
       all.notify("siteCode");
+    },
+    getLanguage: () => readCookie(LANGUAGE_NAME),
+    setLanguage: (l) => {
+      writeCookie(LANGUAGE_NAME, l);
+      all.notify("language");
     },
     getActiveLegalEntityId: () => readCookie(ACTIVE_LE_NAME),
     setActiveLegalEntityId: (id) => {
