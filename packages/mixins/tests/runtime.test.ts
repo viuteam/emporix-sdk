@@ -17,6 +17,13 @@ describe("runtime accessor", () => {
     expect(body.metadata).toEqual({ mixins: { deliveryOptions: D.url } });
   });
 
+  it("writeMixin merges into existing mixins/metadata", () => {
+    const existing = { mixins: { other: 1 }, metadata: { mixins: { other: "u" }, version: 2 } };
+    const body = writeMixin(existing, D, { packaging: "Box" });
+    expect(body.mixins).toEqual({ other: 1, deliveryOptions: { packaging: "Box" } });
+    expect(body.metadata).toMatchObject({ version: 2, mixins: { other: "u", deliveryOptions: D.url } });
+  });
+
   it("readMixin returns the typed value or undefined", () => {
     const entity = writeMixin({}, D, { packaging: "Paper" });
     expect(readMixin(entity, D)?.packaging).toBe("Paper");

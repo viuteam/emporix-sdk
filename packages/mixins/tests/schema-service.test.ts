@@ -61,4 +61,15 @@ describe("schemaService adapter", () => {
       properties: { note: { type: "string" } },
     });
   });
+
+  it("skips incomplete schemas and defaults entity to UNKNOWN when no types", async () => {
+    server.use(http.get("https://cdn/ok.v2.json", () => HttpResponse.json({ type: "object" })));
+    const client = fakeClient([
+      { id: "incomplete", metadata: { version: 1 } }, // no url → skipped
+      { id: "ok", metadata: { version: 2, url: "https://cdn/ok.v2.json" } }, // no types → UNKNOWN
+    ]);
+    const raw = await schemaService({ client }).list();
+    expect(raw).toHaveLength(1);
+    expect(raw[0]!).toMatchObject({ key: "ok", entity: "UNKNOWN", version: 2 });
+  });
 });

@@ -21,4 +21,23 @@ describe("attributesToJsonSchema", () => {
       },
     });
   });
+
+  it("maps OBJECT (nested), ENUM, untyped ARRAY, and unknown types", () => {
+    const schema = attributesToJsonSchema([
+      { key: "addr", type: "OBJECT", attributes: [{ key: "city", type: "TEXT" }] },
+      { key: "size", type: "ENUM", values: ["S", "M", "L"] },
+      { key: "items", type: "ARRAY" },
+      { key: "weird", type: "MYSTERY" },
+    ] as never);
+    expect(schema).toEqual({
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        addr: { type: "object", additionalProperties: false, properties: { city: { type: "string" } } },
+        size: { type: "string", enum: ["S", "M", "L"] },
+        items: { type: "array", items: { type: "string" } },
+        weird: {},
+      },
+    });
+  });
 });
