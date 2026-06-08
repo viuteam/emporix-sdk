@@ -25,7 +25,7 @@ export interface StorefrontCredentials {
    * `prices.matchByContext` to resolve currency/site/country server-side.
    * `targetLocation` is an ISO country code.
    */
-  context?: { currency?: string; siteCode?: string; targetLocation?: string };
+  context?: { currency?: string; siteCode?: string; targetLocation?: string; language?: string };
 }
 
 /** User-supplied SDK configuration. */
