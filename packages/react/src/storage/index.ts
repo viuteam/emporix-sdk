@@ -18,6 +18,10 @@ export interface EmporixStorage {
   getSiteCode(): string | null;
   setSiteCode(code: string | null): void;
 
+  // Active language (Accept-Language). `null` = use the site/tenant default.
+  getLanguage(): string | null;
+  setLanguage(language: string | null): void;
+
   // Active legal entity id (B2B). `null` = B2C mode.
   getActiveLegalEntityId(): string | null;
   setActiveLegalEntityId(id: string | null): void;
@@ -51,6 +55,7 @@ export type EmporixStorageKey =
   | "customerToken"
   | "cartId"
   | "siteCode"
+  | "language"
   | "anonymousSession"
   | "activeLegalEntityId"
   | "refreshToken";
