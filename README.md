@@ -3,6 +3,7 @@
 [![CI](https://github.com/viuteam/emporix-sdk/actions/workflows/pr-check.yml/badge.svg?branch=main)](https://github.com/viuteam/emporix-sdk/actions/workflows/pr-check.yml)
 [![@viu/emporix-sdk](https://img.shields.io/npm/v/@viu/emporix-sdk?label=%40viu%2Femporix-sdk)](https://www.npmjs.com/package/@viu/emporix-sdk)
 [![@viu/emporix-sdk-react](https://img.shields.io/npm/v/@viu/emporix-sdk-react?label=%40viu%2Femporix-sdk-react)](https://www.npmjs.com/package/@viu/emporix-sdk-react)
+[![@viu/emporix-mixins](https://img.shields.io/npm/v/@viu/emporix-mixins?label=%40viu%2Femporix-mixins)](https://www.npmjs.com/package/@viu/emporix-mixins)
 [![license](https://img.shields.io/npm/l/@viu/emporix-sdk)](./LICENSE)
 [![node](https://img.shields.io/node/v/@viu/emporix-sdk)](https://nodejs.org)
 
@@ -15,6 +16,7 @@ shipped as a pnpm workspace monorepo.
 | --- | --- |
 | [`@viu/emporix-sdk`](./packages/sdk) | Core, framework-agnostic SDK: auth, HTTP, logging + the full Emporix service surface — **catalog** (Product, Category, Price, Brand, Label, Catalog), **cart & checkout** (Cart, Checkout, Payment, Coupon, Tax, Shipping, Fee), **orders & fulfilment** (Orders, SalesOrders, Returns, PickPack, Availability, Indexing), **customers & B2B** (Customer, CustomerAdmin, Companies, Contacts, Locations, CustomerGroups, Approval, RewardPoints, Segment), and **platform** (Site, SessionContext, TenantConfig, ClientConfig, Media, Schema, Webhooks, SequentialId, UnitHandling, Country, Currency, Vendor, ShoppingList, SepaExport, AI, RagIndexer) |
 | [`@viu/emporix-sdk-react`](./packages/react) | React bindings: provider, hooks, storage adapters, SSR helpers |
+| [`@viu/emporix-mixins`](./packages/mixins) | Generic, tenant-agnostic toolkit to resolve Emporix mixins as typed values and keep them in sync with the Schema Service (runtime accessor + pluggable sources + `emporix-mixins` codegen CLI) |
 
 Runnable examples live in [`examples/`](./examples): `node-server` (no React),
 `vite-spa` (CSR), `next-app-router` (RSC + Server Actions), and
@@ -29,6 +31,8 @@ never published.
 pnpm add @viu/emporix-sdk
 # React bindings (peer deps: react, @tanstack/react-query v5)
 pnpm add @viu/emporix-sdk-react @tanstack/react-query react
+# Typed mixins (optional — runtime accessor + codegen CLI)
+pnpm add @viu/emporix-mixins
 ```
 
 ## Quick start
@@ -49,8 +53,9 @@ const { customerToken } = await sdk.customers.login({ email, password });
 const me = await sdk.customers.me(auth.customer(customerToken));
 ```
 
-See [`packages/sdk/README.md`](./packages/sdk/README.md) and
-[`packages/react/README.md`](./packages/react/README.md) for full guides, plus
+See [`packages/sdk/README.md`](./packages/sdk/README.md),
+[`packages/react/README.md`](./packages/react/README.md), and
+[`packages/mixins/README.md`](./packages/mixins/README.md) for full guides, plus
 [`docs/auth.md`](./docs/auth.md), [`docs/logging.md`](./docs/logging.md),
 [`docs/react.md`](./docs/react.md), and [`docs/`](./docs) for per-service guides
 (b2b, checkout, media, availability, returns, coupon, reward-points, approval, …).
