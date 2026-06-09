@@ -1,5 +1,15 @@
 # @viu/emporix-sdk-react
 
+## 2.13.0
+
+### Minor Changes
+
+- [#119](https://github.com/viuteam/emporix-sdk/pull/119) [`5580967`](https://github.com/viuteam/emporix-sdk/commit/5580967c83c8177b766e903cacdcbadc7a3c70a7) Thanks [@amnael1](https://github.com/amnael1)! - feat(react): add useActiveSite hook
+
+  `useActiveSite()` returns the active site's DTO (the one matching
+  `useSiteContext().siteCode`), derived from the shared `useSites()` query — so
+  consumers no longer re-implement `sites.find(s => s.code === siteCode)`.
+
 ## 2.12.0
 
 ### Minor Changes
