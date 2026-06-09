@@ -52,6 +52,7 @@ export {
   usePasswordReset,
   useSites,
   useDefaultSite,
+  useActiveSite,
   useSiteContext,
   useMyCompanies,
   useCompany,
