@@ -1,4 +1,4 @@
-import { useSites, useSiteContext } from "@viu/emporix-sdk-react";
+import { useActiveSite, useSites, useSiteContext } from "@viu/emporix-sdk-react";
 
 const selectStyle = {
   width: "auto",
@@ -13,8 +13,7 @@ const selectStyle = {
 export function SiteCurrencySwitcher() {
   const { siteCode, currency, setSite, setCurrency } = useSiteContext();
   const { data: sites } = useSites();
-
-  const activeSite = sites?.find((s) => s.code === siteCode);
+  const activeSite = useActiveSite();
   // Currencies the active site supports; fall back to just the active currency.
   const currencies =
     activeSite?.availableCurrencies && activeSite.availableCurrencies.length > 0

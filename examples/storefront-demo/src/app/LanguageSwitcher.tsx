@@ -1,4 +1,4 @@
-import { useSites, useSiteContext } from "@viu/emporix-sdk-react";
+import { useActiveSite, useSiteContext } from "@viu/emporix-sdk-react";
 
 const selectStyle = {
   width: "auto",
@@ -11,9 +11,8 @@ const selectStyle = {
 };
 
 export function LanguageSwitcher() {
-  const { siteCode, language, setLanguage } = useSiteContext();
-  const { data: sites } = useSites();
-  const activeSite = sites?.find((s) => s.code === siteCode);
+  const { language, setLanguage } = useSiteContext();
+  const activeSite = useActiveSite();
   const languages =
     activeSite?.languages && activeSite.languages.length > 0
       ? activeSite.languages
