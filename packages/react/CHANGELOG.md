@@ -1,5 +1,11 @@
 # @viu/emporix-sdk-react
 
+## 2.13.1
+
+### Patch Changes
+
+- [#124](https://github.com/viuteam/emporix-sdk/pull/124) [`3b4c796`](https://github.com/viuteam/emporix-sdk/commit/3b4c79640f2030edf7f2609a30d1546cc5f3cd0f) Thanks [@amnael1](https://github.com/amnael1)! - Clear the anonymous (guest) session from storage on customer login. Once a customer token is set the anonymous session is dormant — `useReadAuth` always prefers the customer token — but it lingered in storage (`emporix.anonymousSession`) for the whole authenticated session. `useCustomerSession.login` (and the shared `applySession` path used by `socialLogin` / `exchangeToken`) now call `storage.setAnonymousSession(null)`, so only the customer session remains after login.
+
 ## 2.13.0
 
 ### Minor Changes

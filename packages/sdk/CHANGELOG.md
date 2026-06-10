@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 2.13.1
+
+### Patch Changes
+
+- [#121](https://github.com/viuteam/emporix-sdk/pull/121) [`2c58d04`](https://github.com/viuteam/emporix-sdk/commit/2c58d049aacdd7cc2e05e937ef6cb9fc50145c15) Thanks [@amnael1](https://github.com/amnael1)! - Fix customer order history showing no orders. `GET /order-v2/{tenant}/orders` returns a bare JSON array (the total count lives in the `X-Total-Count` header), but `OrdersService.listMine` cast that array straight to `PaginatedItems<Order>` without wrapping it — so at runtime `.items` was `undefined` and `useMyOrders` / `useMyOrdersInfinite` (and any order-history UI) rendered no orders even when the API returned them. `listMine` now normalizes the array into the shared `{ items, pageNumber, pageSize, hasNextPage }` envelope, like every other paginated service.
+
+- [#123](https://github.com/viuteam/emporix-sdk/pull/123) [`3d2b047`](https://github.com/viuteam/emporix-sdk/commit/3d2b047c85f0218229c1236faf3e7ec467c2c209) Thanks [@amnael1](https://github.com/amnael1)! - Fix the reward-points balance/summary erroring for customers who have no points. `GET /reward-points/public/customer` (and `…/customer/summary`) is the correct Emporix endpoint, but it answers `404 "No reward points found"` for a signed-in customer who has never earned points — i.e. every customer without a completed order. `rewardPoints.getMyPoints` now maps that 404 to `0`, and `getMySummary` to an empty summary (`{ activePoints: 0, summary: { addedPointsList: [] } }`), so `useMyRewardPoints` / `useMyRewardPointsSummary` resolve cleanly instead of throwing. The admin lookups (`getCustomerPoints` / `getCustomerSummary`) still surface 404s, where a missing customer is a real error.
+
 ## 2.12.0
 
 ### Minor Changes
