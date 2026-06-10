@@ -48,10 +48,11 @@ describe("useMyOrders", () => {
     const storage = createMemoryStorage({ initial: "cust" });
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders", () =>
-        HttpResponse.json({
-          items: [{ id: "o-1", orderNumber: "ORD-1", status: "CREATED", currency: "CHF", totalPrice: { amount: 10, currency: "CHF" }, items: [] }],
-          pageNumber: 1, pageSize: 10, hasNextPage: false,
-        }),
+        // order-v2 returns a bare array (count in X-Total-Count), not an envelope.
+        HttpResponse.json(
+          [{ id: "o-1", status: "CREATED", currency: "CHF", totalPrice: 10, entries: [] }],
+          { headers: { "X-Total-Count": "1" } },
+        ),
       ),
     );
     const { result } = renderHook(() => useMyOrders(), { wrapper: wrap(storage) });
@@ -67,7 +68,7 @@ describe("useMyOrders", () => {
       http.get("https://api.emporix.io/order-v2/acme/orders", ({ request }) => {
         q = new URL(request.url).searchParams;
         saas = request.headers.get("saas-token");
-        return HttpResponse.json({ items: [], pageNumber: 2, pageSize: 5, hasNextPage: false });
+        return HttpResponse.json([]);
       }),
     );
     const { result } = renderHook(
@@ -94,7 +95,7 @@ describe("useMyOrders", () => {
       ),
       http.get("https://api.emporix.io/order-v2/acme/orders", ({ request }) => {
         leSeen = new URL(request.url).searchParams.get("legalEntityId");
-        return HttpResponse.json({ items: [], pageNumber: 1, pageSize: 10, hasNextPage: false });
+        return HttpResponse.json([]);
       }),
     );
     const { result } = renderHook(() => useMyOrders(), { wrapper: wrap(storage) });
@@ -115,7 +116,7 @@ describe("useMyOrders", () => {
       ),
       http.get("https://api.emporix.io/order-v2/acme/orders", ({ request }) => {
         leSeen = new URL(request.url).searchParams.get("legalEntityId");
-        return HttpResponse.json({ items: [], pageNumber: 1, pageSize: 10, hasNextPage: false });
+        return HttpResponse.json([]);
       }),
     );
     const { result } = renderHook(() => useMyOrders({ legalEntityId: null }), { wrapper: wrap(storage) });

@@ -69,20 +69,28 @@ export class OrdersService {
     auth: AuthContext,
     opts: ListMyOrdersOptions = {},
   ): Promise<PaginatedItems<Order>> {
-    const query: Record<string, string | number | undefined> = {};
-    setIfDefined(query, "pageNumber", opts.pageNumber);
-    setIfDefined(query, "pageSize", opts.pageSize);
+    const pageNumber = opts.pageNumber ?? 1;
+    const pageSize = opts.pageSize ?? 50;
+    const query: Record<string, string | number | undefined> = {
+      pageNumber,
+      pageSize,
+    };
     setIfDefined(query, "status", opts.status);
     setIfDefined(query, "legalEntityId", opts.legalEntityId);
     setIfDefined(query, "siteCode", opts.siteCode);
     const headers = this.saasHeader(opts.saasToken);
-    return this.ctx.http.request<PaginatedItems<Order>>({
+    // order-v2 returns a bare JSON array (the total count lives in the
+    // X-Total-Count header), not a {items,...} envelope — so wrap it into the
+    // shared PaginatedItems shape like every other paginated service.
+    // hasNextPage is inferred from the page being full.
+    const items = await this.ctx.http.request<Order[]>({
       method: "GET",
       path: this.base(),
       query,
       auth,
       ...(headers ? { headers } : {}),
     });
+    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
   }
 
   /** Fetches one of the calling customer's orders by id. */

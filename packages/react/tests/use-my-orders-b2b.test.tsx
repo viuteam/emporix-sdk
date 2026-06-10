@@ -36,7 +36,7 @@ describe("useMyOrders B2B switch", () => {
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders", ({ request }) => {
         calls.push(new URL(request.url).searchParams.get("legalEntityId"));
-        return HttpResponse.json({ items: [], pageNumber: 1, pageSize: 10, hasNextPage: false });
+        return HttpResponse.json([]);
       }),
     );
     const client = new EmporixClient({

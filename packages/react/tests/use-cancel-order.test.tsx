@@ -59,7 +59,7 @@ describe("useCancelOrder", () => {
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders", () => {
         listCalls += 1;
-        return HttpResponse.json({ items: [], pageNumber: 1, pageSize: 10, hasNextPage: false });
+        return HttpResponse.json([]);
       }),
       http.post("https://api.emporix.io/order-v2/acme/orders/o-1/transitions", () =>
         new HttpResponse(null, { status: 204 }),
