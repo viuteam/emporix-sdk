@@ -129,6 +129,35 @@ describe("RewardPointsService", () => {
     expect(seenAuth).toBe("Bearer cust-tok");
   });
 
+  it("getMyPoints returns 0 when the customer has no reward-points entry (404)", async () => {
+    // Emporix returns 404 "No reward points found for customer …" for a
+    // signed-in customer who has never earned points — that means zero points,
+    // not an error the storefront should surface.
+    server.use(
+      http.get(`${RP}/public/customer`, () =>
+        HttpResponse.json(
+          { type: "resource_not_found", status: 404, message: "No reward points found for customer 1" },
+          { status: 404 },
+        ),
+      ),
+    );
+    await expect(svc().getMyPoints(auth.customer("cust-tok"))).resolves.toBe(0);
+  });
+
+  it("getMySummary returns an empty summary when the customer has no entry (404)", async () => {
+    server.use(
+      http.get(`${RP}/public/customer/summary`, () =>
+        HttpResponse.json(
+          { type: "resource_not_found", status: 404, message: "No reward points found for customer 1" },
+          { status: 404 },
+        ),
+      ),
+    );
+    const summary = await svc().getMySummary(auth.customer("cust-tok"));
+    expect(summary.activePoints).toBe(0);
+    expect(summary.summary?.addedPointsList).toEqual([]);
+  });
+
   it("redeemMyPoints POSTs the redeemOptionId and returns the coupon code", async () => {
     let body: unknown = null;
     server.use(
