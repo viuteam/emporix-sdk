@@ -93,6 +93,10 @@ export function useCustomerSession(): CustomerSessionApi {
       const result = await client.customers.login(input);
       storage.setCustomerToken(result.customerToken);
       storage.setRefreshToken(result.refreshToken || null);
+      // The guest (anonymous) session is dead weight once a customer token is
+      // set — the auth layer always prefers the customer token, so the stored
+      // anonymous session would just linger unused. Drop it on login.
+      storage.setAnonymousSession(null);
       setSession({
         token: result.customerToken,
         refreshToken: result.refreshToken || null,
@@ -132,6 +136,8 @@ export function useCustomerSession(): CustomerSessionApi {
     async (incoming: { customerToken: string; refreshToken: string; saasToken: string }) => {
       storage.setCustomerToken(incoming.customerToken);
       storage.setRefreshToken(incoming.refreshToken || null);
+      // Drop the now-dormant guest session (see login()).
+      storage.setAnonymousSession(null);
       setSession({
         token: incoming.customerToken,
         refreshToken: incoming.refreshToken || null,
