@@ -74,6 +74,19 @@ describe("useCustomerSession", () => {
     await waitFor(() => expect(result.current.customer?.contactEmail).toBe("a@b.co"));
   });
 
+  it("login clears the lingering anonymous (guest) session", async () => {
+    const storage = createMemoryStorage();
+    // A guest session the anonymous token provider persisted before login —
+    // once a customer token is set it is dormant dead weight, so login drops it.
+    storage.setAnonymousSession({ refreshToken: "anon-rt", sessionId: "anon-s" });
+    const { result } = renderHook(() => useCustomerSession(), { wrapper: wrapper(storage) });
+    await act(async () => {
+      await result.current.login({ email: "a@b.co", password: "p" });
+    });
+    expect(storage.getCustomerToken()).toBe("cust");
+    expect(storage.getAnonymousSession()).toBeNull();
+  });
+
   it("shares the in-memory saasToken across hook instances", async () => {
     // Two independent useCustomerSession() consumers under one provider —
     // mirrors the auth form (logs in) and the checkout page (reads saasToken).
@@ -210,6 +223,7 @@ describe("useCustomerSession", () => {
       ),
     );
     const storage = createMemoryStorage();
+    storage.setAnonymousSession({ refreshToken: "anon-rt", sessionId: "anon-s" });
     const { result } = renderHook(() => useCustomerSession(), { wrapper: wrapper(storage) });
     await act(async () => {
       await result.current.socialLogin({ code: "c", redirectUri: "https://shop/cb" });
@@ -217,6 +231,7 @@ describe("useCustomerSession", () => {
     expect(storage.getCustomerToken()).toBe("sso-cust");
     expect(result.current.isAuthenticated).toBe(true);
     expect(result.current.refreshToken).toBe("sso-rt");
+    expect(storage.getAnonymousSession()).toBeNull();
   });
 
   it("exchangeToken stores the token", async () => {
