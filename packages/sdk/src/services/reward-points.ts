@@ -1,5 +1,6 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { EmporixNotFoundError } from "../core/errors";
 import type {
   CustomerSummaryBatch,
   PointsSummary,
@@ -129,20 +130,37 @@ export class RewardPointsService {
 
   /** The signed-in customer's reward-points balance. Requires a customer `auth`. */
   async getMyPoints(auth: AuthContext): Promise<number> {
-    return this.ctx.http.request<number>({
-      method: "GET",
-      path: `${this.base()}/public/customer`,
-      auth,
-    });
+    // A customer who has never earned points has no entry, and Emporix answers
+    // 404 "No reward points found" — for the signed-in customer that simply
+    // means zero points, so map it to 0 rather than surfacing an error.
+    try {
+      return await this.ctx.http.request<number>({
+        method: "GET",
+        path: `${this.base()}/public/customer`,
+        auth,
+      });
+    } catch (err) {
+      if (err instanceof EmporixNotFoundError) return 0;
+      throw err;
+    }
   }
 
   /** The signed-in customer's reward-points summary. Requires a customer `auth`. */
   async getMySummary(auth: AuthContext): Promise<PointsSummary> {
-    return this.ctx.http.request<PointsSummary>({
-      method: "GET",
-      path: `${this.base()}/public/customer/summary`,
-      auth,
-    });
+    // Same as getMyPoints: a 404 means the signed-in customer has no entry yet,
+    // i.e. an empty summary (zero active points, no history), not an error.
+    try {
+      return await this.ctx.http.request<PointsSummary>({
+        method: "GET",
+        path: `${this.base()}/public/customer/summary`,
+        auth,
+      });
+    } catch (err) {
+      if (err instanceof EmporixNotFoundError) {
+        return { activePoints: 0, summary: { addedPointsList: [] } };
+      }
+      throw err;
+    }
   }
 
   /**
