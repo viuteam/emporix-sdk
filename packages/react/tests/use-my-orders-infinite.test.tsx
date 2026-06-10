@@ -34,29 +34,27 @@ function wrap(storage = createMemoryStorage({ initial: "cust" })) {
 
 describe("useMyOrdersInfinite", () => {
   it("paginates via hasNextPage and concatenates pages", async () => {
+    let calls = 0;
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders", ({ request }) => {
+        calls += 1;
         const page = Number(new URL(request.url).searchParams.get("pageNumber") ?? "1");
-        if (page === 1) {
-          return HttpResponse.json({
-            items: [{ id: "o-1", orderNumber: "ORD-1", status: "CREATED", currency: "CHF", totalPrice: { amount: 10, currency: "CHF" }, items: [] }],
-            pageNumber: 1, pageSize: 1, hasNextPage: true,
-          });
-        }
-        return HttpResponse.json({
-          items: [{ id: "o-2", orderNumber: "ORD-2", status: "CREATED", currency: "CHF", totalPrice: { amount: 20, currency: "CHF" }, items: [] }],
-          pageNumber: 2, pageSize: 1, hasNextPage: false,
-        });
+        // order-v2 returns a bare array; the hook derives hasNextPage from a
+        // full page (items.length === pageSize), so a short final page ends it.
+        return page === 1
+          ? HttpResponse.json([{ id: "o-1" }, { id: "o-2" }], { headers: { "X-Total-Count": "3" } })
+          : HttpResponse.json([{ id: "o-3" }], { headers: { "X-Total-Count": "3" } });
       }),
     );
-    const { result } = renderHook(() => useMyOrdersInfinite({ pageSize: 1 }), { wrapper: wrap() });
+    const { result } = renderHook(() => useMyOrdersInfinite({ pageSize: 2 }), { wrapper: wrap() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.hasNextPage).toBe(true);
     await act(async () => {
       await result.current.fetchNextPage();
     });
     await waitFor(() => expect(result.current.hasNextPage).toBe(false));
+    expect(calls).toBe(2);
     const all = result.current.data?.pages.flatMap((p) => p.items) ?? [];
-    expect(all.map((o) => o.id)).toEqual(["o-1", "o-2"]);
+    expect(all.map((o) => o.id)).toEqual(["o-1", "o-2", "o-3"]);
   });
 });

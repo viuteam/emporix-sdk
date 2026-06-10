@@ -38,22 +38,24 @@ function svc(): OrdersService {
 const CUST = { kind: "customer" as const, token: "cust-tok" };
 
 describe("OrdersService.listMine", () => {
-  it("GETs /orders with the customer Bearer", async () => {
+  it("wraps the bare order array into a PaginatedItems envelope", async () => {
+    // order-v2 returns a bare JSON array (count is in the X-Total-Count
+    // header), NOT a {items,...} envelope. listMine must normalize it.
     let auth: string | null = null;
     server.use(
       http.get("https://api.emporix.io/order-v2/acme/orders", ({ request }) => {
         auth = request.headers.get("authorization");
-        return HttpResponse.json({
-          items: [{ id: "o-1", orderNumber: "ORD-1", status: "CREATED", currency: "CHF", totalPrice: { amount: 10, currency: "CHF" }, items: [] }],
-          pageNumber: 1,
-          pageSize: 10,
-          hasNextPage: false,
-        });
+        return HttpResponse.json(
+          [{ id: "o-1", status: "CREATED", currency: "CHF", totalPrice: 10, entries: [] }],
+          { headers: { "X-Total-Count": "1" } },
+        );
       }),
     );
     const r = await svc().listMine(CUST);
     expect(auth).toBe("Bearer cust-tok");
     expect(r.items[0]?.id).toBe("o-1");
+    expect(r.pageNumber).toBe(1);
+    expect(r.pageSize).toBe(50);
     expect(r.hasNextPage).toBe(false);
   });
 
@@ -64,7 +66,7 @@ describe("OrdersService.listMine", () => {
       http.get("https://api.emporix.io/order-v2/acme/orders", ({ request }) => {
         q = new URL(request.url).searchParams;
         saas = request.headers.get("saas-token");
-        return HttpResponse.json({ items: [], pageNumber: 2, pageSize: 5, hasNextPage: false });
+        return HttpResponse.json([]);
       }),
     );
     await svc().listMine(CUST, {
