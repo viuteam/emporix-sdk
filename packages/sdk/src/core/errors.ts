@@ -43,6 +43,10 @@ export class EmporixNotFoundError extends EmporixError {}
 export class EmporixValidationError extends EmporixError {}
 /** 5xx — server-side failure. */
 export class EmporixServerError extends EmporixError {}
+/** Request aborted by the configured connect/read timeout. No HTTP status. */
+export class EmporixTimeoutError extends EmporixError {}
+/** DNS/TLS/connection-level failure before or during the exchange. No HTTP status. */
+export class EmporixNetworkError extends EmporixError {}
 
 /**
  * 403 with a `missing scope: <name>` hint in the body's `details` array.

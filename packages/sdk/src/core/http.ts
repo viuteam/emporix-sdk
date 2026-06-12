@@ -4,7 +4,7 @@ import {
   type CustomerRefreshRegistry,
   resolveToken,
 } from "./auth";
-import { errorFromResponse } from "./errors";
+import { errorFromResponse, EmporixTimeoutError, EmporixNetworkError } from "./errors";
 import type { Logger } from "./logger";
 
 /** A single HTTP request through the SDK. */
@@ -106,10 +106,24 @@ export class HttpClient {
       });
 
       const controller = new AbortController();
-      const timer = setTimeout(
-        () => controller.abort(),
-        o.timeoutMs ?? this.opts.timeouts.readMs,
-      );
+      const overallMs = o.timeoutMs ?? this.opts.timeouts.readMs;
+      // connectMs bounds time-to-headers (fetch resolving); the overall budget
+      // bounds headers + body. timeoutMs overrides the overall budget only.
+      const connectMs = Math.min(this.opts.timeouts.connectMs, overallMs);
+      const timeoutMsg = `${o.method} ${o.path} timed out after ${overallMs}ms (connect budget ${connectMs}ms)`;
+      let connectTimer: ReturnType<typeof setTimeout> | undefined;
+      let overallTimer: ReturnType<typeof setTimeout> | undefined;
+      // The overall budget is a rejecting promise raced against fetch + the
+      // body read, not just an abort. An abort interrupts the connection but
+      // does NOT reliably unblock an already-streaming body that stalls
+      // mid-read — racing the timer guarantees the read is bounded regardless.
+      const overallBudget = new Promise<never>((_, reject) => {
+        overallTimer = setTimeout(() => {
+          controller.abort();
+          reject(new EmporixTimeoutError(timeoutMsg));
+        }, overallMs);
+      });
+      connectTimer = setTimeout(() => controller.abort(), connectMs);
       const isFormData =
         typeof FormData !== "undefined" && o.body instanceof FormData;
       const init: RequestInit = {
@@ -121,13 +135,30 @@ export class HttpClient {
         init.body = isFormData ? (o.body as FormData) : JSON.stringify(o.body);
       }
       let res: Response;
+      let text: string;
       try {
-        res = await fetch(url, init);
+        res = await Promise.race([fetch(url, init), overallBudget]);
+        // Headers are in — the connect budget no longer applies; the body
+        // read stays bounded by the overall budget timer.
+        clearTimeout(connectTimer);
+        connectTimer = undefined;
+        const body = res.text();
+        // Swallow a late body rejection if the budget timer wins the race,
+        // so it doesn't surface as an unhandled rejection.
+        body.catch(() => {});
+        text = await Promise.race([body, overallBudget]);
+      } catch (err) {
+        if (err instanceof EmporixTimeoutError) throw err;
+        if ((err as Error).name === "AbortError") {
+          throw new EmporixTimeoutError(timeoutMsg);
+        }
+        throw new EmporixNetworkError(
+          `${o.method} ${o.path} network failure: ${(err as Error).message}`,
+        );
       } finally {
-        clearTimeout(timer);
+        if (connectTimer !== undefined) clearTimeout(connectTimer);
+        if (overallTimer !== undefined) clearTimeout(overallTimer);
       }
-
-      const text = await res.text();
       const parsed = text ? safeJson(text) : undefined;
       if (res.ok) {
         log.debug("http ok", { status: res.status });
@@ -243,6 +274,15 @@ export class HttpClient {
     }
     try {
       return await fetch(url, init);
+    } catch (err) {
+      if ((err as Error).name === "AbortError") {
+        throw new EmporixTimeoutError(
+          `${o.method} ${o.path} timed out after ${o.timeoutMs ?? this.opts.timeouts.readMs}ms`,
+        );
+      }
+      throw new EmporixNetworkError(
+        `${o.method} ${o.path} network failure: ${(err as Error).message}`,
+      );
     } finally {
       clearTimeout(timer);
     }
