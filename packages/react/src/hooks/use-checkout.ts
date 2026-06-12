@@ -15,6 +15,7 @@ import {
 import { useEmporix } from "../provider";
 import { useReadAuth } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
+import { useCustomerToken } from "./internal/use-storage-snapshot";
 import { emporixKey } from "./internal/query-keys";
 import { useActiveCompany } from "../company-context";
 
@@ -78,8 +79,8 @@ export function useCheckout(): CheckoutApi {
 export function usePaymentModes(
   options: { enabled?: boolean } = {},
 ): UseQueryResult<PaymentMode[]> {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { siteCode } = useReadSite();
   const { activeCompany } = useActiveCompany();
   return useQuery({

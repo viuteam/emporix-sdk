@@ -78,6 +78,7 @@ export class AvailabilityService {
       auth,
       query: { site: siteCode, pageSize: productIds.length },
       body: productIds,
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
     });
     const byId = new Map<string, Availability>();
     for (const a of found) if (a.productId) byId.set(a.productId, a);

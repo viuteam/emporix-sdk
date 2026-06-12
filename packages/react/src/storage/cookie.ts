@@ -14,13 +14,20 @@ const LANGUAGE_NAME = "emporix.language";
 const ACTIVE_LE_NAME = "emporix.activeLegalEntityId";
 const REFRESH_NAME = "emporix.refreshToken";
 
-/** Cookie-backed store. Consumer must set SameSite/Secure for CSRF safety. */
+/**
+ * Cookie-backed store. `Secure` defaults to on for https origins; override
+ * with `secure: false` only for non-https dev setups. Consumer must still pick
+ * an appropriate `sameSite` for CSRF safety.
+ */
 export function createCookieStorage(
   opts: { name?: string; secure?: boolean; sameSite?: "lax" | "strict" | "none" } = {},
 ): EmporixStorage {
   const tokenName = opts.name ?? DEFAULT_TOKEN_NAME;
   const sameSite = opts.sameSite ?? "lax";
-  const secure = opts.secure ?? false;
+  // Default: Secure on https origins. Tokens must not ride plain-http
+  // cookies in production; localhost/http dev keeps working without opts.
+  const secure =
+    opts.secure ?? (typeof location !== "undefined" && location.protocol === "https:");
   if (typeof document === "undefined") {
     // eslint-disable-next-line no-console
     console.warn("[emporix] document unavailable; cookie storage falling back to in-memory");

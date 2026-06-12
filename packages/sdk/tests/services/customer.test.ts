@@ -260,6 +260,26 @@ describe("CustomerService", () => {
     await svc().exchangeToken({ subjectToken: "jwt" });
     expect(new URL(url).searchParams.has("config")).toBe(false);
   });
+
+  it("login() rejects a 200 with no access token instead of fabricating an empty session", async () => {
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/login", () =>
+        HttpResponse.json({ token_type: "Bearer" }),
+      ),
+    );
+    await expect(svc().login({ email: "a@b.co", password: "p" })).rejects.toBeInstanceOf(
+      EmporixAuthError,
+    );
+  });
+
+  it("refresh() rejects a 200 with no access token", async () => {
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/refreshauthtoken", () =>
+        HttpResponse.json({}),
+      ),
+    );
+    await expect(svc().refresh({ refreshToken: "rt" })).rejects.toBeInstanceOf(EmporixAuthError);
+  });
 });
 
 describe("CustomerService.refresh with legalEntityId", () => {

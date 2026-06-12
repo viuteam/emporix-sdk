@@ -51,6 +51,44 @@ export type PasswordResetConfirmInput = PasswordUpdate;
 export type AddressCreateInput = AddressCreateDto;
 export type AddressUpdateInput = AddressUpdateDto;
 
+/** Union of the wire shapes the four session endpoints return. snake_case is
+ * canonical; camelCase is the deprecated fallback (vendored spec, design §2). */
+interface WireSession {
+  access_token?: string;
+  saas_token?: string;
+  refresh_token?: string;
+  session_id?: string;
+  expires_in?: string | number;
+  accessToken?: string;
+  saasToken?: string;
+  refreshToken?: string;
+  social_access_token?: string;
+  social_id_token?: string;
+}
+
+/** Wire→facade mapping shared by login/refresh/socialLogin/exchangeToken.
+ * Throws instead of fabricating an empty session: `customerToken: ""` would
+ * read as authenticated downstream and 401-loop every subsequent call. */
+function toSession(
+  endpoint: string,
+  wire: WireSession,
+  opts: { carrySaasToken?: string } = {},
+): CustomerSession {
+  const customerToken = wire.access_token ?? wire.accessToken;
+  if (!customerToken) {
+    throw new EmporixAuthError(`${endpoint}: response missing access_token`, undefined, wire);
+  }
+  return {
+    customerToken,
+    saasToken: wire.saas_token ?? wire.saasToken ?? opts.carrySaasToken ?? "",
+    refreshToken: wire.refresh_token ?? wire.refreshToken ?? "",
+    sessionId: wire.session_id,
+    expiresIn: wire.expires_in != null ? Number(wire.expires_in) : undefined,
+    ...(wire.social_access_token ? { socialAccessToken: wire.social_access_token } : {}),
+    ...(wire.social_id_token ? { socialIdToken: wire.social_id_token } : {}),
+  };
+}
+
 /** Customer signup, session, profile and addresses. */
 export class CustomerService {
   constructor(private readonly ctx: ClientContext) {}
@@ -86,31 +124,13 @@ export class CustomerService {
     const effective: AuthContext = opts.anonymousToken
       ? { kind: "raw", token: opts.anonymousToken }
       : auth;
-    const wire = await this.ctx.http.request<{
-      access_token?: string;
-      saas_token?: string;
-      refresh_token?: string;
-      session_id?: string;
-      expires_in?: number;
-      // Deprecated camelCase variants (Emporix spec marks these deprecated).
-      accessToken?: string;
-      saasToken?: string;
-      refreshToken?: string;
-    }>({
+    const wire = await this.ctx.http.request<WireSession>({
       method: "POST",
       path: `/customer/${this.ctx.tenant}/login`,
       auth: effective,
       body: creds,
     });
-    // Wire→facade mapping. snake_case is canonical; camelCase is the
-    // deprecated fallback (see design §2 — vendored spec is source of truth).
-    return {
-      customerToken: wire.access_token ?? wire.accessToken ?? "",
-      saasToken: wire.saas_token ?? wire.saasToken ?? "",
-      refreshToken: wire.refresh_token ?? wire.refreshToken ?? "",
-      sessionId: wire.session_id,
-      expiresIn: wire.expires_in,
-    };
+    return toSession("login", wire);
   }
 
   /**
@@ -128,28 +148,18 @@ export class CustomerService {
   ): Promise<CustomerSession> {
     const query: Record<string, string> = { refreshToken: input.refreshToken };
     if (input.legalEntityId) query.legalEntityId = input.legalEntityId;
-    const wire = await this.ctx.http.request<{
-      access_token?: string;
-      refresh_token?: string;
-      session_id?: string;
-      expires_in?: number;
-      // Deprecated camelCase variants (Emporix spec marks these deprecated).
-      accessToken?: string;
-      refreshToken?: string;
-    }>({
+    const wire = await this.ctx.http.request<WireSession>({
       method: "GET",
       path: `/customer/${this.ctx.tenant}/refreshauthtoken`,
       query,
       auth,
     });
-    return {
-      customerToken: wire.access_token ?? wire.accessToken ?? "",
-      // Refresh does not return a saas_token — carry the original forward.
-      saasToken: input.saasToken ?? "",
-      refreshToken: wire.refresh_token ?? wire.refreshToken ?? "",
-      sessionId: wire.session_id,
-      expiresIn: wire.expires_in,
-    };
+    // Refresh does not return a saas_token — carry the original forward.
+    return toSession(
+      "refresh",
+      wire,
+      input.saasToken !== undefined ? { carrySaasToken: input.saasToken } : {},
+    );
   }
 
   /**
@@ -186,34 +196,14 @@ export class CustomerService {
       redirect_uri: input.redirectUri,
     };
     if (input.codeVerifier) query.code_verifier = input.codeVerifier;
-    const wire = await this.ctx.http.request<{
-      social_access_token?: string;
-      social_id_token?: string;
-      access_token?: string;
-      saas_token?: string;
-      refresh_token?: string;
-      session_id?: string;
-      expires_in?: string | number;
-      // Deprecated camelCase variants (Emporix spec marks these deprecated).
-      accessToken?: string;
-      saasToken?: string;
-      refreshToken?: string;
-    }>({
+    const wire = await this.ctx.http.request<WireSession>({
       method: "POST",
       path: `/customer/${this.ctx.tenant}/socialLogin`,
       query,
       auth,
       ...(input.sessionId ? { headers: { "session-id": input.sessionId } } : {}),
     });
-    return {
-      customerToken: wire.access_token ?? wire.accessToken ?? "",
-      saasToken: wire.saas_token ?? wire.saasToken ?? "",
-      refreshToken: wire.refresh_token ?? wire.refreshToken ?? "",
-      sessionId: wire.session_id,
-      expiresIn: wire.expires_in != null ? Number(wire.expires_in) : undefined,
-      ...(wire.social_access_token ? { socialAccessToken: wire.social_access_token } : {}),
-      ...(wire.social_id_token ? { socialIdToken: wire.social_id_token } : {}),
-    };
+    return toSession("socialLogin", wire);
   }
 
   /**
@@ -230,28 +220,13 @@ export class CustomerService {
   ): Promise<CustomerSession> {
     const query: Record<string, string> = { subjectAccessToken: input.subjectToken };
     if (input.config) query.config = input.config;
-    const wire = await this.ctx.http.request<{
-      access_token?: string;
-      saas_token?: string;
-      refresh_token?: string;
-      session_id?: string;
-      expires_in?: string | number;
-      accessToken?: string;
-      saasToken?: string;
-      refreshToken?: string;
-    }>({
+    const wire = await this.ctx.http.request<WireSession>({
       method: "POST",
       path: `/customer/${this.ctx.tenant}/exchangeauthtoken`,
       query,
       auth,
     });
-    return {
-      customerToken: wire.access_token ?? wire.accessToken ?? "",
-      saasToken: wire.saas_token ?? wire.saasToken ?? "",
-      refreshToken: wire.refresh_token ?? wire.refreshToken ?? "",
-      sessionId: wire.session_id,
-      expiresIn: wire.expires_in != null ? Number(wire.expires_in) : undefined,
-    };
+    return toSession("exchangeToken", wire);
   }
 
   /** Returns the authenticated customer. Requires customer/raw auth. */

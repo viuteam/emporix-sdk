@@ -4,7 +4,13 @@ import { http as mhttp, HttpResponse } from "msw";
 import { HttpClient } from "../src/core/http";
 import { LevelResolver } from "../src/core/logger";
 import { MemoryLogger } from "./helpers/memory-logger";
-import { EmporixAuthError, EmporixError, EmporixServerError } from "../src/core/errors";
+import {
+  EmporixAuthError,
+  EmporixError,
+  EmporixServerError,
+  EmporixTimeoutError,
+  EmporixNetworkError,
+} from "../src/core/errors";
 import type { TokenProvider } from "../src/core/auth";
 
 let invalidated = 0;
@@ -217,4 +223,38 @@ describe("HttpClient retry + 401 asymmetry", () => {
     expect(slept[1]).toBeGreaterThanOrEqual(2000);
     expect(slept[1]).toBeLessThan(2100);
   });
+
+  it("wraps an abort timeout in EmporixTimeoutError", async () => {
+    server.use(
+      mhttp.get("https://api.emporix.io/slow", async () => {
+        await new Promise((r) => setTimeout(r, 200));
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    await expect(
+      client().request({ method: "GET", path: "/slow", auth: { kind: "service" }, timeoutMs: 30 }),
+    ).rejects.toBeInstanceOf(EmporixTimeoutError);
+  });
+
+  it("wraps a connection failure in EmporixNetworkError", async () => {
+    server.use(
+      mhttp.get("https://api.emporix.io/dead", () => HttpResponse.error()),
+    );
+    await expect(
+      client().request({ method: "GET", path: "/dead", auth: { kind: "service" } }),
+    ).rejects.toBeInstanceOf(EmporixNetworkError);
+  });
+
+  it("bounds the response BODY read by the timeout, not just the headers", async () => {
+    // Headers arrive instantly, the body stalls forever: a stream that never closes.
+    server.use(
+      mhttp.get("https://api.emporix.io/stalled-body", () => {
+        const stream = new ReadableStream({ start() { /* never enqueue, never close */ } });
+        return new HttpResponse(stream, { headers: { "Content-Type": "application/json" } });
+      }),
+    );
+    await expect(
+      client().request({ method: "GET", path: "/stalled-body", auth: { kind: "service" }, timeoutMs: 50 }),
+    ).rejects.toBeInstanceOf(EmporixTimeoutError);
+  }, 10_000);
 });

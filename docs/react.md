@@ -218,10 +218,19 @@ Each hook overrides `staleTime` for resources that change at different rates:
 | `useCustomerSession.customer` (meQuery) | 30 s |
 | Everything else | 30 s (provider default) |
 
-To opt out and supply your own defaults, pass a `queryClient` prop:
+These defaults are applied to the `["emporix"]` key namespace of **whatever
+QueryClient is active** — including one you pass via the `queryClient` prop, so
+a bare `new QueryClient()` (e.g. in the Next.js App Router example) no longer
+runs SDK queries with React-Query factory defaults (focus-refetch storms +
+`retry: 3` amplifying the SDK's own HTTP retry). The provider only fills gaps:
+your explicit choices win, whether set globally (`defaultOptions.queries`) or
+emporix-scoped (`qc.setQueryDefaults(["emporix"], …)`), and per-hook options
+always win. Queries outside the `["emporix"]` namespace are never touched.
 
 ```tsx
-const qc = new QueryClient(); // your own defaults
+const qc = new QueryClient();
+// Override our emporix-scoped defaults explicitly if you need to:
+qc.setQueryDefaults(["emporix"], { staleTime: 0, retry: false });
 <EmporixProvider client={client} queryClient={qc}>...</EmporixProvider>
 ```
 

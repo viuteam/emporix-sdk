@@ -51,7 +51,39 @@ function svc() {
   return new PriceService({ tenant: "acme", http: httpClient, tokenProvider, logger });
 }
 
+/** Like svc() but with retries enabled — proves the idempotent flag opts the
+ * read-only match POSTs back into 5xx/429 retry. */
+function retryingSvc() {
+  const cfg = {
+    tenant: "acme", host: "https://api.emporix.io",
+    credentials: { backend: { clientId: "b", secret: "s" }, storefront: { clientId: "sf" } },
+    cache: { expirationBufferSeconds: 60, maxLifetimeSeconds: 3600 },
+  } as never;
+  const tokenProvider = new DefaultTokenProvider(cfg);
+  const logger = new MemoryLogger(new LevelResolver({ level: "silent" }), { service: "price" });
+  const httpClient = new HttpClient({
+    host: "https://api.emporix.io", provider: tokenProvider, logger,
+    retry: { maxAttempts: 3 }, timeouts: { connectMs: 1000, readMs: 1000 },
+    sleep: () => Promise.resolve(),
+  });
+  return new PriceService({ tenant: "acme", http: httpClient, tokenProvider, logger });
+}
+
 describe("PriceService.matchByContext", () => {
+  it("retries match-prices on a transient 5xx (read-only POST, opted in as idempotent)", async () => {
+    let calls = 0;
+    server.use(
+      http.post("https://api.emporix.io/price/acme/match-prices-by-context", () => {
+        calls += 1;
+        if (calls < 2) return HttpResponse.json({ e: 1 }, { status: 503 });
+        return HttpResponse.json([]);
+      }),
+    );
+    const res = await retryingSvc().matchByContext({ items: [] });
+    expect(res).toEqual([]);
+    expect(calls).toBe(2);
+  });
+
   it("POSTs items only, defaults to the anonymous token, returns the match array", async () => {
     const res = await svc().matchByContext({
       items: [{ itemId: { itemType: "PRODUCT", id: "p1" }, quantity: { quantity: 2 } }],

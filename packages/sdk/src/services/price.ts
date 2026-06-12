@@ -95,6 +95,7 @@ export class PriceService {
       path: `/price/${this.ctx.tenant}/match-prices-by-context`,
       auth: requireContextAuth(auth),
       body: input,
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
     });
     return rows.map(normalizeMatch);
   }
@@ -109,6 +110,7 @@ export class PriceService {
       path: `/price/${this.ctx.tenant}/match-prices`,
       auth,
       body: input,
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
     });
     return rows.map(normalizeMatch);
   }

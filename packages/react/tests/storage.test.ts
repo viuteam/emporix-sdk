@@ -48,6 +48,51 @@ describe("cookie storage", () => {
     s.setCustomerToken(null);
     expect(s.getCustomerToken()).toBeNull();
   });
+
+  it("appends the Secure attribute when secure is enabled", () => {
+    const original = Object.getOwnPropertyDescriptor(Document.prototype, "cookie")!;
+    const writes: string[] = [];
+    Object.defineProperty(document, "cookie", {
+      configurable: true,
+      get: original.get!,
+      set(v: string) {
+        writes.push(v);
+        original.set!.call(document, v);
+      },
+    });
+    try {
+      createCookieStorage({ secure: true }).setCustomerToken("x");
+      expect(writes.at(-1)).toContain("; Secure");
+    } finally {
+      Object.defineProperty(document, "cookie", original);
+    }
+  });
+
+  it("sniffs the protocol: Secure on by default for https, opt-out with secure:false", () => {
+    // The react test env runs on https://localhost (vitest jsdom url), so the
+    // protocol-sniffed default turns Secure ON with no opts — the prod win.
+    // A non-https dev setup opts out explicitly; a plain-http origin would
+    // resolve the same `false` via the `location.protocol === "https:"` check.
+    expect(location.protocol).toBe("https:");
+    const original = Object.getOwnPropertyDescriptor(Document.prototype, "cookie")!;
+    const writes: string[] = [];
+    Object.defineProperty(document, "cookie", {
+      configurable: true,
+      get: original.get!,
+      set(v: string) {
+        writes.push(v);
+        original.set!.call(document, v);
+      },
+    });
+    try {
+      createCookieStorage().setCustomerToken("x");
+      expect(writes.at(-1)).toContain("; Secure"); // sniffed on (https origin)
+      createCookieStorage({ secure: false }).setCustomerToken("y");
+      expect(writes.at(-1)).not.toContain("; Secure"); // explicit dev opt-out
+    } finally {
+      Object.defineProperty(document, "cookie", original);
+    }
+  });
 });
 
 describe("createCookieStorage — cartId + anonymous session", () => {

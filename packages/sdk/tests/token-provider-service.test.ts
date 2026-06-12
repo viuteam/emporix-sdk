@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, delay } from "msw";
 import { DefaultTokenProvider } from "../src/core/auth";
-import { EmporixAuthError } from "../src/core/errors";
+import { EmporixAuthError, EmporixTimeoutError } from "../src/core/errors";
 
 let hits = 0;
 const server = setupServer(
@@ -78,5 +78,19 @@ describe("DefaultTokenProvider service path", () => {
     };
     const p = new DefaultTokenProvider(noBackend as never);
     await expect(p.getToken("backend")).rejects.toBeInstanceOf(EmporixAuthError);
+  });
+
+  it("times out a hung /oauth/token instead of blocking forever", async () => {
+    server.use(
+      http.post("https://api.emporix.io/oauth/token", async () => {
+        await delay(2_000);
+        return HttpResponse.json({ access_token: "late", expires_in: 3600 });
+      }),
+    );
+    const p = new DefaultTokenProvider({
+      ...cfg,
+      timeouts: { connectMs: 50, readMs: 50 },
+    } as never);
+    await expect(p.getToken("backend")).rejects.toBeInstanceOf(EmporixTimeoutError);
   });
 });

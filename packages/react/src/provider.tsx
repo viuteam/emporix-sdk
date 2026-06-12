@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { auth, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "./storage/index";
@@ -53,9 +53,10 @@ const EmporixContext = createContext<EmporixContextValue | null>(null);
 export const EmporixSiteContext = createContext<SiteContextValue | null>(null);
 
 /**
- * Balanced React-Query defaults applied to the provider's fallback QueryClient
- * (only when no `queryClient` prop is passed). Keeps the Emporix API-quota in
- * check by suppressing window-focus refetches and capping retries.
+ * Balanced React-Query defaults scoped to the `["emporix"]` key namespace of
+ * whatever QueryClient is active (the fallback OR a consumer-supplied one).
+ * Keeps the Emporix API-quota in check by suppressing window-focus refetches
+ * and capping retries. Consumer-set emporix defaults and per-hook options win.
  */
 const DEFAULT_QUERY_OPTIONS = {
   staleTime: 30_000,
@@ -129,29 +130,50 @@ export function EmporixProvider({
       createMemoryStorage(
         initialCustomerToken !== undefined ? { initial: initialCustomerToken } : {},
       );
-    if (initialCustomerToken && storage && storage.getCustomerToken() === null) {
-      storage.setCustomerToken(initialCustomerToken);
-    }
     return { client, storage: s };
-     
   }, [client, storage, initialCustomerToken]);
-  const qc = useMemo(
-    () =>
-      queryClient ??
-      new QueryClient({ defaultOptions: { queries: DEFAULT_QUERY_OPTIONS } }),
-    [queryClient],
-  );
 
-  // Idempotent one-time wiring: attaches a storage-backed adapter to the SDK's
-  // token provider so anonymous sessions survive reloads. Runs once per
-  // (client, storage) pair via useState's lazy initializer.
-  useState(() => {
+  // Fallback QueryClient held in state, not useMemo: React may discard a
+  // useMemo cache, which would silently drop the entire query cache mid-session.
+  // Defaults are applied below via setQueryDefaults, scoped to ["emporix"].
+  const [fallbackQc] = useState(() => new QueryClient());
+  const qc = queryClient ?? fallbackQc;
+
+  // Scope our balanced defaults to the ["emporix"] key namespace on WHATEVER
+  // QueryClient is in use — a bare consumer client (e.g. the next-app-router
+  // example) otherwise runs SDK queries with React-Query factory defaults
+  // (staleTime 0, focus refetch, retry 3 → multiplied by the SDK's own HTTP
+  // retry). We only FILL GAPS: a consumer's explicit choices win, whether set
+  // globally (`defaultOptions.queries`) or emporix-scoped — both are spread
+  // after ours. Host-app queries outside the namespace are untouched.
+  // Ref-guarded: re-applies only for a new client.
+  const defaultsRef = useRef<QueryClient | null>(null);
+  if (defaultsRef.current !== qc) {
+    qc.setQueryDefaults(["emporix"], {
+      ...DEFAULT_QUERY_OPTIONS,
+      ...qc.getDefaultOptions().queries,
+      ...qc.getQueryDefaults(["emporix"]),
+    });
+    defaultsRef.current = qc;
+  }
+
+  // Idempotent wiring that must precede the children's first fetch effects:
+  // (1) attach the storage-backed anonymous-session adapter to the SDK token
+  // provider, (2) seed the SSR-provided customer token into external storage.
+  // Ref-guarded so it re-runs when (client, storage) identity changes — a
+  // useState lazy initializer runs once per component INSTANCE and silently
+  // skips re-wiring on prop swaps; a useEffect runs AFTER children fetch.
+  const wiredRef = useRef<{ client: EmporixClient; storage: EmporixStorage } | null>(null);
+  if (wiredRef.current?.client !== client || wiredRef.current?.storage !== value.storage) {
     client.tokenProvider.attachAnonymousStore?.({
       read: () => value.storage.getAnonymousSession(),
       write: (s) => value.storage.setAnonymousSession(s),
     });
-    return null;
-  });
+    if (initialCustomerToken && storage && storage.getCustomerToken() === null) {
+      storage.setCustomerToken(initialCustomerToken);
+    }
+    wiredRef.current = { client, storage: value.storage };
+  }
 
   // Telemetry: stable safeEmit + context value. emit is no-op when no
   // onTelemetry callback was provided (no overhead).

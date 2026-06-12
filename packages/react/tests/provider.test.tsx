@@ -91,10 +91,56 @@ describe("EmporixProvider", () => {
       ),
     ).not.toThrow();
   });
+
+  it("re-attaches the anonymous store when the client prop changes", () => {
+    const storage = createMemoryStorage();
+    storage.setAnonymousSession({ refreshToken: "rt-1", sessionId: "s-1" });
+    const clientA = mkClient();
+    const clientB = mkClient();
+    const attached: EmporixClient[] = [];
+    // attachAnonymousStore is the SDK's public wiring hook — spy on both clients.
+    for (const c of [clientA, clientB]) {
+      const orig = c.tokenProvider.attachAnonymousStore?.bind(c.tokenProvider);
+      c.tokenProvider.attachAnonymousStore = (store: AnonymousSessionStore) => {
+        attached.push(c);
+        orig?.(store);
+      };
+    }
+    const ui = (client: EmporixClient) => (
+      <EmporixProvider client={client} storage={storage}>
+        <div />
+      </EmporixProvider>
+    );
+    const { rerender } = render(ui(clientA));
+    expect(attached).toContain(clientA);
+    rerender(ui(clientB));
+    expect(attached).toContain(clientB); // FAILS today: useState lazy init never re-runs
+  });
+
+  it("keeps the fallback QueryClient stable across rerenders", () => {
+    const client = mkClient();
+    const storage = createMemoryStorage();
+    const seen: unknown[] = [];
+    function Probe() {
+      seen.push(useQueryClient());
+      return null;
+    }
+    // Fresh element each render so React actually re-renders Probe (passing the
+    // same element reference triggers a referential-equality bailout).
+    const ui = () => (
+      <EmporixProvider client={client} storage={storage}>
+        <Probe />
+      </EmporixProvider>
+    );
+    const { rerender } = render(ui());
+    rerender(ui());
+    expect(seen.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(seen).size).toBe(1); // one stable instance
+  });
 });
 
 describe("EmporixProvider — QueryClient defaults (Balanced)", () => {
-  it("applies Balanced defaults when no queryClient prop is passed", () => {
+  it("applies Balanced defaults (emporix-scoped) when no queryClient prop is passed", () => {
     const client = mkClient();
     const wrapper = ({ children }: { children: ReactNode }) => (
       <EmporixProvider client={client} storage={createMemoryStorage()}>
@@ -102,10 +148,11 @@ describe("EmporixProvider — QueryClient defaults (Balanced)", () => {
       </EmporixProvider>
     );
     const { result } = renderHook(() => useQueryClient(), { wrapper });
-    const defaults = result.current.getDefaultOptions().queries;
-    expect(defaults?.staleTime).toBe(30_000);
-    expect(defaults?.refetchOnWindowFocus).toBe(false);
-    expect(defaults?.retry).toBe(1);
+    // Defaults are scoped to the ["emporix"] namespace, not the global options.
+    const defaults = result.current.getQueryDefaults(["emporix"]);
+    expect(defaults.staleTime).toBe(30_000);
+    expect(defaults.refetchOnWindowFocus).toBe(false);
+    expect(defaults.retry).toBe(1);
   });
 
   it("does not override an externally-passed QueryClient", () => {
@@ -123,5 +170,31 @@ describe("EmporixProvider — QueryClient defaults (Balanced)", () => {
     expect(defaults?.staleTime).toBe(999);
     expect(defaults?.refetchOnWindowFocus).toBe(true);
     expect(defaults?.retry).toBe(5);
+  });
+
+  it("applies emporix-scoped defaults to a consumer-supplied QueryClient", () => {
+    const qc = new QueryClient(); // bare client, like examples/next-app-router
+    render(
+      <EmporixProvider client={mkClient()} storage={createMemoryStorage()} queryClient={qc}>
+        <div />
+      </EmporixProvider>,
+    );
+    const defaults = qc.getQueryDefaults(["emporix"]);
+    expect(defaults.staleTime).toBe(30_000);
+    expect(defaults.refetchOnWindowFocus).toBe(false);
+    expect(defaults.retry).toBe(1);
+  });
+
+  it("keeps consumer-set emporix defaults (theirs win over ours)", () => {
+    const qc = new QueryClient();
+    qc.setQueryDefaults(["emporix"], { staleTime: 5_000 });
+    render(
+      <EmporixProvider client={mkClient()} storage={createMemoryStorage()} queryClient={qc}>
+        <div />
+      </EmporixProvider>,
+    );
+    const defaults = qc.getQueryDefaults(["emporix"]);
+    expect(defaults.staleTime).toBe(5_000); // consumer override preserved
+    expect(defaults.refetchOnWindowFocus).toBe(false); // ours fill the gaps
   });
 });

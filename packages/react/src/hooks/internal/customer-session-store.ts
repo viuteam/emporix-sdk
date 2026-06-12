@@ -59,6 +59,13 @@ export function getCustomerSessionStore(storage: EmporixStorage): CustomerSessio
       };
     },
   };
+  // Mirror external token writes (login/logout from any consumer, telemetry-
+  // driven flows) into the store, so EVERY subscriber — not just
+  // useCustomerSession — observes token changes. Lifetime: the subscription
+  // lives exactly as long as the storage instance that owns this store.
+  storage.subscribe?.((t) => {
+    store.setState((s) => (s.token === t ? s : { ...s, token: t }));
+  });
   stores.set(storage, store);
   return store;
 }
