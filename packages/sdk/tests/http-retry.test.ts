@@ -4,7 +4,7 @@ import { http as mhttp, HttpResponse } from "msw";
 import { HttpClient } from "../src/core/http";
 import { LevelResolver } from "../src/core/logger";
 import { MemoryLogger } from "./helpers/memory-logger";
-import { EmporixAuthError } from "../src/core/errors";
+import { EmporixAuthError, EmporixError, EmporixServerError } from "../src/core/errors";
 import type { TokenProvider } from "../src/core/auth";
 
 let invalidated = 0;
@@ -90,5 +90,131 @@ describe("HttpClient retry + 401 asymmetry", () => {
       }),
     ).rejects.toBeInstanceOf(EmporixAuthError);
     expect(customerCalls).toBe(1);
+  });
+
+  it("does not retry POST on 5xx (non-idempotent)", async () => {
+    server.use(
+      mhttp.post("https://api.emporix.io/orders", () => {
+        attempts += 1;
+        return HttpResponse.json({ e: 1 }, { status: 503 });
+      }),
+    );
+    await expect(
+      client().request({ method: "POST", path: "/orders", auth: { kind: "service" }, body: {} }),
+    ).rejects.toBeInstanceOf(EmporixServerError);
+    expect(attempts).toBe(1);
+  });
+
+  it("does not retry POST on 429", async () => {
+    server.use(
+      mhttp.post("https://api.emporix.io/orders", () => {
+        attempts += 1;
+        return HttpResponse.json({ e: 1 }, { status: 429, headers: { "Retry-After": "0" } });
+      }),
+    );
+    await expect(
+      client().request({ method: "POST", path: "/orders", auth: { kind: "service" }, body: {} }),
+    ).rejects.toBeInstanceOf(EmporixError);
+    expect(attempts).toBe(1);
+  });
+
+  it("does not retry PATCH on 5xx (non-idempotent by spec)", async () => {
+    server.use(
+      mhttp.patch("https://api.emporix.io/orders/o1", () => {
+        attempts += 1;
+        return HttpResponse.json({ e: 1 }, { status: 503 });
+      }),
+    );
+    await expect(
+      client().request({ method: "PATCH", path: "/orders/o1", auth: { kind: "service" }, body: {} }),
+    ).rejects.toBeInstanceOf(EmporixServerError);
+    expect(attempts).toBe(1);
+  });
+
+  it("still retries PUT on 5xx (idempotent by spec)", async () => {
+    server.use(
+      mhttp.put("https://api.emporix.io/orders/o1", () => {
+        attempts += 1;
+        if (attempts < 3) return HttpResponse.json({ e: 1 }, { status: 503 });
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    const r = await client().request<{ ok: boolean }>({
+      method: "PUT", path: "/orders/o1", auth: { kind: "service" }, body: {},
+    });
+    expect(r.ok).toBe(true);
+    expect(attempts).toBe(3);
+  });
+
+  it("retries POST on 5xx when explicitly marked idempotent (read-only search endpoints)", async () => {
+    server.use(
+      mhttp.post("https://api.emporix.io/products/search", () => {
+        attempts += 1;
+        if (attempts < 3) return HttpResponse.json({ e: 1 }, { status: 503 });
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    const r = await client().request<{ ok: boolean }>({
+      method: "POST", path: "/products/search", auth: { kind: "service" }, body: {}, idempotent: true,
+    });
+    expect(r.ok).toBe(true);
+    expect(attempts).toBe(3);
+  });
+
+  it("caps a rogue Retry-After at the 8s backoff ceiling", async () => {
+    server.use(
+      mhttp.get("https://api.emporix.io/rated-long", () => {
+        attempts += 1;
+        if (attempts < 2) {
+          return HttpResponse.json({ e: 1 }, { status: 429, headers: { "Retry-After": "86400" } });
+        }
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    const slept: number[] = [];
+    const resolver = new LevelResolver({ level: "silent" });
+    const c = new HttpClient({
+      host: "https://api.emporix.io",
+      provider,
+      logger: new MemoryLogger(resolver, { service: "http" }),
+      retry: { maxAttempts: 3 },
+      timeouts: { connectMs: 500, readMs: 500 },
+      sleep: (ms) => { slept.push(ms); return Promise.resolve(); },
+    });
+    const r = await c.request<{ ok: boolean }>({
+      method: "GET", path: "/rated-long", auth: { kind: "service" },
+    });
+    expect(r.ok).toBe(true);
+    expect(slept).toEqual([8000]); // 86400s capped to 8000ms
+  });
+
+  it("uses exponential backoff with jitter when Retry-After is absent", async () => {
+    server.use(
+      mhttp.get("https://api.emporix.io/flaky-no-header", () => {
+        attempts += 1;
+        if (attempts < 3) return HttpResponse.json({ e: 1 }, { status: 503 });
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    const slept: number[] = [];
+    const resolver = new LevelResolver({ level: "silent" });
+    const c = new HttpClient({
+      host: "https://api.emporix.io",
+      provider,
+      logger: new MemoryLogger(resolver, { service: "http" }),
+      retry: { maxAttempts: 3 },
+      timeouts: { connectMs: 500, readMs: 500 },
+      sleep: (ms) => { slept.push(ms); return Promise.resolve(); },
+    });
+    const r = await c.request<{ ok: boolean }>({
+      method: "GET", path: "/flaky-no-header", auth: { kind: "service" },
+    });
+    expect(r.ok).toBe(true);
+    // attempt 1 → 1000ms + jitter(0-100), attempt 2 → 2000ms + jitter(0-100)
+    expect(slept).toHaveLength(2);
+    expect(slept[0]).toBeGreaterThanOrEqual(1000);
+    expect(slept[0]).toBeLessThan(1100);
+    expect(slept[1]).toBeGreaterThanOrEqual(2000);
+    expect(slept[1]).toBeLessThan(2100);
   });
 });

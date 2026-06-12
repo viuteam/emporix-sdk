@@ -37,6 +37,11 @@ jobs:
       - name: Build packages
         run: pnpm -r --filter "./packages/*" build
 
+      # esbuild silently drops "use client" directives — guard that the react
+      # client entries keep their banner and ssr stays server-importable.
+      - name: Check react dist "use client" banners
+        run: pnpm -F @viu/emporix-sdk-react check:dist
+
       - name: Typecheck
         run: pnpm typecheck
 

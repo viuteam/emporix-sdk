@@ -136,6 +136,39 @@ describe("useCustomerSession", () => {
     expect(storage.getCartId()).toBeNull();
   });
 
+  it("logout purges the entire emporix cache namespace (cross-user data)", async () => {
+    const storage = createMemoryStorage({ initial: "cust" });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = new EmporixClient({
+      tenant: "acme",
+      credentials: { backend: { clientId: "b", secret: "s" }, storefront: { clientId: "sf" } },
+      logger: false,
+    });
+    const wrap = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={storage} queryClient={queryClient}>
+        {children}
+      </EmporixProvider>
+    );
+    // Customer-scoped caches the old logout left alive: payment-modes is keyed
+    // by authKind (no user id, 10-min staleTime), orders likewise — a later
+    // login as a DIFFERENT customer would be served this data from cache.
+    const paymentModesKey = ["emporix", "payment-modes", { tenant: "acme", authKind: "customer" }];
+    const ordersKey = ["emporix", "orders", "list", { tenant: "acme", authKind: "customer" }];
+    queryClient.setQueryData(paymentModesKey, [{ id: "card" }]);
+    queryClient.setQueryData(ordersKey, { items: [{ id: "o-1" }] });
+    // Negative control: host-app queries outside the emporix namespace must survive.
+    queryClient.setQueryData(["app", "theme"], "dark");
+
+    const { result } = renderHook(() => useCustomerSession(), { wrapper: wrap });
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    expect(queryClient.getQueryData(paymentModesKey)).toBeUndefined();
+    expect(queryClient.getQueryData(ordersKey)).toBeUndefined();
+    expect(queryClient.getQueryData(["app", "theme"])).toBe("dark");
+  });
+
   it("logout still clears locally when the server logout fails", async () => {
     server.use(
       http.get(

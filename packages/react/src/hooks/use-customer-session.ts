@@ -198,8 +198,12 @@ export function useCustomerSession(): CustomerSessionApi {
     // right after logout. A fresh anonymous cart bootstraps on demand.
     storage.setCartId(null);
     setSession(EMPTY_SESSION);
-    qc.removeQueries({ queryKey: ["emporix", "customer"] });
-    qc.removeQueries({ queryKey: ["emporix", "cart"] });
+    // Purge EVERYTHING under the emporix namespace: customer-scoped caches
+    // (payment-modes, orders, …) are keyed by authKind without a user id, so
+    // a later login as a different customer would be served the previous
+    // customer's data straight from cache. bootstrap-cart.ts already
+    // documents this contract.
+    qc.removeQueries({ queryKey: ["emporix"] });
   }, [client, session.token, storage, qc, setSession]);
 
   const refresh = useCallback(async () => {

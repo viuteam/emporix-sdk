@@ -70,7 +70,7 @@ The sections below highlight the most-used services; per-service guides live in
 | `credentials.custom` | — | `Record<name, { clientId, secret, scope? }>` |
 | `host` | `https://api.emporix.io` | |
 | `timeouts` | `{ connectMs: 10000, readMs: 60000 }` | |
-| `retry` | `{ maxAttempts: 3 }` | 5xx/429 backoff + jitter, respects `Retry-After` |
+| `retry` | `{ maxAttempts: 3 }` | 5xx/429 backoff + jitter for idempotent methods (GET/PUT/DELETE; POST/PATCH opt in via `idempotent: true`); numeric `Retry-After` honoured, capped at 8s |
 | `cache` | `{ expirationBufferSeconds: 60, maxLifetimeSeconds: 3600 }` | token cache |
 | `logger` | console @ `warn` | `false`, a `Logger`, or `{ level, services, pretty, redact }` |
 | `tokenProvider` | built-in | inject for SSO/token-exchange |
