@@ -1,5 +1,4 @@
 import {
-  useQuery,
   type UseQueryResult,
   type UseInfiniteQueryResult,
 } from "@tanstack/react-query";
@@ -9,17 +8,17 @@ import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
 import { emporixKey } from "./internal/query-keys";
 import { useEmporixInfinite } from "./internal/use-emporix-infinite";
+import { useEmporixQuery } from "./internal/use-emporix-query";
 
 const PRODUCTS_STALE_TIME = 60_000; // 1 minute — catalog listings + prices.
 
 /** Fetches one product. Default auth: customer if logged in, else anonymous. */
 export function useProduct(productId: string, options: QueryOpts = {}): UseQueryResult<Product> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("product", [productId], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
-    queryFn: () => client.products.get(productId, undefined, ctx),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "product", args: [productId],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    queryFn: (ctx) => client.products.get(productId, undefined, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
 }
@@ -30,11 +29,10 @@ export function useProducts(
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("products", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
-    queryFn: () => client.products.list(params, ctx),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "products", args: [params],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    queryFn: (ctx) => client.products.list(params, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
 }
@@ -64,12 +62,11 @@ export function useProductByCode(
   options: QueryOpts = {},
 ): UseQueryResult<Product> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("product-by-code", [code], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "product-by-code", args: [code],
+    ...(options.auth ? { authOverride: options.auth } : {}),
     enabled: typeof code === "string" && code !== "",
-    queryFn: () => client.products.getByCode(code as string, ctx),
+    queryFn: (ctx) => client.products.getByCode(code as string, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
 }
@@ -81,12 +78,11 @@ export function useProductSearch(
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("product-search", [query, params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "product-search", args: [query, params],
+    ...(options.auth ? { authOverride: options.auth } : {}),
     enabled: typeof query === "string" && query.trim() !== "",
-    queryFn: () => client.products.search(query as string, params, ctx),
+    queryFn: (ctx) => client.products.search(query as string, params, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
 }
@@ -98,12 +94,11 @@ export function useProductNameSearch(
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("product-name-search", [term, params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "product-name-search", args: [term, params],
+    ...(options.auth ? { authOverride: options.auth } : {}),
     enabled: typeof term === "string" && term.trim() !== "",
-    queryFn: () => client.products.searchByName(term as string, params, ctx),
+    queryFn: (ctx) => client.products.searchByName(term as string, params, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
 }
@@ -117,17 +112,11 @@ export function useProductsByCodes(
   options: { chunkSize?: number } & QueryOpts = {},
 ): UseQueryResult<Product[]> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("products-by-codes", [codes, options.chunkSize], {
-      tenant: client.tenant,
-      authKind: ctx.kind,
-      siteCode,
-      language,
-    }),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "products-by-codes", args: [codes, options.chunkSize],
+    ...(options.auth ? { authOverride: options.auth } : {}),
     enabled: codes.length > 0,
-    queryFn: () =>
+    queryFn: (ctx) =>
       client.products.searchByCodes(
         codes,
         options.chunkSize !== undefined ? { chunkSize: options.chunkSize } : {},
