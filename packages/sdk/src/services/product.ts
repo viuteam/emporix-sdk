@@ -125,6 +125,7 @@ export class ProductService {
           query: { pageSize: chunk.length },
           auth,
           body: { q: `id:(${chunk.join(",")})` },
+          idempotent: true, // pure read over POST — safe to replay on 5xx/429
         }),
       ),
     );
@@ -170,6 +171,7 @@ export class ProductService {
           query: { pageSize: chunk.length },
           auth,
           body: { q: `code:(${chunk.join(",")})` },
+          idempotent: true, // pure read over POST — safe to replay on 5xx/429
         }),
       ),
     );

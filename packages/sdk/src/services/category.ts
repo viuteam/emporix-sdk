@@ -120,6 +120,7 @@ export class CategoryService {
       query: { pageSize: productIds.length },
       auth,
       body: { q: `id:(${productIds.join(",")})` },
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
     });
     return { items, pageNumber, pageSize, hasNextPage };
   }
