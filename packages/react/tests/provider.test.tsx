@@ -91,6 +91,52 @@ describe("EmporixProvider", () => {
       ),
     ).not.toThrow();
   });
+
+  it("re-attaches the anonymous store when the client prop changes", () => {
+    const storage = createMemoryStorage();
+    storage.setAnonymousSession({ refreshToken: "rt-1", sessionId: "s-1" });
+    const clientA = mkClient();
+    const clientB = mkClient();
+    const attached: EmporixClient[] = [];
+    // attachAnonymousStore is the SDK's public wiring hook — spy on both clients.
+    for (const c of [clientA, clientB]) {
+      const orig = c.tokenProvider.attachAnonymousStore?.bind(c.tokenProvider);
+      c.tokenProvider.attachAnonymousStore = (store: AnonymousSessionStore) => {
+        attached.push(c);
+        orig?.(store);
+      };
+    }
+    const ui = (client: EmporixClient) => (
+      <EmporixProvider client={client} storage={storage}>
+        <div />
+      </EmporixProvider>
+    );
+    const { rerender } = render(ui(clientA));
+    expect(attached).toContain(clientA);
+    rerender(ui(clientB));
+    expect(attached).toContain(clientB); // FAILS today: useState lazy init never re-runs
+  });
+
+  it("keeps the fallback QueryClient stable across rerenders", () => {
+    const client = mkClient();
+    const storage = createMemoryStorage();
+    const seen: unknown[] = [];
+    function Probe() {
+      seen.push(useQueryClient());
+      return null;
+    }
+    // Fresh element each render so React actually re-renders Probe (passing the
+    // same element reference triggers a referential-equality bailout).
+    const ui = () => (
+      <EmporixProvider client={client} storage={storage}>
+        <Probe />
+      </EmporixProvider>
+    );
+    const { rerender } = render(ui());
+    rerender(ui());
+    expect(seen.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(seen).size).toBe(1); // one stable instance
+  });
 });
 
 describe("EmporixProvider — QueryClient defaults (Balanced)", () => {

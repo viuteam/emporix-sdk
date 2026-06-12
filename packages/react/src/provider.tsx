@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { auth, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "./storage/index";
@@ -129,29 +129,33 @@ export function EmporixProvider({
       createMemoryStorage(
         initialCustomerToken !== undefined ? { initial: initialCustomerToken } : {},
       );
-    if (initialCustomerToken && storage && storage.getCustomerToken() === null) {
-      storage.setCustomerToken(initialCustomerToken);
-    }
     return { client, storage: s };
-     
   }, [client, storage, initialCustomerToken]);
-  const qc = useMemo(
-    () =>
-      queryClient ??
-      new QueryClient({ defaultOptions: { queries: DEFAULT_QUERY_OPTIONS } }),
-    [queryClient],
-  );
 
-  // Idempotent one-time wiring: attaches a storage-backed adapter to the SDK's
-  // token provider so anonymous sessions survive reloads. Runs once per
-  // (client, storage) pair via useState's lazy initializer.
-  useState(() => {
+  // Fallback QueryClient held in state, not useMemo: React may discard a
+  // useMemo cache, which would silently drop the entire query cache mid-session.
+  const [fallbackQc] = useState(
+    () => new QueryClient({ defaultOptions: { queries: DEFAULT_QUERY_OPTIONS } }),
+  );
+  const qc = queryClient ?? fallbackQc;
+
+  // Idempotent wiring that must precede the children's first fetch effects:
+  // (1) attach the storage-backed anonymous-session adapter to the SDK token
+  // provider, (2) seed the SSR-provided customer token into external storage.
+  // Ref-guarded so it re-runs when (client, storage) identity changes — a
+  // useState lazy initializer runs once per component INSTANCE and silently
+  // skips re-wiring on prop swaps; a useEffect runs AFTER children fetch.
+  const wiredRef = useRef<{ client: EmporixClient; storage: EmporixStorage } | null>(null);
+  if (wiredRef.current?.client !== client || wiredRef.current?.storage !== value.storage) {
     client.tokenProvider.attachAnonymousStore?.({
       read: () => value.storage.getAnonymousSession(),
       write: (s) => value.storage.setAnonymousSession(s),
     });
-    return null;
-  });
+    if (initialCustomerToken && storage && storage.getCustomerToken() === null) {
+      storage.setCustomerToken(initialCustomerToken);
+    }
+    wiredRef.current = { client, storage: value.storage };
+  }
 
   // Telemetry: stable safeEmit + context value. emit is no-op when no
   // onTelemetry callback was provided (no overhead).
