@@ -25,6 +25,10 @@ export type {
 export { HttpClient } from "./core/http";
 export type { RequestOptions, HttpClientOptions } from "./core/http";
 export { EmporixClient } from "./client";
+export { createEmporixClient } from "./create-emporix-client";
+export type { ServiceClass } from "./create-emporix-client";
+export { createCore } from "./core/create-core";
+export type { EmporixCore } from "./core/create-core";
 export type { ClientContext, PaginatedItems } from "./core/context";
 export { iterateAll } from "./core/context";
 export { productIdFromYrn } from "./core/yrn";
