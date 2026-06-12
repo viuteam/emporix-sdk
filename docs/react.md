@@ -301,7 +301,7 @@ bridge, the GA4 event mapping, a `useTrackedCart` wrapper, and SSR + consent.
 `useCustomerSession()` — `customerToken`, `customer` (auto-fetched when a token
 is present), `isAuthenticated`, `isLoading`, `login`, `signup`, `logout`,
 `refresh`. `login` stores the token and invalidates customer + cart queries;
-`logout` clears the token and removes those queries.
+`logout` clears the token and purges the **entire `["emporix"]` query-cache namespace** — including payment modes, orders, segments and catalog/site queries — because customer-scoped caches are keyed by auth kind without a user id and must not survive into the next customer's session. SDK queries refetch on next use; host-app queries outside the `["emporix"]` namespace are untouched.
 
 To refresh the customer token automatically on a 401, opt in with the
 `autoRefreshCustomerToken` provider prop (+ `onCustomerSessionExpired`). See
