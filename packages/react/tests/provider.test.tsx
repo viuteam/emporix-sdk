@@ -140,7 +140,7 @@ describe("EmporixProvider", () => {
 });
 
 describe("EmporixProvider — QueryClient defaults (Balanced)", () => {
-  it("applies Balanced defaults when no queryClient prop is passed", () => {
+  it("applies Balanced defaults (emporix-scoped) when no queryClient prop is passed", () => {
     const client = mkClient();
     const wrapper = ({ children }: { children: ReactNode }) => (
       <EmporixProvider client={client} storage={createMemoryStorage()}>
@@ -148,10 +148,11 @@ describe("EmporixProvider — QueryClient defaults (Balanced)", () => {
       </EmporixProvider>
     );
     const { result } = renderHook(() => useQueryClient(), { wrapper });
-    const defaults = result.current.getDefaultOptions().queries;
-    expect(defaults?.staleTime).toBe(30_000);
-    expect(defaults?.refetchOnWindowFocus).toBe(false);
-    expect(defaults?.retry).toBe(1);
+    // Defaults are scoped to the ["emporix"] namespace, not the global options.
+    const defaults = result.current.getQueryDefaults(["emporix"]);
+    expect(defaults.staleTime).toBe(30_000);
+    expect(defaults.refetchOnWindowFocus).toBe(false);
+    expect(defaults.retry).toBe(1);
   });
 
   it("does not override an externally-passed QueryClient", () => {
@@ -169,5 +170,31 @@ describe("EmporixProvider — QueryClient defaults (Balanced)", () => {
     expect(defaults?.staleTime).toBe(999);
     expect(defaults?.refetchOnWindowFocus).toBe(true);
     expect(defaults?.retry).toBe(5);
+  });
+
+  it("applies emporix-scoped defaults to a consumer-supplied QueryClient", () => {
+    const qc = new QueryClient(); // bare client, like examples/next-app-router
+    render(
+      <EmporixProvider client={mkClient()} storage={createMemoryStorage()} queryClient={qc}>
+        <div />
+      </EmporixProvider>,
+    );
+    const defaults = qc.getQueryDefaults(["emporix"]);
+    expect(defaults.staleTime).toBe(30_000);
+    expect(defaults.refetchOnWindowFocus).toBe(false);
+    expect(defaults.retry).toBe(1);
+  });
+
+  it("keeps consumer-set emporix defaults (theirs win over ours)", () => {
+    const qc = new QueryClient();
+    qc.setQueryDefaults(["emporix"], { staleTime: 5_000 });
+    render(
+      <EmporixProvider client={mkClient()} storage={createMemoryStorage()} queryClient={qc}>
+        <div />
+      </EmporixProvider>,
+    );
+    const defaults = qc.getQueryDefaults(["emporix"]);
+    expect(defaults.staleTime).toBe(5_000); // consumer override preserved
+    expect(defaults.refetchOnWindowFocus).toBe(false); // ours fill the gaps
   });
 });
