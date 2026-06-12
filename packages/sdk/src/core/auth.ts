@@ -1,5 +1,5 @@
 import type { ResolvedConfig, ServiceCredentials } from "./config";
-import { EmporixAuthError } from "./errors";
+import { EmporixAuthError, EmporixTimeoutError, EmporixNetworkError } from "./errors";
 
 /** Which token a call should use. */
 export type AuthKind = "service" | "customer" | "anonymous" | "raw";
@@ -239,6 +239,27 @@ export class DefaultTokenProvider implements TokenProvider {
     return p;
   }
 
+  /**
+   * fetch with the configured read timeout. Token endpoints sit in front of
+   * single-flight locks — one hung call would otherwise block every request
+   * on this credential set forever.
+   */
+  private async boundedFetch(url: string | URL, init: RequestInit = {}): Promise<Response> {
+    const ms = this.cfg.timeouts?.readMs ?? 60_000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+      return await fetch(url, { ...init, signal: controller.signal });
+    } catch (err) {
+      if ((err as Error).name === "AbortError") {
+        throw new EmporixTimeoutError(`token request timed out after ${ms}ms`);
+      }
+      throw new EmporixNetworkError(`token request network failure: ${(err as Error).message}`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   private async requestServiceToken(set: string): Promise<string> {
     const c = this.creds(set);
     const body = new URLSearchParams({
@@ -247,7 +268,7 @@ export class DefaultTokenProvider implements TokenProvider {
       client_secret: c.secret,
     });
     if (c.scope) body.set("scope", c.scope);
-    const res = await fetch(`${this.cfg.host}/oauth/token`, {
+    const res = await this.boundedFetch(`${this.cfg.host}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
@@ -339,7 +360,7 @@ export class DefaultTokenProvider implements TokenProvider {
       url.searchParams.set("refresh_token", this.anon.refreshToken);
     }
     try {
-      const res = await fetch(url, { method: "GET" });
+      const res = await this.boundedFetch(url, { method: "GET" });
       const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       if (!res.ok) {
         this.notifyRefresh("anonymous", false);

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, delay } from "msw";
 import { DefaultTokenProvider } from "../src/core/auth";
+import { EmporixTimeoutError } from "../src/core/errors";
 
 let loginHits = 0;
 let refreshHits = 0;
@@ -79,6 +80,23 @@ describe("DefaultTokenProvider anonymous path", () => {
     const noSf = { ...cfg, credentials: { backend: cfg.credentials.backend } };
     const p = new DefaultTokenProvider(noSf as never);
     await expect(p.getAnonymousToken()).rejects.toThrow(/storefront/i);
+  });
+
+  it("times out a hung anonymous login instead of blocking forever", async () => {
+    server.use(
+      http.get("https://api.emporix.io/customerlogin/auth/anonymous/login", async () => {
+        await delay(2_000);
+        return HttpResponse.json({
+          access_token: "late", token_type: "Bearer",
+          expires_in: 3599, refresh_token: "rt-1", sessionId: SESSION,
+        });
+      }),
+    );
+    const p = new DefaultTokenProvider({
+      ...cfg,
+      timeouts: { connectMs: 50, readMs: 50 },
+    } as never);
+    await expect(p.getAnonymousToken()).rejects.toBeInstanceOf(EmporixTimeoutError);
   });
 });
 
