@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -7,7 +7,7 @@ import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
 import { useActiveCompany } from "../src/company-context";
-import type { ReactNode } from "react";
+import { StrictMode, type ReactNode } from "react";
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -119,5 +119,98 @@ describe("useActiveCompany bootstrap", () => {
     const { result } = renderHook(() => useActiveCompany(), { wrapper: wrap(storage) });
     await waitFor(() => expect(result.current.activeCompany?.id).toBe("le-1"));
     expect(storage.getActiveLegalEntityId()).toBe("le-1");
+  });
+
+  it("bootstrap auto-switch refreshes the token exactly once under StrictMode", async () => {
+    let refreshHits = 0;
+    server.use(
+      http.get("https://api.emporix.io/customer-management/acme/legal-entities", () =>
+        HttpResponse.json([{ id: "le-solo", name: "Solo GmbH", type: "COMPANY" }]),
+      ),
+      http.get("https://api.emporix.io/customerlogin/auth/anonymous/login", () =>
+        HttpResponse.json({
+          access_token: "anon", token_type: "Bearer", expires_in: 3599,
+          refresh_token: "anon-rt", sessionId: "s",
+        }),
+      ),
+      http.get("https://api.emporix.io/customer/acme/refreshauthtoken", () => {
+        refreshHits += 1;
+        return HttpResponse.json({
+          access_token: `cust-${refreshHits}`,
+          refresh_token: `rt-${refreshHits}`,
+        });
+      }),
+    );
+    const storage = createMemoryStorage({ initial: "cust-0" });
+    storage.setRefreshToken("rt-0");
+    const client = new EmporixClient({
+      tenant: "acme",
+      credentials: { storefront: { clientId: "sf" } },
+      logger: false,
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StrictMode>
+        <EmporixProvider
+          client={client}
+          storage={storage}
+          queryClient={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          {children}
+        </EmporixProvider>
+      </StrictMode>
+    );
+    const { result } = renderHook(() => useActiveCompany(), { wrapper });
+    await waitFor(() => expect(result.current.activeCompany?.id).toBe("le-solo"));
+    // StrictMode double-mounts: without cancellation BOTH loads auto-switch and
+    // BOTH consume the same refresh token — server-side rotation would 401.
+    expect(refreshHits).toBe(1);
+  });
+
+  it("serializes concurrent company switches against server-side refresh rotation", async () => {
+    let rt = "rt-0";
+    let issued = 0;
+    let stale401 = 0;
+    server.use(
+      http.get("https://api.emporix.io/customer-management/acme/legal-entities", () =>
+        HttpResponse.json([
+          { id: "le-1", name: "Acme", type: "COMPANY" },
+          { id: "le-2", name: "Globex", type: "COMPANY" },
+        ]),
+      ),
+      http.get("https://api.emporix.io/customerlogin/auth/anonymous/login", () =>
+        HttpResponse.json({
+          access_token: "anon", token_type: "Bearer", expires_in: 3599,
+          refresh_token: "anon-rt", sessionId: "s",
+        }),
+      ),
+      http.get("https://api.emporix.io/customer/acme/refreshauthtoken", ({ request }) => {
+        const presented = new URL(request.url).searchParams.get("refreshToken");
+        if (presented !== rt) {
+          stale401 += 1; // a stale token reached the server — switches overlapped
+          return HttpResponse.json({ error: "stale_refresh" }, { status: 401 });
+        }
+        issued += 1;
+        rt = `rt-${issued}`;
+        return HttpResponse.json({ access_token: `cust-${issued}`, refresh_token: rt });
+      }),
+    );
+    // Two companies, no persisted pick → bootstrap stays "unresolved" (no auto
+    // switch, no refresh) so the only refreshes are the two we fire below.
+    const storage = createMemoryStorage({ initial: "cust-0" });
+    storage.setRefreshToken("rt-0");
+    const { result } = renderHook(() => useActiveCompany(), { wrapper: wrap(storage) });
+    await waitFor(() => expect(result.current.mode).toBe("unresolved"));
+
+    await act(async () => {
+      await Promise.allSettled([
+        result.current.setActiveCompany("le-1"),
+        result.current.setActiveCompany("le-2"),
+      ]);
+    });
+
+    // Serialized: the second switch reads the rotated token, so no stale token
+    // ever reaches the server. Unserialized, both read rt-0 → one 401s.
+    expect(stale401).toBe(0);
+    expect(issued).toBe(2);
   });
 });
