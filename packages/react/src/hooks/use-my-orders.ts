@@ -4,6 +4,7 @@ import { useEmporix } from "../provider";
 import { useActiveCompany } from "../company-context";
 import { emporixKey } from "./internal/query-keys";
 import { useReadSite } from "./internal/use-read-site";
+import { useCustomerToken } from "./internal/use-storage-snapshot";
 
 /** Options for `useMyOrders`. Passing `legalEntityId: null` disables the active-company auto-default. */
 export interface UseMyOrdersOptions {
@@ -19,10 +20,10 @@ export interface UseMyOrdersOptions {
 export function useMyOrders(
   options: UseMyOrdersOptions = {},
 ): UseQueryResult<PaginatedItems<Order>> {
-  const { client, storage } = useEmporix();
+  const { client } = useEmporix();
   const { activeCompany } = useActiveCompany();
   const { siteCode, language } = useReadSite();
-  const token = storage.getCustomerToken();
+  const token = useCustomerToken();
   const effectiveLE: string | undefined =
     options.legalEntityId === null
       ? undefined

@@ -1,5 +1,5 @@
 import { auth, type AuthContext } from "@viu/emporix-sdk";
-import { useEmporix } from "../../provider";
+import { useCustomerToken } from "./use-storage-snapshot";
 
 /** Options accepted by every read hook to override the per-call auth context. */
 export interface QueryOpts {
@@ -9,15 +9,13 @@ export interface QueryOpts {
 /**
  * Picks the auth context for a read hook. If `override` is given, returns it.
  * Otherwise: customer if a token is in storage, anonymous as fallback.
- *
- * Callers compose `ctx.kind` into their query keys to separate cache entries
- * across auth boundaries — `ctx.kind` is the discriminator of AuthContext,
- * one of `"service" | "anonymous" | "customer" | "raw"`.
+ * Token reads go through `useCustomerToken` (useSyncExternalStore) so the
+ * context — and every query key carrying `ctx.kind` — updates reactively on
+ * login/logout instead of waiting for an unrelated re-render.
  */
 export function useReadAuth(override?: AuthContext): { ctx: AuthContext } {
-  const { storage } = useEmporix();
+  const token = useCustomerToken();
   if (override) return { ctx: override };
-  const token = storage.getCustomerToken();
   return token ? { ctx: auth.customer(token) } : { ctx: auth.anonymous() };
 }
 
@@ -27,8 +25,7 @@ export function useReadAuth(override?: AuthContext): { ctx: AuthContext } {
  * (profile updates, password change, address management, payment modes).
  */
 export function useCustomerOnlyCtx(): AuthContext {
-  const { storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const token = useCustomerToken();
   if (!token) {
     throw new Error("Requires a logged-in customer (no token in storage)");
   }

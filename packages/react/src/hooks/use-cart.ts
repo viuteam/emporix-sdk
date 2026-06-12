@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   useMutation,
   useQuery,
@@ -19,17 +19,19 @@ import {
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
+import { useCartId } from "./internal/use-storage-snapshot";
 import { bootstrapCart } from "./internal/bootstrap-cart";
 import { emporixKey } from "./internal/query-keys";
 import { useActiveCompany } from "../company-context";
 
 /** Fetches a cart by id. Falls back to `storage.getCartId()` when no argument is passed; disabled when neither is set. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
-  const { client, storage } = useEmporix();
+  const { client } = useEmporix();
   const { ctx } = useReadAuth(options.auth);
   const { siteCode, language } = useReadSite();
   const { activeCompany } = useActiveCompany();
-  const resolvedId = cartId ?? storage.getCartId() ?? undefined;
+  const storedCartId = useCartId();
+  const resolvedId = cartId ?? storedCartId ?? undefined;
   return useQuery({
     queryKey: emporixKey(
       "cart",
@@ -216,22 +218,12 @@ export function useActiveCart(opts?: {
   const { siteCode: activeSite } = useReadSite();
   const { activeCompany } = useActiveCompany();
 
-  const [cartId, setCartId] = useState<string | null>(() => storage.getCartId());
+  // Reactive view of storage.cartId (useSyncExternalStore). Logout and
+  // post-order cleanup clear it; a fresh bootstrap re-sets it. Either way the
+  // cart query re-keys without a manual subscribeAll effect.
+  const cartId = useCartId();
   // Explicit opt overrides; otherwise pick up the active company.
   const effectiveLegalEntityId = opts?.legalEntityId ?? activeCompany?.id;
-
-  // Sync local cartId with external storage changes. Logout and post-order
-  // cleanup clear `storage.cartId`; without this the cart query would keep
-  // fetching the now-invalid cart id (a 403 after logout, a 404 after the cart
-  // is closed on checkout). A re-set to a fresh id propagates the same way.
-  useEffect(() => {
-    if (!storage.subscribeAll) return;
-    return storage.subscribeAll((key) => {
-      if (key !== "cartId") return;
-      const next = storage.getCartId();
-      setCartId((prev) => (prev === next ? prev : next));
-    });
-  }, [storage]);
 
   useEffect(() => {
     if (cartId !== null) return;
@@ -251,8 +243,8 @@ export function useActiveCart(opts?: {
       .then((cart) => {
         if (cancelled) return;
         if (cart?.id) {
+          // setCartId is notified reactively via useCartId's subscribeAll.
           storage.setCartId(cart.id);
-          setCartId(cart.id);
         }
       })
       .catch(() => {

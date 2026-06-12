@@ -14,6 +14,7 @@ import {
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useCustomerOnlyCtx, type QueryOpts } from "./internal/use-read-auth";
+import { useCustomerToken } from "./internal/use-storage-snapshot";
 import { useActiveCompany } from "../company-context";
 
 const ADDRESSES_KEY = ["emporix", "customer", "addresses"] as const;
@@ -23,8 +24,8 @@ const ADDRESSES_KEY = ["emporix", "customer", "addresses"] as const;
  * is in storage (returns idle state, not an error).
  */
 export function useCustomerAddresses(options: QueryOpts = {}): UseQueryResult<Address[]> {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { activeCompany } = useActiveCompany();
   const ctx: AuthContext | null = options.auth ?? (token ? auth.customer(token) : null);
   return useQuery({

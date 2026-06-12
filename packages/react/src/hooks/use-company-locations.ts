@@ -2,13 +2,14 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { auth, type Location } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { emporixKey } from "./internal/query-keys";
+import { useCustomerToken } from "./internal/use-storage-snapshot";
 
 /** Lists locations owned by one legal entity. */
 export function useCompanyLocations(
   legalEntityId: string | undefined,
 ): UseQueryResult<Location[]> {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   return useQuery({
     queryKey: emporixKey("companies", ["locations", legalEntityId ?? null], {
       tenant: client.tenant,

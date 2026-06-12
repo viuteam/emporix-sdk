@@ -15,6 +15,7 @@ import {
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadSite } from "./internal/use-read-site";
+import { useCustomerToken } from "./internal/use-storage-snapshot";
 
 const SEGMENTS_STALE_TIME = 5 * 60_000; // 5 minutes — segment membership is admin-driven.
 
@@ -27,8 +28,8 @@ function customerCtx(token: string | null): AuthContext {
 export function useMySegments(
   query: { q?: string; pageNumber?: number; pageSize?: number } = {},
 ): UseQueryResult<Segment[]> {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { siteCode, language } = useReadSite();
   return useQuery({
     queryKey: ["emporix", "segment", "list", { tenant: client.tenant, query, siteCode, language }],
@@ -47,8 +48,8 @@ export function useMySegmentItems(
     onlyActive?: boolean;
   } = {},
 ): UseQueryResult<SegmentItem[]> {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { siteCode, language } = useReadSite();
   return useQuery({
     queryKey: ["emporix", "segment", "items", { tenant: client.tenant, query, siteCode, language }],
@@ -62,8 +63,8 @@ export function useMySegmentItems(
 export function useMySegmentCategoryTree(
   query: { siteCode?: string; legalEntityId?: string } = {},
 ): UseQueryResult<SegmentCategoryTree> {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { siteCode, language } = useReadSite();
   return useQuery({
     queryKey: ["emporix", "segment", "categoryTree", { tenant: client.tenant, query, siteCode, language }],
@@ -84,8 +85,8 @@ export function useMySegmentProducts(
     pageSize?: number;
   } = {},
 ): UseQueryResult<PaginatedItems<Product>> {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { siteCode, language } = useReadSite();
   return useQuery({
     queryKey: ["emporix", "segment", "myProducts", { tenant: client.tenant, query, siteCode, language }],
@@ -109,8 +110,8 @@ export function useMySegmentProductsInfinite(
     pageSize?: number;
   } = {},
 ) {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { siteCode, language } = useReadSite();
   return useEmporixInfinite<Product>({
     queryKey: [
@@ -140,8 +141,8 @@ export function useMySegmentCategories(
     pageSize?: number;
   } = {},
 ): UseQueryResult<PaginatedItems<Category>> {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { siteCode, language } = useReadSite();
   return useQuery({
     queryKey: ["emporix", "segment", "myCategories", { tenant: client.tenant, query, siteCode, language }],
@@ -164,8 +165,8 @@ export function useMySegmentCategoriesInfinite(
     pageSize?: number;
   } = {},
 ) {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { siteCode, language } = useReadSite();
   return useEmporixInfinite<Category>({
     queryKey: [

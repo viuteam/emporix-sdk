@@ -3,6 +3,7 @@ import { auth, type Order } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { emporixKey } from "./internal/query-keys";
 import { useReadSite } from "./internal/use-read-site";
+import { useCustomerToken } from "./internal/use-storage-snapshot";
 
 export interface UseOrderOptions {
   saasToken?: string;
@@ -13,8 +14,8 @@ export function useOrder(
   orderId: string | undefined,
   options: UseOrderOptions = {},
 ): UseQueryResult<Order> {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { language } = useReadSite();
   return useQuery({
     queryKey: emporixKey("orders", [orderId ?? null], {

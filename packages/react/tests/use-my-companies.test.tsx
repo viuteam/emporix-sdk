@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -60,5 +60,14 @@ describe("useMyCompanies / useCompany", () => {
     const { result } = renderHook(() => useCompany("le-1"), { wrapper: wrap(storage) });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.name).toBe("Acme Detailed");
+  });
+
+  it("starts fetching when a login token appears in storage (reactive enabled-gate)", async () => {
+    const storage = createMemoryStorage(); // no token: hook disabled, no fetch
+    const { result } = renderHook(() => useMyCompanies(), { wrapper: wrap(storage) });
+    expect(result.current.fetchStatus).toBe("idle");
+    act(() => storage.setCustomerToken("cust"));
+    // Pre-fix this NEVER fires: the raw storage read doesn't re-render the hook.
+    await waitFor(() => expect(result.current.data?.length).toBeGreaterThan(0));
   });
 });

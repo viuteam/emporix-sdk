@@ -11,6 +11,7 @@ import {
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { emporixKey } from "./internal/query-keys";
+import { useCustomerToken } from "./internal/use-storage-snapshot";
 
 /** Variables for {@link useInvokeCloudFunction}. */
 export interface InvokeCloudFunctionVars<TReq = unknown>
@@ -52,8 +53,8 @@ export function useCloudFunction<TRes = unknown>(
   options?: InvokeCloudFunctionOptions & { auth?: AuthContext },
   queryOptions?: { enabled?: boolean; staleTime?: number },
 ): UseQueryResult<TRes> {
-  const { client, storage } = useEmporix();
-  const token = storage.getCustomerToken();
+  const { client } = useEmporix();
+  const token = useCustomerToken();
   const { auth: authOverride, ...invokeOptions } = options ?? {};
   const authCtx = authOverride ?? (token ? auth.customer(token) : auth.anonymous());
   return useQuery({
