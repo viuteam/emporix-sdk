@@ -35,6 +35,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * replace the whole mapping unless `partial` is set.
  */
 export class FeeService {
+  static readonly channel = "fee" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private feesBase(): string {

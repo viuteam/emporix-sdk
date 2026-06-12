@@ -36,6 +36,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * service token. Distinct from the storefront `client.customers`.
  */
 export class CustomerAdminService {
+  static readonly channel = "customer-admin" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

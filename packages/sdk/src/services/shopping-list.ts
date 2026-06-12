@@ -46,6 +46,7 @@ const RESERVED = new Set(["customerId", "metadata"]);
  * read the list and `PUT` the full body — **last-write-wins**.
  */
 export class ShoppingListService {
+  static readonly channel = "shopping-list" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

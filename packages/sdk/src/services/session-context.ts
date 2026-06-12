@@ -48,6 +48,7 @@ export interface SessionContextPatch {
  * parameter required.
  */
 export class SessionContextService {
+  static readonly channel = "session-context" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   /**

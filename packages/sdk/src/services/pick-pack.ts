@@ -40,6 +40,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * an acknowledgement (`{ message?, code? }`).
  */
 export class PickPackService {
+  static readonly channel = "pick-pack" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

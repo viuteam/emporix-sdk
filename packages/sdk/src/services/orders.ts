@@ -54,6 +54,7 @@ function setIfDefined<V>(
  * is passed as the `saas-token` header (mirrors `checkout.placeOrder`).
  */
 export class OrdersService {
+  static readonly channel = "orders" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {
@@ -147,6 +148,7 @@ export class OrdersService {
  * common backend use case (e.g. mixin updates after fulfilment).
  */
 export class SalesOrdersService {
+  static readonly channel = "sales-orders" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

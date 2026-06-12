@@ -39,6 +39,7 @@ function resolveAuth(auth: AuthContext | undefined, guest: boolean): AuthContext
 
 /** Triggers Emporix checkout (atomic: validate → order → payment → close cart). */
 export class CheckoutService {
+  static readonly channel = "checkout" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private headers(opts: CheckoutOptions, guest: boolean): Record<string, string> | undefined {

@@ -37,6 +37,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * service token will be rejected by Emporix.
  */
 export class ApprovalService {
+  static readonly channel = "approval" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

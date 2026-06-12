@@ -32,6 +32,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * Server-side use only; the service token must never reach a browser.
  */
 export class TaxService {
+  static readonly channel = "tax" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

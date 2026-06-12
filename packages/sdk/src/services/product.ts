@@ -18,6 +18,7 @@ export type Media = ProductMedia[number];
 
 /** Catalog reads. Default auth: anonymous; pass customer for personalized pricing. */
 export class ProductService {
+  static readonly channel = "product" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   /** Fetches one product by id. */

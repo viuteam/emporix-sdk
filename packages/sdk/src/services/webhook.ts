@@ -38,6 +38,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * use only; the service token must never reach a browser.
  */
 export class WebhookService {
+  static readonly channel = "webhook" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

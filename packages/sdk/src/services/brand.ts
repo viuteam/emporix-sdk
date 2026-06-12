@@ -12,6 +12,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * The path carries no `{tenant}` segment — the tenant comes from the token.
  */
 export class BrandService {
+  static readonly channel = "brand" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

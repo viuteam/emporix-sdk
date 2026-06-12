@@ -30,6 +30,7 @@ const ANON: AuthContext = { kind: "anonymous" };
  * whichever token is used.
  */
 export class AvailabilityService {
+  static readonly channel = "availability" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   /**

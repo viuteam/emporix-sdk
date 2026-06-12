@@ -38,6 +38,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * balance (`getCustomerPoints` / `getMyPoints`) is returned as a bare `number`.
  */
 export class RewardPointsService {
+  static readonly channel = "reward-points" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   /** Base without tenant (customer / public / batch endpoints). */

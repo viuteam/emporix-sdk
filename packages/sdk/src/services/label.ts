@@ -12,6 +12,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * no `{tenant}` segment — the tenant comes from the token.
  */
 export class LabelService {
+  static readonly channel = "label" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {
