@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useContext, useMemo, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { auth, type Customer, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "../storage";
@@ -73,11 +73,9 @@ export function useCustomerSession(): CustomerSessionApi {
   const store = useMemo(() => getCustomerSessionStore(storage), [storage]);
   const session = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const setSession = store.setState;
-
-  useEffect(() => {
-    // External token change (e.g. another tab) updates only the `token` slot.
-    return storage.subscribe?.((t) => setSession((s) => ({ ...s, token: t })));
-  }, [storage, setSession]);
+  // External token changes (login/logout from any consumer, another tab) are
+  // mirrored into the shared store by its own storage subscription — see
+  // getCustomerSessionStore — so no per-hook mirror effect is needed here.
 
   const meQuery = useQuery({
     queryKey: ["emporix", "customer", "me", { tenant: client.tenant, hasToken: session.token !== null }],
