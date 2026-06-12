@@ -69,7 +69,8 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsup",
+    "build": "rm -rf dist && tsup",
+    "check:dist": "node scripts/check-dist.mjs",
     "test": "vitest run --coverage",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
