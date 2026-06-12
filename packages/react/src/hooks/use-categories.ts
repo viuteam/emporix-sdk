@@ -1,5 +1,4 @@
 import {
-  useQuery,
   type UseQueryResult,
   type UseInfiniteQueryResult,
 } from "@tanstack/react-query";
@@ -13,6 +12,7 @@ import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
 import { emporixKey } from "./internal/query-keys";
 import { useEmporixInfinite } from "./internal/use-emporix-infinite";
+import { useEmporixQuery } from "./internal/use-emporix-query";
 
 const CATEGORIES_STALE_TIME = 5 * 60_000; // 5 minutes — catalog structure.
 
@@ -22,11 +22,10 @@ export function useCategory(
   options: QueryOpts = {},
 ): UseQueryResult<Category> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("category", [categoryId], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
-    queryFn: () => client.categories.get(categoryId, ctx),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "category", args: [categoryId],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    queryFn: (ctx) => client.categories.get(categoryId, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
 }
@@ -38,12 +37,11 @@ export function useSubcategories(
   options: QueryOpts = {},
 ): UseQueryResult<Category[]> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("subcategories", [categoryId ?? null, params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "subcategories", args: [categoryId ?? null, params],
+    ...(options.auth ? { authOverride: options.auth } : {}),
     enabled: typeof categoryId === "string" && categoryId !== "",
-    queryFn: () => client.categories.subcategories(categoryId as string, params, ctx),
+    queryFn: (ctx) => client.categories.subcategories(categoryId as string, params, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
 }
@@ -54,11 +52,10 @@ export function useCategories(
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Category>> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("categories", [params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
-    queryFn: () => client.categories.list(params, ctx),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "categories", args: [params],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    queryFn: (ctx) => client.categories.list(params, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
 }
@@ -85,11 +82,10 @@ export function useCategoriesInfinite(
 /** The catalogue's root categories (published category trees) for top-level nav. */
 export function useCategoryTree(options: QueryOpts = {}): UseQueryResult<Category[]> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("category-tree", [], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
-    queryFn: () => client.categories.tree(ctx),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "category-tree", args: [],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    queryFn: (ctx) => client.categories.tree(ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
 }
@@ -101,12 +97,11 @@ export function useProductsInCategory(
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("products-in-category", [categoryId, params], { tenant: client.tenant, authKind: ctx.kind, siteCode, language }),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "products-in-category", args: [categoryId, params],
+    ...(options.auth ? { authOverride: options.auth } : {}),
     enabled: typeof categoryId === "string" && categoryId !== "",
-    queryFn: () => client.categories.productsIn(categoryId as string, params, ctx),
+    queryFn: (ctx) => client.categories.productsIn(categoryId as string, params, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
 }

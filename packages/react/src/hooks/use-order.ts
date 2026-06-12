@@ -1,9 +1,7 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { auth, type Order } from "@viu/emporix-sdk";
+import { type UseQueryResult } from "@tanstack/react-query";
+import { type Order } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
-import { emporixKey } from "./internal/query-keys";
-import { useReadSite } from "./internal/use-read-site";
-import { useCustomerToken } from "./internal/use-storage-snapshot";
+import { useEmporixQuery } from "./internal/use-emporix-query";
 
 export interface UseOrderOptions {
   saasToken?: string;
@@ -15,19 +13,13 @@ export function useOrder(
   options: UseOrderOptions = {},
 ): UseQueryResult<Order> {
   const { client } = useEmporix();
-  const token = useCustomerToken();
-  const { language } = useReadSite();
-  return useQuery({
-    queryKey: emporixKey("orders", [orderId ?? null], {
-      tenant: client.tenant,
-      authKind: token ? "customer" : "anonymous",
-      language,
-    }),
-    enabled: token !== null && orderId !== undefined,
-    queryFn: () =>
+  return useEmporixQuery({
+    mode: "customer", site: "language", resource: "orders", args: [orderId ?? null],
+    enabled: orderId !== undefined,
+    queryFn: (ctx) =>
       client.orders.get(
         orderId as string,
-        auth.customer(token as string),
+        ctx,
         options.saasToken ? { saasToken: options.saasToken } : {},
       ),
   });

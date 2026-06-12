@@ -1,10 +1,9 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { auth, type Order, type OrderStatus, type PaginatedItems } from "@viu/emporix-sdk";
+import { type UseQueryResult } from "@tanstack/react-query";
+import { type Order, type OrderStatus, type PaginatedItems } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useActiveCompany } from "../company-context";
-import { emporixKey } from "./internal/query-keys";
 import { useReadSite } from "./internal/use-read-site";
-import { useCustomerToken } from "./internal/use-storage-snapshot";
+import { useEmporixQuery } from "./internal/use-emporix-query";
 
 /** Options for `useMyOrders`. Passing `legalEntityId: null` disables the active-company auto-default. */
 export interface UseMyOrdersOptions {
@@ -22,21 +21,16 @@ export function useMyOrders(
 ): UseQueryResult<PaginatedItems<Order>> {
   const { client } = useEmporix();
   const { activeCompany } = useActiveCompany();
-  const { siteCode, language } = useReadSite();
-  const token = useCustomerToken();
+  const { siteCode } = useReadSite();
   const effectiveLE: string | undefined =
     options.legalEntityId === null
       ? undefined
       : (options.legalEntityId ?? activeCompany?.id);
-  return useQuery({
-    queryKey: emporixKey(
-      "orders",
-      ["mine", effectiveLE ?? null, options.status ?? null, options.pageNumber ?? 1, options.pageSize ?? null],
-      { tenant: client.tenant, authKind: token ? "customer" : "anonymous", siteCode, language },
-    ),
-    enabled: token !== null,
-    queryFn: () =>
-      client.orders.listMine(auth.customer(token as string), {
+  return useEmporixQuery({
+    mode: "customer", site: "full", resource: "orders",
+    args: ["mine", effectiveLE ?? null, options.status ?? null, options.pageNumber ?? 1, options.pageSize ?? null],
+    queryFn: (ctx) =>
+      client.orders.listMine(ctx, {
         ...(options.pageNumber !== undefined ? { pageNumber: options.pageNumber } : {}),
         ...(options.pageSize !== undefined ? { pageSize: options.pageSize } : {}),
         ...(options.status !== undefined ? { status: options.status } : {}),
