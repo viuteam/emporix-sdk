@@ -20,6 +20,7 @@ import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
 import { useCartId } from "./internal/use-storage-snapshot";
+import { useEmporixQuery } from "./internal/use-emporix-query";
 import { bootstrapCart } from "./internal/bootstrap-cart";
 import { emporixKey } from "./internal/query-keys";
 import { useActiveCompany } from "../company-context";
@@ -27,19 +28,15 @@ import { useActiveCompany } from "../company-context";
 /** Fetches a cart by id. Falls back to `storage.getCartId()` when no argument is passed; disabled when neither is set. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth(options.auth);
-  const { siteCode, language } = useReadSite();
   const { activeCompany } = useActiveCompany();
   const storedCartId = useCartId();
   const resolvedId = cartId ?? storedCartId ?? undefined;
-  return useQuery({
-    queryKey: emporixKey(
-      "cart",
-      [resolvedId ?? null, activeCompany?.id ?? null],
-      { tenant: client.tenant, authKind: ctx.kind, siteCode, language },
-    ),
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "cart",
+    args: [resolvedId ?? null, activeCompany?.id ?? null],
+    ...(options.auth ? { authOverride: options.auth } : {}),
     enabled: resolvedId !== undefined,
-    queryFn: () => client.carts.get(resolvedId as string, ctx),
+    queryFn: (ctx) => client.carts.get(resolvedId as string, ctx),
   });
 }
 
