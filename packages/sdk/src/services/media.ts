@@ -64,6 +64,7 @@ function isProductRef(r: AssetRefId, productId: string): boolean {
  * (`media.asset_manage` / `media.asset_read`) — default auth: service.
  */
 export class MediaService {
+  static readonly channel = "media" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

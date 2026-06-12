@@ -14,6 +14,7 @@ import type {
  * `_manage`.
  */
 export class LocationsService {
+  static readonly channel = "customer-management" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

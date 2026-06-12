@@ -36,6 +36,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * service token must never reach a browser.
  */
 export class CouponService {
+  static readonly channel = "coupon" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

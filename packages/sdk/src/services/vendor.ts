@@ -35,6 +35,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * customer-management `client.locations`).
  */
 export class VendorService {
+  static readonly channel = "vendor" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

@@ -46,6 +46,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * The model is server-fixed per tenant; there is no `model` parameter.
  */
 export class AiService {
+  static readonly channel = "ai" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

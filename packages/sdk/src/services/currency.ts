@@ -33,6 +33,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * rates. Server-side; defaults to the service token.
  */
 export class CurrencyService {
+  static readonly channel = "currency" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

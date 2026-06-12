@@ -40,6 +40,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * only; the service token must never reach a browser.
  */
 export class SchemaService {
+  static readonly channel = "schema" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private schemasBase(): string {

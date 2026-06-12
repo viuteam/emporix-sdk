@@ -29,6 +29,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * types, and conversion commands. Server-side; defaults to the service token.
  */
 export class UnitHandlingService {
+  static readonly channel = "unit-handling" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

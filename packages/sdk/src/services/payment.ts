@@ -26,6 +26,7 @@ export interface AuthorizePaymentResult {
 
 /** Payment-Gateway: list frontend payment modes, authorize deferred payments. */
 export class PaymentGatewayService {
+  static readonly channel = "payment" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   /** Lists configured frontend payment modes. */

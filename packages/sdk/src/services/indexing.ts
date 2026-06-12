@@ -11,6 +11,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * configurations and reindex. Server-side; defaults to the service token.
  */
 export class IndexingService {
+  static readonly channel = "indexing" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

@@ -21,6 +21,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * configured in the AI Service, not here.
  */
 export class RagIndexerService {
+  static readonly channel = "ai-rag-indexer" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(type: RagType): string {
