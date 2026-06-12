@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 2.14.0
+
+### Minor Changes
+
+- [#127](https://github.com/viuteam/emporix-sdk/pull/127) [`5769d9e`](https://github.com/viuteam/emporix-sdk/commit/5769d9e5e4a7fb9dc468968785c190c2f4fd8944) Thanks [@amnael1](https://github.com/amnael1)! - harden the HTTP and token layers: timeouts and connection failures now throw typed `EmporixTimeoutError`/`EmporixNetworkError` (previously raw `AbortError`/`TypeError` escaped the SDK's error taxonomy); the response body read is bounded by the timeout (a stalled stream no longer hangs forever); `timeouts.connectMs` is now actually enforced as the time-to-headers budget; `/oauth/token` and anonymous-login fetches are bounded by `timeouts.readMs` (one hung token call no longer blocks every request behind the single-flight lock); `login`/`refresh`/`socialLogin`/`exchangeToken` now throw `EmporixAuthError` on a 2xx response missing `access_token` instead of fabricating an empty session; read-only POST search endpoints (`products.searchByIds`/`searchByCodes`, `price.match`/`matchByContext`, `availability.getMany`, category product search) are marked `idempotent: true` and retry on 5xx/429 again.
+
+- [#125](https://github.com/viuteam/emporix-sdk/pull/125) [`236caa3`](https://github.com/viuteam/emporix-sdk/commit/236caa3d42565852ce2240498794accc6c897f67) Thanks [@amnael1](https://github.com/amnael1)! - fix the HTTP retry to never replay non-idempotent requests: POST/PATCH responses with 5xx/429 are no longer retried automatically (a 5xx can arrive after the server committed — retrying `placeOrder` could duplicate orders/charges). Read-only POST endpoints can opt back in via the new `RequestOptions.idempotent: true` flag. Numeric `Retry-After` waits are now capped at 8s. 5xx responses without a `Retry-After` header now back off exponentially instead of retrying immediately.
+
 ## 2.13.1
 
 ### Patch Changes

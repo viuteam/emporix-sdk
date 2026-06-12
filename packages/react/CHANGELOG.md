@@ -1,5 +1,21 @@
 # @viu/emporix-sdk-react
 
+## 2.14.0
+
+### Patch Changes
+
+- [#127](https://github.com/viuteam/emporix-sdk/pull/127) [`93e3b76`](https://github.com/viuteam/emporix-sdk/commit/93e3b76131abe9f8cdc29e010b99ddc92e575e91) Thanks [@amnael1](https://github.com/amnael1)! - default the cookie storage adapter's `Secure` attribute to on for https origins. Token cookies no longer ride plain http in production by default; localhost/http dev is unaffected (protocol-sniffed). Pass `secure: false` explicitly only for non-https deployments.
+
+- [#125](https://github.com/viuteam/emporix-sdk/pull/125) [`c5f7a7d`](https://github.com/viuteam/emporix-sdk/commit/c5f7a7d89bdd6ac44ff92719f732fbd5d95b55ee) Thanks [@amnael1](https://github.com/amnael1)! - fix logout to purge the entire `["emporix"]` query-cache namespace. Previously only the `customer` and `cart` keys were removed, so customer-scoped caches without a user discriminator (payment modes, order lists) survived logout and could be served to the next logged-in customer straight from cache.
+
+- [#125](https://github.com/viuteam/emporix-sdk/pull/125) [`48fed7a`](https://github.com/viuteam/emporix-sdk/commit/48fed7afccb3b7146dabfa3e7d86e384b2171689) Thanks [@amnael1](https://github.com/amnael1)! - ship a `"use client"` directive in the built client entries (`.`, `./provider`, `./hooks`, `./storage`) so they load as Client Components under the Next.js App Router without every consumer having to add their own `"use client"` wrapper file. `./ssr` stays directive-free and remains importable from Server Components — in server code, import `prefetchProduct`/`prefetchCart`/`prefetchOrder` from `@viu/emporix-sdk-react/ssr`, not from the package root.
+
+- [#127](https://github.com/viuteam/emporix-sdk/pull/127) [`1a5e1f3`](https://github.com/viuteam/emporix-sdk/commit/1a5e1f3fb6b048b9732066ba2c02dfc871e47f3b) Thanks [@amnael1](https://github.com/amnael1)! - make auth/cart state reads reactive: all render-time `storage.getCustomerToken()`/`getCartId()` reads now go through `useSyncExternalStore`-backed snapshots. Login/logout and cart-id writes immediately re-render dependent hooks — previously `enabled` gates (e.g. `usePaymentModes`, `useMyCompanies`, order hooks) stayed stale until an unrelated re-render, and sibling components could tear under concurrent rendering. Storage adapters without `subscribe`/`subscribeAll` behave as before (non-reactive).
+
+- [#127](https://github.com/viuteam/emporix-sdk/pull/127) [`31a8183`](https://github.com/viuteam/emporix-sdk/commit/31a8183329d17fe5247f62c9c39a74beb7a1a45e) Thanks [@amnael1](https://github.com/amnael1)! - apply the provider's balanced query defaults (`staleTime: 30s`, no focus refetch, `retry: 1`) to the `["emporix"]` namespace of any QueryClient — including consumer-supplied ones, which previously ran SDK queries with React-Query factory defaults (focus-refetch storms + retry amplification against the live tenant). The provider only fills gaps: a consumer's explicit defaults win, whether set globally (`defaultOptions.queries`) or emporix-scoped (`setQueryDefaults(["emporix"], …)`), and per-hook options always win; host-app queries outside the namespace are untouched.
+
+- [#127](https://github.com/viuteam/emporix-sdk/pull/127) [`124532f`](https://github.com/viuteam/emporix-sdk/commit/124532fef11b1a4aadf2f80e979005b036168e1c) Thanks [@amnael1](https://github.com/amnael1)! - fix the RSC/SSR prefetch pipeline and StrictMode safety: `prefetchProduct`/`prefetchCart`/`prefetchOrder` now build their query keys through the same `emporixKey` builder the hooks use (previously the keys never matched — `siteCode`/`language`/company discriminators were missing — so hydration was always a cache miss and the client refetched); new `siteCode`/`language`/`activeCompanyId` options mirror the client context. The provider's anonymous-store wiring and `initialCustomerToken` seed now re-run when the `client`/`storage` props change and no longer execute inside `useMemo`; the fallback QueryClient is held in state (a dropped memo cache could previously discard the whole query cache). CompanyContext bootstrap is cancellation-safe under StrictMode and company switches are serialized — the token-rotating refresh can no longer double-fire with the same refresh token.
+
 ## 2.13.1
 
 ### Patch Changes
