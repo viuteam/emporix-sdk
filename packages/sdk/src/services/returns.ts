@@ -12,6 +12,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * pass `auth.customer(token)` (the React hooks do this).
  */
 export class ReturnsService {
+  static readonly channel = "returns" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

@@ -38,6 +38,8 @@ function setIfDefined<V>(
  * segment; the storefront uses these reads to discover what to fetch.
  */
 export class SegmentService {
+  static readonly channel = "segment" as const;
+  static readonly deps = ["products", "categories"] as const;
   constructor(
     private readonly ctx: ClientContext,
     private readonly deps: SegmentServiceDeps,

@@ -14,6 +14,7 @@ export type CategoryNode = CategoryTree;
 
 /** Category reads. Default auth: anonymous. */
 export class CategoryService {
+  static readonly channel = "category" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   /** Fetches one category by id. */

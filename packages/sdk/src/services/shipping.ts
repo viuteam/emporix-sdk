@@ -70,6 +70,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * first; `findSites` is tenant-level. Delivery scheduling is Phase 2.
  */
 export class ShippingService {
+  static readonly channel = "shipping" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

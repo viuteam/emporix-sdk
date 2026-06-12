@@ -13,6 +13,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * Server-side use only; the service token must never reach a browser.
  */
 export class TenantConfigService {
+  static readonly channel = "configuration" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

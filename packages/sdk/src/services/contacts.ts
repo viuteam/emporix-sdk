@@ -14,6 +14,7 @@ import type {
  * `legalEntityId` scopes the list to one company.
  */
 export class ContactsService {
+  static readonly channel = "customer-management" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

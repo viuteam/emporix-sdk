@@ -15,6 +15,7 @@ import type {
  * surfaces as `EmporixInsufficientScopeError`.
  */
 export class CompaniesService {
+  static readonly channel = "customer-management" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

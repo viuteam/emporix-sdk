@@ -13,6 +13,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * (no create/delete).
  */
 export class CountryService {
+  static readonly channel = "country" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

@@ -45,6 +45,7 @@ function requireCustomerAuth(auth: AuthContext | undefined): AuthContext {
 
 /** Cart operations. Every method requires an explicit customer/anonymous context. */
 export class CartService {
+  static readonly channel = "cart" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

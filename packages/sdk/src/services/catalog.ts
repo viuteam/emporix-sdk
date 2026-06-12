@@ -11,6 +11,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * Server-side; defaults to the service token. `updateCatalog` is an upsert (PUT).
  */
 export class CatalogService {
+  static readonly channel = "catalog" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

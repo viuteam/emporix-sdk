@@ -91,6 +91,7 @@ function toSession(
 
 /** Customer signup, session, profile and addresses. */
 export class CustomerService {
+  static readonly channel = "customer" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   /** Obtains an anonymous storefront session (accessToken + sessionId + refreshToken). */

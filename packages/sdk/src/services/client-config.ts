@@ -14,6 +14,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * The `client` arg is injected into each write body so callers don't repeat it.
  */
 export class ClientConfigService {
+  static readonly channel = "configuration" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(client: string): string {

@@ -79,6 +79,7 @@ function requireContextAuth(auth: AuthContext | undefined): AuthContext {
  * The SDK is stateless: it never caches or revalidates prices.
  */
 export class PriceService {
+  static readonly channel = "price" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   /**

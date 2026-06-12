@@ -126,6 +126,7 @@
     "test": "vitest run --coverage",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
+    "check:treeshake": "node scripts/check-treeshake.mjs",
     "fetch:specs": "tsx scripts/fetch-specs.ts",
     "generate": "tsx scripts/generate.ts"
   },

@@ -1,21 +1,7 @@
-import { validateConfig, type EmporixConfig, type ResolvedConfig } from "./core/config";
-import {
-  DefaultTokenProvider,
-  CustomerRefreshRegistry,
-  type TokenProvider,
-  type CustomerTokenRefresher,
-} from "./core/auth";
-import { HttpClient } from "./core/http";
-import {
-  LevelResolver,
-  createConsoleLogger,
-  createNoopLogger,
-  type Logger,
-  type LogLevel,
-  type ServiceName,
-  type LoggerObjectConfig,
-} from "./core/logger";
-import type { ClientContext } from "./core/context";
+import type { EmporixConfig, ResolvedConfig } from "./core/config";
+import type { TokenProvider, CustomerTokenRefresher } from "./core/auth";
+import type { LogLevel, ServiceName } from "./core/logger";
+import { createCore, type EmporixCore } from "./core/create-core";
 import { CustomerService } from "./services/customer";
 import { ProductService } from "./services/product";
 import { CategoryService } from "./services/category";
@@ -60,7 +46,6 @@ import { VendorService } from "./services/vendor";
 import { PickPackService } from "./services/pick-pack";
 import { CustomerAdminService } from "./services/customer-admin";
 import { ApprovalService } from "./services/approval";
-import { SDK_VERSION } from "./version";
 
 /** The Emporix SDK entry point. One instance safely serves many concurrent shoppers. */
 export class EmporixClient {
@@ -124,105 +109,64 @@ export class EmporixClient {
    * Provider tree. Treat as read-only.
    */
   readonly config: ResolvedConfig;
-  private readonly resolver: LevelResolver;
-  private readonly customerRefresh: CustomerRefreshRegistry;
-  private readonly requestContext: { language?: string | undefined };
+  private readonly core: EmporixCore;
 
   constructor(config: EmporixConfig) {
-    const cfg = validateConfig(config);
-    this.tenant = cfg.tenant;
-    this.config = cfg;
+    const core = createCore(config);
+    this.core = core;
+    this.tenant = core.tenant;
+    this.config = core.config;
+    this.tokenProvider = core.tokenProvider;
 
-    let loggerObj: LoggerObjectConfig = {};
-    let baseLogger: Logger | undefined;
-    if (cfg.logger === false) {
-      baseLogger = createNoopLogger();
-    } else if (cfg.logger && typeof (cfg.logger as Logger).child === "function") {
-      baseLogger = cfg.logger as Logger;
-    } else if (cfg.logger) {
-      loggerObj = cfg.logger as LoggerObjectConfig;
-    }
-    this.resolver = new LevelResolver(loggerObj);
-    const root =
-      baseLogger ??
-      createConsoleLogger(this.resolver, {
-        sdk: "emporix",
-        sdkVersion: SDK_VERSION,
-        tenant: cfg.tenant,
-      });
-
-    const tokenProvider: TokenProvider = cfg.tokenProvider ?? new DefaultTokenProvider(cfg);
-    this.tokenProvider = tokenProvider;
-
-    const customerRefresh = new CustomerRefreshRegistry();
-    this.customerRefresh = customerRefresh;
-
-    this.requestContext = { language: cfg.credentials.storefront?.context?.language };
-    const requestContext = this.requestContext;
-
-    const mk = (service: ServiceName): ClientContext => ({
-      tenant: cfg.tenant,
-      tokenProvider,
-      logger: root.child({ service }),
-      http: new HttpClient({
-        host: cfg.host,
-        provider: tokenProvider,
-        logger: root.child({ service: "http" }),
-        retry: cfg.retry,
-        timeouts: cfg.timeouts,
-        customerRefresh,
-        requestContext,
-      }),
-    });
-
-    this.customers = new CustomerService(mk("customer"));
-    this.products = new ProductService(mk("product"));
-    this.categories = new CategoryService(mk("category"));
-    this.carts = new CartService(mk("cart"));
-    this.checkout = new CheckoutService(mk("checkout"));
-    this.payments = new PaymentGatewayService(mk("payment"));
-    this.prices = new PriceService(mk("price"));
-    this.media = new MediaService(mk("media"));
-    this.segments = new SegmentService(mk("segment"), {
+    const mk = core.mk;
+    this.customers = new CustomerService(mk(CustomerService.channel));
+    this.products = new ProductService(mk(ProductService.channel));
+    this.categories = new CategoryService(mk(CategoryService.channel));
+    this.carts = new CartService(mk(CartService.channel));
+    this.checkout = new CheckoutService(mk(CheckoutService.channel));
+    this.payments = new PaymentGatewayService(mk(PaymentGatewayService.channel));
+    this.prices = new PriceService(mk(PriceService.channel));
+    this.media = new MediaService(mk(MediaService.channel));
+    this.segments = new SegmentService(mk(SegmentService.channel), {
       products: this.products,
       categories: this.categories,
     });
-    this.sites = new SiteService(mk("site"));
-    this.sessionContext = new SessionContextService(mk("session-context"));
-    this.companies = new CompaniesService(mk("customer-management"));
-    this.contacts = new ContactsService(mk("customer-management"));
-    this.locations = new LocationsService(mk("customer-management"));
-    this.customerGroups = new CustomerGroupsService(mk("iam"));
-    this.orders = new OrdersService(mk("orders"));
-    this.salesOrders = new SalesOrdersService(mk("sales-orders"));
-    this.availability = new AvailabilityService(mk("availability"));
-    this.tenantConfig = new TenantConfigService(mk("configuration"));
-    this.clientConfig = new ClientConfigService(mk("configuration"));
-    this.shoppingLists = new ShoppingListService(mk("shopping-list"));
-    this.ragIndexer = new RagIndexerService(mk("ai-rag-indexer"));
-    this.sequentialIds = new SequentialIdService(mk("sequential-id"));
-    this.fees = new FeeService(mk("fee"));
-    this.cloudFunctions = new CloudFunctionsService(mk("cloud-functions"));
-    this.webhooks = new WebhookService(mk("webhook"));
-    this.schemas = new SchemaService(mk("schema"));
-    this.ai = new AiService(mk("ai"));
-    this.taxes = new TaxService(mk("tax"));
-    this.coupons = new CouponService(mk("coupon"));
-    this.rewardPoints = new RewardPointsService(mk("reward-points"));
-    this.brands = new BrandService(mk("brand"));
-    this.labels = new LabelService(mk("label"));
-    this.countries = new CountryService(mk("country"));
-    this.currencies = new CurrencyService(mk("currency"));
-    this.shipping = new ShippingService(mk("shipping"));
-    this.returns = new ReturnsService(mk("returns"));
-    this.sepaExport = new SepaExportService(mk("sepa-export"));
-    this.indexing = new IndexingService(mk("indexing"));
-    this.units = new UnitHandlingService(mk("unit-handling"));
-    this.catalogs = new CatalogService(mk("catalog"));
-    this.vendors = new VendorService(mk("vendor"));
-    this.pickPack = new PickPackService(mk("pick-pack"));
-    this.customerAdmin = new CustomerAdminService(mk("customer-admin"));
-    this.approvals = new ApprovalService(mk("approval"));
+    this.sites = new SiteService(mk(SiteService.channel));
+    this.sessionContext = new SessionContextService(mk(SessionContextService.channel));
+    this.companies = new CompaniesService(mk(CompaniesService.channel));
+    this.contacts = new ContactsService(mk(ContactsService.channel));
+    this.locations = new LocationsService(mk(LocationsService.channel));
+    this.customerGroups = new CustomerGroupsService(mk(CustomerGroupsService.channel));
+    this.orders = new OrdersService(mk(OrdersService.channel));
+    this.salesOrders = new SalesOrdersService(mk(SalesOrdersService.channel));
+    this.availability = new AvailabilityService(mk(AvailabilityService.channel));
+    this.tenantConfig = new TenantConfigService(mk(TenantConfigService.channel));
+    this.clientConfig = new ClientConfigService(mk(ClientConfigService.channel));
+    this.shoppingLists = new ShoppingListService(mk(ShoppingListService.channel));
+    this.ragIndexer = new RagIndexerService(mk(RagIndexerService.channel));
+    this.sequentialIds = new SequentialIdService(mk(SequentialIdService.channel));
+    this.fees = new FeeService(mk(FeeService.channel));
+    this.cloudFunctions = new CloudFunctionsService(mk(CloudFunctionsService.channel));
+    this.webhooks = new WebhookService(mk(WebhookService.channel));
+    this.schemas = new SchemaService(mk(SchemaService.channel));
+    this.ai = new AiService(mk(AiService.channel));
+    this.taxes = new TaxService(mk(TaxService.channel));
+    this.coupons = new CouponService(mk(CouponService.channel));
+    this.rewardPoints = new RewardPointsService(mk(RewardPointsService.channel));
+    this.brands = new BrandService(mk(BrandService.channel));
+    this.labels = new LabelService(mk(LabelService.channel));
+    this.countries = new CountryService(mk(CountryService.channel));
+    this.currencies = new CurrencyService(mk(CurrencyService.channel));
+    this.shipping = new ShippingService(mk(ShippingService.channel));
+    this.returns = new ReturnsService(mk(ReturnsService.channel));
+    this.sepaExport = new SepaExportService(mk(SepaExportService.channel));
+    this.indexing = new IndexingService(mk(IndexingService.channel));
+    this.units = new UnitHandlingService(mk(UnitHandlingService.channel));
+    this.catalogs = new CatalogService(mk(CatalogService.channel));
+    this.vendors = new VendorService(mk(VendorService.channel));
+    this.pickPack = new PickPackService(mk(PickPackService.channel));
+    this.customerAdmin = new CustomerAdminService(mk(CustomerAdminService.channel));
+    this.approvals = new ApprovalService(mk(ApprovalService.channel));
   }
 
   /**
@@ -241,25 +185,17 @@ export class EmporixClient {
     targetLocation?: string;
     language?: string;
   }): void {
-    if (ctx.language !== undefined) {
-      this.requestContext.language = ctx.language || undefined;
-    }
-    const { language: _language, ...priceContext } = ctx;
-    // Only currency/site/target re-mint the anonymous token; a language-only
-    // change is just a request header and must NOT trigger a re-mint.
-    if (Object.keys(priceContext).length > 0) {
-      this.tokenProvider.setAnonymousContext?.(priceContext);
-    }
+    this.core.setStorefrontContext(ctx);
   }
 
   /** Sets the runtime log level globally or for one service. */
   setLogLevel(level: LogLevel, opts: { service?: ServiceName; force?: boolean } = {}): void {
-    this.resolver.set(level, opts.service, opts.force ?? false);
+    this.core.setLogLevel(level, opts);
   }
 
   /** Returns the effective log level for a service. */
   getLogLevel(service: ServiceName): LogLevel {
-    return this.resolver.get(service);
+    return this.core.getLogLevel(service);
   }
 
   /**
@@ -269,6 +205,6 @@ export class EmporixClient {
    * automatically via `autoRefreshCustomerToken`.
    */
   setCustomerTokenRefresher(refresher: CustomerTokenRefresher | null): void {
-    this.customerRefresh.set(refresher);
+    this.core.setCustomerTokenRefresher(refresher);
   }
 }

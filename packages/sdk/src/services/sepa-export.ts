@@ -12,6 +12,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * retrieval. Server-side; defaults to the service token.
  */
 export class SepaExportService {
+  static readonly channel = "sepa-export" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

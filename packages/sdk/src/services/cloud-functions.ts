@@ -21,6 +21,7 @@ export interface InvokeCloudFunctionOptions<TReq = unknown> {
  * customer, anonymous, or raw; the default is anonymous.
  */
 export class CloudFunctionsService {
+  static readonly channel = "cloud-functions" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

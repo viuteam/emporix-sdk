@@ -37,6 +37,7 @@ const SERVICE: AuthContext = { kind: "service" };
  * only one schema may be active per type.
  */
 export class SequentialIdService {
+  static readonly channel = "sequential-id" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   private base(): string {

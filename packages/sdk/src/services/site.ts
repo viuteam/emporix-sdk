@@ -38,6 +38,7 @@ export interface Site {
  * to read inactive sites).
  */
 export class SiteService {
+  static readonly channel = "site" as const;
   constructor(private readonly ctx: ClientContext) {}
 
   /** Lists active sites. */
