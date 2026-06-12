@@ -18,6 +18,13 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   /** Per-request abort timeout override (ms). */
   timeoutMs?: number;
+  /**
+   * Marks this request as safe to retry on 5xx/429 despite a non-idempotent
+   * method. GET/PUT/DELETE retry by default; POST/PATCH only with this flag
+   * (a 5xx can arrive after the server already committed — retrying e.g.
+   * placeOrder would duplicate the order/charge).
+   */
+  idempotent?: boolean;
 }
 
 /** Construction options for {@link HttpClient}. */
@@ -159,13 +166,25 @@ export class HttpClient {
         throw errorFromResponse(res.status, `${o.method} ${o.path} → 401`, parsed);
       }
 
-      // Retry 5xx / 429.
-      const retryable = res.status >= 500 || res.status === 429;
+      // Retry 5xx / 429 — gated on idempotency: a 5xx can arrive AFTER the
+      // server committed the write (e.g. placeOrder), so replaying a POST
+      // could duplicate orders/charges. GET/PUT/DELETE are idempotent by
+      // spec; POST/PATCH retry only when the caller opts in.
+      const idempotent =
+        o.method === "GET" ||
+        o.method === "PUT" ||
+        o.method === "DELETE" ||
+        o.idempotent === true;
+      const retryable = idempotent && (res.status >= 500 || res.status === 429);
       if (retryable && attempt < maxAttempts) {
-        const retryAfter = Number(res.headers.get("Retry-After"));
+        // headers.get() yields null when absent — Number(null) is 0, which
+        // would short-circuit the exponential branch into a 0ms instant
+        // retry. Only a non-empty header value counts.
+        const retryAfterHeader = res.headers.get("Retry-After");
+        const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : Number.NaN;
         const backoff =
           Number.isFinite(retryAfter) && retryAfter >= 0
-            ? retryAfter * 1000
+            ? Math.min(retryAfter * 1000, 8000) // cap rogue Retry-After (e.g. 86400)
             : Math.min(1000 * 2 ** (attempt - 1), 8000) + Math.random() * 100;
         log.warn("retryable failure", { status: res.status, attempt, backoffMs: backoff });
         await this.sleep(backoff);
