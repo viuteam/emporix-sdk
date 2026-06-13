@@ -91,4 +91,49 @@ describe("useCheckout", () => {
     expect(orderId).toBe("EON-anon");
     expect(seenAuth).toBe("Bearer anon");
   });
+
+  it("resets the cart after a successful order so the next checkout bootstraps a fresh cart", async () => {
+    // The server CLOSES the cart when an order is placed. If the bootstrap cache
+    // (staleTime: Infinity) and storage.cartId are not dropped, the next
+    // checkout re-adopts the closed cart → cart GET 404, placeOrder 401.
+    const storage = createMemoryStorage({ initial: "cust" });
+    storage.setCartId("closed-cart-1");
+    const client = new EmporixClient({
+      tenant: "acme",
+      credentials: { storefront: { clientId: "sf" } },
+      logger: false,
+    });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const bootstrapKey = [
+      "emporix",
+      "cart-bootstrap",
+      { tenant: "acme", authKind: "customer", siteCode: "main" },
+    ];
+    qc.setQueryData(bootstrapKey, { id: "closed-cart-1" });
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <EmporixProvider client={client} storage={storage} queryClient={qc}>
+        {children}
+      </EmporixProvider>
+    );
+    const { result } = renderHook(() => useCheckout(), { wrapper });
+    await act(async () => {
+      await result.current.placeOrder.mutateAsync({
+        input: {
+          cartId: "closed-cart-1",
+          customer: { email: "a@b.co", id: "x" },
+          shipping: { methodId: "m", zoneId: "z", methodName: "DHL", amount: 0 },
+          addresses: [
+            { contactName: "A", street: "S", zipCode: "1", city: "B", country: "DE", type: "SHIPPING" },
+            { contactName: "A", street: "S", zipCode: "1", city: "B", country: "DE", type: "BILLING" },
+          ],
+          paymentMethods: [{ provider: "none" }],
+        },
+        saasToken: "SAAS",
+      });
+    });
+    // Closed cart dropped: next useActiveCart({create:true}) bootstraps a fresh one.
+    expect(storage.getCartId()).toBeNull();
+    expect(qc.getQueryData(bootstrapKey)).toBeUndefined();
+  });
 });
