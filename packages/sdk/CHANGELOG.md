@@ -1,5 +1,11 @@
 # @viu/emporix-sdk
 
+## 2.15.0
+
+### Minor Changes
+
+- [#129](https://github.com/viuteam/emporix-sdk/pull/129) [`05cf47c`](https://github.com/viuteam/emporix-sdk/commit/05cf47ca6f21dfb6e14b2bfdda2d88d11e55eaf9) Thanks [@amnael1](https://github.com/amnael1)! - add `createEmporixClient(config, services)` — a tree-shakeable, opt-in client factory that instantiates only the service classes you pass (e.g. `{ products: ProductService, carts: CartService }`), so bundlers drop every service you don't use. Service classes now carry static `channel`/`deps` metadata; `createCore(config)` exposes the shared infrastructure. `EmporixClient` is unchanged — it stays the batteries-included default that bundles everything — so this is purely additive.
+
 ## 2.14.0
 
 ### Minor Changes
