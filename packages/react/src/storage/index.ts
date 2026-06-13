@@ -31,6 +31,14 @@ export interface EmporixStorage {
   getRefreshToken(): string | null;
   setRefreshToken(token: string | null): void;
 
+  // SaaS token (the checkout `saas-token` header). Persisted so a logged-in
+  // customer can still complete checkout after a page reload — the refresh
+  // endpoint does not re-mint it. Optional: a custom adapter may omit these,
+  // in which case the saasToken stays in-memory only (lost on reload, as
+  // before — no regression).
+  getSaasToken?(): string | null;
+  setSaasToken?(token: string | null): void;
+
   /**
    * Subscribe to any storage write. The listener receives the key that
    * changed. Returns an unsubscribe function. Optional — backends may no-op.
@@ -58,7 +66,8 @@ export type EmporixStorageKey =
   | "language"
   | "anonymousSession"
   | "activeLegalEntityId"
-  | "refreshToken";
+  | "refreshToken"
+  | "saasToken";
 
 /**
  * Internal: create a swallow-on-throw listener set used by all three storage

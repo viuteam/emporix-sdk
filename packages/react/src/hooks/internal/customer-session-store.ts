@@ -35,10 +35,14 @@ export function getCustomerSessionStore(storage: EmporixStorage): CustomerSessio
   const existing = stores.get(storage);
   if (existing) return existing;
 
+  // Re-hydrate from storage so a page reload keeps the full session: `token`
+  // and `refreshToken` are persisted by the storage adapter; `saasToken` is
+  // too (when the adapter supports it) — the checkout `saas-token` header is
+  // needed after a reload and the refresh endpoint cannot re-mint it.
   let state: CustomerSessionState = {
     token: storage.getCustomerToken(),
-    refreshToken: null,
-    saasToken: null,
+    refreshToken: storage.getRefreshToken(),
+    saasToken: storage.getSaasToken?.() ?? null,
   };
   const listeners = new Set<() => void>();
   const store: CustomerSessionStore = {

@@ -1,6 +1,7 @@
 import {
   useMutation,
   useQuery,
+  useQueryClient,
   type UseMutationResult,
   type UseQueryResult,
 } from "@tanstack/react-query";
@@ -46,7 +47,8 @@ export interface CheckoutApi {
 
 /** React bindings for the checkout flow. */
 export function useCheckout(): CheckoutApi {
-  const { client } = useEmporix();
+  const { client, storage } = useEmporix();
+  const qc = useQueryClient();
   const { ctx } = useReadAuth();
   const { activeCompany } = useActiveCompany();
   // Merge the active legal-entity id into the order payload when set; caller's
@@ -58,12 +60,23 @@ export function useCheckout(): CheckoutApi {
     if ("legalEntityId" in input) return input;
     return { ...input, legalEntityId: activeCompany.id } as T;
   };
+  // A placed order CLOSES its cart server-side. Drop the local cart id AND the
+  // `cart-bootstrap` cache (which is held with `staleTime: Infinity`) so the
+  // next `useActiveCart({ create: true })` bootstraps a FRESH cart instead of
+  // re-adopting the now-closed one — otherwise the next checkout's cart reads
+  // 404 and its placeOrder 401s. Not a per-cart-query invalidate: that would
+  // refetch the just-closed id (404). `setCartId(null)` disables that query.
+  const onOrderPlaced = (): void => {
+    storage.setCartId(null);
+    qc.removeQueries({ queryKey: ["emporix", "cart-bootstrap"] });
+  };
   const placeOrder = useMutation({
     mutationFn: (v: { input: CheckoutInput; saasToken?: string; siteCode?: string }) =>
       client.checkout.placeOrder(withLE(v.input), ctx, {
         ...(v.saasToken !== undefined ? { saasToken: v.saasToken } : {}),
         ...(v.siteCode !== undefined ? { siteCode: v.siteCode } : {}),
       }),
+    onSuccess: onOrderPlaced,
   });
   const placeOrderFromQuote = useMutation({
     mutationFn: (v: { input: QuoteCheckoutInput; saasToken?: string; siteCode?: string }) =>
@@ -71,6 +84,7 @@ export function useCheckout(): CheckoutApi {
         ...(v.saasToken !== undefined ? { saasToken: v.saasToken } : {}),
         ...(v.siteCode !== undefined ? { siteCode: v.siteCode } : {}),
       }),
+    onSuccess: onOrderPlaced,
   });
   return { placeOrder, placeOrderFromQuote };
 }

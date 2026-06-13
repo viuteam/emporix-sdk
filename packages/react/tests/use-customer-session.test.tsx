@@ -106,6 +106,40 @@ describe("useCustomerSession", () => {
     expect(result.current.b.isAuthenticated).toBe(true);
   });
 
+  it("persists the saasToken to storage on login (so it survives a reload)", async () => {
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useCustomerSession(), { wrapper: wrapper(storage) });
+    await act(async () => {
+      await result.current.login({ email: "a@b.co", password: "p" });
+    });
+    expect(storage.getSaasToken?.()).toBe("saas");
+  });
+
+  it("hydrates the saasToken from storage on a fresh session (reload survival)", () => {
+    // Simulates a page reload: the customer token is persisted and a prior
+    // login persisted the saasToken; a brand-new session store must read both
+    // back so customer checkout still carries a valid saas-token.
+    const storage = createMemoryStorage({ initial: "cust" });
+    storage.setSaasToken?.("persisted-saas");
+    storage.setRefreshToken("persisted-rt");
+    const { result } = renderHook(() => useCustomerSession(), { wrapper: wrapper(storage) });
+    expect(result.current.saasToken).toBe("persisted-saas");
+    expect(result.current.refreshToken).toBe("persisted-rt");
+  });
+
+  it("clears the persisted saasToken on logout", async () => {
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useCustomerSession(), { wrapper: wrapper(storage) });
+    await act(async () => {
+      await result.current.login({ email: "a@b.co", password: "p" });
+    });
+    expect(storage.getSaasToken?.()).toBe("saas");
+    await act(async () => {
+      await result.current.logout();
+    });
+    expect(storage.getSaasToken?.()).toBeNull();
+  });
+
   it("logout calls the server then clears the token", async () => {
     let logoutHit = false;
     server.use(
