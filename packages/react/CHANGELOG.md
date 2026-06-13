@@ -1,5 +1,15 @@
 # @viu/emporix-sdk-react
 
+## 2.15.0
+
+### Patch Changes
+
+- [#131](https://github.com/viuteam/emporix-sdk/pull/131) [`4c2862c`](https://github.com/viuteam/emporix-sdk/commit/4c2862c2a3394b04bbca8dfa2abafb529023920a) Thanks [@amnael1](https://github.com/amnael1)! - fix multiple checkouts per session: `useCheckout().placeOrder`/`placeOrderFromQuote` now reset the cart on success — they clear `storage.cartId` and drop the `["emporix","cart-bootstrap"]` query cache (held with `staleTime: Infinity`). Previously a placed order closed its cart server-side, but the bootstrap cache still re-served that closed cart on the next `useActiveCart({ create: true })`, so the second checkout re-adopted the dead cart and failed (cart reads 404, `placeOrder` 401). The next checkout now bootstraps a fresh cart.
+
+- [#131](https://github.com/viuteam/emporix-sdk/pull/131) [`bcb35c4`](https://github.com/viuteam/emporix-sdk/commit/bcb35c41397a1c90b23ab866bb6f111159f02fef) Thanks [@amnael1](https://github.com/amnael1)! - fix customer checkout after a page reload: the `saasToken` (checkout `saas-token` header) is now persisted by the storage adapters (`getSaasToken`/`setSaasToken`, key `emporix.saasToken`) and re-hydrated into the customer-session store on load — alongside the already-persisted `refreshToken`. Previously it lived in memory only, so a reload mid-session dropped it and customer checkout 401'd with `"Saas TOKEN is invalid"` (the refresh endpoint cannot re-mint it). The storage methods are optional, so custom adapters are unaffected; the bundled memory/localStorage/cookie adapters all persist it.
+
+- [#128](https://github.com/viuteam/emporix-sdk/pull/128) [`2d8a6cb`](https://github.com/viuteam/emporix-sdk/commit/2d8a6cb715e004cad3ab1a0652b4c77e330eb810) Thanks [@amnael1](https://github.com/amnael1)! - internal refactor: the standard read hooks now share a single `useEmporixQuery` factory that encapsulates auth-context resolution, site discriminators, query-key assembly, and default options. No observable behavior or API change — query keys, `enabled` gates, and `staleTime` values are identical; the existing hook test suites pass unchanged. Hooks with a non-standard auth shape (`useCustomerOnlyCtx` throw-on-missing — approvals/returns; caller-supplied `authCtx` — sales-order) and all infinite/bespoke-key hooks are intentionally left as-is.
+
 ## 2.14.0
 
 ### Patch Changes
