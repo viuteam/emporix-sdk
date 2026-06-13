@@ -14,6 +14,7 @@ export function createMemoryStorage(opts: { initial?: string } = {}): EmporixSto
   let language: string | null = null;
   let activeLegalEntityId: string | null = null;
   let refreshToken: string | null = null;
+  let saasToken: string | null = null;
   const tokenListeners = new Set<(t: string | null) => void>();
   const all = createListenerSet<EmporixStorageKey>();
   return {
@@ -56,6 +57,11 @@ export function createMemoryStorage(opts: { initial?: string } = {}): EmporixSto
     setRefreshToken: (t) => {
       refreshToken = t;
       all.notify("refreshToken");
+    },
+    getSaasToken: () => saasToken,
+    setSaasToken: (t) => {
+      saasToken = t;
+      all.notify("saasToken");
     },
     subscribeAll: (l) => all.add(l),
   };

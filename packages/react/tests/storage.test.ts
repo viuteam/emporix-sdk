@@ -280,3 +280,39 @@ describe("language storage", () => {
     expect(s.getLanguage()).toBe("de");
   });
 });
+
+describe("saasToken persistence (reload survival)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    for (const c of document.cookie.split("; ")) {
+      const [k] = c.split("=");
+      document.cookie = `${k}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    }
+  });
+
+  it("round-trips the saasToken in memory storage", () => {
+    const s = createMemoryStorage();
+    expect(s.getSaasToken?.()).toBeNull();
+    s.setSaasToken?.("saas-1");
+    expect(s.getSaasToken?.()).toBe("saas-1");
+    s.setSaasToken?.(null);
+    expect(s.getSaasToken?.()).toBeNull();
+  });
+
+  it("round-trips the saasToken in localStorage", () => {
+    const s = createLocalStorageStorage();
+    s.setSaasToken?.("saas-2");
+    expect(localStorage.getItem("emporix.saasToken")).toBe("saas-2");
+    expect(s.getSaasToken?.()).toBe("saas-2");
+    s.setSaasToken?.(null);
+    expect(s.getSaasToken?.()).toBeNull();
+  });
+
+  it("round-trips the saasToken in cookie storage", () => {
+    const s = createCookieStorage({ secure: false, sameSite: "lax" });
+    s.setSaasToken?.("saas-3");
+    expect(s.getSaasToken?.()).toBe("saas-3");
+    s.setSaasToken?.(null);
+    expect(s.getSaasToken?.()).toBeNull();
+  });
+});

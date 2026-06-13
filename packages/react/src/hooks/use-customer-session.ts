@@ -91,6 +91,8 @@ export function useCustomerSession(): CustomerSessionApi {
       const result = await client.customers.login(input);
       storage.setCustomerToken(result.customerToken);
       storage.setRefreshToken(result.refreshToken || null);
+      // Persist the saasToken so customer checkout survives a page reload.
+      storage.setSaasToken?.(result.saasToken || null);
       // The guest (anonymous) session is dead weight once a customer token is
       // set — the auth layer always prefers the customer token, so the stored
       // anonymous session would just linger unused. Drop it on login.
@@ -134,6 +136,7 @@ export function useCustomerSession(): CustomerSessionApi {
     async (incoming: { customerToken: string; refreshToken: string; saasToken: string }) => {
       storage.setCustomerToken(incoming.customerToken);
       storage.setRefreshToken(incoming.refreshToken || null);
+      storage.setSaasToken?.(incoming.saasToken || null);
       // Drop the now-dormant guest session (see login()).
       storage.setAnonymousSession(null);
       setSession({
@@ -190,6 +193,7 @@ export function useCustomerSession(): CustomerSessionApi {
     }
     storage.setCustomerToken(null);
     storage.setRefreshToken(null);
+    storage.setSaasToken?.(null);
     storage.setActiveLegalEntityId(null);
     // Drop the cart reference: the cart belonged to the customer and is not
     // accessible anonymously, so keeping it would make the cart query 403
@@ -216,6 +220,7 @@ export function useCustomerSession(): CustomerSessionApi {
     });
     storage.setCustomerToken(refreshed.customerToken);
     if (refreshed.refreshToken) storage.setRefreshToken(refreshed.refreshToken);
+    if (refreshed.saasToken) storage.setSaasToken?.(refreshed.saasToken);
     setSession((s) => ({
       token: refreshed.customerToken,
       refreshToken: refreshed.refreshToken || s.refreshToken,

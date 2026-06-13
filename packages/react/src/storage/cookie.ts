@@ -13,6 +13,7 @@ const SITE_NAME = "emporix.siteCode";
 const LANGUAGE_NAME = "emporix.language";
 const ACTIVE_LE_NAME = "emporix.activeLegalEntityId";
 const REFRESH_NAME = "emporix.refreshToken";
+const SAAS_NAME = "emporix.saasToken";
 
 /**
  * Cookie-backed store. `Secure` defaults to on for https origins; override
@@ -88,6 +89,11 @@ export function createCookieStorage(
     setRefreshToken: (t) => {
       writeCookie(REFRESH_NAME, t);
       all.notify("refreshToken");
+    },
+    getSaasToken: () => readCookie(SAAS_NAME),
+    setSaasToken: (t) => {
+      writeCookie(SAAS_NAME, t);
+      all.notify("saasToken");
     },
     subscribeAll: (l) => all.add(l),
   };

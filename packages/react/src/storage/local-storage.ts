@@ -13,6 +13,7 @@ const SITE_KEY = "emporix.siteCode";
 const LANGUAGE_KEY = "emporix.language";
 const ACTIVE_LE_KEY = "emporix.activeLegalEntityId";
 const REFRESH_KEY = "emporix.refreshToken";
+const SAAS_KEY = "emporix.saasToken";
 
 /** Browser `localStorage`-backed store. Falls back to memory on the server. */
 export function createLocalStorageStorage(opts: { key?: string } = {}): EmporixStorage {
@@ -75,6 +76,12 @@ export function createLocalStorageStorage(opts: { key?: string } = {}): EmporixS
       if (t === null) ls.removeItem(REFRESH_KEY);
       else ls.setItem(REFRESH_KEY, t);
       all.notify("refreshToken");
+    },
+    getSaasToken: () => ls.getItem(SAAS_KEY),
+    setSaasToken: (t) => {
+      if (t === null) ls.removeItem(SAAS_KEY);
+      else ls.setItem(SAAS_KEY, t);
+      all.notify("saasToken");
     },
     subscribeAll: (l) => all.add(l),
   };
