@@ -27,7 +27,8 @@ The core SDK has **no** React dependency; React lives only in this package.
 | Adapter | Persistence | Notes |
 | --- | --- | --- |
 | `createMemoryStorage` (default) | none | SSR-safe; lost on reload |
-| `createLocalStorageStorage` | `localStorage` | browser only; falls back to memory + warns on the server |
+| `createLocalStorage` (was `createLocalStorageStorage`) | `localStorage` | browser only; persistent and shared across tabs; falls back to memory + warns on the server |
+| `createSessionStorage` | `sessionStorage` | browser only; per-tab — survives reload, cleared on tab close, not shared across tabs; falls back to memory + warns on the server |
 | `createCookieStorage` | cookie | you must set `sameSite`/`secure`; readable by JS unless you manage an httpOnly cookie server-side |
 
 Storage choices have security implications (XSS for `localStorage`, CSRF for

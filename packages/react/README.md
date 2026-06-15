@@ -18,14 +18,14 @@ pnpm add @viu/emporix-sdk-react @viu/emporix-sdk @tanstack/react-query react
 
 ```tsx
 import { EmporixClient } from "@viu/emporix-sdk";
-import { EmporixProvider, createLocalStorageStorage } from "@viu/emporix-sdk-react";
+import { EmporixProvider, createLocalStorage } from "@viu/emporix-sdk-react";
 
 const client = new EmporixClient({
   tenant: "mytenant",
   credentials: { backend: { clientId: "", secret: "" }, storefront: { clientId: "x" } },
 });
 
-<EmporixProvider client={client} storage={createLocalStorageStorage()}>
+<EmporixProvider client={client} storage={createLocalStorage()}>
   <App />
 </EmporixProvider>;
 ```
@@ -72,8 +72,10 @@ call (default: `customer` if a token is stored, else `anonymous`).
 
 ## Storage adapters
 
-`createMemoryStorage` (default, SSR-safe), `createLocalStorageStorage`,
-`createCookieStorage`. Trade-offs and CSRF notes in
+`createMemoryStorage` (default, SSR-safe), `createLocalStorage`,
+`createSessionStorage` (per-tab: survives reload, cleared on tab close),
+`createCookieStorage`. `createLocalStorageStorage` is a deprecated alias of
+`createLocalStorage`. Trade-offs and CSRF notes in
 [`../../docs/react.md`](../../docs/react.md).
 
 ## Errors & SSR
