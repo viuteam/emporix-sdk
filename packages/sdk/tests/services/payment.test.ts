@@ -54,6 +54,11 @@ describe("PaymentGatewayService", () => {
     expect(modes[0]?.code).toBe("card");
   });
 
+  it("listPaymentModes works with an anonymous context (no customer scope)", async () => {
+    const modes = await svc().listPaymentModes({ kind: "anonymous" });
+    expect(modes[0]?.code).toBe("card");
+  });
+
   it("exposes generated frontend fields (integrationType)", async () => {
     server.use(
       http.get("https://api.emporix.io/payment-gateway/acme/paymentmodes/frontend", () =>
