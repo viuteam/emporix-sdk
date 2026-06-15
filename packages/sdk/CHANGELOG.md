@@ -1,5 +1,14 @@
 # @viu/emporix-sdk
 
+## 2.16.0
+
+### Patch Changes
+
+- [#134](https://github.com/viuteam/emporix-sdk/pull/134) [`f3f29aa`](https://github.com/viuteam/emporix-sdk/commit/f3f29aab5dd364d4ebaa5edf5ace524222dad6be) Thanks [@amnael1](https://github.com/amnael1)! - `client.payments.listPaymentModes` no longer requires a customer token. It now
+  defaults to an anonymous context, matching the public frontend payment-modes
+  endpoint (which needs a bearer token but no customer scope), so storefronts can
+  list configured payment modes for guests as well as logged-in customers.
+
 ## 2.15.0
 
 ### Minor Changes
