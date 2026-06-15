@@ -213,7 +213,7 @@ Each hook overrides `staleTime` for resources that change at different rates:
 
 | Hook(s) | staleTime |
 |---|---|
-| `useSites`, `useDefaultSite`, `usePaymentModes` | 10 min |
+| `useSites`, `useDefaultSite`, `usePaymentModes`, `useShippingZones` | 10 min |
 | `useCategory(ies)`, `useCategoryTree`, `useProductsInCategory(Infinite)`, `useMySegment*` | 5 min |
 | `useProducts(Infinite)`, `useProduct`, `useProductByCode`, `useProductSearch`, `useMatchPrices` | 60 s |
 | `useCustomerSession.customer` (meQuery) | 30 s |
@@ -427,6 +427,12 @@ guest-checkout flow). `usePaymentModes()` works for guests and logged-in
 customers alike — it auto-detects auth (customer token if stored, otherwise
 anonymous), matching the public frontend payment-modes endpoint (a bearer token
 is required, but no customer scope).
+
+`useShippingZones({ site? })` lists shipping zones with their active methods and
+fees in one call (`expand=methods,fees`, `activeMethods=true`); it also
+auto-detects auth and defaults the site to the provider's active `siteCode`. Use
+it to let the shopper pick a delivery option: resolve the zone from the shipping
+country, then read `zone.methods` and each method's `fees`.
 
 ### Orders
 
