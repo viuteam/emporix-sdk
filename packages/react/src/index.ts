@@ -37,6 +37,7 @@ export {
   useCreateCart,
   useCheckout,
   usePaymentModes,
+  useShippingZones,
   useMatchPrices,
   useMatchPricesChunked,
   useProductMedia,

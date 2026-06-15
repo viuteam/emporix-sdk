@@ -18,6 +18,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { useToast, errorMessage } from "../app/Toasts";
 import { AddressSection } from "../checkout/AddressSection";
 import { PaymentSelector } from "../checkout/PaymentSelector";
+import { ShippingSelector, type SelectedShipping } from "../checkout/ShippingSelector";
 import { EMPTY_ADDRESS, type AddressDraft } from "../checkout/AddressFields";
 
 export function Checkout() {
@@ -61,6 +62,7 @@ export function Checkout() {
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
   const [billing, setBilling] = useState<AddressDraft>({ ...EMPTY_ADDRESS });
   const [selectedModeId, setSelectedModeId] = useState<string | null>(null);
+  const [selectedShipping, setSelectedShipping] = useState<SelectedShipping | null>(null);
 
   const email = isAuthenticated
     ? (customer as { contactEmail?: string } | null)?.contactEmail ?? contact.email
@@ -95,7 +97,17 @@ export function Checkout() {
         lastName: contact.lastName,
         guest: !isAuthenticated,
       },
-      shipping: { methodId: "free", zoneId: shipping.country, methodName: "Free Shipping", amount: 0 },
+      // Send the chosen delivery option; fall back to free shipping when none
+      // resolved (no configured method for the destination).
+      shipping: selectedShipping
+        ? {
+            methodId: selectedShipping.methodId,
+            zoneId: selectedShipping.zoneId,
+            methodName: selectedShipping.methodName,
+            amount: selectedShipping.amount,
+            ...(selectedShipping.shippingTaxCode ? { shippingTaxCode: selectedShipping.shippingTaxCode } : {}),
+          }
+        : { methodId: "free", zoneId: shipping.country, methodName: "Free Shipping", amount: 0 },
       addresses: [toAddress(shipping, "SHIPPING"), toAddress(billingAddr, "BILLING")],
       // Send the chosen configured mode; fall back to the demo "custom" provider
       // when none is available.
@@ -209,6 +221,13 @@ export function Checkout() {
             />
           ) : null}
 
+          <ShippingSelector
+            country={shipping.country}
+            cartTotal={total?.amount}
+            value={selectedShipping}
+            onChange={setSelectedShipping}
+          />
+
           <PaymentSelector value={selectedModeId} onChange={setSelectedModeId} />
         </div>
 
@@ -222,6 +241,12 @@ export function Checkout() {
               </li>
             ))}
           </ul>
+          {selectedShipping && total ? (
+            <div className="cart__total" style={{ paddingBlock: "var(--s-1)", fontSize: "var(--step--1)" }}>
+              <span className="muted">Delivery · {selectedShipping.methodName}</span>
+              <span className="price">{money(selectedShipping.amount, total.currency)}</span>
+            </div>
+          ) : null}
           <hr className="rule" style={{ marginBlock: "var(--s-4)" }} />
           <div className="cart__total">
             <span className="eyebrow">Total</span>
