@@ -3,7 +3,9 @@ export type { EmporixProviderProps, SiteContextValue } from "./provider";
 export type { TokenStorage, EmporixStorage, PersistedAnonymousSession } from "./storage/index";
 export {
   createMemoryStorage,
+  createLocalStorage,
   createLocalStorageStorage,
+  createSessionStorage,
   createCookieStorage,
 } from "./storage/index";
 export {
