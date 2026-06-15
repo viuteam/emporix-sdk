@@ -33,7 +33,7 @@ export function AddressSection({
   title: string;
   value: AddressDraft;
   onChange: (patch: Partial<AddressDraft>) => void;
-  savedAddresses?: Address[];
+  savedAddresses?: Address[] | undefined;
   idPrefix: string;
 }) {
   // "" = manual entry; otherwise the chosen saved-address id.

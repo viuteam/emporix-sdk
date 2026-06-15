@@ -1,7 +1,13 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { useActiveCart, useCheckout, useCustomerSession, useEmporix } from "@viu/emporix-sdk-react";
+import {
+  useActiveCart,
+  useCheckout,
+  useCustomerSession,
+  useCustomerAddresses,
+  useEmporix,
+} from "@viu/emporix-sdk-react";
 import { cartLines, cartTotal } from "../lib/adapters";
 import { useProductNames } from "../lib/useProductNames";
 import { money } from "../lib/format";
@@ -10,6 +16,9 @@ import { Field } from "../components/ui/Field";
 import { Loading } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
 import { useToast, errorMessage } from "../app/Toasts";
+import { AddressSection } from "../checkout/AddressSection";
+import { PaymentSelector } from "../checkout/PaymentSelector";
+import { EMPTY_ADDRESS, type AddressDraft } from "../checkout/AddressFields";
 
 export function Checkout() {
   const { storage, client } = useEmporix();
@@ -31,45 +40,68 @@ export function Checkout() {
   const cust = customer as { id?: string; firstName?: string; lastName?: string } | null;
   const customerId = cust?.id;
 
-  const [form, setForm] = useState({
+  // Logged-in customers can pick from saved addresses; the query is idle (data
+  // undefined) for guests, so the picker simply never appears.
+  const { data: savedAddresses } = useCustomerAddresses();
+
+  const [contact, setContact] = useState({
     email: "",
     firstName: cust?.firstName || "Guest",
     lastName: cust?.lastName || "Shopper",
-    street: "Rämistrasse 71",
+  });
+  const [shipping, setShipping] = useState<AddressDraft>({
+    ...EMPTY_ADDRESS,
+    contactName: `${cust?.firstName || "Guest"} ${cust?.lastName || "Shopper"}`,
+    street: "Rämistrasse",
+    streetNumber: "71",
     zipCode: "8006",
     city: "Zürich",
     country: "CH",
   });
+  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
+  const [billing, setBilling] = useState<AddressDraft>({ ...EMPTY_ADDRESS });
+  const [selectedModeId, setSelectedModeId] = useState<string | null>(null);
 
-  const email = isAuthenticated ? (customer as { contactEmail?: string } | null)?.contactEmail ?? form.email : form.email;
-  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const email = isAuthenticated
+    ? (customer as { contactEmail?: string } | null)?.contactEmail ?? contact.email
+    : contact.email;
+  const setContactField =
+    (k: keyof typeof contact) =>
+    (e: { target: { value: string } }) =>
+      setContact((c) => ({ ...c, [k]: e.target.value }));
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!cartId || !total) return;
-    const address = {
-      contactName: `${form.firstName} ${form.lastName}`,
-      street: form.street,
-      zipCode: form.zipCode,
-      city: form.city,
-      country: form.country,
-    };
+    const billingAddr = billingSameAsShipping ? shipping : billing;
+    const toAddress = (a: AddressDraft, type: "SHIPPING" | "BILLING") => ({
+      contactName: a.contactName || `${contact.firstName} ${contact.lastName}`,
+      ...(a.companyName ? { companyName: a.companyName } : {}),
+      street: a.street,
+      ...(a.streetNumber ? { streetNumber: a.streetNumber } : {}),
+      zipCode: a.zipCode,
+      city: a.city,
+      country: a.country,
+      ...(a.contactPhone ? { contactPhone: a.contactPhone } : {}),
+      type,
+    });
     const input = {
       cartId,
       customer: {
         // Logged-in customer must be identified by id; guest must not.
         ...(isAuthenticated && customerId ? { id: customerId } : {}),
         email,
-        firstName: form.firstName,
-        lastName: form.lastName,
+        firstName: contact.firstName,
+        lastName: contact.lastName,
         guest: !isAuthenticated,
       },
-      shipping: { methodId: "free", zoneId: form.country, methodName: "Free Shipping", amount: 0 },
-      addresses: [
-        { ...address, type: "BILLING" },
-        { ...address, type: "SHIPPING" },
-      ],
-      paymentMethods: [{ provider: "custom", amount: total.amount }],
+      shipping: { methodId: "free", zoneId: shipping.country, methodName: "Free Shipping", amount: 0 },
+      addresses: [toAddress(shipping, "SHIPPING"), toAddress(billingAddr, "BILLING")],
+      // Send the chosen configured mode; fall back to the demo "custom" provider
+      // when none is available.
+      paymentMethods: selectedModeId
+        ? [{ provider: "payment-gateway", customAttributes: { modeId: selectedModeId }, amount: total.amount }]
+        : [{ provider: "custom", amount: total.amount }],
     };
     try {
       const r = await placeOrder.mutateAsync({
@@ -79,10 +111,7 @@ export function Checkout() {
       });
       setOrderId((r as { orderId?: string }).orderId ?? null);
       // The cart is CLOSED on Emporix after a successful order — drop it
-      // locally. `useActiveCart` subscribes to this change and stops querying
-      // the now-closed cart (a fresh cart bootstraps on demand). Do NOT
-      // invalidate the cart query here: that would force an immediate refetch
-      // of the just-closed cart id → 404.
+      // locally so `useActiveCart` stops querying the now-closed cart.
       storage.setCartId(null);
     } catch (err) {
       notify(errorMessage(err), "error");
@@ -139,24 +168,48 @@ export function Checkout() {
       </div>
 
       <form onSubmit={submit} className="cart">
-        <div className="stack">
-          <p className="eyebrow">{isAuthenticated ? "Signed in" : "Guest"} contact</p>
-          {!isAuthenticated ? (
-            <Field label="Email" type="email" required value={form.email} onChange={set("email")} placeholder="you@example.com" />
-          ) : (
-            <p className="muted">{email}</p>
-          )}
-          <div className="cluster" style={{ gap: "var(--s-4)" }}>
-            <Field label="First name" value={form.firstName} onChange={set("firstName")} />
-            <Field label="Last name" value={form.lastName} onChange={set("lastName")} />
+        <div className="stack" style={{ gap: "var(--s-5)" }}>
+          <div className="stack">
+            <p className="eyebrow">{isAuthenticated ? "Signed in" : "Guest"} contact</p>
+            {!isAuthenticated ? (
+              <Field label="Email" type="email" required value={contact.email} onChange={setContactField("email")} placeholder="you@example.com" />
+            ) : (
+              <p className="muted">{email}</p>
+            )}
+            <div className="cluster" style={{ gap: "var(--s-4)" }}>
+              <Field label="First name" value={contact.firstName} onChange={setContactField("firstName")} />
+              <Field label="Last name" value={contact.lastName} onChange={setContactField("lastName")} />
+            </div>
           </div>
-          <Field label="Street" value={form.street} onChange={set("street")} />
-          <div className="cluster" style={{ gap: "var(--s-4)" }}>
-            <Field label="ZIP" value={form.zipCode} onChange={set("zipCode")} />
-            <Field label="City" value={form.city} onChange={set("city")} />
-            <Field label="Country" value={form.country} onChange={set("country")} />
-          </div>
-          <p className="muted" style={{ fontSize: "var(--step--1)" }}>Shipping: Free Shipping · Payment: demo "custom" provider.</p>
+
+          <AddressSection
+            title="Shipping address"
+            value={shipping}
+            onChange={(patch) => setShipping((s) => ({ ...s, ...patch }))}
+            savedAddresses={savedAddresses}
+            idPrefix="shipping"
+          />
+
+          <label className="cluster" style={{ gap: "var(--s-2)", alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={billingSameAsShipping}
+              onChange={(e) => setBillingSameAsShipping(e.target.checked)}
+            />
+            <span>Billing address same as shipping</span>
+          </label>
+
+          {!billingSameAsShipping ? (
+            <AddressSection
+              title="Billing address"
+              value={billing}
+              onChange={(patch) => setBilling((b) => ({ ...b, ...patch }))}
+              savedAddresses={savedAddresses}
+              idPrefix="billing"
+            />
+          ) : null}
+
+          <PaymentSelector value={selectedModeId} onChange={setSelectedModeId} />
         </div>
 
         <aside className="cart__summary surface">
