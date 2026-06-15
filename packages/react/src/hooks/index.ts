@@ -32,6 +32,7 @@ export { useCart, useActiveCart, useCartMutations, useCreateCart } from "./use-c
 export type { CartMutationsApi } from "./use-cart";
 export { useCheckout, usePaymentModes } from "./use-checkout";
 export type { CheckoutApi } from "./use-checkout";
+export { useShippingZones } from "./use-shipping";
 export { useMatchPrices } from "./use-match-prices";
 export { useMatchPricesChunked } from "./use-match-prices-chunked";
 export { useProductMedia } from "./use-product-media";
