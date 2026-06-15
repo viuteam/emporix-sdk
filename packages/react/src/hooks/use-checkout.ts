@@ -1,6 +1,5 @@
 import {
   useMutation,
-  useQuery,
   useQueryClient,
   type UseMutationResult,
   type UseQueryResult,
@@ -13,8 +12,7 @@ import {
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadAuth } from "./internal/use-read-auth";
-import { useReadSite } from "./internal/use-read-site";
-import { emporixKey } from "./internal/query-keys";
+import { useEmporixQuery } from "./internal/use-emporix-query";
 import { useActiveCompany } from "../company-context";
 
 const PAYMENT_MODES_STALE_TIME = 10 * 60_000; // 10 minutes — admin-configured.
@@ -82,17 +80,14 @@ export function usePaymentModes(
   options: { enabled?: boolean } = {},
 ): UseQueryResult<PaymentMode[]> {
   const { client } = useEmporix();
-  const { ctx } = useReadAuth();
-  const { siteCode } = useReadSite();
   const { activeCompany } = useActiveCompany();
-  return useQuery({
-    queryKey: emporixKey(
-      "payment-modes",
-      [activeCompany?.id ?? null],
-      { tenant: client.tenant, authKind: ctx.kind, siteCode },
-    ),
+  return useEmporixQuery({
+    mode: "read-auth",
+    site: "full",
+    resource: "payment-modes",
+    args: [activeCompany?.id ?? null],
     enabled: options.enabled ?? true,
-    queryFn: () => client.payments.listPaymentModes(ctx),
+    queryFn: (ctx) => client.payments.listPaymentModes(ctx),
     staleTime: PAYMENT_MODES_STALE_TIME,
   });
 }
