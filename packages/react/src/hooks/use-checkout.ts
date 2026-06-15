@@ -6,8 +6,6 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import {
-  auth,
-  type AuthContext,
   type CheckoutInput,
   type QuoteCheckoutInput,
   type CheckoutResult,
@@ -16,20 +14,10 @@ import {
 import { useEmporix } from "../provider";
 import { useReadAuth } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
-import { useCustomerToken } from "./internal/use-storage-snapshot";
 import { emporixKey } from "./internal/query-keys";
 import { useActiveCompany } from "../company-context";
 
 const PAYMENT_MODES_STALE_TIME = 10 * 60_000; // 10 minutes — admin-configured.
-
-// Lazy customer-only context resolver. Throws only when invoked — so the
-// `enabled: token !== null` gate above the queryFn is the actual guard.
-// Can't use the `useCustomerOnlyCtx` hook here because it would throw at
-// hook-render time, before the enabled-gate kicks in.
-function customerOnlyCtx(token: string | null): AuthContext {
-  if (!token) throw new Error("usePaymentModes requires a logged-in customer token");
-  return auth.customer(token);
-}
 
 /** Checkout actions bound to the stored customer session. */
 export interface CheckoutApi {
@@ -89,22 +77,22 @@ export function useCheckout(): CheckoutApi {
   return { placeOrder, placeOrderFromQuote };
 }
 
-/** Lists frontend payment modes for the logged-in customer. */
+/** Lists frontend payment modes for the current session (customer or guest). */
 export function usePaymentModes(
   options: { enabled?: boolean } = {},
 ): UseQueryResult<PaymentMode[]> {
   const { client } = useEmporix();
-  const token = useCustomerToken();
+  const { ctx } = useReadAuth();
   const { siteCode } = useReadSite();
   const { activeCompany } = useActiveCompany();
   return useQuery({
     queryKey: emporixKey(
       "payment-modes",
       [activeCompany?.id ?? null],
-      { tenant: client.tenant, authKind: "customer", siteCode },
+      { tenant: client.tenant, authKind: ctx.kind, siteCode },
     ),
-    enabled: (options.enabled ?? true) && token !== null,
-    queryFn: () => client.payments.listPaymentModes(customerOnlyCtx(token)),
+    enabled: options.enabled ?? true,
+    queryFn: () => client.payments.listPaymentModes(ctx),
     staleTime: PAYMENT_MODES_STALE_TIME,
   });
 }
