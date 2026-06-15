@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createSessionStorage } from "../src/storage/session-storage";
+import {
+  createSessionStorage as createSessionStorageFromBarrel,
+  createLocalStorage as createLocalStorageFromBarrel,
+} from "../src";
+import { createLocalStorage, createLocalStorageStorage } from "../src/storage/local-storage";
 
 describe("sessionStorage storage", () => {
   beforeEach(() => sessionStorage.clear());
@@ -67,5 +72,26 @@ describe("sessionStorage storage", () => {
     expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
     Object.defineProperty(globalThis, "sessionStorage", { value: orig, configurable: true });
+  });
+});
+
+describe("public exports", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("re-exports createSessionStorage from the package barrel", () => {
+    expect(createSessionStorageFromBarrel).toBe(createSessionStorage);
+  });
+
+  it("re-exports createLocalStorage from the package barrel", () => {
+    expect(createLocalStorageFromBarrel).toBe(createLocalStorage);
+  });
+
+  it("createLocalStorageStorage is the deprecated alias of createLocalStorage", () => {
+    expect(createLocalStorageStorage).toBe(createLocalStorage);
+  });
+
+  it("createLocalStorage writes to localStorage", () => {
+    createLocalStorage().setCustomerToken("abc");
+    expect(localStorage.getItem("emporix.customerToken")).toBe("abc");
   });
 });

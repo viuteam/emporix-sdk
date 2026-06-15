@@ -115,5 +115,6 @@ export function parseAnonymousSession(raw: string | null): PersistedAnonymousSes
 }
 
 export { createMemoryStorage } from "./memory";
-export { createLocalStorageStorage } from "./local-storage";
+export { createLocalStorage, createLocalStorageStorage } from "./local-storage";
+export { createSessionStorage } from "./session-storage";
 export { createCookieStorage } from "./cookie";
