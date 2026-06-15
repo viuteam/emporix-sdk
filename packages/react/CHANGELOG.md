@@ -1,5 +1,21 @@
 # @viu/emporix-sdk-react
 
+## 2.16.0
+
+### Minor Changes
+
+- [#132](https://github.com/viuteam/emporix-sdk/pull/132) [`618ee65`](https://github.com/viuteam/emporix-sdk/commit/618ee65892bacae551c8790c2a13c302864e7d33) Thanks [@amnael1](https://github.com/amnael1)! - Add `createSessionStorage` — a per-tab `sessionStorage`-backed storage adapter
+  (survives a page reload, cleared when the tab closes, not shared across tabs).
+  Adds `createLocalStorage` as the preferred name for `createLocalStorageStorage`,
+  which is now deprecated but still exported. Internally the `localStorage` and
+  `sessionStorage` adapters share one `fromWebStorage` helper.
+
+### Patch Changes
+
+- [#134](https://github.com/viuteam/emporix-sdk/pull/134) [`7c1c97d`](https://github.com/viuteam/emporix-sdk/commit/7c1c97d7485acd92fb0931920d73b1bec39b1b13) Thanks [@amnael1](https://github.com/amnael1)! - `usePaymentModes` now works for anonymous (guest) sessions, not only logged-in
+  customers. It auto-detects auth (customer token if stored, otherwise anonymous)
+  and the query is keyed by the resolved auth kind.
+
 ## 2.15.0
 
 ### Patch Changes
