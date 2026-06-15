@@ -423,8 +423,10 @@ await confirm.mutateAsync({ token: "...", newPassword: "..." }); // step 2
 
 `useCheckout()` returns `placeOrder` and `placeOrderFromQuote` mutations.
 Auto-detects auth: customer if a token is stored, otherwise anonymous (for the
-guest-checkout flow). `usePaymentModes()` stays customer-only — payment-mode
-listing requires an authenticated session.
+guest-checkout flow). `usePaymentModes()` works for guests and logged-in
+customers alike — it auto-detects auth (customer token if stored, otherwise
+anonymous), matching the public frontend payment-modes endpoint (a bearer token
+is required, but no customer scope).
 
 ### Orders
 

@@ -54,7 +54,7 @@ A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published a
 ## Things that are easy to get wrong
 
 - `client.carts.getCurrent(...)` returns a `Cart` with `.id`. `client.carts.create(...)` returns `CartCreated` with `.cartId`. The two shapes are not interchangeable.
-- `useCheckout` auto-detects auth (customer if a token is stored, anonymous otherwise). `usePaymentModes` is intentionally customer-only — its helper `customerOnlyCtx` throws on missing token.
+- `useCheckout` auto-detects auth (customer if a token is stored, anonymous otherwise). `usePaymentModes` likewise auto-detects auth (customer token if stored, otherwise anonymous) — the frontend payment-modes endpoint needs a bearer token but no customer scope, so guests see the configured modes too.
 - `client.carts.merge(customerCartId, [anonCartId], auth)` — the path-ID is the **customer** cart (target), the body lists anonymous cart IDs to merge in. Easy to invert.
 - `EmporixStorage` keys: `emporix.customerToken`, `emporix.cartId`, `emporix.anonymousSession`, `emporix.siteCode`, `emporix.activeLegalEntityId`, `emporix.refreshToken`. The `anonymousSession` carries `{ refreshToken, sessionId }` and is what makes the guest cart survive page reloads (PR #26). The `refreshToken` is mirrored from the customer session and is needed for B2B refresh-on-switch — without it, `setActiveCompany` falls back to local-state-only.
 - Examples typecheck against the built `dist/` of `@viu/emporix-sdk` and `@viu/emporix-sdk-react`. Run `pnpm -F @viu/emporix-sdk build && pnpm -F @viu/emporix-sdk-react build` before `pnpm -F @viu/emporix-examples-* typecheck` if you've changed SDK/React source.

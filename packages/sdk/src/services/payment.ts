@@ -1,11 +1,12 @@
 import type { ClientContext } from "../core/context";
-import type { AuthContext } from "../core/auth";
-import { EmporixAuthError } from "../core/errors";
+import { auth, type AuthContext } from "../core/auth";
 import { requireCustomer } from "../core/require-customer";
 import type {
   PaymentModeFrontendResponse,
   AuthorizePaymentRequest,
 } from "../generated/payment";
+
+const ANON: AuthContext = auth.anonymous();
 
 /** A frontend payment mode (generated). */
 export type PaymentMode = PaymentModeFrontendResponse;
@@ -29,24 +30,28 @@ export class PaymentGatewayService {
   static readonly channel = "payment" as const;
   constructor(private readonly ctx: ClientContext) {}
 
-  /** Lists configured frontend payment modes. */
-  async listPaymentModes(auth?: AuthContext): Promise<PaymentMode[]> {
+  /**
+   * Lists configured frontend payment modes. The endpoint requires a bearer
+   * token but no customer scope ("No scope required"), so it defaults to an
+   * anonymous context and works for guests and logged-in customers alike.
+   */
+  async listPaymentModes(authCtx: AuthContext = ANON): Promise<PaymentMode[]> {
     return this.ctx.http.request<PaymentMode[]>({
       method: "GET",
       path: `/payment-gateway/${this.ctx.tenant}/paymentmodes/frontend`,
-      auth: requireCustomer(auth),
+      auth: authCtx,
     });
   }
 
   /** Authorizes a post-checkout (deferred) payment for an existing order. */
   async authorize(
     input: AuthorizePaymentInput,
-    auth?: AuthContext,
+    authCtx?: AuthContext,
   ): Promise<AuthorizePaymentResult> {
     return this.ctx.http.request<AuthorizePaymentResult>({
       method: "POST",
       path: `/payment-gateway/${this.ctx.tenant}/payment/frontend/authorize`,
-      auth: requireCustomer(auth),
+      auth: requireCustomer(authCtx),
       body: input,
     });
   }
