@@ -1,5 +1,15 @@
 # @viu/emporix-sdk-react
 
+## 2.17.0
+
+### Minor Changes
+
+- [#135](https://github.com/viuteam/emporix-sdk/pull/135) [`6fbf209`](https://github.com/viuteam/emporix-sdk/commit/6fbf20917d6d0fedc67e6ef290a5910f14ebe317) Thanks [@amnael1](https://github.com/amnael1)! - Add `useShippingZones` — lists the tenant's configured shipping zones with their
+  active methods and fees in a single call (`expand=methods,fees`,
+  `activeMethods=true`). Auto-detects auth (customer token if stored, otherwise
+  anonymous), so storefronts can show delivery options to guests and customers
+  alike. The site defaults to the provider's active `siteCode`.
+
 ## 2.16.0
 
 ### Minor Changes
