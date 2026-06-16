@@ -13,6 +13,7 @@ import type {
   Address2,
   AddressUpdateDto,
 } from "../generated/customer-service";
+import type { QueryFor } from "../core/query";
 
 /** A customer profile (seller/admin read shape). */
 export type AdminCustomer = CustomerForSellerDto;
@@ -26,8 +27,10 @@ export type AdminCustomerUpdate = CustomerUpdateBySellerDto;
 export type AdminCustomerPatch = CustomerPatchBySellerDto;
 /** Create/upsert response — a resource location. */
 export type AdminCustomerCreated = ResourceLocation;
-/** Search body (`POST /customers/search`). */
-export type AdminCustomerSearchQuery = Record<string, unknown>;
+/** Search body (`POST /customers/search`). `q` accepts a raw DSL string or a built filter. */
+export type AdminCustomerSearchQuery = Record<string, unknown> & {
+  q?: QueryFor<"CUSTOMER">;
+};
 
 /** A customer address (read). */
 export type AdminCustomerAddress = GenAddress;
