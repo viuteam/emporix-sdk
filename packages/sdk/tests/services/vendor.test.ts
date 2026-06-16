@@ -120,3 +120,31 @@ describe("VendorService — locations", () => {
     await expect(svc().deleteVendorLocation("l1")).resolves.toBeUndefined();
   });
 });
+
+describe("VendorService.searchVendors — q filter", () => {
+  it("resolves a built filter in the body's q field", async () => {
+    let seenBody: { q?: unknown } | null = null;
+    server.use(
+      http.post(`${BASE}/vendors/search`, async ({ request }) => {
+        seenBody = (await request.json()) as { q?: unknown };
+        return HttpResponse.json([{ id: "v-1" }]);
+      }),
+    );
+    await svc().searchVendors({
+      q: { toString: () => "mixins.vendorAttrs.region:EU", usesCompound: false },
+    });
+    expect((seenBody as { q?: unknown } | null)?.q).toBe("mixins.vendorAttrs.region:EU");
+  });
+
+  it("passes a raw string q through unchanged", async () => {
+    let seenBody: { q?: unknown } | null = null;
+    server.use(
+      http.post(`${BASE}/vendors/search`, async ({ request }) => {
+        seenBody = (await request.json()) as { q?: unknown };
+        return HttpResponse.json([]);
+      }),
+    );
+    await svc().searchVendors({ q: "name:Acme" });
+    expect((seenBody as { q?: unknown } | null)?.q).toBe("name:Acme");
+  });
+});
