@@ -347,3 +347,35 @@ describe("ProductService.searchByName", () => {
     expect((seen as URLSearchParams | null)?.get("q")).toBe("name:(~a\\.b\\*\\(c\\))");
   });
 });
+
+describe("ProductService.search — built filters", () => {
+  it("accepts a built filter and sends its toString() as q", async () => {
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "p1" }]);
+      }),
+    );
+    const filter = { toString: () => "mixins.attrs.color:Blue", usesCompound: false };
+    await svc().search(filter);
+    expect((seen as URLSearchParams | null)?.get("q")).toBe("mixins.attrs.color:Blue");
+  });
+
+  it("allows a compound (or()) filter because Product supports compoundLogicalQuery", async () => {
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "p1" }]);
+      }),
+    );
+    const filter = {
+      toString: () =>
+        "compoundLogicalQuery:((mixins.attrs.color:Blue) OR (mixins.attrs.color:Black))",
+      usesCompound: true,
+    };
+    await svc().search(filter);
+    expect((seen as URLSearchParams | null)?.get("q")).toBe(filter.toString());
+  });
+});

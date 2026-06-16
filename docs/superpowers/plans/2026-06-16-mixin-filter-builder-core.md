@@ -750,7 +750,7 @@ Replace the `search()` method with:
     const q = resolveQuery(query, { compoundLogicalQuery: true });
     const pageNumber = params.pageNumber ?? 1;
     const pageSize = params.pageSize ?? 50;
-    const items = await this.ctx.http.req<Product[]>({
+    const items = await this.ctx.http.request<Product[]>({
       method: "GET",
       path: `/product/${this.ctx.tenant}/products`,
       query: { q, pageNumber, pageSize },
