@@ -87,23 +87,42 @@ where: MixinWhere<T> (keyof T, typed ops)  ─┤→ mixinQuery() ─→ MixinFi
 
 ## Public API (new, in `@viu/emporix-mixins`)
 
+`MixinDescriptor` gains a second, optional **entity type parameter** so filters can be gated to
+the entity they belong to:
+
 ```ts
-mixinQuery<T>(
-  descriptor: MixinDescriptor<T>,
+MixinDescriptor<T, E extends string = string>   // E defaults to string → backward compatible
+```
+
+The default `string` keeps every existing `MixinDescriptor<T>` usage compiling. The codegen
+(`generateTypes`) emits the entity **literal** per mixin (e.g. `MixinDescriptor<ColorMixinV3, "PRODUCT">`),
+so generated descriptors are entity-gated automatically.
+
+```ts
+mixinQuery<T, E extends string>(
+  descriptor: MixinDescriptor<T, E>,
   where: MixinWhere<T>,
-  opts?: { prefix?: string },   // for embedded mixins, e.g. prefix:"customer" → customer.mixins.<key>.<attr>
-): MixinFilter
+  opts?: { prefix?: string },   // embedded mixins, e.g. prefix:"customer" → customer.mixins.<key>.<attr>
+): MixinFilter<E>
 
-and(...filters: MixinFilter[]): MixinFilter   // space-joined (implicit AND) — universal
-or(...filters: MixinFilter[]): MixinFilter     // compoundLogicalQuery:((…) OR (…)) — capability-gated
-raw(fragment: string): MixinFilter             // escape hatch for non-mixin clauses
+and<E extends string>(...filters: MixinFilter<E>[]): MixinFilter<E>   // space-joined AND — universal
+or<E extends string>(...filters: MixinFilter<E>[]): MixinFilter<E>     // compoundLogicalQuery — capability-gated
+raw(fragment: string): MixinFilter<any>                                // escape hatch; entity-agnostic
 
-interface MixinFilter {
-  toString(): string;          // the q fragment, parenthesized when compound
-  build(): string;             // alias; the top-level q string (no wrapping parens)
+interface MixinFilter<E extends string = string> {
+  toString(): string;              // the q fragment, parenthesized when compound
+  build(): string;                 // alias; the top-level q string (no wrapping parens)
   readonly usesCompound: boolean;  // true if this filter contains a compoundLogicalQuery (or())
+  readonly __entity?: E;           // phantom field — carries the entity for structural gating
 }
 ```
+
+- `mixinQuery` propagates the descriptor's entity `E` onto the resulting `MixinFilter<E>`.
+- `and`/`or` require **homogeneous** entities — mixing `MixinFilter<"PRODUCT">` and
+  `MixinFilter<"ORDER">` is a compile error (a single `q` targets one entity index). `raw()` is
+  `MixinFilter<any>`, so it slots into any combination without widening the gate.
+- `usesCompound` lets the SDK reject `or()`-containing filters against services that do not
+  support `compoundLogicalQuery`, without the builder knowing the target service.
 
 - `MixinWhere<T>` maps each attribute key `K in keyof T` to either a **bare value** (= `eq`) or
   an **operator object**, constrained by the attribute's value type:
@@ -116,8 +135,6 @@ interface MixinFilter {
   | localized (object map) | `{ <lang>: value }` form, or a `{ lang, eq }` shape — see Localized fields |
 
 - An invalid attribute name or a type-incompatible operator is a **compile error**.
-- `usesCompound` lets the SDK reject `or()`-containing filters against services that do not
-  support `compoundLogicalQuery`, without the builder needing to know the target service.
 
 ## DSL Mapping
 
@@ -179,46 +196,80 @@ can only be combined by **space-separated implicit AND**; there is no documented
 ### Shared normalizer (new, `packages/sdk/src/core`)
 
 ```ts
-type QueryInput = string | { toString(): string; usesCompound?: boolean };
+// Entity-gated, structurally compatible with @viu/emporix-mixins' MixinFilter<E> — no import.
+type QueryFor<E extends string> =
+  | string
+  | { toString(): string; usesCompound?: boolean; readonly __entity?: E };
 
-function resolveQuery(q: QueryInput, cap: { compoundLogicalQuery: boolean }): string;
+function resolveQuery<E extends string>(
+  q: QueryFor<E>,
+  cap: { compoundLogicalQuery: boolean },
+): string;
 // throws a clear error if (typeof q !== "string") && q.usesCompound && !cap.compoundLogicalQuery
 ```
 
-Structurally decoupled — the SDK does not import the mixin type; it accepts anything
-string-coercible exposing an optional `usesCompound` flag. Each service declares its own
-capability constant.
+**Structural decoupling preserved.** The SDK does not import `@viu/emporix-mixins` (which would
+create a circular package-type dependency, since mixins already lists the SDK as an optional
+peer). Instead both sides share the same *shape*: `MixinFilter<E>` carries a phantom
+`__entity?: E`, and each service types its `q` argument as `string | QueryFor<"<ENTITY>">`.
+A `MixinFilter<"PRODUCT">` is assignable to `QueryFor<"PRODUCT">`; a `MixinFilter<"ORDER">` is
+**not** — so passing an Order filter to product search is a compile error. Each service declares
+its own capability constant for the OR gate.
 
-### Phased rollout (recommended)
+### Scope (all in this work)
 
-- **Phase 1 (this work):**
-  - `ProductService.search(query: string | MixinFilter, …)` + `useProductSearch(query: string | MixinFilter, …)` via `resolveQuery` (Product supports compoundLogicalQuery → `or()` allowed).
-  - Methods that already pass a caller-controlled `q` through a query dict accept `string | MixinFilter` the same way: Approval, Schema (`listSchemas`/`listInstances`), CustomerAdmin, Vendor, Segment, Fee. (Schema custom instances stay raw-string only — mixin path model excluded.)
-- **Phase 2 (follow-up PRs, prioritized by mixin-bearing + q-capable):** add caller-controlled
-  `q` to `Customer` (search), `Category`, `Cart` (search), `Order`/`SalesOrder` (search),
-  `Price`. `Availability` is a special case (q in body, exclusive with `site`) — handle
-  separately when needed.
+All q-capable, mixin-bearing services are wired in one effort, each routing `q` through
+`resolveQuery` and typing its argument as `string | QueryFor<"<ENTITY>">`.
+
+**Group 1 — already accept a caller-controlled `q`** (extend signature to `string | QueryFor<E>`):
+
+- `ProductService.search` + `useProductSearch` (`"PRODUCT"`, compound-capable → `or()` allowed).
+- Passthrough-`q` methods: Approval (`"APPROVAL"`, compound-capable), Schema `listSchemas`
+  (compound-capable), CustomerAdmin, Vendor, Segment, Fee. (Schema **custom instances** stay
+  raw-string only — the `mixins.` path model does not apply; excluded.)
+
+**Group 2 — `q` supported by Emporix but not yet surfaced in the SDK** (add a caller-controlled
+`q` parameter, and a `search()`/`q`-aware list method + matching React hook where none exists):
+
+| Service | Entity | Compound (`or()`)? | SDK work |
+|---|---|---|---|
+| Customer | `"CUSTOMER"` | no | new `customers.search(q)` (POST `/customers/search`) + hook |
+| Category | `"CATEGORY"` | no | add `q` to category list/search + hook |
+| Cart | `"CART"` | no | new `carts.search(q)` (POST `/carts/search`) + hook |
+| Order / SalesOrder | `"ORDER"` | no | add `q` to order/salesorder search + hook |
+| Price / Price List | `"PRICE"` | no | add `q` to price(-list) list/search + hook |
+| Availability | `"AVAILABILITY"` | yes | **special case** — `q` goes in the POST body and is mutually exclusive with the `site` query param; wire only the body-`q` search path |
+
+For the five non-compound services, `resolveQuery` throws if an `or()`-containing filter is
+passed — caught at runtime with a clear message; the homogeneous-entity typing prevents most
+misuse at compile time.
 
 The React layer mirrors only what the SDK exposes; query keys derive from the **built string**
-so caches stay stable. No new hooks.
+so caches stay stable. New read hooks use the `useEmporixQuery` factory (per repo convention).
 
 ## Type-safety considerations
 
-- **Entity gating (optional, recommended):** because `MixinDescriptor` carries `entity`, a
-  service method could constrain accepted descriptors to its entity (e.g. product search only
-  accepts `MixinDescriptor<…, "PRODUCT">`). Decide during planning whether to add an entity
-  type parameter to `MixinDescriptor`; if not, this stays a runtime/no-op concern.
-- **OR gating** is enforced at runtime via `usesCompound` + `resolveQuery` (above).
+- **Entity gating (decided: in scope).** `MixinDescriptor<T, E>` carries the entity literal,
+  propagated to `MixinFilter<E>` via the phantom `__entity?: E`. Each service types its `q`
+  argument as `string | QueryFor<"<ENTITY>">`, so passing a filter built for the wrong entity
+  is a **compile error** (e.g. an `"ORDER"` filter into product search). `and`/`or` also reject
+  mixed-entity composition at compile time. Enforced structurally — no cross-package import.
+- **OR gating** is enforced at runtime via `usesCompound` + `resolveQuery`, because the builder
+  cannot know the target service. The homogeneous-entity typing plus per-service capability
+  constant make the common misuse cases compile errors; `resolveQuery` is the backstop.
 
 ## Testing strategy (TDD)
 
 - **Builder unit tests** (`packages/mixins/tests/`): exact `q`-string assertions per operator,
   AND/OR nesting, `prefix`, localized path, `raw()` composition, escaping. Type-level tests
-  (`// @ts-expect-error`) for invalid attribute names and type-incompatible operators.
+  (`// @ts-expect-error`) for invalid attribute names, type-incompatible operators, **mixed-entity
+  `and`/`or` composition**, and the entity literal propagating onto `MixinFilter<E>`.
 - **`resolveQuery` tests**: string passthrough; `MixinFilter` coercion; throws when an
   `or()`-containing filter targets a non-compound service.
-- **SDK / React** (Vitest + MSW): each opted-in method accepts a `MixinFilter` and emits the
-  expected `q`; OR-gating error surfaces on non-compound services.
+- **SDK / React** (Vitest + MSW): each wired method accepts a correctly-typed `MixinFilter` and
+  emits the expected `q`; a wrong-entity filter is a compile error (`// @ts-expect-error`); the
+  OR-gating error surfaces on non-compound services; newly added `search`/`q` methods
+  (Customer, Category, Cart, Order/SalesOrder, Price, Availability-body) send the right request.
 - **Live/e2e smoke** against the `viu` tenant for at least Product, to confirm DSL semantics
   end-to-end (the open questions below).
 
@@ -237,7 +288,7 @@ so caches stay stable. No new hooks.
    emits the `class_…` schema key as `descriptor.key`, so the builder needs no special-casing.
 5. **Mixin indexing depth on newer services** (Category/Customer/Cart, added 2025): the q
    grammar references mixin paths, but per-service indexing of arbitrary mixin fields is not
-   documented in detail — verify before relying on it in Phase 2.
+   documented in detail — verify per service before relying on mixin filtering there.
 
 ## Constraints & gotchas (from Emporix docs)
 
@@ -251,7 +302,11 @@ so caches stay stable. No new hooks.
 
 ## Release
 
-- Changeset: `@viu/emporix-mixins` minor (builder API); `@viu/emporix-sdk` and
-  `@viu/emporix-sdk-react` minor (`resolveQuery` + opted-in methods accept `string | MixinFilter`).
+- Changeset: `@viu/emporix-mixins` minor — new builder API + `MixinDescriptor<T, E>` gains the
+  optional entity param (default `string` → **non-breaking**); `generateTypes` now emits the
+  entity literal, so consumers should re-run `emporix-mixins generate` to pick up gated descriptors.
+- Changeset: `@viu/emporix-sdk` and `@viu/emporix-sdk-react` minor — `resolveQuery` + wired
+  methods accept `string | QueryFor<E>`; new `search`/`q` methods and hooks for Customer,
+  Category, Cart, Order/SalesOrder, Price, Availability.
 - Docs: a `docs/mixin-search.md` with builder usage + the capability matrix; cross-link from
   `docs/schema.md`.
