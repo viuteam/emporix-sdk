@@ -132,7 +132,7 @@ interface MixinFilter<E extends string = string> {
   | `string` | bare value (eq), `{ eq }`, `{ in: string[] }`, `{ regex: string }`, `{ exists: boolean }` |
   | `number` | bare value (eq), `{ eq }`, `{ gt }`, `{ gte }`, `{ lt }`, `{ lte }`, `{ in }`, range via `{ gte, lte }`, `{ exists }` |
   | `boolean` | bare value (eq), `{ eq }`, `{ exists }` |
-  | localized (object map) | `{ <lang>: value }` form, or a `{ lang, eq }` shape — see Localized fields |
+  | localized | `{ lang, eq }` / `{ lang, regex }` / `{ lang, in }` / `{ lang, exists }` — targets `mixins.<key>.<attr>.<lang>` |
 
 - An invalid attribute name or a type-incompatible operator is a **compile error**.
 
@@ -151,7 +151,7 @@ interface MixinFilter<E extends string = string> {
 | `{ inStock: true }` | `mixins.<key>.inStock:true` |
 | `{ warranty: { exists: true } }` | `mixins.<key>.warranty:exists` |
 | `{ warranty: { exists: false } }` | `mixins.<key>.warranty:missing` |
-| localized: `{ title: { en: "Sale" } }` | `mixins.<key>.title.en:Sale` |
+| localized: `{ title: { lang: "en", eq: "Sale" } }` | `mixins.<key>.title.en:Sale` |
 | embedded: `prefix:"customer"` | `customer.mixins.<key>.<attr>:…` |
 | multiple keys in one `mixinQuery` | clauses space-joined (AND) |
 | `or(a, b)` | `compoundLogicalQuery:((<a>) OR (<b>))` |
@@ -281,9 +281,9 @@ so caches stay stable. New read hooks use the `useEmporixQuery` factory (per rep
 2. **Attribute-level `exists`/`missing`**: docs document these only at the namespace level
    (`mixins.<key>:exists`). Verify `mixins.<key>.<attr>:exists`; if unsupported, expose
    namespace-level existence via a dedicated helper and document the caveat.
-3. **Localized mixin path**: confirm `mixins.<key>.<attr>.<lang>:<value>` is the correct
-   indexed path for `localized` mixin attributes, and that the codegen marks localized
-   attributes distinguishably in the generated type.
+3. **Localized mixin path**: the builder supports localized attributes via the `{ lang, ... }`
+   operator, emitting `mixins.<key>.<attr>.<lang>:<value>`. Confirm this is the correct indexed
+   path on the tenant (the API support is in; only the path semantics need a live check).
 4. **Classification mixins** (`mixins.class_<categoryCode>_<name>.<attr>`): confirm the codegen
    emits the `class_…` schema key as `descriptor.key`, so the builder needs no special-casing.
 5. **Mixin indexing depth on newer services** (Category/Customer/Cart, added 2025): the q

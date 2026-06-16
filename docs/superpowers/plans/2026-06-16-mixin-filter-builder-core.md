@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Vitest + MSW (unit tests), tsup (build), pnpm workspaces, `@tanstack/react-query` (React hooks).
 
-**Scope note:** This is Plan 1 of 2 from `docs/superpowers/specs/2026-06-16-mixin-filter-builder-design.md`. It delivers the builder + Product wiring (independently shippable). Plan 2 wires the remaining q-capable services (Customer, Category, Cart, Order/SalesOrder, Price, Availability) + passthrough services + their hooks. **Out of Plan 1 scope:** localized mixin fields (open question Q3), attribute-level `exists`/`missing` semantics confirmation (Q2), and date-range values — all documented as deferred.
+**Scope note:** This is Plan 1 of 2 from `docs/superpowers/specs/2026-06-16-mixin-filter-builder-design.md`. It delivers the builder + Product wiring (independently shippable). Plan 2 wires the remaining q-capable services (Customer, Category, Cart, Order/SalesOrder, Price, Availability) + passthrough services + their hooks. **Localized mixin fields ARE supported** via a `{ lang, ... }` operator (Task 3). **Out of Plan 1 scope:** attribute-level `exists`/`missing` semantics confirmation (Q2) and date-range values — documented as deferred.
 
 ---
 
@@ -178,7 +178,10 @@ import { describe, it, expect } from "vitest";
 import { mixinQuery, and, or, raw } from "../src/index";
 import type { MixinDescriptor } from "../src/index";
 
-const COLOR: MixinDescriptor<{ color?: string; qty?: number; inStock?: boolean }, "PRODUCT"> = {
+const COLOR: MixinDescriptor<
+  { color?: string; qty?: number; inStock?: boolean; title?: string },
+  "PRODUCT"
+> = {
   key: "attrs",
   entity: "PRODUCT",
   url: "https://cdn/attrs.v1.json",
@@ -232,6 +235,18 @@ describe("mixinQuery — operators", () => {
   it("supports a path prefix for embedded mixins", () => {
     expect(mixinQuery(COLOR, { color: "Blue" }, { prefix: "customer" }).toString()).toBe(
       "customer.mixins.attrs.color:Blue",
+    );
+  });
+
+  it("renders a localized attribute with the language segment", () => {
+    expect(mixinQuery(COLOR, { title: { lang: "en", eq: "Sale" } }).toString()).toBe(
+      "mixins.attrs.title.en:Sale",
+    );
+  });
+
+  it("renders a localized regex match", () => {
+    expect(mixinQuery(COLOR, { title: { lang: "de", regex: "ange" } }).toString()).toBe(
+      "mixins.attrs.title.de:~ange",
     );
   });
 
@@ -323,8 +338,18 @@ export type MixinOps<V> =
           | { gt: number; lt: number }
       : never);
 
-/** A `where` entry: a bare value (equals) or an operator object. */
-export type MixinWhereValue<V> = V | MixinOps<V>;
+/**
+ * Localized-field operators. `lang` selects the language segment, so the clause
+ * targets `mixins.<key>.<attr>.<lang>` (localized values are stored language-keyed).
+ */
+export type LocalizedOps =
+  | { lang: string; eq: string }
+  | { lang: string; in: readonly string[] }
+  | { lang: string; regex: string }
+  | { lang: string; exists: boolean };
+
+/** A `where` entry: a bare value (equals), an operator object, or a localized operator object. */
+export type MixinWhereValue<V> = V | MixinOps<V> | LocalizedOps;
 
 /** Type-safe `where` map over a mixin's attributes. */
 export type MixinWhere<T> = {
@@ -357,6 +382,10 @@ function renderClause(path: string, val: unknown): string {
     return `${path}:${formatScalar(val)}`;
   }
   const o = val as Record<string, unknown>;
+  if ("lang" in o) {
+    const { lang, ...rest } = o;
+    return renderClause(`${path}.${String(lang)}`, rest);
+  }
   if ("exists" in o) return `${path}:${o.exists ? "exists" : "missing"}`;
   if ("eq" in o) return `${path}:${formatScalar(o.eq)}`;
   if ("in" in o) return `${path}:(${(o.in as unknown[]).map(formatScalar).join(",")})`;
@@ -425,7 +454,7 @@ In `packages/mixins/src/index.ts`, append:
 
 ```ts
 export { mixinQuery, and, or, raw } from "./runtime/query";
-export type { MixinFilter, MixinWhere, MixinWhereValue, MixinOps } from "./runtime/query";
+export type { MixinFilter, MixinWhere, MixinWhereValue, MixinOps, LocalizedOps } from "./runtime/query";
 ```
 
 - [ ] **Step 5: Run test to verify it passes**
@@ -840,11 +869,12 @@ import { mixins } from "./generated/mixins/registry"; // from `emporix-mixins ge
 
 // Equals, range, in-list, regex, exists:
 const q = mixinQuery(mixins.attrs, {
-  color: "Blue",                 // equals
-  qty: { gte: 10, lte: 20 },     // range
-  size: { in: ["S", "M"] },      // in-list
-  note: { regex: "sale" },       // regex
-  promo: { exists: true },       // present
+  color: "Blue",                       // equals
+  qty: { gte: 10, lte: 20 },           // range
+  size: { in: ["S", "M"] },            // in-list
+  note: { regex: "sale" },             // regex
+  promo: { exists: true },             // present
+  title: { lang: "en", eq: "Sale" },   // localized → mixins.attrs.title.en:Sale
 });
 
 // Combine: and() is space-joined AND; or() needs a compound-capable service.
@@ -873,11 +903,21 @@ const page = await client.products.search(q);  // SDK
 
 Passing an `or()` filter to a service that does not support `compoundLogicalQuery` throws.
 
+## Localized fields
+
+Localized attributes are stored language-keyed. Add `lang` to target one language —
+the builder appends the language segment to the path:
+
+```ts
+mixinQuery(mixins.attrs, { title: { lang: "en", regex: "sale" } });
+// → mixins.attrs.title.en:~sale
+```
+
 ## Limitations (this release)
 
-- **Localized mixin fields** (`mixins.<key>.<attr>.<lang>`) are not yet supported by the builder.
 - **Values containing whitespace** throw (the safe `q` escaping is unverified) — use `raw()`.
 - `exists`/`missing` is emitted at the attribute path; confirm attribute-level semantics on your tenant.
+- The localized indexed path (`mixins.<key>.<attr>.<lang>`) should be confirmed against your tenant.
 ```
 
 - [ ] **Step 2: Write the changeset**
@@ -938,8 +978,9 @@ Expected: all PASS. (If examples typecheck against built `dist/`, run `pnpm -F @
 - `resolveQuery` + `QueryFor`/`BuiltQuery` + OR capability gate, structurally decoupled → Task 5 ✓
 - Product `search` + `useProductSearch` accept built filters; stable cache key → Tasks 6, 7 ✓
 - DSL mapping (eq/range/in/regex/exists/missing/boolean/prefix/AND/OR) + whitespace fail-loud (Q1) → Task 3 ✓
+- Localized fields via `{ lang, ... }` operator → Task 3 ✓
 - Docs + changeset → Task 8 ✓
-- **Deferred (documented):** localized fields (Q3), attribute-level exists/missing confirmation (Q2), date ranges, and the non-Product service rollout → Plan 2.
+- **Deferred (documented):** attribute-level exists/missing confirmation (Q2), date ranges, and the non-Product service rollout → Plan 2.
 
 **Placeholder scan:** none — every code step contains complete code.
 
