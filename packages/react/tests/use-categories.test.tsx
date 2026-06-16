@@ -12,6 +12,7 @@ import {
   useCategories,
   useProductsInCategory,
   useProductsInCategoryInfinite,
+  useCategorySearch,
 } from "../src/hooks/use-categories";
 import type { ReactNode } from "react";
 
@@ -159,5 +160,26 @@ describe("useProductsInCategoryInfinite", () => {
     expect(
       result.current.data?.pages.flatMap((p) => p.items).map((p) => p.id),
     ).toEqual(["p1", "p2", "p3"]);
+  });
+});
+
+describe("useCategorySearch", () => {
+  it("is disabled on empty query", () => {
+    const { result } = renderHook(() => useCategorySearch(""), { wrapper: wrap() });
+    expect(result.current.fetchStatus).toBe("idle");
+  });
+
+  it("sends the built filter string as q", async () => {
+    let seen: URLSearchParams | undefined;
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "c1" }]);
+      }),
+    );
+    const filter = { toString: () => "mixins.attrs.featured:true", usesCompound: false };
+    const { result } = renderHook(() => useCategorySearch(filter), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.data?.items?.length).toBe(1));
+    expect(seen?.get("q")).toBe("mixins.attrs.featured:true");
   });
 });
