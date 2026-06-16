@@ -450,9 +450,13 @@ export function or<E extends string>(
   return makeFilter<E>(`compoundLogicalQuery:(${inner})`, true);
 }
 
-/** Escape hatch: wrap a raw q fragment (e.g. a non-mixin clause). Entity-agnostic. */
-export function raw(fragment: string): MixinFilter<any> {
-  return makeFilter<any>(fragment, false);
+/**
+ * Escape hatch: wrap a raw q fragment (e.g. a non-mixin clause). The entity `E`
+ * is inferred from the surrounding `and()`/`or()` so it composes with any entity.
+ * (Uses a generic default rather than `any` — the repo's eslint bans `any`.)
+ */
+export function raw<E extends string = string>(fragment: string): MixinFilter<E> {
+  return makeFilter<E>(fragment, false);
 }
 ```
 
