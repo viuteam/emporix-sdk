@@ -212,3 +212,35 @@ describe("CategoryService", () => {
     expect(ids).toEqual(["c1", "c2", "c3"]);
   });
 });
+
+describe("CategoryService.search", () => {
+  it("sends q + pagination and wraps the array into PaginatedItems", async () => {
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "c1" }, { id: "c2" }]);
+      }),
+    );
+    const page = await svc().search("mixins.attrs.featured:true", { pageNumber: 2, pageSize: 2 });
+    expect(page.items.map((c) => c.id)).toEqual(["c1", "c2"]);
+    expect(page.hasNextPage).toBe(true);
+    expect((seen as URLSearchParams | null)?.get("q")).toBe("mixins.attrs.featured:true");
+    expect((seen as URLSearchParams | null)?.get("pageNumber")).toBe("2");
+  });
+
+  it("accepts a built filter (toString) and rejects an or() filter (Category is non-compound)", async () => {
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "c1" }]);
+      }),
+    );
+    await svc().search({ toString: () => "mixins.attrs.featured:true", usesCompound: false });
+    expect((seen as URLSearchParams | null)?.get("q")).toBe("mixins.attrs.featured:true");
+    await expect(
+      svc().search({ toString: () => "compoundLogicalQuery:((a) OR (b))", usesCompound: true }),
+    ).rejects.toThrow(/does not support/i);
+  });
+});

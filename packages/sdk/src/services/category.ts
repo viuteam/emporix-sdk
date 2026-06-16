@@ -1,6 +1,7 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import { iterateAll } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { resolveQuery, type QueryFor } from "../core/query";
 import type { Product } from "./product";
 import type { Category as GeneratedCategory, CategoryTree } from "../generated/category";
 
@@ -37,6 +38,28 @@ export class CategoryService {
       method: "GET",
       path: `/category/${this.ctx.tenant}/categories`,
       query: { pageNumber, pageSize },
+      auth,
+    });
+    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+  }
+
+  /**
+   * Searches categories by a `q` filter — a raw Emporix DSL string or a built
+   * filter (e.g. `@viu/emporix-mixins`' `mixinQuery(...)`). Category does not
+   * support `compoundLogicalQuery`, so `or()` filters are rejected.
+   */
+  async search(
+    query: QueryFor<"CATEGORY">,
+    params: { pageNumber?: number; pageSize?: number } = {},
+    auth: AuthContext = ANON,
+  ): Promise<PaginatedItems<Category>> {
+    const q = resolveQuery(query, { compoundLogicalQuery: false });
+    const pageNumber = params.pageNumber ?? 1;
+    const pageSize = params.pageSize ?? 50;
+    const items = await this.ctx.http.request<Category[]>({
+      method: "GET",
+      path: `/category/${this.ctx.tenant}/categories`,
+      query: { q, pageNumber, pageSize },
       auth,
     });
     return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
