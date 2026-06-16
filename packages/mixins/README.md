@@ -20,6 +20,36 @@ const res  = await validateMixin(opts, mixins.deliveryOptions);              // 
 - `writeMixin` sets `mixins[key]` **and** `metadata.mixins[key] = descriptor.url`.
 - `validateMixin` is async and lazy-loads `ajv` (install it only if you validate).
 
+## Filter builder
+
+Build type-safe Emporix `q` filters from a generated descriptor to search
+entities by mixin attribute. Attribute names and value types are checked against
+the descriptor's type, and the entity is carried so a filter can't be passed to
+the wrong service.
+
+```ts
+import { mixinQuery, and, or, raw } from "@viu/emporix-mixins";
+import { mixins } from "./mixins/generated/registry";
+
+const q = mixinQuery(mixins.attrs, {
+  color: "Blue",                       // equals
+  qty: { gte: 10, lte: 20 },           // range
+  size: { in: ["S", "M"] },            // in-list
+  promo: { exists: true },             // present
+  title: { lang: "en", eq: "Sale" },   // localized → mixins.attrs.title.en:Sale
+});
+
+await client.products.search(q);   // also categories.search, orders.listMine({ q }), …
+```
+
+- `and(...)` joins with a space (AND); `or(...)` emits `compoundLogicalQuery`,
+  which is only valid on compound-capable services (Product, Approval,
+  Availability, Quote, Schema).
+- `raw(fragment)` is an escape hatch for a non-mixin clause.
+- Values containing whitespace throw (the `q` escaping is unverified) — use `raw()`.
+
+See [`../../docs/mixin-search.md`](../../docs/mixin-search.md) for the capability matrix.
+
 ## Codegen (CLI)
 
 `emporix-mixins.config.ts`:
