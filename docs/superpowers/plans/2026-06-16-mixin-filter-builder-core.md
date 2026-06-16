@@ -121,9 +121,9 @@ describe("generateTypes — entity literal", () => {
   it("casts each registry entry to MixinDescriptor<Name, \"ENTITY\">", async () => {
     const files = await generateTypes(raw);
     const registry = files["registry.ts"];
-    expect(registry).toMatch(
-      /as MixinDescriptor<ProductCustomAttributesMixinV3, "PRODUCT">/,
-    );
+    // The interface name may be renormalized by json-schema-to-typescript;
+    // assert only the entity literal landed in the cast.
+    expect(registry).toMatch(/as MixinDescriptor<\w+, "PRODUCT">/);
   });
 });
 ```
@@ -425,9 +425,15 @@ export function mixinQuery<T, E extends string>(
   return makeFilter<E>(clauses.join(" "), false);
 }
 
+// `E` is pinned to the FIRST filter; the rest are `NoInfer` so they must match
+// it exactly — composing filters from two different entities is a compile error.
+
 /** Combines filters with AND. Space-joins unless a child is compound, then uses compoundLogicalQuery. */
-export function and<E extends string>(...filters: MixinFilter<E>[]): MixinFilter<E> {
-  if (filters.length === 0) throw new Error("and(): needs at least one filter.");
+export function and<E extends string>(
+  first: MixinFilter<E>,
+  ...rest: NoInfer<MixinFilter<E>>[]
+): MixinFilter<E> {
+  const filters = [first, ...rest];
   if (filters.some((f) => f.usesCompound)) {
     const inner = filters.map((f) => `(${f.toString()})`).join(" AND ");
     return makeFilter<E>(`compoundLogicalQuery:(${inner})`, true);
@@ -436,9 +442,11 @@ export function and<E extends string>(...filters: MixinFilter<E>[]): MixinFilter
 }
 
 /** Combines filters with OR via compoundLogicalQuery (only valid on compound-capable services). */
-export function or<E extends string>(...filters: MixinFilter<E>[]): MixinFilter<E> {
-  if (filters.length === 0) throw new Error("or(): needs at least one filter.");
-  const inner = filters.map((f) => `(${f.toString()})`).join(" OR ");
+export function or<E extends string>(
+  first: MixinFilter<E>,
+  ...rest: NoInfer<MixinFilter<E>>[]
+): MixinFilter<E> {
+  const inner = [first, ...rest].map((f) => `(${f.toString()})`).join(" OR ");
   return makeFilter<E>(`compoundLogicalQuery:(${inner})`, true);
 }
 
