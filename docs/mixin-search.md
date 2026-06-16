@@ -55,11 +55,15 @@ mixinQuery(mixins.attrs, { title: { lang: "en", regex: "sale" } });
 
 ## Capability matrix
 
-| Service | mixin `q` filter | `or()` (`compoundLogicalQuery`) | In the SDK today |
+| Service | mixin `q` filter | `or()` (`compoundLogicalQuery`) | In the SDK |
 |---|---|---|---|
 | Product | yes | **yes** | `products.search` / `useProductSearch` |
-| Order, Customer, Cart, Category, Price | yes | no (use `and()` only) | added in the service-rollout plan |
-| Approval, Availability, Quote, Schema | yes | **yes** | passthrough / rollout plan |
+| Category | yes | no (use `and()`) | `categories.search` / `useCategorySearch` |
+| Order | yes | no (use `and()`) | `orders.listMine({ q })` / `useMyOrders({ q })` |
+| Customer (admin) | yes | no (use `and()`) | `customerAdmin.searchCustomers({ q })` |
+| Vendor (admin) | yes | no (use `and()`) | `vendor.searchVendors({ q })` |
+| Cart, Price, Availability | yes | varies | not wired yet (admin/niche) |
+| Approval, Segment, Fee, Schema instances | no mixins | — | raw `q` string only |
 
 Passing an `or()` filter to a service that does not support `compoundLogicalQuery` throws.
 
