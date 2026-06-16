@@ -2,7 +2,7 @@ import {
   type UseQueryResult,
   type UseInfiniteQueryResult,
 } from "@tanstack/react-query";
-import { type PaginatedItems, type Product } from "@viu/emporix-sdk";
+import { type PaginatedItems, type Product, type QueryFor } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
 import { useReadSite } from "./internal/use-read-site";
@@ -71,18 +71,19 @@ export function useProductByCode(
   });
 }
 
-/** Full-text product search. Disabled when query is empty/whitespace. */
+/** Product search. Accepts a raw `q` string or a built filter. Disabled when empty/whitespace. */
 export function useProductSearch(
-  query: string | undefined,
+  query: QueryFor<"PRODUCT"> | undefined,
   params: { pageNumber?: number; pageSize?: number } = {},
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
+  const qStr = typeof query === "string" ? query : (query?.toString() ?? "");
   return useEmporixQuery({
-    mode: "read-auth", site: "full", resource: "product-search", args: [query, params],
+    mode: "read-auth", site: "full", resource: "product-search", args: [qStr, params],
     ...(options.auth ? { authOverride: options.auth } : {}),
-    enabled: typeof query === "string" && query.trim() !== "",
-    queryFn: (ctx) => client.products.search(query as string, params, ctx),
+    enabled: qStr.trim() !== "",
+    queryFn: (ctx) => client.products.search(query as QueryFor<"PRODUCT">, params, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
 }

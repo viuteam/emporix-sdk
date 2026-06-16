@@ -137,6 +137,20 @@ describe("useProductSearch", () => {
     expect(seenQuery?.get("q")).toBe("shirt");
     expect(seenQuery?.get("pageSize")).toBe("10");
   });
+
+  it("accepts a built filter and sends its string as q", async () => {
+    let seenQuery: URLSearchParams | undefined;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        seenQuery = new URL(request.url).searchParams;
+        return HttpResponse.json([{ id: "p1" }]);
+      }),
+    );
+    const filter = { toString: () => "mixins.attrs.color:Blue", usesCompound: false };
+    const { result } = renderHook(() => useProductSearch(filter), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.data?.items?.length).toBe(1));
+    expect(seenQuery?.get("q")).toBe("mixins.attrs.color:Blue");
+  });
 });
 
 describe("useProducts — site-isolation (MS-2)", () => {
