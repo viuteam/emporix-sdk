@@ -1,5 +1,6 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { resolveQuery, type QueryFor } from "../core/query";
 import type { Order, OrderStatus, OrderUpdateDto } from "../generated/order-v2";
 
 /**
@@ -17,6 +18,8 @@ export interface ListMyOrdersOptions {
   legalEntityId?: string;
   siteCode?: string;
   saasToken?: string;
+  /** A `q` filter — raw DSL string or a built filter (e.g. mixinQuery for entity "ORDER"). */
+  q?: QueryFor<"ORDER">;
 }
 
 /** Options for single-order reads (saas-token only). */
@@ -79,6 +82,9 @@ export class OrdersService {
     setIfDefined(query, "status", opts.status);
     setIfDefined(query, "legalEntityId", opts.legalEntityId);
     setIfDefined(query, "siteCode", opts.siteCode);
+    if (opts.q !== undefined) {
+      setIfDefined(query, "q", resolveQuery(opts.q, { compoundLogicalQuery: false }));
+    }
     const headers = this.saasHeader(opts.saasToken);
     // order-v2 returns a bare JSON array (the total count lives in the
     // X-Total-Count header), not a {items,...} envelope — so wrap it into the
