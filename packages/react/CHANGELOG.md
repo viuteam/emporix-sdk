@@ -1,5 +1,25 @@
 # @viu/emporix-sdk-react
 
+## 2.18.0
+
+### Minor Changes
+
+- [#137](https://github.com/viuteam/emporix-sdk/pull/137) [`9ef7c51`](https://github.com/viuteam/emporix-sdk/commit/9ef7c51d933d9b78be1880ce19d6f7312ffcd20e) Thanks [@amnael1](https://github.com/amnael1)! - Add a type-safe mixin filter builder. `@viu/emporix-mixins` now exports
+  `mixinQuery`/`and`/`or`/`raw` to build Emporix `q` filters from generated
+  `MixinDescriptor`s, with attribute names and value types checked at compile
+  time and the entity carried through `MixinDescriptor<T, E>` / `MixinFilter<E>`.
+  Localized attributes are supported via a `{ lang, ... }` operator.
+  `products.search` and `useProductSearch` accept a built filter (or a raw
+  string); a new `resolveQuery` normalizer enforces the `compoundLogicalQuery`
+  (OR) capability gate per service.
+
+- [#137](https://github.com/viuteam/emporix-sdk/pull/137) [`de6e8b8`](https://github.com/viuteam/emporix-sdk/commit/de6e8b8727c5150f9fe3df77820dd13b6cf37e24) Thanks [@amnael1](https://github.com/amnael1)! - Wire the mixin filter builder into more services. `categories.search`,
+  `orders.listMine({ q })`, `customerAdmin.searchCustomers({ q })` and
+  `vendor.searchVendors({ q })` now accept a built mixin filter (or a raw `q`
+  string), each entity-gated via `QueryFor<E>` and routed through `resolveQuery`
+  (all are non-compound, so `or()` filters are rejected). New React hooks:
+  `useCategorySearch` and a `q` option on `useMyOrders`.
+
 ## 2.17.0
 
 ### Minor Changes
