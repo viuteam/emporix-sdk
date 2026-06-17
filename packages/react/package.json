@@ -1,6 +1,6 @@
 {
   "name": "@viu/emporix-sdk-react",
-  "version": "2.17.0",
+  "version": "2.18.0",
   "description": "React bindings for the Emporix SDK",
   "license": "MIT",
   "author": {
