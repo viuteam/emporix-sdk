@@ -6,6 +6,7 @@ import {
   type PaginatedItems,
   type Category,
   type Product,
+  type QueryFor,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
@@ -124,6 +125,23 @@ export function useProductsInCategoryInfinite(
         params.pageSize !== undefined ? { pageNumber, pageSize: params.pageSize } : { pageNumber },
         ctx,
       ),
+    staleTime: CATEGORIES_STALE_TIME,
+  });
+}
+
+/** Category search. Accepts a raw `q` string or a built filter. Disabled when empty/whitespace. */
+export function useCategorySearch(
+  query: QueryFor<"CATEGORY"> | undefined,
+  params: { pageNumber?: number; pageSize?: number } = {},
+  options: QueryOpts = {},
+): UseQueryResult<PaginatedItems<Category>> {
+  const { client } = useEmporix();
+  const qStr = typeof query === "string" ? query : (query?.toString() ?? "");
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "category-search", args: [qStr, params],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    enabled: qStr.trim() !== "",
+    queryFn: (ctx) => client.categories.search(query as QueryFor<"CATEGORY">, params, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
 }

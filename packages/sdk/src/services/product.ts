@@ -1,6 +1,7 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import { iterateAll } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { resolveQuery, type QueryFor } from "../core/query";
 import type {
   BasicProductWithId,
   BundleProductWithId,
@@ -69,18 +70,23 @@ export class ProductService {
     return iterateAll<Product>((pageNumber) => this.list({ pageNumber, pageSize }, auth));
   }
 
-  /** Searches products by free-text query. */
+  /**
+   * Searches products by a `q` filter — a raw Emporix DSL string or a built
+   * filter (e.g. `@viu/emporix-mixins`' `mixinQuery(...)`). Product supports
+   * `compoundLogicalQuery`, so `or()` filters are allowed.
+   */
   async search(
-    query: string,
+    query: QueryFor<"PRODUCT">,
     params: { pageNumber?: number; pageSize?: number } = {},
     auth: AuthContext = ANON,
   ): Promise<PaginatedItems<Product>> {
+    const q = resolveQuery(query, { compoundLogicalQuery: true });
     const pageNumber = params.pageNumber ?? 1;
     const pageSize = params.pageSize ?? 50;
     const items = await this.ctx.http.request<Product[]>({
       method: "GET",
       path: `/product/${this.ctx.tenant}/products`,
-      query: { q: query, pageNumber, pageSize },
+      query: { q, pageNumber, pageSize },
       auth,
     });
     return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };

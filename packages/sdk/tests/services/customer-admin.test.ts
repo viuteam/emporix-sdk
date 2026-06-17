@@ -136,3 +136,31 @@ describe("CustomerAdminService", () => {
     expect(pathname).toBe("/customer/acme/customers/a%2Fb");
   });
 });
+
+describe("CustomerAdminService.searchCustomers — q filter", () => {
+  it("resolves a built filter in the body's q field", async () => {
+    let seenBody: { q?: unknown } | null = null;
+    server.use(
+      http.post(`${BASE}/search`, async ({ request }) => {
+        seenBody = (await request.json()) as { q?: unknown };
+        return HttpResponse.json([{ id: "cust-1" }]);
+      }),
+    );
+    await svc().searchCustomers({
+      q: { toString: () => "mixins.loyalty.tier:gold", usesCompound: false },
+    });
+    expect((seenBody as { q?: unknown } | null)?.q).toBe("mixins.loyalty.tier:gold");
+  });
+
+  it("passes a raw string q through unchanged", async () => {
+    let seenBody: { q?: unknown } | null = null;
+    server.use(
+      http.post(`${BASE}/search`, async ({ request }) => {
+        seenBody = (await request.json()) as { q?: unknown };
+        return HttpResponse.json([]);
+      }),
+    );
+    await svc().searchCustomers({ q: "status:active" });
+    expect((seenBody as { q?: unknown } | null)?.q).toBe("status:active");
+  });
+});

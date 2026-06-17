@@ -60,6 +60,25 @@ property on the `EmporixClient` instance:
 The sections below highlight the most-used services; per-service guides live in
 [`../../docs/`](../../docs).
 
+## Searching by mixin (custom) fields
+
+`products.search`, `categories.search`, `orders.listMine({ q })`,
+`customerAdmin.searchCustomers({ q })` and `vendor.searchVendors({ q })` accept a
+raw Emporix `q` string **or** a type-safe filter built with `mixinQuery` from
+[`@viu/emporix-mixins`](../mixins). The filter is entity-gated (a filter built for
+one entity is a compile error on another) and an `or()` filter is rejected on
+services that don't support `compoundLogicalQuery`.
+
+```ts
+import { mixinQuery } from "@viu/emporix-mixins";
+import { mixins } from "./mixins/generated/registry";
+
+const q = mixinQuery(mixins.attrs, { color: "Blue", qty: { gte: 10 } });
+const page = await sdk.products.search(q);
+```
+
+See [`../../docs/mixin-search.md`](../../docs/mixin-search.md) for the capability matrix.
+
 ## Configuration
 
 | Option | Default | Notes |

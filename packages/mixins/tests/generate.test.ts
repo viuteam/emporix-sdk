@@ -31,7 +31,7 @@ describe("generate", () => {
     expect(files["delivery-options.ts"]).toMatch(/DeliveryOptionsMixinV6/);
     expect(reg).toMatch(/export const mixins/);
     expect(reg).toMatch(/"deliveryOptions":/); // quoted key
-    expect(reg).toMatch(/MixinDescriptor<DeliveryOptionsMixinV6>/);
+    expect(reg).toMatch(/MixinDescriptor<DeliveryOptionsMixinV6, "CUSTOMER">/);
   });
 
   it("produces valid identifiers + quoted keys for id-keyed schemas; registry matches the emitted name", async () => {
@@ -44,6 +44,6 @@ describe("generate", () => {
     const emitted = typeFile.match(/export interface (\w+)/)![1]!;
     expect(emitted).toMatch(/^Mixin68/); // valid identifier (id keys can't start a TS name)
     expect(reg).toContain(`"68e27d7a68ce91215abc0f23":`); // quoted registry key
-    expect(reg).toContain(`MixinDescriptor<${emitted}>`); // registry references the EMITTED name
+    expect(reg).toContain(`MixinDescriptor<${emitted}, "UNKNOWN">`); // registry references the EMITTED name + entity
   });
 });

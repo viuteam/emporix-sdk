@@ -1,5 +1,6 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { resolveQuery } from "../core/query";
 import type {
   Vendor,
   VendorList,
@@ -63,13 +64,17 @@ export class VendorService {
     });
   }
 
-  /** Search vendors (`POST /vendors/search`). */
+  /** Search vendors (`POST /vendors/search`). A built filter in `q` is resolved to a string. */
   async searchVendors(query: VendorSearchQuery, auth: AuthContext = SERVICE): Promise<VendorList> {
+    const body =
+      query.q !== undefined
+        ? { ...query, q: resolveQuery(query.q, { compoundLogicalQuery: false }) }
+        : query;
     return this.ctx.http.request<VendorList>({
       method: "POST",
       path: `${this.base()}/vendors/search`,
       auth,
-      body: query,
+      body,
     });
   }
 

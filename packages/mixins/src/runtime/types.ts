@@ -12,9 +12,9 @@ export interface HasMixins {
 }
 
 /** Identifies one mixin and how to resolve it. Generated per tenant, consumed by the runtime. */
-export interface MixinDescriptor<T = unknown> {
+export interface MixinDescriptor<T = unknown, E extends string = string> {
   key: string;
-  entity: string;
+  entity: E;
   url: string;
   version: number;
   schema?: JsonSchema;

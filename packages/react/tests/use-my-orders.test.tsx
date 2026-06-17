@@ -123,4 +123,24 @@ describe("useMyOrders", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(leSeen).toBeNull();
   });
+
+  it("sends a built filter as q", async () => {
+    const storage = createMemoryStorage({ initial: "cust" });
+    let seen: URLSearchParams | undefined;
+    server.use(
+      http.get("https://api.emporix.io/order-v2/acme/orders", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json(
+          [{ id: "o-1", status: "CREATED", currency: "CHF", totalPrice: 1, entries: [] }],
+          { headers: { "X-Total-Count": "1" } },
+        );
+      }),
+    );
+    const filter = { toString: () => "mixins.orderAttrs.priority:high", usesCompound: false };
+    const { result } = renderHook(() => useMyOrders({ q: filter, legalEntityId: null }), {
+      wrapper: wrap(storage),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(seen?.get("q")).toBe("mixins.orderAttrs.priority:high");
+  });
 });

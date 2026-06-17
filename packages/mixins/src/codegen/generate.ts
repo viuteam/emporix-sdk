@@ -32,7 +32,8 @@ export async function generateTypes(raw: RawMixin[]): Promise<Record<string, str
     imports.push(`import type { ${name} } from "./${kebab(m.key)}";`);
     entries.push(
       `  ${JSON.stringify(m.key)}: { key: ${JSON.stringify(m.key)}, entity: ${JSON.stringify(m.entity)}, ` +
-        `version: ${m.version}, url: ${JSON.stringify(m.url)}, schema: ${JSON.stringify(m.schema)} } as MixinDescriptor<${name}>,`,
+        `version: ${m.version}, url: ${JSON.stringify(m.url)}, schema: ${JSON.stringify(m.schema)} } ` +
+        `as MixinDescriptor<${name}, ${JSON.stringify(m.entity)}>,`,
     );
   }
   files["registry.ts"] =

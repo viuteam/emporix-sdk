@@ -41,7 +41,7 @@ per request/render.
 | `useUpdateCustomer` / `useChangePassword` / `usePasswordReset` | account management |
 | `useCustomerAddresses` / `useAddressMutations` | address CRUD |
 | `useProduct` / `useProducts` / `useProductsInfinite` / `useProductByCode` / `useProductsByCodes` / `useProductSearch` / `useVariantChildren` | product reads |
-| `useCategory` / `useCategories` / `useCategoriesInfinite` / `useCategoryTree` / `useProductsInCategory(Infinite)` | category reads |
+| `useCategory` / `useCategories` / `useCategoriesInfinite` / `useCategoryTree` / `useProductsInCategory(Infinite)` / `useCategorySearch` | category reads |
 | `useCart(cartId?)` / `useActiveCart(opts?)` / `useCreateCart()` | cart read + bootstrap |
 | `useCartMutations(cartId?)` | add/update/remove/clear/coupons/addresses — optimistic + rollback |
 | `useCheckout()` / `usePaymentModes()` | checkout flow + payment-mode list |
@@ -62,6 +62,10 @@ per request/render.
 | `useCreateCompany` / `useUpdateCompany` / `useDeleteCompany` | B2B admin mutations |
 | `useAssignContact` / `useUpdateContactAssignment` / `useUnassignContact` | B2B contact-assignment mutations |
 | `useCreateLocation` / `useUpdateLocation` / `useDeleteLocation` | B2B location mutations |
+
+`useProductSearch`, `useCategorySearch` and `useMyOrders({ q })` accept a raw
+`q` string **or** a type-safe mixin filter built with `mixinQuery` from
+`@viu/emporix-mixins` — see [`../../docs/mixin-search.md`](../../docs/mixin-search.md).
 
 Query keys are namespaced `["emporix", resource, ...args, meta]` where `meta`
 holds the cache discriminators — at minimum `{ tenant, authKind }`, plus

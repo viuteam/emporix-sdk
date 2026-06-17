@@ -180,3 +180,30 @@ describe("OrdersService.cancel", () => {
     expect(saas).toBe("saas-xyz");
   });
 });
+
+describe("OrdersService.listMine — q filter", () => {
+  it("resolves a built filter and sends it as q", async () => {
+    let seen: URLSearchParams | null = null;
+    server.use(
+      http.get("https://api.emporix.io/order-v2/acme/orders", ({ request }) => {
+        seen = new URL(request.url).searchParams;
+        return HttpResponse.json(
+          [{ id: "o-1", status: "CREATED", currency: "CHF", totalPrice: 1, entries: [] }],
+          { headers: { "X-Total-Count": "1" } },
+        );
+      }),
+    );
+    await svc().listMine(CUST, {
+      q: { toString: () => "mixins.orderAttrs.priority:high", usesCompound: false },
+    });
+    expect((seen as URLSearchParams | null)?.get("q")).toBe("mixins.orderAttrs.priority:high");
+  });
+
+  it("rejects an or() filter (Order is non-compound)", async () => {
+    await expect(
+      svc().listMine(CUST, {
+        q: { toString: () => "compoundLogicalQuery:((a) OR (b))", usesCompound: true },
+      }),
+    ).rejects.toThrow(/does not support/i);
+  });
+});

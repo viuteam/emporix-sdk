@@ -27,6 +27,7 @@ export {
   useCategoryTree,
   useProductsInCategory,
   useProductsInCategoryInfinite,
+  useCategorySearch,
 } from "./use-categories";
 export { useCart, useActiveCart, useCartMutations, useCreateCart } from "./use-cart";
 export type { CartMutationsApi } from "./use-cart";
