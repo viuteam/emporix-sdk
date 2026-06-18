@@ -231,5 +231,8 @@ carry the same body). Deprecation is documentation-only and changes no runtime b
 
 - Exact regenerated schema names for availability (resolved by reading the generated file during
   implementation; the alias layer absorbs whatever they are).
-- Whether `listReindexJobs` should surface the `X-Total-Count` header as a `total` field; default
-  is to follow the existing `PaginatedItems` convention (no `total`) unless the consumer needs it.
+
+## Resolved Decisions
+
+- `listReindexJobs` follows the existing `PaginatedItems` convention **without** a `total`
+  field (the `X-Total-Count` header is not surfaced) — confirmed 2026-06-18.
