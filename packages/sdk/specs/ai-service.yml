@@ -370,13 +370,11 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/JobIdResponse'
+                $ref: '#/components/schemas/JobIdResponse'
               examples:
                 JobId:
                   value:
-                    - jobId: 68835cc3ef4e8e1425c360ad
+                    jobId: 68835cc3ef4e8e1425c360ad
         '400':
           $ref: '#/components/responses/400_resp_common'
         '401':
@@ -393,6 +391,66 @@ paths:
             - ai.agentexecution_manage
       requestBody:
         $ref: '#/components/requestBodies/AgenticChat'
+      tags:
+        - Agent Chat
+  '/ai-service/{tenant}/agentic/{agentId}/attachments':
+    parameters:
+      - $ref: '#/components/parameters/path_tenant'
+      - schema:
+          type: string
+        name: agentId
+        in: path
+        required: true
+      - schema:
+          type: string
+          format: uuid
+        name: session-id
+        in: header
+        description: Unique session identifier which allows for storing the context of the chat. If not provided, the system generates it.
+    post:
+      summary: Uploading attachment
+      operationId: POST-ai-agents-upload-attachment
+      responses:
+        '201':
+          description: Attachment response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentResponse'
+              examples:
+                AttachmentId:
+                  value:
+                    id: 68835cc3ef4e8e1425c360ad
+                    sessionId: 0499bef6-a4d2-45b9-86a0-2edf7d70d726
+        '400':
+          $ref: '#/components/responses/400_resp_common'
+        '401':
+          $ref: '#/components/responses/401_resp_common'
+        '403':
+          $ref: '#/components/responses/403_resp_common'
+        '500':
+          $ref: '#/components/responses/500_resp_common'
+      description: |-
+        Allows for upload of a file and assign it to the agent. Supported file extensions:
+          - jpg
+          - jpeg
+          - png
+          - pdf
+          - csv
+          - text
+          - txt
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                attachment:
+                  type: string
+                  format: binary
+                  description: Content of the file.
+              required:
+                - attachment
       tags:
         - Agent Chat
   '/ai-service/{tenant}/agentic/templates':
@@ -474,7 +532,7 @@ paths:
         $ref: '#/components/requestBodies/QParamSearchBody'
       tags:
         - Agent Template
-  '/ai-service/{tenant}/agentic/templates/{templateId}/agent':
+  '/ai-service/{tenant}/agentic/templates/{templateId}/agents':
     parameters:
       - $ref: '#/components/parameters/path_tenant'
       - $ref: '#/components/parameters/header_Content-Language'
@@ -1773,6 +1831,22 @@ components:
         message:
           type: string
           description: The user message to the agent.
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              attachmentId:
+                type: string
+                description: Id of the attachment.
+              caption:
+                type: string
+                description: Caption of the attachment.
+              purpose:
+                type: string
+                description: Purpose of the attachment.
+            required:
+              - attachmentId
       required:
         - agentId
         - message
@@ -2078,9 +2152,6 @@ components:
               description:
                 type: string
                 description: It should contain the description of the field, so LLM is able to know when to use this field in order to filter the data. For enums, possible values should be specified here.
-              name:
-                type: string
-                description: It can act as an alias for the field key.
               key:
                 type: string
                 description: Unique value representing the entityType key.
@@ -2090,7 +2161,6 @@ components:
         - prompt
         - entityType
         - indexedFields
-        - filterFields
     RagEmporixNativeToolConfigRequest:
       allOf:
         - $ref: '#/components/schemas/RagEmporixNativeToolConfig'
@@ -2592,6 +2662,149 @@ components:
       enum:
         - commerce_events
       description: Type of the trigger.
+    CommerceEventTriggerFilterLeafOperator:
+      type: string
+      enum:
+        - $eq
+        - $ne
+        - $in
+        - $notIn
+        - $exists
+        - $notExists
+        - $isEmpty
+        - $notEmpty
+      description: Comparison operator applied to a commerce event payload field.
+    CommerceEventTriggerFilterLogicalOperator:
+      type: string
+      enum:
+        - $and
+        - $or
+      description: Logical operator used to combine multiple filter conditions.
+    CommerceEventTriggerFilterScalarValue:
+      description: Scalar value used in commerce event filter comparisons.
+      oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+    CommerceEventTriggerFilterScalarArrayValue:
+      type: array
+      description: Array value used by list-based operators in commerce event filters.
+      items:
+        $ref: '#/components/schemas/CommerceEventTriggerFilterScalarValue'
+      minItems: 1
+    CommerceEventTriggerLeafFilterNoRight:
+      type: object
+      description: Filter condition for unary operators that do not accept `right`.
+      example:
+        left: payload.customer.id
+        op: $exists
+      properties:
+        left:
+          type: string
+          description: Dot-notation path to a field in the commerce event payload.
+        op:
+          type: string
+          enum:
+            - $exists
+            - $notExists
+            - $isEmpty
+            - $notEmpty
+      required:
+        - left
+        - op
+      additionalProperties: false
+    CommerceEventTriggerLeafFilterScalarRight:
+      type: object
+      description: Filter condition for scalar comparison operators.
+      example:
+        left: payload.order.totalPrice
+        op: $eq
+        right: 99.99
+      properties:
+        left:
+          type: string
+          description: Dot-notation path to a field in the commerce event payload.
+        op:
+          type: string
+          enum:
+            - $eq
+            - $ne
+        right:
+          $ref: '#/components/schemas/CommerceEventTriggerFilterScalarValue'
+      required:
+        - left
+        - op
+        - right
+      additionalProperties: false
+    CommerceEventTriggerLeafFilterArrayRight:
+      type: object
+      description: Filter condition for array membership operators.
+      example:
+        left: payload.order.currency
+        op: $in
+        right:
+          - USD
+          - EUR
+      properties:
+        left:
+          type: string
+          description: Dot-notation path to a field in the commerce event payload.
+        op:
+          type: string
+          enum:
+            - $in
+            - $notIn
+        right:
+          $ref: '#/components/schemas/CommerceEventTriggerFilterScalarArrayValue'
+      required:
+        - left
+        - op
+        - right
+      additionalProperties: false
+    CommerceEventTriggerLeafFilter:
+      description: Filter condition applied to a single field in the commerce event payload.
+      oneOf:
+        - $ref: '#/components/schemas/CommerceEventTriggerLeafFilterNoRight'
+        - $ref: '#/components/schemas/CommerceEventTriggerLeafFilterScalarRight'
+        - $ref: '#/components/schemas/CommerceEventTriggerLeafFilterArrayRight'
+    CommerceEventTriggerCompoundFilter:
+      type: object
+      description: Filter that combines multiple conditions using logical operators.
+      example:
+        op: $and
+        conditions:
+          - left: payload.order.currency
+            op: $in
+            right:
+              - USD
+              - EUR
+          - left: payload.order.customerEmail
+            op: $notEmpty
+      properties:
+        op:
+          $ref: '#/components/schemas/CommerceEventTriggerFilterLogicalOperator'
+        conditions:
+          type: array
+          description: Nested filter conditions combined by the logical operator.
+          items:
+            $ref: '#/components/schemas/CommerceEventTriggerFilter'
+          minItems: 1
+      required:
+        - op
+        - conditions
+    CommerceEventTriggerFilter:
+      oneOf:
+        - $ref: '#/components/schemas/CommerceEventTriggerLeafFilter'
+        - $ref: '#/components/schemas/CommerceEventTriggerCompoundFilter'
+      description: Optional filter expression applied to commerce event payloads. When set, the agent is triggered only if the event payload matches the filter.
+      example:
+        op: $or
+        conditions:
+          - left: payload.eventType
+            op: $eq
+            right: order.updated
+          - left: payload.order.tags
+            op: $notEmpty
     AgentTrigger:
       oneOf:
         - type: object
@@ -2611,6 +2824,8 @@ components:
                 events:
                   type: string
                   description: List of events that trigger the agent.
+                filter:
+                  $ref: '#/components/schemas/CommerceEventTriggerFilter'
               required:
                 - events
           required:
@@ -2811,7 +3026,7 @@ components:
     # Jobs:
     JobStatus:
       type: string
-      enum: [ in_progress,success,failure ]
+      enum: [ in_progress,success,failure,skipped ]
       description: Status of the job.
     JobType:
       type: string
@@ -2916,6 +3131,15 @@ components:
         message:
           type: string
           description: Agent message.
+    AttachmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the created attachment.
+        sessionId:
+          type: string
+          description: Unique identifier of the session. The same sessionId must be used when calling chat endpoints to ensure the correct attachment is found.
 
     # Agent Logs:
     LogSeverity:

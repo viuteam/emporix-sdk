@@ -538,6 +538,463 @@ export type Token = string;
  */
 export type Expand = string;
 
+export type GetOauthGenerateAnonymousAccessTokenData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Name of the tenant.
+         *
+         * **Note**: Name of the tenant is always written in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Your Emporix API key - client ID.
+         */
+        client_id: string;
+        /**
+         * Three-letter currency code to set in the session context.
+         */
+        currency?: string;
+        /**
+         * Code of the site to set in the session context, as defined in the Site Settings Service.
+         */
+        siteCode?: string;
+        /**
+         * Language to set in the session context.
+         */
+        language?: string;
+        /**
+         * Country code to set in the session context, as defined in the Country Service.
+         */
+        targetLocation?: string;
+    };
+    url: '/customerlogin/auth/anonymous/login';
+};
+
+export type GetOauthGenerateAnonymousAccessTokenResponses = {
+    /**
+     * The request was successful. An anonymous token is returned.
+     */
+    200: AnonymousAccessToken;
+};
+
+export type GetOauthGenerateAnonymousAccessTokenResponse = GetOauthGenerateAnonymousAccessTokenResponses[keyof GetOauthGenerateAnonymousAccessTokenResponses];
+
+export type GetOauthRefreshAnonymousAccessTokenData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Name of the tenant.
+         *
+         * **Note**: Name of the tenant is always written in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * NOTE: It's recommended to use `refresh_token` parameter instead. <br>Anonymous token that needs to be refreshed so that the same session ID will be kept. Provide the value of the `access_token` you get in response to requesting a token request.
+         * @deprecated
+         */
+        anonymous_token: string;
+        /**
+         * A refresh token generated when the anonymous token is created.
+         */
+        refresh_token: string;
+        /**
+         * Your Emporix API key - client ID.
+         */
+        client_id: string;
+    };
+    url: '/customerlogin/auth/anonymous/refresh';
+};
+
+export type GetOauthRefreshAnonymousAccessTokenResponses = {
+    /**
+     * The request was successful. An anonymous token is returned.
+     */
+    200: AnonymousAccessToken;
+};
+
+export type GetOauthRefreshAnonymousAccessTokenResponse = GetOauthRefreshAnonymousAccessTokenResponses[keyof GetOauthRefreshAnonymousAccessTokenResponses];
+
+export type PostCustomerCreateCustomerAccountData = {
+    body?: CustomerSignup;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/customer/{tenant}/signup';
+};
+
+export type PostCustomerCreateCustomerAccountErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     *
+     */
+    403: ErrorMessage;
+    409: ErrorMessage;
+};
+
+export type PostCustomerCreateCustomerAccountError = PostCustomerCreateCustomerAccountErrors[keyof PostCustomerCreateCustomerAccountErrors];
+
+export type PostCustomerCreateCustomerAccountResponses = {
+    /**
+     * Created
+     */
+    201: ResourceLocation;
+};
+
+export type PostCustomerCreateCustomerAccountResponse = PostCustomerCreateCustomerAccountResponses[keyof PostCustomerCreateCustomerAccountResponses];
+
+export type PostCustomerAuthenticateCustomerData = {
+    body: PasswordAuthentication;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/customer/{tenant}/login';
+};
+
+export type PostCustomerAuthenticateCustomerErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+};
+
+export type PostCustomerAuthenticateCustomerError = PostCustomerAuthenticateCustomerErrors[keyof PostCustomerAuthenticateCustomerErrors];
+
+export type PostCustomerAuthenticateCustomerResponses = {
+    /**
+     * The request was successful. A customer token is returned.
+     */
+    200: CustomerToken;
+};
+
+export type PostCustomerAuthenticateCustomerResponse = PostCustomerAuthenticateCustomerResponses[keyof PostCustomerAuthenticateCustomerResponses];
+
+export type GetCustomerLogoutCustomerData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query: {
+        /**
+         * Customer access token to be invalidated.
+         */
+        accessToken: string;
+    };
+    url: '/customer/{tenant}/logout';
+};
+
+export type GetCustomerLogoutCustomerErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+};
+
+export type GetCustomerLogoutCustomerError = GetCustomerLogoutCustomerErrors[keyof GetCustomerLogoutCustomerErrors];
+
+export type GetCustomerLogoutCustomerResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type GetCustomerLogoutCustomerResponse = GetCustomerLogoutCustomerResponses[keyof GetCustomerLogoutCustomerResponses];
+
+export type GetCustomerRefreshAuthtokenData = {
+    body?: never;
+    headers: {
+        /**
+         * Customer access token generated when the customer token is created.
+         */
+        Authorization: string;
+    };
+    path: {
+        /**
+         * Name of the tenant.
+         *
+         * **Note**: Name of the tenant is always written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query: {
+        /**
+         * Customer refresh token generated when a customer token is requested.
+         */
+        refreshToken: string;
+        /**
+         * Identifier of the legal entity associated with the user session.
+         */
+        legalEntityId?: string;
+    };
+    url: '/customer/{tenant}/refreshauthtoken';
+};
+
+export type GetCustomerRefreshAuthtokenErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+};
+
+export type GetCustomerRefreshAuthtokenError = GetCustomerRefreshAuthtokenErrors[keyof GetCustomerRefreshAuthtokenErrors];
+
+export type GetCustomerRefreshAuthtokenResponses = {
+    /**
+     * The request was successful. A refresh token is returned.
+     */
+    200: RefreshCustomerToken;
+};
+
+export type GetCustomerRefreshAuthtokenResponse = GetCustomerRefreshAuthtokenResponses[keyof GetCustomerRefreshAuthtokenResponses];
+
+export type GetCustomerValidateTokenData = {
+    body?: never;
+    headers: {
+        /**
+         * Customer access token generated upon the customer token creation.
+         */
+        Authorization: string;
+    };
+    path: {
+        /**
+         * Name of the tenant.
+         *
+         * **Note**: Name of the tenant is always written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/customer/{tenant}/validateauthtoken';
+};
+
+export type GetCustomerValidateTokenErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+};
+
+export type GetCustomerValidateTokenResponses = {
+    /**
+     * The request was successful. A token details are returned.
+     */
+    200: ValidateTokenResponse;
+};
+
+export type GetCustomerValidateTokenResponse = GetCustomerValidateTokenResponses[keyof GetCustomerValidateTokenResponses];
+
+export type PostCustomerExchangeAuthtokenData = {
+    body?: never;
+    headers: {
+        /**
+         * Anonymous token used to authorize the exchange.
+         */
+        Authorization: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query: {
+        /**
+         * The subject access token (JWT) to exchange for a customer token.
+         */
+        subjectAccessToken: string;
+        /**
+         * Configuration identifier (for example, `site_PL`). If not provided, the default configuration is used.
+         * If a non-existing configuration is provided, the request returns 400 Bad Request.
+         *
+         */
+        config?: string;
+    };
+    url: '/customer/{tenant}/exchangeauthtoken';
+};
+
+export type PostCustomerExchangeAuthtokenErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     *
+     */
+    403: ErrorMessage;
+};
+
+export type PostCustomerExchangeAuthtokenError = PostCustomerExchangeAuthtokenErrors[keyof PostCustomerExchangeAuthtokenErrors];
+
+export type PostCustomerExchangeAuthtokenResponses = {
+    /**
+     * The request was successful. A customer token is returned.
+     */
+    200: ExchangeAuthTokenResponse;
+};
+
+export type PostCustomerExchangeAuthtokenResponse = PostCustomerExchangeAuthtokenResponses[keyof PostCustomerExchangeAuthtokenResponses];
+
+export type PostCustomerLoginCustomerByAuth0Data = {
+    body?: never;
+    headers?: {
+        /**
+         * Anonymous customer unique session identifier.
+         */
+        'session-id'?: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query: {
+        /**
+         * The authorization code received from the identity provider.
+         */
+        code: string;
+        /**
+         * The redirect URI that was used in the initial authorization request.
+         */
+        redirect_uri: string;
+        /**
+         * Required only if using PKCE (Proof Key for Code Exchange) flow.
+         */
+        code_verifier?: string;
+    };
+    url: '/customer/{tenant}/socialLogin';
+};
+
+export type PostCustomerLoginCustomerByAuth0Errors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+};
+
+export type PostCustomerLoginCustomerByAuth0Error = PostCustomerLoginCustomerByAuth0Errors[keyof PostCustomerLoginCustomerByAuth0Errors];
+
+export type PostCustomerLoginCustomerByAuth0Responses = {
+    200: {
+        social_access_token?: string;
+        social_id_token?: string;
+        refresh_token?: string;
+        refresh_token_expires_in?: string;
+        session_idle_time?: number;
+        token_type?: string;
+        access_token?: string;
+        saas_token?: string;
+        expires_in?: string;
+        scope?: string;
+    };
+};
+
+export type PostCustomerLoginCustomerByAuth0Response = PostCustomerLoginCustomerByAuth0Responses[keyof PostCustomerLoginCustomerByAuth0Responses];
+
 export type GetCustomerRetrieveCustomerProfileData = {
     body?: never;
     path: {
@@ -1275,392 +1732,6 @@ export type PostCustomerChangeAccountPasswordResponses = {
 
 export type PostCustomerChangeAccountPasswordResponse = PostCustomerChangeAccountPasswordResponses[keyof PostCustomerChangeAccountPasswordResponses];
 
-export type PostCustomerCreateCustomerAccountData = {
-    body?: CustomerSignup;
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant should always be written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query?: never;
-    url: '/customer/{tenant}/signup';
-};
-
-export type PostCustomerCreateCustomerAccountErrors = {
-    /**
-     * Request was syntactically incorrect. Details will be provided in the response payload.
-     */
-    400: ErrorMessage;
-    /**
-     * Unauthorized
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-    /**
-     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
-     *
-     */
-    403: ErrorMessage;
-    409: ErrorMessage;
-};
-
-export type PostCustomerCreateCustomerAccountError = PostCustomerCreateCustomerAccountErrors[keyof PostCustomerCreateCustomerAccountErrors];
-
-export type PostCustomerCreateCustomerAccountResponses = {
-    /**
-     * Created
-     */
-    201: ResourceLocation;
-};
-
-export type PostCustomerCreateCustomerAccountResponse = PostCustomerCreateCustomerAccountResponses[keyof PostCustomerCreateCustomerAccountResponses];
-
-export type GetOauthGenerateAnonymousAccessTokenData = {
-    body?: never;
-    path?: never;
-    query: {
-        /**
-         * Name of the tenant.
-         *
-         * **Note**: Name of the tenant is always written in lowercase.
-         *
-         */
-        tenant: string;
-        /**
-         * Your Emporix API key - client ID.
-         */
-        client_id: string;
-        /**
-         * Three-letter currency code to set in the session context.
-         */
-        currency?: string;
-        /**
-         * Code of the site to set in the session context, as defined in the Site Settings Service.
-         */
-        siteCode?: string;
-        /**
-         * Language to set in the session context.
-         */
-        language?: string;
-        /**
-         * Country code to set in the session context, as defined in the Country Service.
-         */
-        targetLocation?: string;
-    };
-    url: '/customerlogin/auth/anonymous/login';
-};
-
-export type GetOauthGenerateAnonymousAccessTokenResponses = {
-    /**
-     * The request was successful. An anonymous token is returned.
-     */
-    200: AnonymousAccessToken;
-};
-
-export type GetOauthGenerateAnonymousAccessTokenResponse = GetOauthGenerateAnonymousAccessTokenResponses[keyof GetOauthGenerateAnonymousAccessTokenResponses];
-
-export type GetOauthRefreshAnonymousAccessTokenData = {
-    body?: never;
-    path?: never;
-    query: {
-        /**
-         * Name of the tenant.
-         *
-         * **Note**: Name of the tenant is always written in lowercase.
-         *
-         */
-        tenant: string;
-        /**
-         * NOTE: It's recommended to use `refresh_token` parameter instead. <br>Anonymous token that needs to be refreshed so that the same session ID will be kept. Provide the value of the `access_token` you get in response to requesting a token request.
-         * @deprecated
-         */
-        anonymous_token: string;
-        /**
-         * A refresh token generated when the anonymous token is created.
-         */
-        refresh_token: string;
-        /**
-         * Your Emporix API key - client ID.
-         */
-        client_id: string;
-    };
-    url: '/customerlogin/auth/anonymous/refresh';
-};
-
-export type GetOauthRefreshAnonymousAccessTokenResponses = {
-    /**
-     * The request was successful. An anonymous token is returned.
-     */
-    200: AnonymousAccessToken;
-};
-
-export type GetOauthRefreshAnonymousAccessTokenResponse = GetOauthRefreshAnonymousAccessTokenResponses[keyof GetOauthRefreshAnonymousAccessTokenResponses];
-
-export type PostCustomerAuthenticateCustomerData = {
-    body: PasswordAuthentication;
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant should always be written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query?: never;
-    url: '/customer/{tenant}/login';
-};
-
-export type PostCustomerAuthenticateCustomerErrors = {
-    /**
-     * Request was syntactically incorrect. Details will be provided in the response payload.
-     */
-    400: ErrorMessage;
-    /**
-     * Unauthorized
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-};
-
-export type PostCustomerAuthenticateCustomerError = PostCustomerAuthenticateCustomerErrors[keyof PostCustomerAuthenticateCustomerErrors];
-
-export type PostCustomerAuthenticateCustomerResponses = {
-    /**
-     * The request was successful. A customer token is returned.
-     */
-    200: CustomerToken;
-};
-
-export type PostCustomerAuthenticateCustomerResponse = PostCustomerAuthenticateCustomerResponses[keyof PostCustomerAuthenticateCustomerResponses];
-
-export type GetCustomerLogoutCustomerData = {
-    body?: never;
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant should always be written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query: {
-        /**
-         * Customer access token to be invalidated.
-         */
-        accessToken: string;
-    };
-    url: '/customer/{tenant}/logout';
-};
-
-export type GetCustomerLogoutCustomerErrors = {
-    /**
-     * Request was syntactically incorrect. Details will be provided in the response payload.
-     */
-    400: ErrorMessage;
-    /**
-     * Unauthorized
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-};
-
-export type GetCustomerLogoutCustomerError = GetCustomerLogoutCustomerErrors[keyof GetCustomerLogoutCustomerErrors];
-
-export type GetCustomerLogoutCustomerResponses = {
-    /**
-     * No Content
-     */
-    204: void;
-};
-
-export type GetCustomerLogoutCustomerResponse = GetCustomerLogoutCustomerResponses[keyof GetCustomerLogoutCustomerResponses];
-
-export type GetCustomerRefreshAuthtokenData = {
-    body?: never;
-    headers: {
-        /**
-         * Customer access token generated when the customer token is created.
-         */
-        Authorization: string;
-    };
-    path: {
-        /**
-         * Name of the tenant.
-         *
-         * **Note**: Name of the tenant is always written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query: {
-        /**
-         * Customer refresh token generated when a customer token is requested.
-         */
-        refreshToken: string;
-        /**
-         * Identifier of the legal entity associated with the user session.
-         */
-        legalEntityId?: string;
-    };
-    url: '/customer/{tenant}/refreshauthtoken';
-};
-
-export type GetCustomerRefreshAuthtokenErrors = {
-    /**
-     * Request was syntactically incorrect. Details will be provided in the response payload.
-     */
-    400: ErrorMessage;
-    /**
-     * Unauthorized
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-};
-
-export type GetCustomerRefreshAuthtokenError = GetCustomerRefreshAuthtokenErrors[keyof GetCustomerRefreshAuthtokenErrors];
-
-export type GetCustomerRefreshAuthtokenResponses = {
-    /**
-     * The request was successful. A refresh token is returned.
-     */
-    200: RefreshCustomerToken;
-};
-
-export type GetCustomerRefreshAuthtokenResponse = GetCustomerRefreshAuthtokenResponses[keyof GetCustomerRefreshAuthtokenResponses];
-
-export type GetCustomerValidateTokenData = {
-    body?: never;
-    headers: {
-        /**
-         * Customer access token generated upon the customer token creation.
-         */
-        Authorization: string;
-    };
-    path: {
-        /**
-         * Name of the tenant.
-         *
-         * **Note**: Name of the tenant is always written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query?: never;
-    url: '/customer/{tenant}/validateauthtoken';
-};
-
-export type GetCustomerValidateTokenErrors = {
-    /**
-     * Unauthorized
-     */
-    401: unknown;
-};
-
-export type GetCustomerValidateTokenResponses = {
-    /**
-     * The request was successful. A token details are returned.
-     */
-    200: ValidateTokenResponse;
-};
-
-export type GetCustomerValidateTokenResponse = GetCustomerValidateTokenResponses[keyof GetCustomerValidateTokenResponses];
-
-export type PostCustomerExchangeAuthtokenData = {
-    body?: never;
-    headers: {
-        /**
-         * Anonymous token used to authorize the exchange.
-         */
-        Authorization: string;
-    };
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant should always be written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query: {
-        /**
-         * The subject access token (JWT) to exchange for a customer token.
-         */
-        subjectAccessToken: string;
-        /**
-         * Configuration identifier (for example, `site_PL`). If not provided, the default configuration is used.
-         * If a non-existing configuration is provided, the request returns 400 Bad Request.
-         *
-         */
-        config?: string;
-    };
-    url: '/customer/{tenant}/exchangeauthtoken';
-};
-
-export type PostCustomerExchangeAuthtokenErrors = {
-    /**
-     * Request was syntactically incorrect. Details will be provided in the response payload.
-     */
-    400: ErrorMessage;
-    /**
-     * Unauthorized
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-    /**
-     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
-     *
-     */
-    403: ErrorMessage;
-};
-
-export type PostCustomerExchangeAuthtokenError = PostCustomerExchangeAuthtokenErrors[keyof PostCustomerExchangeAuthtokenErrors];
-
-export type PostCustomerExchangeAuthtokenResponses = {
-    /**
-     * The request was successful. A customer token is returned.
-     */
-    200: ExchangeAuthTokenResponse;
-};
-
-export type PostCustomerExchangeAuthtokenResponse = PostCustomerExchangeAuthtokenResponses[keyof PostCustomerExchangeAuthtokenResponses];
-
 export type GetCustomerSignupCustomerOptinData = {
     body?: never;
     path: {
@@ -1751,77 +1822,6 @@ export type PostCustomerRefreshTokenResponses = {
      */
     202: unknown;
 };
-
-export type PostCustomerLoginCustomerByAuth0Data = {
-    body?: never;
-    headers?: {
-        /**
-         * Anonymous customer unique session identifier.
-         */
-        'session-id'?: string;
-    };
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant should always be written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query: {
-        /**
-         * The authorization code received from the identity provider.
-         */
-        code: string;
-        /**
-         * The redirect URI that was used in the initial authorization request.
-         */
-        redirect_uri: string;
-        /**
-         * Required only if using PKCE (Proof Key for Code Exchange) flow.
-         */
-        code_verifier?: string;
-    };
-    url: '/customer/{tenant}/socialLogin';
-};
-
-export type PostCustomerLoginCustomerByAuth0Errors = {
-    /**
-     * Request was syntactically incorrect. Details will be provided in the response payload.
-     */
-    400: ErrorMessage;
-    /**
-     * Unauthorized
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-};
-
-export type PostCustomerLoginCustomerByAuth0Error = PostCustomerLoginCustomerByAuth0Errors[keyof PostCustomerLoginCustomerByAuth0Errors];
-
-export type PostCustomerLoginCustomerByAuth0Responses = {
-    200: {
-        social_access_token?: string;
-        social_id_token?: string;
-        refresh_token?: string;
-        refresh_token_expires_in?: string;
-        session_idle_time?: number;
-        token_type?: string;
-        access_token?: string;
-        saas_token?: string;
-        expires_in?: string;
-        scope?: string;
-    };
-};
-
-export type PostCustomerLoginCustomerByAuth0Response = PostCustomerLoginCustomerByAuth0Responses[keyof PostCustomerLoginCustomerByAuth0Responses];
 
 export type ClientOptions = {
     baseUrl: 'https://api.emporix.io' | 'https://api.emporix.io' | 'https://api.emporix.io' | 'https://api.emporix.io' | (string & {});

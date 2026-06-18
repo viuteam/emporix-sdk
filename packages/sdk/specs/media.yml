@@ -21,6 +21,10 @@ paths:
         Creates a new asset for the tenant. An asset represents a digital (max 10MB) object in the system, for example a video, image, or a document.
         - To create an asset of the `BLOB` type, use the `multipart/form-data` request body. 
         - To create an asset of the `LINK` type, use the `application/json` request body.
+
+        **Access and assignment rules:**
+        - Assets assigned to predefined `refIds` types (such as `CATEGORY` or `PRODUCT`) require `PUBLIC` access.
+        - `PRIVATE` access assets can be linked to custom schema types or remain unassigned.
       security:
         - OAuth2:
             - media.asset_manage
@@ -83,7 +87,7 @@ paths:
                   id: 123e06ecf0452c2d6c0b81390
                   type: LINK
                   access: PUBLIC
-                  url: 'https://emporix.io/docs/index.html'
+                  url: 'https://example.com/media/category-banner.html'
                   refIds:
                     - id: 123e06ecf0452c2d6c0b81392
                       type: CATEGORY
@@ -91,8 +95,8 @@ paths:
                 value:
                   id: 123e06ecf0452c2d6c0b81390
                   type: LINK
-                  access: PRIVATE
-                  url: 'https://emporix.io/docs/index.html'
+                  access: PUBLIC
+                  url: 'https://example.com/media/product-image.html'
                   refIds:
                     - id: 567e06ecf0452c2d6c0b81392
                       type: PRODUCT
@@ -101,13 +105,13 @@ paths:
                   id: 123e06ecf0452c2d6c0b81390
                   type: LINK
                   access: PRIVATE
-                  url: 'https://emporix.io/docs/index.html'
+                  url: 'https://example.com/media/asset-without-refIds.html'
               Unassociated public asset of the LINK type:
                 value:
                   id: 123e06ecf0452c2d6c0b81390
                   type: LINK
                   access: PUBLIC
-                  url: 'https://emporix.io/docs/index.html'
+                  url: 'https://example.com/media/asset-without-refIds.html'
       responses:
         '201':
           description: The request was successful. The asset has been created.

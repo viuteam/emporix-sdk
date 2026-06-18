@@ -433,6 +433,10 @@ components:
                       country: DE
                       type: BILLING
                       contactPhone: '123456789'
+                legalEntity:
+                  id: legalEntityId
+                createdResource:
+                  id: '64ef8d12b6385140afea1603'
                 metadata:
                   createdAt: '2023-04-31T13:18:02.379Z'
                   modifiedAt: '2023-04-31T13:18:02.379Z'
@@ -537,6 +541,10 @@ components:
                         country: DE
                         type: BILLING
                         contactPhone: '123456789'
+                  legalEntity:
+                    id: legalEntityId
+                  createdResource:
+                    id: '64ef8d12b6385140afea1603'
                   metadata:
                     createdAt: '2023-04-31T13:18:02.379Z'
                     modifiedAt: '2023-04-31T13:18:02.379Z'
@@ -842,8 +850,37 @@ components:
               $ref: '#/components/schemas/approvalStatus'
             expiryDate:
               $ref: '#/components/schemas/expiryDate'
+            legalEntity:
+              $ref: '#/components/schemas/legalEntity'
+            createdResource:
+              $ref: '#/components/schemas/createdResource'
             metadata:
               $ref: '#/components/schemas/metadata'
+    legalEntity:
+      title: Legal entity
+      description: |
+        Legal entity (company) the approval belongs to. Set when the approval is created from the customer token.
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identifier of the legal entity.
+      required:
+        - id
+    createdResource:
+      title: Created resource
+      description: |
+        Resource created when the approval flow completes and the approved action is executed. Present once the downstream system has created the linked entity; omitted until then.
+
+        For checkout approvals (`action: CHECKOUT`), `id` is typically the order identifier (for example, from Order Service).
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identifier of the created resource (for checkout approvals, typically an order ID).
+          example: '64ef8d12b6385140afea1603'
+      required:
+        - id
     approvalPermittedResponse:
       title: approval permitted response
       allOf:

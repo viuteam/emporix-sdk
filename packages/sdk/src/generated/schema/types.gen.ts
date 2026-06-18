@@ -499,7 +499,11 @@ export type PatchOperation = {
      */
     op: 'add' | 'remove' | 'replace';
     /**
-     * Indicates a path for which the value should be applied. For example:`/mixins/additionalAttributes/externalId` or `/name`
+     * Path to the field to update.
+     *
+     * Examples: `/name`, `/mixins/additionalAttributes/externalId`, `/mixins/additionalAttributes/careInstructions/1`.
+     *
+     * To append an item to an array mixin field (for example, a table row), use `add` with a path ending in `/-`. The `-` means append after the last element.
      */
     path: string;
     /**
