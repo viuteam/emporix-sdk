@@ -10,6 +10,9 @@ const SERVICE: AuthContext = { kind: "service" };
 /**
  * Emporix SEPA Export Service (`/sepa-export/{tenant}/…`): export jobs and file
  * retrieval. Server-side; defaults to the service token.
+ *
+ * @deprecated since 2026-05-25, removal 2026-08-24 — the SEPA Export service is
+ * being sunset by Emporix; all endpoints are no longer maintained.
  */
 export class SepaExportService {
   static readonly channel = "sepa-export" as const;

@@ -141,7 +141,11 @@ export class IndexingService {
     });
   }
 
-  /** Trigger a reindex. */
+  /**
+   * Trigger a reindex.
+   * @deprecated since 2026-06-18, removal 2026-12-01 — use {@link createReindexJob}
+   * (`createReindexJob({ entityType: "PRODUCT" })`), which returns a trackable job.
+   */
   async reindex(input: ReindexInput, auth: AuthContext = SERVICE): Promise<void> {
     await this.ctx.http.request<void>({ method: "POST", path: `${this.base()}/reindex`, auth, body: input });
   }

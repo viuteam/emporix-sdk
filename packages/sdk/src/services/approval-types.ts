@@ -3,6 +3,12 @@
  * `approval-service` types (single source of truth; faithful required/optional flags).
  *
  * Every endpoint is CustomerAccessToken-only (B2B cart/quote approval workflows).
+ *
+ * Deprecated upstream (since 2026-05-26, removal 2026-11-30) — these fields carry
+ * `@deprecated` in the generated types; prefer the replacements:
+ * - `totalPrice.amount` / `subTotalPrice.amount` → `netValue` / `grossValue` / `taxValue`
+ * - `itemYrn` → `itemId`
+ * - `itemPrice.amount` → `calculatedPrice` and `unitPrice`
  */
 import type {
   GetApprovalResponse,

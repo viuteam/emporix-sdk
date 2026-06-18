@@ -38,6 +38,9 @@ const SERVICE: AuthContext = { kind: "service" };
  * orders, assignees, packaging, packing events, and recalculation jobs.
  * Server-side; defaults to the service token. Several mutating endpoints return
  * an acknowledgement (`{ message?, code? }`).
+ *
+ * @deprecated since 2026-05-25, removal 2026-08-24 — the Pick-Pack service is
+ * being sunset by Emporix; all endpoints are no longer maintained.
  */
 export class PickPackService {
   static readonly channel = "pick-pack" as const;
