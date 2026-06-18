@@ -55,7 +55,7 @@ scope map below). Two gaps make this hard to manage well:
 | sepa-export — whole service (05-25) | 2026-08-24 | `@deprecated` on `SepaExportService` class |
 | pick-pack — whole service (05-25) | 2026-08-24 | `@deprecated` on `PickPackService` class |
 | approval fields (`totalPrice.amount`, `subTotalPrice.amount`, `itemYrn`, `itemPrice.amount`) (05-26) | 2026-11-30 | Regen approval spec (carries upstream `deprecated`); document replacements in `approval-types.ts` aliases |
-| availability — `site`-query endpoints → `site`-path; location mgmt endpoints (05-28) | 2026-09-01 | Wire availability into `fetch-specs.ts`; regen; migrate `getMany()` to `POST /availability/{tenant}/availability/site/{site}`; `@deprecated` on old query-param path |
+| availability — location-management endpoints deprecated (05-28) | 2026-09-01 | Wire availability into `fetch-specs.ts` + manifest; regen from real upstream (replaces the minimal hand-vendored spec); add `availability-types.ts` alias layer; reconcile `get()`/`getMany()` types. **No endpoint change** — the SDK's product-availability endpoints are *not* deprecated; only location management is (not wrapped → carried via generated `@deprecated` + noted in the doc) |
 | supplier — whole service (05-28) | 2026-09-01 | **No SDK service** → record in tracking doc only |
 | iam — roles/permissions/resources (05-13) | 2026-10-01 | **No SDK service** → record in tracking doc only |
 
@@ -130,28 +130,36 @@ The availability spec is currently **manually vendored** (`specs/availability.ym
 hand-written v0.0.1) and is **absent** from `fetch-specs.ts`. The real upstream spec lives at
 `orders/availability/api-reference/api.yml`.
 
-Changes:
+**Authoritative deprecation state (verified against the upstream spec, 2026-06-18):** the only
+`deprecated: true` endpoints in the availability spec are the **location-management** ones —
+`GET/POST/PUT /availability/{tenant}/locations/{site}`,
+`DELETE /availability/{tenant}/locations/{location}`, and
+`POST /availability/{tenant}/search/locations`. The SDK does **not** wrap any of these. The
+product-availability endpoints the SDK *does* use are **not** deprecated:
+`get()` → `GET /availability/{tenant}/availability/{productId}/{site}` (path-param) and
+`getMany()` → `POST /availability/{tenant}/availability/search` (where `site` is now an
+*optional* query param). **There is therefore no endpoint migration to do.**
+
+Changes (wiring + accuracy, not behaviour):
 
 1. Add availability to `fetch-specs.ts`:
    `availability: ${BASE}/orders/availability/api-reference/api.yml`.
 2. Regenerate `src/generated/availability/types.gen.ts` from the real upstream spec, replacing
-   the minimal vendored types.
+   the minimal vendored types. The real spec keeps the `AvailabilityWithBundle` schema the
+   service relies on; the regenerated `Location*` types carry the upstream `@deprecated` markers.
 3. **Introduce `src/services/availability-types.ts`** (the service currently imports
    `AvailabilityWithBundle` directly from the generated module). The alias layer keeps the
-   stable public name `Availability` decoupled from whatever the regenerated schema names are —
-   the exact upstream schema names are resolved during implementation by reading the freshly
-   generated file.
-4. Migrate `getMany()` from the deprecated query-param search
-   (`POST /availability/{tenant}/availability/search?site=`) to the new path-param endpoint
-   `POST /availability/{tenant}/availability/site/{site}`. Preserve the existing public
-   signature/return shape where possible; if a behavioural change is unavoidable, keep the old
-   call path available under a `@deprecated` method and add the new one. `get()` already uses
-   the path-param form and only needs type reconciliation.
+   stable public name `Availability` decoupled from the regenerated schema names — the exact
+   names are confirmed during implementation by reading the freshly generated file.
+4. Reconcile `availability.ts`'s type imports against the regenerated module and re-point them at
+   the new alias layer. **`get()` and `getMany()` keep their current endpoints and signatures
+   unchanged** — they already target non-deprecated paths.
 
 **Risk:** regenerating availability replaces the hand-vendored types, so `availability.ts`'s
 type imports must be reconciled against the new generated names. This is the main integration
 risk and is handled explicitly in the implementation plan (regen → read generated names → build
-aliases → adjust service → typecheck).
+aliases → adjust imports → typecheck). The `locations.ts` (B2B) service is unrelated and
+untouched.
 
 ### 4. Sync manifest (machine-readable watermark)
 
@@ -209,8 +217,9 @@ carry the same body). Deprecation is documentation-only and changes no runtime b
 - **New** `packages/sdk/tests/indexing.test.ts` (there are currently no indexing tests): MSW
   coverage for `createReindexJob` (201 and the 200 already-in-progress case), `listReindexJobs`
   (pagination shape), and `getReindexJob` (including 404 → `EmporixNotFoundError`).
-- **Availability** tests for the migrated `getMany()` hitting the new `…/availability/site/{site}`
-  path, plus `get()` after type reconciliation.
+- **Availability:** after the type reconciliation, verify the existing `get()`/`getMany()`
+  behaviour is unchanged (endpoints are not deprecated). Add a focused test only if one does not
+  already exist for the reconciled types; no endpoint/signature change is expected.
 - A small test for the manifest writer asserting stable shape and that a changed spec body
   yields a changed `sha256` / appears in the "changed" report.
 - Full gate: `pnpm -F @viu/emporix-sdk build`, `pnpm -r test`, `pnpm typecheck`.
@@ -222,7 +231,7 @@ carry the same body). Deprecation is documentation-only and changes no runtime b
 1. Wire availability into `fetch-specs.ts`; add the manifest writer.
 2. Run the full `fetch-specs` + `generate` pass; commit regenerated specs, manifest, and types.
 3. Indexing reindex-jobs (types + methods + tests).
-4. Availability reconciliation + `getMany` migration + tests.
+4. Availability type reconciliation (alias layer; no endpoint change) + typecheck.
 5. Deprecation JSDoc sweep (rag-indexer, sepa-export, pick-pack, approval, indexing.reindex).
 6. Curated `docs/emporix-upstream-changelog.md` + changeset.
 7. Verify (build, test, typecheck), then PR per the repo's branch/changeset flow.
