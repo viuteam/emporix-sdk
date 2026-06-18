@@ -1,14 +1,9 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixNotFoundError } from "../core/errors";
-import type { AvailabilityWithBundle } from "../generated/availability";
+import type { Availability } from "./availability-types";
 
-/**
- * Site-aware product availability. Mirrors the Emporix Availability Service
- * `AvailabilityWithBundle` shape (the single-product GET and the batch search
- * both return the bundle-aware variant). There is no restock-date field.
- */
-export type Availability = AvailabilityWithBundle;
+export type { Availability } from "./availability-types";
 
 /** Shared options for {@link AvailabilityService} reads. */
 export interface AvailabilityOptions {
