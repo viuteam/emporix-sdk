@@ -1,5 +1,18 @@
 # @viu/emporix-sdk
 
+## 2.19.0
+
+### Minor Changes
+
+- [#139](https://github.com/viuteam/emporix-sdk/pull/139) [`1b17743`](https://github.com/viuteam/emporix-sdk/commit/1b17743719e03146c1a66a8ebd3f02c25dd48590) Thanks [@amnael1](https://github.com/amnael1)! - Sync with the Emporix changelog (2026-06-18). New indexing reindex-jobs API:
+  `indexing.createReindexJob`, `indexing.listReindexJobs`, `indexing.getReindexJob`
+  (replacing the now-deprecated `indexing.reindex`). Deprecated `ragIndexer.reindex`
+  (use `indexing.createReindexJob({ entityType: "PRODUCT", rag: true })`), the whole
+  `SepaExportService` and `PickPackService`, and the deprecated approval price fields.
+  Availability is now fetched + vendored through the codegen pipeline. Adds upstream
+  version tracking: `specs/.sync-manifest.json` (written by `fetch-specs`) plus
+  `docs/emporix-upstream-changelog.md`.
+
 ## 2.18.0
 
 ### Minor Changes
