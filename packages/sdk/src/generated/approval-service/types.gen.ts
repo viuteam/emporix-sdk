@@ -220,7 +220,33 @@ export type GetApprovalResponse = BasicApproval & {
     approver?: User;
     status?: ApprovalStatus;
     expiryDate?: ExpiryDate;
+    legalEntity?: LegalEntity;
+    createdResource?: CreatedResource;
     metadata?: Metadata;
+};
+
+/**
+ * Legal entity (company) the approval belongs to. Set when the approval is created from the customer token.
+ *
+ */
+export type LegalEntity = {
+    /**
+     * Identifier of the legal entity.
+     */
+    id: string;
+};
+
+/**
+ * Resource created when the approval flow completes and the approved action is executed. Present once the downstream system has created the linked entity; omitted until then.
+ *
+ * For checkout approvals (`action: CHECKOUT`), `id` is typically the order identifier (for example, from Order Service).
+ *
+ */
+export type CreatedResource = {
+    /**
+     * Identifier of the created resource (for checkout approvals, typically an order ID).
+     */
+    id: string;
 };
 
 /**

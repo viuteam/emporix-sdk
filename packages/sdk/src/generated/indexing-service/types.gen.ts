@@ -23,6 +23,49 @@ export type ErrorMessage = {
     details?: Array<string>;
 };
 
+/**
+ * Informs about status of reindex job. `PENDING` means that the maximum number of parallel `IN_PROGRESS` jobs is reached and such job will be processed when one of current `IN_PROGRESS` jobs is released.
+ */
+export type ReindexJobStatus = 'FAILURE' | 'IN_PROGRESS' | 'PENDING' | 'SUCCESS';
+
+export type Metadata = {
+    /**
+     * Date and time when the object was created. The value is approved as an ISO-8601 representation of an Instant. For example: `2022-04-30T13:18:02.379Z`
+     */
+    createdAt?: string;
+    /**
+     * Date and time when the object was last modified. The value is approved as an ISO-8601 representation of an Instant. For example: `2022-04-30T13:18:02.379Z`
+     */
+    modifiedAt?: string;
+};
+
+/**
+ * Entity type which should be reindexed. For now, it supports only `PRODUCT` and custom schema types.
+ */
+export type ReindexEntityType = string;
+
+export type ReindexJob = {
+    /**
+     * Unique identifier of the reindex job.
+     */
+    id?: string;
+    entityType?: ReindexEntityType;
+    /**
+     * In case if reindex job finishes with `FAILURE` status, the message is populated with information what was the reason of the failure.
+     */
+    message?: string;
+    status?: ReindexJobStatus;
+    metadata?: Metadata;
+};
+
+export type ReindexRequest = {
+    entityType: ReindexEntityType;
+    /**
+     * Whether products should be reindexed for RAG. This property is applicable only when `entityType` is `PRODUCT`.
+     */
+    rag?: boolean;
+};
+
 export type IndexPublicConfiguration = {
     /**
      * API Key used for search purposes.
@@ -83,6 +126,39 @@ export type TraitTenant = string;
  * Provider name. Supported values: `ALGOLIA`, `BATTERY_INCLUDED`
  */
 export type TraitProvider = 'ALGOLIA' | 'BATTERY_INCLUDED';
+
+/**
+ * Flag indicating whether the total number of retrieved results should be returned.
+ */
+export type HeaderXTotalCount = boolean;
+
+/**
+ * A standard query parameter is used to search for specific values.
+ *
+ * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+ *
+ */
+export type QParam = string;
+
+/**
+ * The number of documents to be retrieved per page.
+ */
+export type PageSize = number;
+
+/**
+ * The page number to be retrieved. The size of the pages should be specified by the `pageSize` parameter.
+ */
+export type PageNumber = number;
+
+/**
+ * List of properties used to sort the results, separated by colons.
+ */
+export type Sort = string;
+
+/**
+ * Fields to be returned in the response.
+ */
+export type Fields = string;
 
 export type GetIndexingListConfigsData = {
     body?: never;
@@ -398,6 +474,12 @@ export type GetIndexingRetrievePublicConfigResponse = GetIndexingRetrievePublicC
 export type PostIndexingReindexData = {
     body?: Reindex;
     path: {
+        /**
+         * The tenant that the caller is acting upon.
+         *
+         * Please note that this value is always lowercase.
+         *
+         */
         tenant: string;
     };
     query?: never;
@@ -433,6 +515,193 @@ export type PostIndexingReindexResponses = {
 };
 
 export type PostIndexingReindexResponse = PostIndexingReindexResponses[keyof PostIndexingReindexResponses];
+
+export type GetIndexingReindexJobsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Flag indicating whether the total number of retrieved results should be returned.
+         */
+        'X-Total-Count'?: boolean;
+    };
+    path: {
+        /**
+         * The tenant that the caller is acting upon.
+         *
+         * Please note that this value is always lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * A standard query parameter is used to search for specific values.
+         *
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         *
+         */
+        q?: string;
+        /**
+         * The number of documents to be retrieved per page.
+         */
+        pageSize?: number;
+        /**
+         * The page number to be retrieved. The size of the pages should be specified by the `pageSize` parameter.
+         */
+        pageNumber?: number;
+        /**
+         * List of properties used to sort the results, separated by colons.
+         */
+        sort?: string;
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+    };
+    url: '/indexing/{tenant}/reindex-jobs';
+};
+
+export type GetIndexingReindexJobsErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+};
+
+export type GetIndexingReindexJobsError = GetIndexingReindexJobsErrors[keyof GetIndexingReindexJobsErrors];
+
+export type GetIndexingReindexJobsResponses = {
+    /**
+     * Reindex jobs are returned.
+     */
+    200: Array<ReindexJob>;
+};
+
+export type GetIndexingReindexJobsResponse = GetIndexingReindexJobsResponses[keyof GetIndexingReindexJobsResponses];
+
+export type PostIndexingReindexJobsData = {
+    body?: ReindexRequest;
+    path: {
+        /**
+         * The tenant that the caller is acting upon.
+         *
+         * Please note that this value is always lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/indexing/{tenant}/reindex-jobs';
+};
+
+export type PostIndexingReindexJobsErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+};
+
+export type PostIndexingReindexJobsError = PostIndexingReindexJobsErrors[keyof PostIndexingReindexJobsErrors];
+
+export type PostIndexingReindexJobsResponses = {
+    /**
+     * The reindex job for given entityType was already `IN_PROGRESS` and it is returned.
+     */
+    200: ReindexJob;
+    /**
+     * The new reindex job was created.
+     */
+    201: ReindexJob;
+};
+
+export type PostIndexingReindexJobsResponse = PostIndexingReindexJobsResponses[keyof PostIndexingReindexJobsResponses];
+
+export type GetIndexingReindexJobsReindexJobIdData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant that the caller is acting upon.
+         *
+         * Please note that this value is always lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Id of the reindex job.
+         */
+        reindexJobId: string;
+    };
+    query?: {
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+    };
+    url: '/indexing/{tenant}/reindex-jobs/{reindexJobId}';
+};
+
+export type GetIndexingReindexJobsReindexJobIdErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+};
+
+export type GetIndexingReindexJobsReindexJobIdError = GetIndexingReindexJobsReindexJobIdErrors[keyof GetIndexingReindexJobsReindexJobIdErrors];
+
+export type GetIndexingReindexJobsReindexJobIdResponses = {
+    /**
+     * Reindex job is returned.
+     */
+    200: ReindexJob;
+};
+
+export type GetIndexingReindexJobsReindexJobIdResponse = GetIndexingReindexJobsReindexJobIdResponses[keyof GetIndexingReindexJobsReindexJobIdResponses];
 
 export type ClientOptions = {
     baseUrl: 'https://api.emporix.io' | (string & {});

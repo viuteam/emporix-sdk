@@ -1355,7 +1355,9 @@ paths:
         - $ref: '#/components/parameters/trait_contentLanguage_header'
         - $ref: '#/components/parameters/trait_validateReferences'
       description: |-
-        The patch request consists of set of operation, that should be defined according to [RFC-6902](https://datatracker.ietf.org/doc/html/rfc6902) standard.
+        Partially updates a custom instance. The patch request consists of a set of operations that should be defined according to the [RFC-6902](https://datatracker.ietf.org/doc/html/rfc6902) standard.
+
+        To append a row to an array mixin field, use `add` with a path ending in `/-`. See the **Append to an array mixin field** example.
 
       tags:
         - Custom Instance
@@ -1379,9 +1381,16 @@ paths:
                     path: /mixins/productCustomAttributes
               Add a mixin:
                 value:
-                  - op: ADD
+                  - op: add
                     path: /mixins/productCustomAttributes/pricingMeasurePrice
                     value: 15
+              Append to an array mixin field:
+                value:
+                  - op: add
+                    path: /mixins/productCustomAttributes/careInstructions/-
+                    value:
+                      step: 3
+                      instruction: Lay flat to air dry away from direct sunlight
         description: ''
       responses:
         '204':
@@ -2438,7 +2447,12 @@ components:
           description: 'Indicates an operation which should be done on a return. Available operations: `add` `remove` and `replace`'
         path:
           type: string
-          description: 'Indicates a path for which the value should be applied. For example:`/mixins/additionalAttributes/externalId` or `/name`'
+          description: |-
+            Path to the field to update.
+
+            Examples: `/name`, `/mixins/additionalAttributes/externalId`, `/mixins/additionalAttributes/careInstructions/1`.
+
+            To append an item to an array mixin field (for example, a table row), use `add` with a path ending in `/-`. The `-` means append after the last element.
         value:
           oneOf:
             - type: object

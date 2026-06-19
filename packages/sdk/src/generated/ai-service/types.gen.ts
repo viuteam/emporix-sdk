@@ -32,6 +32,20 @@ export type AgenticRequest = {
      * The user message to the agent.
      */
     message: string;
+    attachments?: Array<{
+        /**
+         * Id of the attachment.
+         */
+        attachmentId: string;
+        /**
+         * Caption of the attachment.
+         */
+        caption?: string;
+        /**
+         * Purpose of the attachment.
+         */
+        purpose?: string;
+    }>;
 };
 
 /**
@@ -259,15 +273,11 @@ export type RagEmporixNativeToolConfig = {
     /**
      * This field specifies the fields of the given entityType that are used for filtering the data before performing actual search.
      */
-    filterFields: Array<{
+    filterFields?: Array<{
         /**
          * It should contain the description of the field, so LLM is able to know when to use this field in order to filter the data. For enums, possible values should be specified here.
          */
         description?: string;
-        /**
-         * It can act as an alias for the field key.
-         */
-        name?: string;
         /**
          * Unique value representing the entityType key.
          */
@@ -625,6 +635,82 @@ export type TriggerType = 'endpoint' | 'slack';
  */
 export type CommerceEventsTriggerType = 'commerce_events';
 
+/**
+ * Comparison operator applied to a commerce event payload field.
+ */
+export type CommerceEventTriggerFilterLeafOperator = '$eq' | '$ne' | '$in' | '$notIn' | '$exists' | '$notExists' | '$isEmpty' | '$notEmpty';
+
+/**
+ * Logical operator used to combine multiple filter conditions.
+ */
+export type CommerceEventTriggerFilterLogicalOperator = '$and' | '$or';
+
+/**
+ * Scalar value used in commerce event filter comparisons.
+ */
+export type CommerceEventTriggerFilterScalarValue = string | number | boolean;
+
+/**
+ * Array value used by list-based operators in commerce event filters.
+ */
+export type CommerceEventTriggerFilterScalarArrayValue = Array<CommerceEventTriggerFilterScalarValue>;
+
+/**
+ * Filter condition for unary operators that do not accept `right`.
+ */
+export type CommerceEventTriggerLeafFilterNoRight = {
+    /**
+     * Dot-notation path to a field in the commerce event payload.
+     */
+    left: string;
+    op: '$exists' | '$notExists' | '$isEmpty' | '$notEmpty';
+};
+
+/**
+ * Filter condition for scalar comparison operators.
+ */
+export type CommerceEventTriggerLeafFilterScalarRight = {
+    /**
+     * Dot-notation path to a field in the commerce event payload.
+     */
+    left: string;
+    op: '$eq' | '$ne';
+    right: CommerceEventTriggerFilterScalarValue;
+};
+
+/**
+ * Filter condition for array membership operators.
+ */
+export type CommerceEventTriggerLeafFilterArrayRight = {
+    /**
+     * Dot-notation path to a field in the commerce event payload.
+     */
+    left: string;
+    op: '$in' | '$notIn';
+    right: CommerceEventTriggerFilterScalarArrayValue;
+};
+
+/**
+ * Filter condition applied to a single field in the commerce event payload.
+ */
+export type CommerceEventTriggerLeafFilter = CommerceEventTriggerLeafFilterNoRight | CommerceEventTriggerLeafFilterScalarRight | CommerceEventTriggerLeafFilterArrayRight;
+
+/**
+ * Filter that combines multiple conditions using logical operators.
+ */
+export type CommerceEventTriggerCompoundFilter = {
+    op: CommerceEventTriggerFilterLogicalOperator;
+    /**
+     * Nested filter conditions combined by the logical operator.
+     */
+    conditions: Array<CommerceEventTriggerFilter>;
+};
+
+/**
+ * Optional filter expression applied to commerce event payloads. When set, the agent is triggered only if the event payload matches the filter.
+ */
+export type CommerceEventTriggerFilter = CommerceEventTriggerLeafFilter | CommerceEventTriggerCompoundFilter;
+
 export type AgentTrigger = {
     type: TriggerType;
 } | {
@@ -637,6 +723,7 @@ export type AgentTrigger = {
          * List of events that trigger the agent.
          */
         events: string;
+        filter?: CommerceEventTriggerFilter;
     };
 };
 
@@ -775,7 +862,7 @@ export type MetadataResponse = MetadataRequest & {
 /**
  * Status of the job.
  */
-export type JobStatus = 'in_progress' | 'success' | 'failure';
+export type JobStatus = 'in_progress' | 'success' | 'failure' | 'skipped';
 
 /**
  * Type of the job.
@@ -876,6 +963,17 @@ export type ChatResponse = {
      * Agent message.
      */
     message?: string;
+};
+
+export type AttachmentResponse = {
+    /**
+     * Unique identifier of the created attachment.
+     */
+    id?: string;
+    /**
+     * Unique identifier of the session. The same sessionId must be used when calling chat endpoints to ensure the correct attachment is found.
+     */
+    sessionId?: string;
 };
 
 /**
@@ -1707,10 +1805,67 @@ export type PostAiAgentsChatAsyncResponses = {
     /**
      * Job ID response.
      */
-    201: Array<JobIdResponse>;
+    201: JobIdResponse;
 };
 
 export type PostAiAgentsChatAsyncResponse = PostAiAgentsChatAsyncResponses[keyof PostAiAgentsChatAsyncResponses];
+
+export type PostAiAgentsUploadAttachmentData = {
+    body?: {
+        /**
+         * Content of the file.
+         */
+        attachment: Blob | File;
+    };
+    headers?: {
+        /**
+         * Unique session identifier which allows for storing the context of the chat. If not provided, the system generates it.
+         */
+        'session-id'?: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+        agentId: string;
+    };
+    query?: never;
+    url: '/ai-service/{tenant}/agentic/{agentId}/attachments';
+};
+
+export type PostAiAgentsUploadAttachmentErrors = {
+    /**
+     * The request was syntactically incorrect.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * Authorization scopes of the access token are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * A server-side error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PostAiAgentsUploadAttachmentError = PostAiAgentsUploadAttachmentErrors[keyof PostAiAgentsUploadAttachmentErrors];
+
+export type PostAiAgentsUploadAttachmentResponses = {
+    /**
+     * Attachment response.
+     */
+    201: AttachmentResponse;
+};
+
+export type PostAiAgentsUploadAttachmentResponse = PostAiAgentsUploadAttachmentResponses[keyof PostAiAgentsUploadAttachmentResponses];
 
 export type GetAiListTemplatesData = {
     body?: never;
@@ -1899,7 +2054,7 @@ export type PostAiCloneTemplateData = {
         templateId: string;
     };
     query?: never;
-    url: '/ai-service/{tenant}/agentic/templates/{templateId}/agent';
+    url: '/ai-service/{tenant}/agentic/templates/{templateId}/agents';
 };
 
 export type PostAiCloneTemplateErrors = {

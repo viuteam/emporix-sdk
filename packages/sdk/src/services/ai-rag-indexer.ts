@@ -53,6 +53,8 @@ export class RagIndexerService {
    * Schedule a full asynchronous re-index for `type` (default `"PRODUCT"`).
    * Resolves once the rebuild is *scheduled* (HTTP 204); there is no progress
    * to await or poll. Costly — avoid calling on a hot path.
+   * @deprecated since 2026-06-18, removal 2026-12-01 — use the indexing service:
+   * `client.indexing.createReindexJob({ entityType: "PRODUCT", rag: true })`.
    */
   async reindex(type: RagType = "PRODUCT", auth: AuthContext = SERVICE): Promise<void> {
     await this.ctx.http.request<void>({
