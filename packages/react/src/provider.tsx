@@ -3,10 +3,11 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { auth, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "./storage/index";
 import { createMemoryStorage } from "./storage/memory";
-import { EmporixTelemetryContext, type EmporixTelemetryEvent } from "./telemetry";
+import { EmporixTelemetryContext } from "./telemetry";
 import { CompanyContextProvider } from "./company-context";
 import { useEmporixQueryDefaults } from "./hooks/internal/use-emporix-query-defaults";
 import { useProviderWiring } from "./hooks/internal/use-provider-wiring";
+import { useTelemetrySource } from "./hooks/internal/use-telemetry-source";
 import type {
   EmporixContextValue,
   EmporixProviderProps,
@@ -56,108 +57,12 @@ export function EmporixProvider({
     ...(storage !== undefined ? { externalStorage: storage } : {}),
   });
 
-  // Telemetry: stable safeEmit + context value. emit is no-op when no
-  // onTelemetry callback was provided (no overhead).
-  const safeEmit = useCallback(
-    (event: EmporixTelemetryEvent) => {
-      if (!onTelemetry) return;
-      try {
-        onTelemetry(event);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error("[emporix] telemetry handler threw:", err);
-      }
-    },
-    [onTelemetry],
-  );
-  const telemetryValue = useMemo(() => ({ emit: safeEmit }), [safeEmit]);
-
-  // Source subscriptions: cache + mutation cache + token-provider + storage.
-  // All only active when onTelemetry is provided.
-  useEffect(() => {
-    if (!onTelemetry) return;
-    const startedAt = new Map<string, number>();
-
-    const unsubQuery = qc.getQueryCache().subscribe((event) => {
-      const key = event.query.queryKey;
-      if (!Array.isArray(key) || key[0] !== "emporix") return;
-      if (event.type === "updated") {
-        const action = event.action as { type: string };
-        if (action.type === "fetch") {
-          const isRefetch = event.query.state.dataUpdateCount > 0;
-          if (isRefetch) {
-            safeEmit({
-              type: "query.refetch",
-              queryKey: key,
-              tenant: client.tenant,
-              reason: "invalidate",
-            });
-          }
-          startedAt.set(event.query.queryHash, Date.now());
-        } else if (action.type === "success") {
-          const start = startedAt.get(event.query.queryHash);
-          startedAt.delete(event.query.queryHash);
-          safeEmit({
-            type: "cache.miss",
-            queryKey: key,
-            tenant: client.tenant,
-            durationMs: start ? Date.now() - start : 0,
-          });
-        } else if (action.type === "error") {
-          startedAt.delete(event.query.queryHash);
-          safeEmit({
-            type: "query.error",
-            queryKey: key,
-            tenant: client.tenant,
-            error: event.query.state.error,
-          });
-        }
-      } else if (event.type === "observerResultsUpdated") {
-        const s = event.query.state;
-        if (s.status === "success" && s.fetchStatus === "idle" && s.dataUpdateCount > 0) {
-          safeEmit({ type: "cache.hit", queryKey: key, tenant: client.tenant });
-        }
-      }
-    });
-
-    const unsubMut = qc.getMutationCache().subscribe((event) => {
-      if (event.type !== "updated") return;
-      const m = event.mutation;
-      const dur = Date.now() - (m.state.submittedAt ?? Date.now());
-      const mk = m.options.mutationKey;
-      if (m.state.status === "success") {
-        safeEmit({
-          type: "mutation.success",
-          ...(mk ? { mutationKey: mk as readonly unknown[] } : {}),
-          tenant: client.tenant,
-          durationMs: dur,
-        });
-      } else if (m.state.status === "error") {
-        safeEmit({
-          type: "mutation.error",
-          ...(mk ? { mutationKey: mk as readonly unknown[] } : {}),
-          tenant: client.tenant,
-          error: m.state.error,
-          durationMs: dur,
-        });
-      }
-    });
-
-    const unsubAuth = client.tokenProvider.onRefresh?.((evt) =>
-      safeEmit({ type: "auth.refresh", ...evt, tenant: client.tenant }),
-    );
-
-    const unsubStorage = value.storage.subscribeAll?.((key) =>
-      safeEmit({ type: "storage.write", key }),
-    );
-
-    return () => {
-      unsubQuery();
-      unsubMut();
-      unsubAuth?.();
-      unsubStorage?.();
-    };
-  }, [qc, onTelemetry, client, value.storage, safeEmit]);
+  const telemetryValue = useTelemetrySource({
+    qc,
+    client,
+    storage: value.storage,
+    ...(onTelemetry !== undefined ? { onTelemetry } : {}),
+  });
 
   // Opt-in reactive customer-token auto-refresh. Registered on the client so
   // the core HttpClient can refresh-and-retry a customer 401. Single-flight is
@@ -169,7 +74,7 @@ export function EmporixProvider({
       refresh: async () => {
         const refreshToken = storage.getRefreshToken();
         if (!refreshToken) {
-          safeEmit({ type: "auth.refresh", kind: "customer", success: false, tenant: client.tenant });
+          telemetryValue.emit({ type: "auth.refresh", kind: "customer", success: false, tenant: client.tenant });
           onCustomerSessionExpired?.();
           return null;
         }
@@ -181,17 +86,17 @@ export function EmporixProvider({
           });
           storage.setCustomerToken(s.customerToken);
           if (s.refreshToken) storage.setRefreshToken(s.refreshToken);
-          safeEmit({ type: "auth.refresh", kind: "customer", success: true, tenant: client.tenant });
+          telemetryValue.emit({ type: "auth.refresh", kind: "customer", success: true, tenant: client.tenant });
           return s.customerToken;
         } catch {
-          safeEmit({ type: "auth.refresh", kind: "customer", success: false, tenant: client.tenant });
+          telemetryValue.emit({ type: "auth.refresh", kind: "customer", success: false, tenant: client.tenant });
           onCustomerSessionExpired?.();
           return null;
         }
       },
     });
     return () => client.setCustomerTokenRefresher(null);
-  }, [autoRefreshCustomerToken, client, value.storage, safeEmit, onCustomerSessionExpired]);
+  }, [autoRefreshCustomerToken, client, value.storage, telemetryValue, onCustomerSessionExpired]);
 
   return (
     <EmporixContext.Provider value={value}>
