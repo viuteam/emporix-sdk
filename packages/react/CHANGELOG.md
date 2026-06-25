@@ -1,5 +1,17 @@
 # @viu/emporix-sdk-react
 
+## 2.19.1
+
+### Patch Changes
+
+- [#141](https://github.com/viuteam/emporix-sdk/pull/141) [`8fb0f52`](https://github.com/viuteam/emporix-sdk/commit/8fb0f529b439db9fe4199b861952237b3e7ec72d) Thanks [@amnael1](https://github.com/amnael1)! - Internal refactor: split the oversized `EmporixProvider` (557 LOC) and
+  `CompanyContextProvider` (248 LOC) into focused internal hooks and co-located
+  type/site-context modules. `EmporixProvider` is now a composition facade
+  (`useEmporixQueryDefaults`, `useProviderWiring`, `useTelemetrySource`,
+  `useCustomerTokenRefresher`) and `SiteContextProvider` lives in its own module
+  with a de-duplicated switch tail. No change to the public API, rendered output,
+  effect timing, or types — all 298 unit tests pass unchanged.
+
 ## 2.18.0
 
 ### Minor Changes
