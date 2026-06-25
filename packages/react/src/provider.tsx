@@ -8,6 +8,7 @@ import { CompanyContextProvider } from "./company-context";
 import { useEmporixQueryDefaults } from "./hooks/internal/use-emporix-query-defaults";
 import { useProviderWiring } from "./hooks/internal/use-provider-wiring";
 import { useTelemetrySource } from "./hooks/internal/use-telemetry-source";
+import { useCustomerTokenRefresher } from "./hooks/internal/use-customer-token-refresher";
 import type {
   EmporixContextValue,
   EmporixProviderProps,
@@ -64,39 +65,13 @@ export function EmporixProvider({
     ...(onTelemetry !== undefined ? { onTelemetry } : {}),
   });
 
-  // Opt-in reactive customer-token auto-refresh. Registered on the client so
-  // the core HttpClient can refresh-and-retry a customer 401. Single-flight is
-  // handled in the core registry. Off unless `autoRefreshCustomerToken`.
-  useEffect(() => {
-    if (!autoRefreshCustomerToken) return;
-    const storage = value.storage;
-    client.setCustomerTokenRefresher({
-      refresh: async () => {
-        const refreshToken = storage.getRefreshToken();
-        if (!refreshToken) {
-          telemetryValue.emit({ type: "auth.refresh", kind: "customer", success: false, tenant: client.tenant });
-          onCustomerSessionExpired?.();
-          return null;
-        }
-        try {
-          const legalEntityId = storage.getActiveLegalEntityId() ?? undefined;
-          const s = await client.customers.refresh({
-            refreshToken,
-            ...(legalEntityId ? { legalEntityId } : {}),
-          });
-          storage.setCustomerToken(s.customerToken);
-          if (s.refreshToken) storage.setRefreshToken(s.refreshToken);
-          telemetryValue.emit({ type: "auth.refresh", kind: "customer", success: true, tenant: client.tenant });
-          return s.customerToken;
-        } catch {
-          telemetryValue.emit({ type: "auth.refresh", kind: "customer", success: false, tenant: client.tenant });
-          onCustomerSessionExpired?.();
-          return null;
-        }
-      },
-    });
-    return () => client.setCustomerTokenRefresher(null);
-  }, [autoRefreshCustomerToken, client, value.storage, telemetryValue, onCustomerSessionExpired]);
+  useCustomerTokenRefresher({
+    client,
+    storage: value.storage,
+    emit: telemetryValue.emit,
+    ...(autoRefreshCustomerToken !== undefined ? { enabled: autoRefreshCustomerToken } : {}),
+    ...(onCustomerSessionExpired !== undefined ? { onExpired: onCustomerSessionExpired } : {}),
+  });
 
   return (
     <EmporixContext.Provider value={value}>
