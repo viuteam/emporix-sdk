@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { auth, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "./storage/index";
@@ -6,6 +6,7 @@ import { createMemoryStorage } from "./storage/memory";
 import { EmporixTelemetryContext, type EmporixTelemetryEvent } from "./telemetry";
 import { CompanyContextProvider } from "./company-context";
 import { useEmporixQueryDefaults } from "./hooks/internal/use-emporix-query-defaults";
+import { useProviderWiring } from "./hooks/internal/use-provider-wiring";
 import type {
   EmporixContextValue,
   EmporixProviderProps,
@@ -48,23 +49,12 @@ export function EmporixProvider({
 
   useEmporixQueryDefaults(qc);
 
-  // Idempotent wiring that must precede the children's first fetch effects:
-  // (1) attach the storage-backed anonymous-session adapter to the SDK token
-  // provider, (2) seed the SSR-provided customer token into external storage.
-  // Ref-guarded so it re-runs when (client, storage) identity changes — a
-  // useState lazy initializer runs once per component INSTANCE and silently
-  // skips re-wiring on prop swaps; a useEffect runs AFTER children fetch.
-  const wiredRef = useRef<{ client: EmporixClient; storage: EmporixStorage } | null>(null);
-  if (wiredRef.current?.client !== client || wiredRef.current?.storage !== value.storage) {
-    client.tokenProvider.attachAnonymousStore?.({
-      read: () => value.storage.getAnonymousSession(),
-      write: (s) => value.storage.setAnonymousSession(s),
-    });
-    if (initialCustomerToken && storage && storage.getCustomerToken() === null) {
-      storage.setCustomerToken(initialCustomerToken);
-    }
-    wiredRef.current = { client, storage: value.storage };
-  }
+  useProviderWiring({
+    client,
+    storage: value.storage,
+    ...(initialCustomerToken !== undefined ? { initialCustomerToken } : {}),
+    ...(storage !== undefined ? { externalStorage: storage } : {}),
+  });
 
   // Telemetry: stable safeEmit + context value. emit is no-op when no
   // onTelemetry callback was provided (no overhead).
