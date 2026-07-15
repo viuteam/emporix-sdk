@@ -1,0 +1,124 @@
+name: Emporix API Sync
+
+# Daily check for upstream Emporix OpenAPI spec changes. When the vendored
+# specs drift from `emporix/api-references`, regenerate the SDK types, smoke-test
+# the bundle (check:treeshake), and open/update a single PR against main. The
+# full quality gate (typecheck/lint/test) runs via pr-check.yml on that PR.
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+  workflow_dispatch: {}
+
+concurrency:
+  group: api-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Mint a short-lived GitHub App token (same app as release.yml) so the PR
+      # this job opens is attributed to the app — PRs opened with GITHUB_TOKEN
+      # never trigger downstream workflows, which would leave the required
+      # pr-check / changeset-check stuck on "Expected".
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch upstream specs
+        run: pnpm -F @viu/emporix-sdk fetch:specs
+
+      # fetch:specs always rewrites .sync-manifest.json (generatedAt / fetchedAt
+      # timestamps), so it can't signal real drift. Look only at the *.yml specs.
+      - name: Detect spec changes
+        id: detect
+        run: |
+          changed=$(git status --porcelain -- packages/sdk/specs \
+            | awk '{print $2}' \
+            | grep -E '\.yml$' \
+            | sed -E 's#.*/([^/]+)\.yml#\1#' \
+            | sort -u | paste -sd ',' -)
+          if [ -z "$changed" ]; then
+            echo "No spec content changes — discarding manifest timestamp churn."
+            git checkout -- packages/sdk/specs/.sync-manifest.json
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Changed services: $changed"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Regenerate types
+        if: steps.detect.outputs.has_changes == 'true'
+        run: pnpm -F @viu/emporix-sdk generate
+
+      # Build + treeshake are the smoke gate: a broken generation fails the job
+      # here, so a broken PR is never opened.
+      - name: Build SDK
+        if: steps.detect.outputs.has_changes == 'true'
+        run: pnpm -F @viu/emporix-sdk build
+
+      - name: Check tree-shaking
+        if: steps.detect.outputs.has_changes == 'true'
+        run: pnpm -F @viu/emporix-sdk check:treeshake
+
+      - name: Write changeset
+        if: steps.detect.outputs.has_changes == 'true'
+        run: |
+          cat > .changeset/emporix-api-sync.md <<EOF
+          ---
+          "@viu/emporix-sdk": patch
+          ---
+
+          chore(sdk): sync generated types with upstream Emporix API specs
+
+          Updated services: ${{ steps.detect.outputs.changed }}
+          EOF
+
+      - name: Create or update PR
+        if: steps.detect.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: chore/emporix-api-sync
+          base: main
+          delete-branch: false
+          commit-message: "chore(sdk): sync generated types with upstream emporix api specs"
+          title: "chore(sdk): sync generated types with upstream emporix api specs"
+          body: |
+            Automated daily sync of the vendored Emporix OpenAPI specs and generated types.
+
+            **Updated services:** ${{ steps.detect.outputs.changed }}
+
+            - `packages/sdk/specs/*.yml` re-fetched from [`emporix/api-references`](https://github.com/emporix/api-references)
+            - `packages/sdk/src/generated/` regenerated via `@hey-api/openapi-ts`
+            - `check:treeshake` passed
+
+            Review the generated type diff before merging. Bump the changeset from `patch` to `minor` if the changes are additive API surface.
+          labels: |
+            automated
+            dependencies
+          add-paths: |
+            packages/sdk/specs
+            packages/sdk/src/generated
+            .changeset/emporix-api-sync.md
