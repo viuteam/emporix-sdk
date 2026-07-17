@@ -9,6 +9,7 @@ import {
   type SyncManifest,
   type SpecManifestEntry,
 } from "./sync-manifest";
+import { applyPatches } from "./spec-patches";
 
 const BASE = "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main";
 const SPECS: Record<string, string> = {
@@ -72,10 +73,16 @@ async function main(): Promise<void> {
   for (const [name, url] of Object.entries(SPECS)) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Failed to fetch ${name} spec: ${res.status} ${url}`);
-    const yaml = await res.text();
+    const raw = await res.text();
+    // Repair known upstream defects (dangling $refs, mis-placed schemas) before
+    // the spec is written and hashed, so `generate` can't crash on them. See
+    // scripts/spec-patches.ts.
+    const { yaml, applied, stale } = applyPatches(name, raw);
+    for (const reason of applied) console.log(`  patched ${name}: ${reason}`);
+    for (const p of stale) console.warn(`  ⚠ stale patch for ${name} — no change, remove it: ${p.reason}`);
     await writeFile(join(dir, `${name}.yml`), yaml, "utf8");
     services[name] = { url, specVersion: readSpecVersion(yaml), fetchedAt: now, sha256: hashSpec(yaml) };
-    console.log(`fetched ${name} (${yaml.length} bytes)`);
+    console.log(`fetched ${name} (${raw.length} bytes)`);
   }
   const next: SyncManifest = { generatedAt: now, services };
   const changed = diffManifest(prev, next);
