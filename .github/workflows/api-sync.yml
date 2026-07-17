@@ -97,6 +97,13 @@ jobs:
 
       - name: Create or update PR
         if: steps.detect.outputs.has_changes == 'true'
+        # Skip the husky pre-commit hook (lint + repo-wide typecheck) on this
+        # bot commit: the examples typecheck against the built dist/ of
+        # @viu/emporix-sdk-react, which this job never builds, so the hook fails
+        # on a missing module. The real quality gate is pr-check.yml, which runs
+        # on the resulting PR and builds every package first.
+        env:
+          HUSKY: 0
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ steps.app-token.outputs.token }}
