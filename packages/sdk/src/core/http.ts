@@ -6,6 +6,7 @@ import {
 } from "./auth";
 import { errorFromResponse, EmporixTimeoutError, EmporixNetworkError } from "./errors";
 import type { Logger } from "./logger";
+import { parseSseStream, type SseEvent } from "./sse";
 
 /** A single HTTP request through the SDK. */
 export interface RequestOptions {
@@ -286,5 +287,68 @@ export class HttpClient {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  /**
+   * Open a Server-Sent Events stream (`text/event-stream`) and yield parsed
+   * events. Unlike {@link request}, no overall read budget applies (streams are
+   * long-lived) — only `connectMs` bounds time-to-headers, and the consumer
+   * breaking the iterator aborts the fetch. Like {@link requestRaw}, it does
+   * NOT retry or re-auth on 401; a non-2xx maps to a typed error before the
+   * stream begins.
+   */
+  async *requestStream(o: RequestOptions): AsyncIterable<SseEvent> {
+    const log = this.opts.logger.child({ requestId: `req-${++requestSeq}` });
+    const url = new URL(this.opts.host + o.path);
+    for (const [k, v] of Object.entries(o.query ?? {})) {
+      if (v !== undefined) url.searchParams.set(k, String(v));
+    }
+    const token = await resolveToken(o.auth, this.opts.provider);
+    const controller = new AbortController();
+    const connectTimer = setTimeout(() => controller.abort(), this.opts.timeouts.connectMs);
+    const headers = this.buildHeaders(o, token, false);
+    headers["Accept"] = "text/event-stream";
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: o.method,
+        headers,
+        signal: controller.signal,
+        ...(o.body !== undefined ? { body: JSON.stringify(o.body) } : {}),
+      });
+    } catch (err) {
+      clearTimeout(connectTimer);
+      if ((err as Error).name === "AbortError") {
+        throw new EmporixTimeoutError(`${o.method} ${o.path} timed out opening stream`);
+      }
+      throw new EmporixNetworkError(
+        `${o.method} ${o.path} network failure: ${(err as Error).message}`,
+      );
+    }
+    clearTimeout(connectTimer);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw errorFromResponse(
+        res.status,
+        `${o.method} ${o.path} → ${res.status}`,
+        text ? safeJson(text) : undefined,
+      );
+    }
+    log.debug("http stream open", { status: res.status });
+    if (!res.body) return;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    async function* readChunks(): AsyncIterable<string> {
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          yield decoder.decode(value, { stream: true });
+        }
+      } finally {
+        controller.abort(); // cancel the fetch if the consumer breaks early
+      }
+    }
+    yield* parseSseStream(readChunks());
   }
 }

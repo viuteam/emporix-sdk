@@ -4,7 +4,14 @@ import type {
   SchemaType as GenSchemaType,
   CustomSchemaTypeResponse,
   CustomInstanceResponse,
+  BulkPatchCustomInstanceRequest as GenBulkPatchInstanceItem,
+  BulkResponse as GenBulkResponse,
 } from "../generated/schema";
+
+/** One item for {@link SchemaService.bulkPatchInstances} — `{ id, data: op[] }`. */
+export type BulkPatchInstanceItem = GenBulkPatchInstanceItem;
+/** Per-item results of a bulk operation (207) — `{ index?, code?, status?, message?, details? }[]`. */
+export type BulkInstanceResult = GenBulkResponse;
 
 /** A schema definition (typed attributes attached to one or more entity types). */
 export type Schema = SchemaResponse;

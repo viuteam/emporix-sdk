@@ -13,6 +13,8 @@ import type {
   ListInstancesQuery,
   ListCustomEntitiesOptions,
   InstanceSearchBody,
+  BulkPatchInstanceItem,
+  BulkInstanceResult,
 } from "./schema-types";
 
 export type {
@@ -29,6 +31,8 @@ export type {
   ListInstancesQuery,
   ListCustomEntitiesOptions,
   InstanceSearchBody,
+  BulkPatchInstanceItem,
+  BulkInstanceResult,
 } from "./schema-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -308,6 +312,25 @@ export class SchemaService {
       path: `${this.instancesBase(type)}/${encodeURIComponent(id)}`,
       auth,
       body: patch,
+    });
+  }
+
+  /**
+   * Patch up to 200 custom instances of `type` in one call
+   * (`PATCH /custom-entities/{type}/instances/bulk`). Returns a 207 envelope:
+   * a per-item result array — a 207 is success, individual failures live in
+   * each item's `code`/`status`.
+   */
+  async bulkPatchInstances(
+    type: string,
+    items: BulkPatchInstanceItem[],
+    auth: AuthContext = SERVICE,
+  ): Promise<BulkInstanceResult> {
+    return this.ctx.http.request<BulkInstanceResult>({
+      method: "PATCH",
+      path: `${this.instancesBase(type)}/bulk`,
+      auth,
+      body: items,
     });
   }
 

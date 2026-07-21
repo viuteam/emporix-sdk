@@ -6,6 +6,8 @@ import type {
   PatchRequest as GenPatchRequest,
   QParamSearchBody as GenAgentSearchQuery,
   AgenticRequest as GenChatRequest,
+  ConversationResponse as GenConversation,
+  QParamSearchBody2 as GenConversationSearchQuery,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -66,3 +68,17 @@ export interface DeleteAgentOptions {
   /** Force deletion even if the agent is referenced elsewhere (`?force=true`). */
   force?: boolean;
 }
+
+/** Options for {@link AiService.chatStream}. */
+export interface ChatStreamOptions {
+  /**
+   * Reuse an existing chat context (sent as the `session-id` header). If
+   * omitted, the server generates a new session id.
+   */
+  sessionId?: string;
+}
+
+/** A stored agentic conversation (Teams-backed). */
+export type Conversation = GenConversation;
+/** Request body for `searchConversations` (`{ q? }`) — same shape as agent search. */
+export type ConversationSearchQuery = GenConversationSearchQuery;
