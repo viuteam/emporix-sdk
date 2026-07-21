@@ -2706,6 +2706,10 @@ components:
               type: string
           customAttributes:
             type: object
+          mixins:
+            type: object
+            additionalProperties: true
+            description: Custom media attributes.
     productCore:
       type: object
       properties:

@@ -236,14 +236,9 @@ export type TraitRegionCodeQueryParam = string;
  */
 export type PriceApiTraitAcceptLanguageHeader = string;
 
-/**
- * The X-Version header with value v2 is required for the endpoint.
- */
-export type TraitXVersionHeader = string;
-
 export type GetCountryListAllCountriesData = {
     body?: never;
-    headers: {
+    headers?: {
         /**
          * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields.
          * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as maps with the first matched language only.
@@ -256,10 +251,6 @@ export type GetCountryListAllCountriesData = {
          * In order to get information how many entities meet a filter requirements, X-Total-Count header has been introduced. The header is optional and its default value is false. It the header is provided and it is true then total count is returned in the X-Total-Count response header. In both cases (X-Total-Count true, false or not provided), the response body has the same format (array of entities). In other words, the information about total count is returned on demand, depending of an existence of X-Total-Count header in a request. Therefore, the X-Total-Count header is not returned if an API consumer didn’t ask for it.
          */
         'X-Total-Count'?: boolean;
-        /**
-         * The X-Version header with value v2 is required for the endpoint.
-         */
-        'X-Version': string;
     };
     path: {
         /**
@@ -376,7 +367,7 @@ export type GetCountryListAllCountriesResponse = GetCountryListAllCountriesRespo
 
 export type GetCountryRetrieveCountryData = {
     body?: never;
-    headers: {
+    headers?: {
         /**
          * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields.
          *
@@ -384,10 +375,6 @@ export type GetCountryRetrieveCountryData = {
          *
          */
         'Accept-Language'?: string;
-        /**
-         * The X-Version header with value v2 is required for the endpoint.
-         */
-        'X-Version': string;
     };
     path: {
         /**
@@ -434,12 +421,6 @@ export type GetCountryRetrieveCountryResponse = GetCountryRetrieveCountryRespons
 
 export type PatchCountryUpdateCountryData = {
     body?: CountryUpdate;
-    headers: {
-        /**
-         * The X-Version header with value v2 is required for the endpoint.
-         */
-        'X-Version': string;
-    };
     path: {
         /**
          * The tenant that the caller is acting upon.
@@ -500,7 +481,7 @@ export type PatchCountryUpdateCountryResponse = PatchCountryUpdateCountryRespons
 
 export type GetCountryListAllRegionsData = {
     body?: never;
-    headers: {
+    headers?: {
         /**
          * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields.
          * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as maps with the first matched language only.
@@ -513,10 +494,6 @@ export type GetCountryListAllRegionsData = {
          * In order to get information how many entities meet a filter requirements, X-Total-Count header has been introduced. The header is optional and its default value is false. It the header is provided and it is true then total count is returned in the X-Total-Count response header. In both cases (X-Total-Count true, false or not provided), the response body has the same format (array of entities). In other words, the information about total count is returned on demand, depending of an existence of X-Total-Count header in a request. Therefore, the X-Total-Count header is not returned if an API consumer didn’t ask for it.
          */
         'X-Total-Count'?: boolean;
-        /**
-         * The X-Version header with value v2 is required for the endpoint.
-         */
-        'X-Version': string;
     };
     path: {
         /**
@@ -619,7 +596,7 @@ export type GetCountryListAllRegionsResponse = GetCountryListAllRegionsResponses
 
 export type GetCountryRetrieveRegionData = {
     body?: never;
-    headers: {
+    headers?: {
         /**
          * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields.
          * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as maps with the first matched language only.
@@ -628,10 +605,6 @@ export type GetCountryRetrieveRegionData = {
          *
          */
         'Accept-Language'?: string;
-        /**
-         * The X-Version header with value v2 is required for the endpoint.
-         */
-        'X-Version': string;
     };
     path: {
         /**

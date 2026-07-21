@@ -27,12 +27,21 @@ export type ErrorMessage = {
     resourceId?: string;
 };
 
+export type MetadataCreate = {
+    /**
+     * A key-value map, where key is a mixin name and value is a link to the mixin schema. Must be provided together with the corresponding mixin values in the `mixins` object.
+     */
+    mixins?: {
+        [key: string]: string;
+    };
+};
+
 export type MetadataUpdate = {
     /**
      * Version of the document.
      */
     version: number;
-};
+} & MetadataCreate;
 
 export type MetadataGet = MetadataUpdate & {
     /**
@@ -69,6 +78,13 @@ export type Asset = {
      * List of references.
      */
     refIds?: Array<RefId>;
+    /**
+     * Custom asset attributes.
+     */
+    mixins?: {
+        [key: string]: unknown;
+    };
+    metadata?: MetadataCreate;
 };
 
 export type AssetDetailsCreate = {

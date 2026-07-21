@@ -106,9 +106,9 @@ export type ExpandedTokenResponse = InnerTokenResponse & {
 export type ExpandableTokenResponse = InnerTokenResponse | ExpandedTokenResponse;
 
 /**
- * Type of the native tool.
+ * Type of the native tool. Value `teams` is in preview.
  */
-export type NativeToolType = 'slack' | 'rag_custom' | 'rag_emporix';
+export type NativeToolType = 'slack' | 'rag_custom' | 'rag_emporix' | 'teams';
 
 export type BaseNativeTool = {
     type: NativeToolType;
@@ -329,6 +329,63 @@ export type SlackNativeToolResponse = BaseNativeTool & {
     metadata?: MetadataResponse;
 };
 
+/**
+ * MS Teams native tool operation identifier.
+ */
+export type TeamsAllowedOperations = 'sendMessage' | 'createChat' | 'createChannel' | 'inviteParticipants' | 'collaborateOnChannel' | 'collaborateOnChat';
+
+/**
+ * ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+ *
+ * {% hint style="danger" %}
+ * This functionality is in preview mode - some of the features may not be fully operational yet.
+ * {% endhint %}
+ *
+ * Configuration of an MS Teams native tool instance.
+ */
+export type TeamsNativeToolConfigResponse = {
+    /**
+     * Microsoft Teams team ID the tool is bound to.
+     */
+    teamId: string;
+    /**
+     * Customer Azure AD tenant ID for the Teams workspace.
+     */
+    tenantId?: string;
+    /**
+     * Agent ID that handles inbound Teams replies when no conversation-specific owner is set.
+     */
+    defaultInboundAgentId?: string;
+    /**
+     * Operations the tool instance exposes to assigned agents. At least one value is required when the tool is enabled.
+     */
+    allowedOperations?: Array<TeamsAllowedOperations>;
+};
+
+export type TeamsNativeToolConfigRequest = TeamsNativeToolConfigResponse;
+
+export type TeamsNativeToolRequest = BaseNativeTool & {
+    /**
+     * For TeamsNativeTool it has to be set to `teams`.
+     */
+    type?: unknown;
+    config: TeamsNativeToolConfigRequest;
+    metadata?: MetadataRequest;
+};
+
+export type TeamsNativeToolResponse = BaseNativeTool & {
+    /**
+     * Unique identifier of the tool.
+     */
+    id?: string;
+    /**
+     * For TeamsNativeTool it has to be set to `teams`.
+     */
+    type?: unknown;
+    config?: TeamsNativeToolConfigResponse;
+    metadata?: MetadataResponse;
+};
+
 export type RagCustomNativeToolRequest = BaseNativeTool & {
     /**
      * For `RagCustomNativeTool`, it has to be set to `rag_custom`.
@@ -376,7 +433,41 @@ export type RagEmporixNativeToolResponse = BaseNativeTool & {
 /**
  * List of native tools which agents should have access to.
  */
-export type NativeToolsResponse = Array<SlackNativeToolResponse | RagCustomNativeToolResponse | RagEmporixNativeToolResponse>;
+export type NativeToolsResponse = Array<SlackNativeToolResponse | RagCustomNativeToolResponse | RagEmporixNativeToolResponse | TeamsNativeToolResponse>;
+
+/**
+ * Represents an active agent conversation context (MS Teams channel or group chat).
+ */
+export type ConversationResponse = {
+    /**
+     * Provider-side conversation identifier (Teams conversation ID).
+     */
+    conversationId?: string;
+    /**
+     * Human-readable name of the conversation channel or group chat.
+     */
+    conversationName?: string;
+    /**
+     * Caller-supplied reference key used to reuse an existing conversation.
+     */
+    contextRef?: string;
+    /**
+     * Teams channel or chat identifier.
+     */
+    channelId?: string;
+    /**
+     * Identifier of the agent that owns this conversation.
+     */
+    agentId?: string;
+    /**
+     * LangGraph session (checkpointer) ID for agent continuity.
+     */
+    sessionId?: string;
+    /**
+     * Timestamp of the last message activity in this conversation.
+     */
+    lastMessageAt?: string;
+};
 
 export type McpServerConfig = {
     /**
@@ -490,11 +581,11 @@ export type BaseLlm = {
     /**
      * Value between 0.1 and 1.0 (inclusive), in steps of 0.1. The lower value the more creative (but less stable) the model is.
      */
-    temperature: 0.1 | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 1;
+    temperature?: 0.1 | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 1;
     /**
      * The limit of tokens which agent can burn during one request session.
      */
-    maxTokens: number;
+    maxTokens?: number;
 };
 
 export type EmporixLlm = BaseLlm & {
@@ -502,6 +593,38 @@ export type EmporixLlm = BaseLlm & {
      * Type of the LLM Provider. The `emporix_openai` allows using the OpenAI token provided by Emporix. The token usage is limited. When using this provider `apiKey` property can be omitted.
      */
     provider: 'emporix_openai';
+};
+
+/**
+ * OAuth 2.0 client-credentials settings for authenticating with a self-hosted LLM backend.
+ */
+export type OAuthParams = {
+    /**
+     * Base URL of the OAuth 2.0 authorization server. The access token is requested from `{url}/token`.
+     */
+    url: string;
+    /**
+     * OAuth 2.0 client identifier registered with the authorization server.
+     */
+    clientId: string;
+    /**
+     * OAuth 2.0 grant type used to obtain an access token.
+     */
+    grantType: 'client_credentials';
+    /**
+     * Optional space-separated list of scopes to request for the access token.
+     */
+    scope?: string;
+};
+
+export type OAuthParamsRequest = OAuthParams & {
+    [key: string]: unknown;
+} & {
+    clientSecret?: InnerTokenRequest;
+};
+
+export type OAuthParamsResponse = OAuthParams & {
+    clientSecret?: ExpandableTokenResponse;
 };
 
 export type SelfHostedParams = {
@@ -519,10 +642,12 @@ export type SelfHostedParamsRequest = SelfHostedParams & {
     [key: string]: unknown;
 } & {
     authorizationHeaderToken?: InnerTokenRequest;
+    oAuthParams?: OAuthParamsRequest;
 };
 
 export type SelfHostedParamsResponse = SelfHostedParams & {
     authorizationHeaderToken?: ExpandableTokenResponse;
+    oAuthParams?: OAuthParamsResponse;
 };
 
 export type SelfHostedLlm = BaseLlm & {
@@ -609,6 +734,26 @@ export type TokenResponse = BaseToken & {
 
 export type IdWrapper = {
     id: string;
+};
+
+/**
+ * ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+ *
+ * {% hint style="danger" %}
+ * This functionality is in preview mode - some of the features may not be fully operational yet.
+ * {% endhint %}
+ *
+ * Reference to a native tool assigned to an agent.
+ */
+export type NativeToolReferenceRequest = {
+    /**
+     * Identifier of the native tool.
+     */
+    id: string;
+    /**
+     * Optional per-agent override of allowed MS Teams operations. When omitted, the tool instance defaults apply.
+     */
+    allowedOperations?: Array<TeamsAllowedOperations>;
 };
 
 /**
@@ -774,6 +919,11 @@ export type BaseForAgentAndTemplate = BaseForAgentAndTemplateAndHandOff & {
     icon?: string;
     tags?: Array<string>;
     /**
+     * Optional JSON Schema (provided as a JSON string) that constrains the structure of the agent's generated output. Use this when you need predictable, machine-readable output instead of free-form text.
+     *
+     */
+    outputFormat?: string;
+    /**
      * Indicates whether the agent is enabled.
      */
     enabled?: boolean;
@@ -816,9 +966,9 @@ export type AgentHandOffResponse = BaseForAgentAndTemplateAndHandOff & {
 
 export type AgentRequest = BaseForAgentRequestAndResponse & {
     /**
-     * ID of the native tools.
+     * Native tools assigned to the agent, optionally with per-agent `allowedOperations` overrides.
      */
-    nativeTools?: Array<IdWrapper>;
+    nativeTools?: Array<NativeToolReferenceRequest>;
     llmConfig: EmporixLlm | ApiKeyLlmRequest | SelfHostedLlmRequest;
     mcpServers: AgentMcpServersRequest;
     metadata?: MetadataRequest;
@@ -1388,7 +1538,7 @@ export type TokenUpsertBody = TokenRequest;
 
 export type TokenPatchBody = PatchRequest;
 
-export type ToolUpsertBody = SlackNativeToolRequest | RagCustomNativeToolRequest | RagEmporixNativeToolRequest;
+export type ToolUpsertBody = SlackNativeToolRequest | RagCustomNativeToolRequest | RagEmporixNativeToolRequest | TeamsNativeToolRequest;
 
 export type ToolPatchBody = PatchRequest;
 
@@ -1758,6 +1908,61 @@ export type PostAiAgentsChatResponses = {
 };
 
 export type PostAiAgentsChatResponse = PostAiAgentsChatResponses[keyof PostAiAgentsChatResponses];
+
+export type PostAiAgentsChatStreamData = {
+    body?: AgenticChat;
+    headers?: {
+        /**
+         * Unique session identifier which allows for storing the context of the chat. If not provided, the system generates it.
+         */
+        'session-id'?: string;
+        /**
+         * Use `text/event-stream` to receive the response as a Server-Sent Events stream.
+         */
+        Accept?: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/ai-service/{tenant}/agentic/chat-stream';
+};
+
+export type PostAiAgentsChatStreamErrors = {
+    /**
+     * The request was syntactically incorrect.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * Authorization scopes of the access token are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * A server-side error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PostAiAgentsChatStreamError = PostAiAgentsChatStreamErrors[keyof PostAiAgentsChatStreamErrors];
+
+export type PostAiAgentsChatStreamResponses = {
+    /**
+     * Chat response stream.
+     */
+    200: string;
+};
+
+export type PostAiAgentsChatStreamResponse = PostAiAgentsChatStreamResponses[keyof PostAiAgentsChatStreamResponses];
 
 export type PostAiAgentsChatAsyncData = {
     body?: AgenticChat;
@@ -2470,6 +2675,141 @@ export type PutAiAgentResponses = {
 
 export type PutAiAgentResponse = PutAiAgentResponses[keyof PutAiAgentResponses];
 
+export type GetAiListConversationsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Flag indicating whether the total number of retrieved results should be returned.
+         */
+        'X-Total-Count'?: boolean;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * A standard query parameter is used to search for specific values.
+         *
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         *
+         */
+        q?: string;
+        /**
+         * The number of documents to be retrieved per page.
+         */
+        pageSize?: string;
+        /**
+         * The page number to be retrieved. The size of the pages should be specified by the `pageSize` parameter.
+         */
+        pageNumber?: string;
+        /**
+         * List of properties used to sort the results, separated by colons.
+         */
+        sort?: string;
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+    };
+    url: '/ai-service/{tenant}/agentic/conversations';
+};
+
+export type GetAiListConversationsErrors = {
+    /**
+     * The request was syntactically incorrect.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * Authorization scopes of the access token are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+};
+
+export type GetAiListConversationsError = GetAiListConversationsErrors[keyof GetAiListConversationsErrors];
+
+export type GetAiListConversationsResponses = {
+    /**
+     * List of conversations.
+     */
+    200: Array<ConversationResponse>;
+};
+
+export type GetAiListConversationsResponse = GetAiListConversationsResponses[keyof GetAiListConversationsResponses];
+
+export type PostAiSearchConversationsData = {
+    body?: QParamSearchBody2;
+    headers?: {
+        /**
+         * Flag indicating whether the total number of retrieved results should be returned.
+         */
+        'X-Total-Count'?: boolean;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * The number of documents to be retrieved per page.
+         */
+        pageSize?: string;
+        /**
+         * The page number to be retrieved. The size of the pages should be specified by the `pageSize` parameter.
+         */
+        pageNumber?: string;
+        /**
+         * List of properties used to sort the results, separated by colons.
+         */
+        sort?: string;
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+    };
+    url: '/ai-service/{tenant}/agentic/conversations/search';
+};
+
+export type PostAiSearchConversationsErrors = {
+    /**
+     * The request was syntactically incorrect.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * Authorization scopes of the access token are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+};
+
+export type PostAiSearchConversationsError = PostAiSearchConversationsErrors[keyof PostAiSearchConversationsErrors];
+
+export type PostAiSearchConversationsResponses = {
+    /**
+     * List of conversations.
+     */
+    200: Array<ConversationResponse>;
+};
+
+export type PostAiSearchConversationsResponse = PostAiSearchConversationsResponses[keyof PostAiSearchConversationsResponses];
+
 export type GetAiListToolsData = {
     body?: never;
     headers?: {
@@ -2710,7 +3050,7 @@ export type GetAiRetrieveToolResponses = {
     /**
      * A single tool.
      */
-    200: SlackNativeToolResponse | RagCustomNativeToolResponse | RagEmporixNativeToolResponse;
+    200: SlackNativeToolResponse | RagCustomNativeToolResponse | RagEmporixNativeToolResponse | TeamsNativeToolResponse;
 };
 
 export type GetAiRetrieveToolResponse = GetAiRetrieveToolResponses[keyof GetAiRetrieveToolResponses];

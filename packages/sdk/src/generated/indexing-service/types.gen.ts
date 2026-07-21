@@ -24,9 +24,9 @@ export type ErrorMessage = {
 };
 
 /**
- * Informs about status of reindex job. `PENDING` means that the maximum number of parallel `IN_PROGRESS` jobs is reached and such job will be processed when one of current `IN_PROGRESS` jobs is released.
+ * Informs about status of reindex job. `PENDING` means that the maximum number of parallel `IN_PROGRESS` jobs is reached and such job will be processed when one of current `IN_PROGRESS` jobs is released. `PUBLISHED` means that all the indexing events were emitted. `SUCCESS` means that all the indexing events were consumed.
  */
-export type ReindexJobStatus = 'FAILURE' | 'IN_PROGRESS' | 'PENDING' | 'SUCCESS';
+export type ReindexJobStatus = 'FAILURE' | 'IN_PROGRESS' | 'PENDING' | 'PUBLISHED' | 'SUCCESS';
 
 export type Metadata = {
     /**
@@ -55,6 +55,14 @@ export type ReindexJob = {
      */
     message?: string;
     status?: ReindexJobStatus;
+    /**
+     * Expected number of entities which need to be indexed.
+     */
+    expectedCount?: number;
+    /**
+     * Actual number of entities which were indexed. Allows to track the progress of reindexing process.
+     */
+    processedCount?: number;
     metadata?: Metadata;
 };
 
@@ -95,9 +103,16 @@ export type IndexConfiguration = IndexPublicConfiguration & {
      */
     writeKey?: string;
     /**
-     * Optional list of root product mixin keys to exclude from indexing. When set, the specified mixin keys are omitted from both the non-localized and localized portions of the indexed document. Applies only to the `BATTERY_INCLUDED` provider; ignored for `ALGOLIA`.
+     * Optional list of root product mixin keys to exclude from indexing. When set, the specified mixin keys are omitted from both the non-localized and localized portions of the indexed document. Applies only to the `BATTERY_INCLUDED` provider.
      */
     excludedMixinKeys?: Array<string>;
+    /**
+     * Optional allowlist of product mixin paths to include in indexing for the `BATTERY_INCLUDED` provider. Patterns are matched against full dot-notation paths rooted at the mixin key, for example `class_EA673_toolsClassification.sk.OnlineIsService_P`.
+     * `*` matches within a single path segment, `**` matches across one or more path segments, and matching is case sensitive.
+     * If a matched path points to an object, the entire subtree under that object is included. When this field is absent or an empty list, path filtering is inactive and existing `excludedMixinKeys` behavior applies.
+     * `includedMixinPaths` and `excludedMixinKeys` are mutually exclusive when `includedMixinPaths` is non-empty. Malformed glob patterns are rejected with a validation error on configuration writes.
+     */
+    includedMixinPaths?: Array<string>;
 };
 
 export type IndexCreationResponse = {

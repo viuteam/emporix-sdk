@@ -3065,6 +3065,91 @@ paths:
       security:   
         - OAuth2:
             - category.category_read_unpublished
+  /category/{tenant}/category-trees/{rootCategoryId}/rebuild:
+    post:
+      tags:
+        - Category Tree Resources
+      summary: Rebuilding a category tree
+      description: |
+        Rebuilds the category tree for a given root category and returns the result.
+        ***
+
+        ### Additional scope info
+
+        * `category.category_read_unpublished` - Only required if the response should contain unpublished categories.
+      operationId: POST-category-tree-rebuild-category-tree
+      parameters:
+        - name: tenant
+          in: path
+          description: |
+            Your Emporix tenant name.
+
+            **Note**: The tenant should always be written in lowercase.
+          required: true
+          schema:
+            type: string
+            example: saasdev2
+        - name: rootCategoryId
+          in: path
+          description: |
+            A unique identifier of the root category whose tree should be rebuilt.
+          required: true
+          schema:
+            type: string
+            example: 12a24ba108-e6fd-4139-b831-5ac5fded6d34
+        - name: showUnpublished
+          in: query
+          description: |
+            If set to `true`, unpublished categories are included in the returned tree.
+            Possible values:
+            * `true`
+            * `false`
+
+            **Note**: To get unpublished categories you need to have `category.category_read_unpublished` scope.
+          schema:
+            type: boolean
+            example: true
+            default: false
+      responses:
+        '200':
+          description: The request was successful. The newly rebuilt category tree is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryTree'
+        '403':
+          description: Permission denied due to insufficient rights.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                example:
+                  value:
+                    code: 403
+                    status: Forbidden
+                    message: You need a scope for this action.
+                    details:
+                      - 'Required scope(s): category.category_manage'
+        '404':
+          description: Root category with the specified ID does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                example:
+                  value:
+                    resourceId: 12a24ba108-e6fd-4139-b831-5ac5fded6d34
+                    code: 404
+                    status: Not Found
+                    message: Error while getting category tree
+                    details:
+                      - Category tree for category with id '12a24ba108-e6fd-4139-b831-5ac5fded6d34' not found
+      security:
+        - OAuth2:
+            - category.category_manage
+            - category.category_read_unpublished
 components:
   schemas:
     AssignmentDeprecated:
@@ -3562,6 +3647,9 @@ components:
               uploadLink:
                 type: string
                 description: 'URL where the media file is uploaded, with the file extension specified.'
+              mixins:
+                type: object
+                description: Custom media attributes.
             additionalProperties: false
         position:
           minimum: 0
@@ -3673,7 +3761,6 @@ components:
         code:
           type: string
           description: Unique category identifier defined by the tenant.
-          deprecated: true
         localizedName:
           type: object
           additionalProperties:
@@ -3893,6 +3980,9 @@ components:
           allOf:
             - $ref: '#/components/schemas/MediaCustomAttributesQueryDocument'
             - description: Custom attributes of the file.
+        mixins:
+          type: object
+          description: Custom media attributes.
       example:
         id: 345-12345
         url: 'https://emporix.com/platform/saas-ag/media/v2/public/files/12345678'
@@ -3906,6 +3996,9 @@ components:
           sizeKB: 5
           type: jpg
           name: ima.jpg
+        mixins:
+          mediaCustomAttributes:
+            altText: Cordless impact driver
     MediaCustomAttributesQueryDocument:
       type: object
       properties:

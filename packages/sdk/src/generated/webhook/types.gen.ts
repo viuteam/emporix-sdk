@@ -3,7 +3,7 @@
 
 export type AbstractWebhookConfig = {
     /**
-     * Indicates whether a given configuration is active. Only one configuration can be active.
+     * Indicates whether a given configuration is active. Only one configuration can be active at a time.
      */
     active?: boolean;
     provider?: Provider;
@@ -124,10 +124,17 @@ export type ConfigurationGet = {
 };
 
 /**
- * Unique identifier of webhook configuration.
+ * Unique identifier of the webhook configuration type.
  */
 export type ConfigCode = string;
 
+/**
+ * Webhook provider strategy. Maps to configuration types as follows:
+ *
+ * * `SVIX` – `svix`
+ * * `SVIX_SHARED` – `svix_shared`
+ * * `HTTP` – `http`
+ */
 export type Provider = 'SVIX_SHARED' | 'SVIX' | 'HTTP';
 
 export type WebhookConfigUpdate = AbstractWebhookConfig & {
@@ -317,7 +324,7 @@ export type WebhookStatistics = {
 export type PathTenant = string;
 
 /**
- * Unique identifier of webhook config.
+ * Unique identifier of the webhook configuration type.
  */
 export type PathCode = string;
 
@@ -424,7 +431,7 @@ export type PostWebhookCreateConfigErrors = {
      */
     403: ErrorMessage;
     /**
-     * Conflict. The resource already exists.
+     * Conflict. The resource already exists, for example when creating a webhook configuration for a type that is already configured.
      */
     409: ErrorMessage;
     /**
@@ -457,7 +464,7 @@ export type DeleteWebhookRemoveConfigData = {
          */
         tenant: string;
         /**
-         * Unique identifier of webhook config.
+         * Unique identifier of the webhook configuration type.
          */
         code: string;
     };
@@ -514,7 +521,7 @@ export type GetWebhookRetrieveConfigData = {
          */
         tenant: string;
         /**
-         * Unique identifier of webhook config.
+         * Unique identifier of the webhook configuration type.
          */
         code: string;
     };
@@ -573,7 +580,7 @@ export type PatchWebhookUpdateConfigData = {
          */
         tenant: string;
         /**
-         * Unique identifier of webhook config.
+         * Unique identifier of the webhook configuration type.
          */
         code: string;
     };
@@ -629,7 +636,7 @@ export type PutWebhookUpdateConfigData = {
          */
         tenant: string;
         /**
-         * Unique identifier of webhook config.
+         * Unique identifier of the webhook configuration type.
          */
         code: string;
     };
@@ -658,7 +665,7 @@ export type PutWebhookUpdateConfigErrors = {
      */
     403: ErrorMessage;
     /**
-     * Conflict. The resource already exists.
+     * Conflict. The resource already exists, for example when creating a webhook configuration for a type that is already configured.
      */
     409: ErrorMessage;
     /**
@@ -778,7 +785,7 @@ export type PatchWebhookManageEventSubscriptionsErrors = {
      */
     404: ErrorMessage;
     /**
-     * Conflict. The resource already exists.
+     * Conflict. The resource already exists, for example when creating a webhook configuration for a type that is already configured.
      */
     409: ErrorMessage;
     /**

@@ -48,6 +48,12 @@ paths:
                     details:
                       filename: theBestImage
                       mimeType: image/jpg
+                    mixins:
+                      mediaCustomAttributes:
+                        altText: Cordless impact driver
+                    metadata:
+                      mixins:
+                        mediaCustomAttributes: 'https://res.cloudinary.com/saas-ag/raw/upload/emporix-docs/mediaCustomAttributesMixIn-v1.json'
               Asset of the BLOB type added for a PRODUCT:
                 value:
                   file:
@@ -91,6 +97,12 @@ paths:
                   refIds:
                     - id: 123e06ecf0452c2d6c0b81392
                       type: CATEGORY
+                  mixins:
+                    mediaCustomAttributes:
+                      altText: Product specification sheet
+                  metadata:
+                    mixins:
+                      mediaCustomAttributes: 'https://res.cloudinary.com/saas-ag/raw/upload/emporix-docs/mediaCustomAttributesMixIn-v1.json'
               Asset of the LINK type added for a product:
                 value:
                   id: 123e06ecf0452c2d6c0b81390
@@ -225,8 +237,13 @@ paths:
                     details:
                       filename: theBestImage
                       mimeType: image/jpg
+                    mixins:
+                      mediaCustomAttributes:
+                        altText: Cordless impact driver
                     metadata:
                       version: 1
+                      mixins:
+                        mediaCustomAttributes: 'https://res.cloudinary.com/saas-ag/raw/upload/emporix-docs/mediaCustomAttributesMixIn-v1.json'
           application/json:
             schema:
               $ref: '#/components/schemas/AssetUpdateLink'
@@ -239,8 +256,13 @@ paths:
                   refIds:
                     - id: 123e06ecf0452c2d6c0b81392
                       type: CATEGORY
+                  mixins:
+                    mediaCustomAttributes:
+                      altText: Product specification sheet
                   metadata:
                     version: 1
+                    mixins:
+                      mediaCustomAttributes: 'https://res.cloudinary.com/saas-ag/raw/upload/emporix-docs/mediaCustomAttributesMixIn-v1.json'
       responses:
         '204':
           description: The asset has been updated successfully.
@@ -342,15 +364,25 @@ components:
         - status
         - code
         - message
-    MetadataUpdate:
+    MetadataCreate:
       type: object
       properties:
-        version:
-          minimum: 1
-          type: integer
-          description: Version of the document.
-      required:
-        - version
+        mixins:
+          type: object
+          additionalProperties:
+            type: string
+          description: A key-value map, where key is a mixin name and value is a link to the mixin schema. Must be provided together with the corresponding mixin values in the `mixins` object.
+    MetadataUpdate:
+      allOf:
+        - type: object
+          properties:
+            version:
+              minimum: 1
+              type: integer
+              description: Version of the document.
+          required:
+            - version
+        - $ref: '#/components/schemas/MetadataCreate'
     MetadataGet:
       type: object
       allOf:
@@ -390,6 +422,11 @@ components:
           description: List of references.
           items:
             $ref: '#/components/schemas/RefId'
+        mixins:
+          type: object
+          description: Custom asset attributes.
+        metadata:
+          $ref: '#/components/schemas/MetadataCreate'
     AssetDetailsCreate:
       title: Asset Request Detailed Information
       type: object
@@ -598,10 +635,15 @@ components:
                   refIds:
                     - id: "123e06ecf0452c2d6c0b81392"
                       type: CATEGORY
+                  mixins:
+                    mediaCustomAttributes:
+                      altText: Cordless impact driver
                   metadata:
                     createdAt: "2022-03-31T13:18:02.379Z"
                     modifiedAt: "2022-03-31T13:18:02.379Z"
                     version: 1
+                    mixins:
+                      mediaCustomAttributes: 'https://res.cloudinary.com/saas-ag/raw/upload/emporix-docs/mediaCustomAttributesMixIn-v1.json'
                 - id: "123e06ecf0452c2d6c0b81390"
                   type: LINK
                   access: PUBLIC
@@ -631,10 +673,15 @@ components:
                 refIds:
                   - id: 123e06ecf0452c2d6c0b81392
                     type: CATEGORY
+                mixins:
+                  mediaCustomAttributes:
+                    altText: Product specification sheet
                 metadata:
                   createdAt: '2022-03-31T13:18:02.379Z'
                   modifiedAt: '2022-03-31T13:18:02.379Z'
                   version: 1
+                  mixins:
+                    mediaCustomAttributes: 'https://res.cloudinary.com/saas-ag/raw/upload/emporix-docs/mediaCustomAttributesMixIn-v1.json'
     GetPrivateAsset:
       description: This is a successful response when requesting a PRIVATE BLOB asset.
       content:

@@ -226,7 +226,7 @@ paths:
         - name: type
           in: query
           description: |
-            Filters schemas by type. Possible types to specify, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER.ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR. When the newest version of the schema is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
+            Filters schemas by type. Possible types to specify, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA. When the newest version of the schema is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
           # DEV NOTE: If you add another type, the tutorial and MD guides have to be updated as well.
           schema:
             type: string
@@ -583,7 +583,7 @@ paths:
         - name: type
           in: query
           description: |
-            Filters references by type. Possible types to specify, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR. When the newer version of a reference is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
+            Filters references by type. Possible types to specify, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA. When the newer version of a reference is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
           schema:
             type: string
   '/schema/{tenant}/references/{id}':
@@ -1543,6 +1543,62 @@ paths:
     parameters:
       - $ref: '#/components/parameters/tenant'
       - $ref: '#/components/parameters/type'
+    patch:
+      summary: Patching custom instances in bulk
+      description: |-
+        Partially updates multiple custom instances in a single request. Each item must contain the custom instance `id` and a list of patch operations.
+
+        The maximum batch size is 200.
+      tags:
+        - Custom Instance
+      parameters:
+        - $ref: '#/components/parameters/trait_contentLanguage_header'
+        - $ref: '#/components/parameters/trait_validateReferences'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BulkPatchCustomInstanceRequest'
+            example:
+              - id: Ford
+                data:
+                  - op: REPLACE
+                    path: /name/en
+                    value: Ford bulk patched
+              - id: Aston_Martin
+                data:
+                  - op: REPLACE
+                    path: /mixins/productCustomAttributes/minOrderQuantity
+                    value: 10
+      responses:
+        '207':
+          description: Bulk patch was processed. Each item contains its own result status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResponse'
+              example:
+                - index: 0
+                  id: Ford
+                  code: 204
+                  status: No Content
+                - index: 1
+                  code: 404
+                  status: Not Found
+        '400':
+          $ref: '#/components/responses/Bad_request_400_mixins'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+      operationId: PATCH-schema-bulk-patch-custom-instances
+      security:
+        - OAuth2:
+            - schema.custominstance_manage
+            - 'custom.{lowerCaseType}_manage'
+            - 'custom.{lowerCaseType}_manage_own'
     post:
       summary: Creating custom instances in bulk
       description: |-
@@ -1987,7 +2043,7 @@ components:
     SchemaType:
       type: string
       description: Type which the schema should be assigned to. Can be one of the predefined values or any custom schema type id.
-      enum: [CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR]
+      enum: [CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA]
     SchemaTypes:
       type: array
       description: List of types to which assign the schema.
@@ -2230,7 +2286,7 @@ components:
       properties:
         id:
           type: string
-          description: Unique code for the custom type. Can only contain uppercase letters and underscores.
+          description: Unique code for the custom type. Can contain uppercase letters, digits, and underscores. The first character must be a letter.
         name:
           type: object
           description: Localized custom type name in a form of a map of translations.
@@ -2395,6 +2451,20 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/CustomInstanceResponse'
+    BulkPatchCustomInstanceRequest:
+      type: object
+      required:
+        - id
+        - data
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the custom instance to patch.
+        data:
+          type: array
+          description: List of patch operations to apply to the custom instance.
+          items:
+            type: object
     BulkResponse:
       type: array
       items:

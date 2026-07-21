@@ -370,6 +370,12 @@ export type CategoryDeprecated = {
          * URL where the media file is uploaded, with the file extension specified.
          */
         uploadLink?: string;
+        /**
+         * Custom media attributes.
+         */
+        mixins?: {
+            [key: string]: unknown;
+        };
     }>;
     /**
      * Position in the category tree (on the same category level).
@@ -474,7 +480,6 @@ export type CategoryTree = {
     description?: string;
     /**
      * Unique category identifier defined by the tenant.
-     * @deprecated
      */
     code?: string;
     /**
@@ -640,6 +645,12 @@ export type Media = {
     contentType?: string;
     metadata?: MediaMetadataQueryDocument & unknown;
     customAttributes?: MediaCustomAttributesQueryDocument & unknown;
+    /**
+     * Custom media attributes.
+     */
+    mixins?: {
+        [key: string]: unknown;
+    };
 };
 
 /**
@@ -2411,6 +2422,59 @@ export type GetCategoryTreeRetrieveCategoryTreeByIdResponses = {
 };
 
 export type GetCategoryTreeRetrieveCategoryTreeByIdResponse = GetCategoryTreeRetrieveCategoryTreeByIdResponses[keyof GetCategoryTreeRetrieveCategoryTreeByIdResponses];
+
+export type PostCategoryTreeRebuildCategoryTreeData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * A unique identifier of the root category whose tree should be rebuilt.
+         *
+         */
+        rootCategoryId: string;
+    };
+    query?: {
+        /**
+         * If set to `true`, unpublished categories are included in the returned tree.
+         * Possible values:
+         * * `true`
+         * * `false`
+         *
+         * **Note**: To get unpublished categories you need to have `category.category_read_unpublished` scope.
+         *
+         */
+        showUnpublished?: boolean;
+    };
+    url: '/category/{tenant}/category-trees/{rootCategoryId}/rebuild';
+};
+
+export type PostCategoryTreeRebuildCategoryTreeErrors = {
+    /**
+     * Permission denied due to insufficient rights.
+     */
+    403: ErrorResponse;
+    /**
+     * Root category with the specified ID does not exist.
+     */
+    404: ErrorResponse;
+};
+
+export type PostCategoryTreeRebuildCategoryTreeError = PostCategoryTreeRebuildCategoryTreeErrors[keyof PostCategoryTreeRebuildCategoryTreeErrors];
+
+export type PostCategoryTreeRebuildCategoryTreeResponses = {
+    /**
+     * The request was successful. The newly rebuilt category tree is returned.
+     */
+    200: CategoryTree;
+};
+
+export type PostCategoryTreeRebuildCategoryTreeResponse = PostCategoryTreeRebuildCategoryTreeResponses[keyof PostCategoryTreeRebuildCategoryTreeResponses];
 
 export type ClientOptions = {
     baseUrl: 'https://api.emporix.io' | (string & {});

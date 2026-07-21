@@ -941,7 +941,7 @@ export type VendorId = string;
 export type ResourceId = string;
 
 /**
- * Unique identifier of a scope. Only letters, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
+ * Unique identifier of a scope. Only letters, digits, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
  *
  */
 export type ScopeId = string;
@@ -1412,7 +1412,7 @@ export type DeleteIamDeleteCustomScopeData = {
          */
         tenant: string;
         /**
-         * Unique identifier of a scope. Only letters, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
+         * Unique identifier of a scope. Only letters, digits, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
          *
          */
         scopeId: string;
@@ -1476,7 +1476,7 @@ export type GetIamRetrieveScopeData = {
          */
         tenant: string;
         /**
-         * Unique identifier of a scope. Only letters, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
+         * Unique identifier of a scope. Only letters, digits, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
          *
          */
         scopeId: string;
@@ -1543,7 +1543,7 @@ export type PutIamUpsertCustomScopeData = {
          */
         tenant: string;
         /**
-         * Unique identifier of a scope. Only letters, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
+         * Unique identifier of a scope. Only letters, digits, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
          *
          */
         scopeId: string;
