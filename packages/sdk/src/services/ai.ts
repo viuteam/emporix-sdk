@@ -13,6 +13,7 @@ import type {
   ChatResponse,
   JobIdResponse,
   DeleteAgentOptions,
+  ChatStreamOptions,
 } from "./ai-types";
 
 export type {
@@ -29,6 +30,7 @@ export type {
   ChatResponse,
   JobIdResponse,
   DeleteAgentOptions,
+  ChatStreamOptions,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -173,5 +175,26 @@ export class AiService {
       auth,
       body: input,
     });
+  }
+
+  /**
+   * Streaming agent chat (`POST /agentic/chat-stream`, `text/event-stream`).
+   * Yields each SSE `data` payload verbatim — the upstream contract types the
+   * stream body as an opaque string, so chunks are raw strings, not parsed
+   * objects. Consume with `for await`.
+   */
+  async *chatStream(
+    input: ChatRequest,
+    opts: ChatStreamOptions = {},
+    auth: AuthContext = SERVICE,
+  ): AsyncIterable<string> {
+    const events = this.ctx.http.requestStream({
+      method: "POST",
+      path: `${this.base()}/agentic/chat-stream`,
+      auth,
+      body: input,
+      ...(opts.sessionId ? { headers: { "session-id": opts.sessionId } } : {}),
+    });
+    for await (const ev of events) yield ev.data;
   }
 }

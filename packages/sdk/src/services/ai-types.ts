@@ -66,3 +66,12 @@ export interface DeleteAgentOptions {
   /** Force deletion even if the agent is referenced elsewhere (`?force=true`). */
   force?: boolean;
 }
+
+/** Options for {@link AiService.chatStream}. */
+export interface ChatStreamOptions {
+  /**
+   * Reuse an existing chat context (sent as the `session-id` header). If
+   * omitted, the server generates a new session id.
+   */
+  sessionId?: string;
+}
