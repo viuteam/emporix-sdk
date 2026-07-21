@@ -502,6 +502,12 @@ export type ProductMedia = Array<{
     customAttributes?: {
         [key: string]: unknown;
     };
+    /**
+     * Custom media attributes.
+     */
+    mixins?: {
+        [key: string]: unknown;
+    };
 }>;
 
 export type ProductCore = {

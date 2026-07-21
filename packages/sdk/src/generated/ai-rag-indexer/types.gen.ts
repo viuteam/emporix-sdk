@@ -53,7 +53,7 @@ export type ErrorMessageFault = {
 export type PathTenant = string;
 
 /**
- * Rag Entity Type. Supported predefined types: [PRODUCT] and custom entity types.
+ * Rag Entity Type. Supported predefined types: [ORDER, PRODUCT] and custom entity types.
  */
 export type PathType = string;
 
@@ -68,7 +68,7 @@ export type GetAiRagIndexerReindexData = {
          */
         tenant: string;
         /**
-         * Rag Entity Type. Supported predefined types: [PRODUCT] and custom entity types.
+         * Rag Entity Type. Supported predefined types: [ORDER, PRODUCT] and custom entity types.
          */
         type: string;
     };
@@ -113,7 +113,7 @@ export type GetAiRagIndexerRetrieveRagMetadataData = {
          */
         tenant: string;
         /**
-         * Rag Entity Type. Supported predefined types: [PRODUCT] and custom entity types.
+         * Rag Entity Type. Supported predefined types: [ORDER, PRODUCT] and custom entity types.
          */
         type: string;
     };
@@ -158,7 +158,7 @@ export type GetAiRagIndexerRetrieveFilterMetadataData = {
          */
         tenant: string;
         /**
-         * Rag Entity Type. Supported predefined types: [PRODUCT] and custom entity types.
+         * Rag Entity Type. Supported predefined types: [ORDER, PRODUCT] and custom entity types.
          */
         type: string;
     };

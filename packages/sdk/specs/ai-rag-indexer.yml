@@ -225,7 +225,7 @@ components:
       in: path
       required: true
       name: type
-      description: "Rag Entity Type. Supported predefined types: [PRODUCT] and custom entity types."
+      description: "Rag Entity Type. Supported predefined types: [ORDER, PRODUCT] and custom entity types."
   responses:
     401_resp_common:
       description: The authorization token is invalid or has expired.

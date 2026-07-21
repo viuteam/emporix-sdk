@@ -2276,8 +2276,6 @@ export type PostCartCreateCartData = {
         /**
          * Customer `saasToken` generated when the customer token is generated.
          *
-         * **Note**: The `saas-token` is only required if you want to create a cart for a logged in customer.
-         *
          */
         'saas-token'?: string;
     };

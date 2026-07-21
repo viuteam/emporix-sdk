@@ -5,7 +5,9 @@ info:
   contact:
     email: documentation@emporix.com
   description: |-
-    Manage the webhook configuration to allow users to choose which events they want to receive via the Svix webhook provider.
+    Manage the webhook configuration to allow users to choose which events they want to receive via the Svix or HTTP webhook provider.
+
+    A tenant can have only one webhook configuration of each type: `svix`, `svix_shared`, and `http` at a time.
 servers:
   - url: 'https://api.emporix.io'
 tags:
@@ -38,6 +40,8 @@ paths:
         * Svix Custom Account
         * HTTP Webhook Strategy 
 
+        **NOTE**
+        At any time, a tenant can have only one webhook configuration of each type: `svix`, `svix_shared`, and `http`. If a configuration of the requested type already exists, the request returns a `409 Conflict` response. To change the configuration, update or delete the existing one.
 
         **NOTE**
         Svix supports a maximum message payload size of approximately 350kb. However, it is generally advisable to keep webhook payloads small, ideally under 40kb. For larger message sizes, consider using the HTTP Webhook Strategy.
@@ -55,7 +59,7 @@ paths:
             examples:
               SVIX_SHARED:
                 value:
-                  code: svix
+                  code: svix_shared
                   active: true
                   provider: SVIX_SHARED
                   configuration: {}
@@ -104,7 +108,7 @@ paths:
       tags:
         - Config
       description: |
-        Retrieves a list of webhook configurations for a given tenant. 
+        Retrieves a list of webhook configurations for a given tenant. A tenant can have at most one configuration per type: `svix`, `svix_shared`, and `http`.
       security:
         - OAuth2:
             - webhook.subscription_read
@@ -514,7 +518,7 @@ components:
       properties:
         active:
           type: boolean
-          description: Indicates whether a given configuration is active. Only one configuration can be active.
+          description: Indicates whether a given configuration is active. Only one configuration can be active at a time.
         provider:
           $ref: '#/components/schemas/Provider'
           description: Indicates which provider should be used.
@@ -659,13 +663,20 @@ components:
                     description: List of key-value pairs which can decorate outgoing HTTP POST request as headers.
     ConfigCode:
       type: string
-      description: Unique identifier of webhook configuration.
+      description: |-
+        Unique identifier of the webhook configuration type.
     Provider:
       type: string
       enum:
         - SVIX_SHARED
         - SVIX
         - HTTP
+      description: |-
+        Webhook provider strategy. Maps to configuration types as follows:
+
+        * `SVIX` – `svix`
+        * `SVIX_SHARED` – `svix_shared`
+        * `HTTP` – `http`
     WebhookConfigUpdate:
       allOf:
         - $ref: '#/components/schemas/AbstractWebhookConfig'
@@ -931,7 +942,7 @@ components:
             InsufficientPermissionsExample:
               $ref: '#/components/examples/InsufficientPermissions_403'
     Conflict_409:
-      description: Conflict. The resource already exists.
+      description: Conflict. The resource already exists, for example when creating a webhook configuration for a type that is already configured.
       content:
         application/json:
           schema:
@@ -1001,12 +1012,18 @@ components:
   examples:
     WebhookConfigsExample:
       value:
-        - code: svix
+        - code: svix_shared
           provider: SVIX_SHARED
           active: true
+        - code: svix
+          provider: SVIX
+          active: false
+        - code: http
+          provider: HTTP
+          active: false
     WebhookConfigExample:
       value:
-        code: svix
+        code: svix_shared
         provider: SVIX_SHARED
         active: true
     AmbiguousTenant_400:
@@ -1105,7 +1122,8 @@ components:
       required: true
       schema:
         type: string
-      description: Unique identifier of webhook config.
+      description: |-
+        Unique identifier of the webhook configuration type.
     to_month:
       name: toYearMonth
       in: query

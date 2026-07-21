@@ -61,8 +61,9 @@ paths:
                   indexName: exampleTenant
                   writeKey: bi-api-key-abc123
                   provider: BATTERY_INCLUDED
-                  excludedMixinKeys:
-                    - internalAttributes
+                  includedMixinPaths:
+                    - "*_siteAware.*.OnlineIsService_P"
+                    - "*_siteAware.**"
         description: ''
       responses:
         '201':
@@ -113,8 +114,9 @@ paths:
                       indexName: exampleTenant
                       writeKey: bi-api-key-abc123
                       provider: BATTERY_INCLUDED
-                      excludedMixinKeys:
-                        - internalAttributes
+                      includedMixinPaths:
+                        - "*_siteAware.*.OnlineIsService_P"
+                        - "*_siteAware.**"
               schema:
                 type: array
                 items:
@@ -159,8 +161,9 @@ paths:
                     indexName: exampleTenant
                     writeKey: bi-api-key-abc123
                     provider: BATTERY_INCLUDED
-                    excludedMixinKeys:
-                      - internalAttributes
+                    includedMixinPaths:
+                      - "*_siteAware.*.OnlineIsService_P"
+                      - "*_siteAware.**"
               schema:
                 $ref: '#/components/schemas/IndexConfiguration'
         '401':
@@ -199,9 +202,9 @@ paths:
                   indexName: exampleTenant
                   writeKey: bi-api-key-abc123
                   provider: BATTERY_INCLUDED
-                  excludedMixinKeys:
-                    - internalAttributes
-                    - customData
+                  includedMixinPaths:
+                    - "*_siteAware"
+                    - "catalogAttrs.**.color"
       responses:
         '204':
           description: Configuration updated
@@ -363,6 +366,8 @@ paths:
                     id: 6a31424ef4ddd37d108f8168
                     status: IN_PROGRESS
                     entityType: PRODUCT
+                    expectedCount: 5000
+                    processedCount: 2000
                     metadata:
                       createdAt: "2026-06-16T12:32:14.132Z"
                       modifiedAt: "2026-06-16T12:32:14.150Z"
@@ -378,6 +383,8 @@ paths:
                     id: 6a31424ef4ddd37d108f8168
                     status: IN_PROGRESS
                     entityType: PRODUCT
+                    expectedCount: 5000
+                    processedCount: 2000
                     metadata:
                       createdAt: "2026-06-16T12:32:14.132Z"
                       modifiedAt: "2026-06-16T12:32:14.150Z"
@@ -390,7 +397,7 @@ paths:
       tags:
         - Reindex
       description: |-
-        Triggers indexing process of given entities for the tenant. The reindex works with a `FULL` mode - all entities are reindexed. It returns a reindex job which allows to track the progress. The `SUCCESS` means that all entities events are published, but process of their indexing in Algolia or RAG can take more time.
+        Triggers indexing process of given entities for the tenant. The reindex works with a `FULL` mode - all entities are reindexed. It returns a reindex job which allows to track the progress. The `SUCCESS` means that all entities events are indexed.
       security:
         - OAuth2:
             - indexing.search_manage
@@ -429,6 +436,8 @@ paths:
                     - id: 6a31424ef4ddd37d108f8168
                       status: IN_PROGRESS
                       entityType: PRODUCT
+                      expectedCount: 5000
+                      processedCount: 2000
                       metadata:
                         createdAt: "2026-06-16T12:32:14.132Z"
                         modifiedAt: "2026-06-16T12:32:14.150Z"
@@ -472,6 +481,8 @@ paths:
                     id: 6a31424ef4ddd37d108f8168
                     status: IN_PROGRESS
                     entityType: PRODUCT
+                    expectedCount: 5000
+                    processedCount: 2000
                     metadata:
                       createdAt: "2026-06-16T12:32:14.132Z"
                       modifiedAt: "2026-06-16T12:32:14.150Z"
@@ -512,8 +523,8 @@ components:
 
     ReindexJobStatus:
       type: string
-      description: Informs about status of reindex job. `PENDING` means that the maximum number of parallel `IN_PROGRESS` jobs is reached and such job will be processed when one of current `IN_PROGRESS` jobs is released.
-      enum: [FAILURE, IN_PROGRESS, PENDING, SUCCESS]
+      description: Informs about status of reindex job. `PENDING` means that the maximum number of parallel `IN_PROGRESS` jobs is reached and such job will be processed when one of current `IN_PROGRESS` jobs is released. `PUBLISHED` means that all the indexing events were emitted. `SUCCESS` means that all the indexing events were consumed.
+      enum: [FAILURE, IN_PROGRESS, PENDING, PUBLISHED, SUCCESS]
 
 
     Metadata:
@@ -545,6 +556,12 @@ components:
           description: In case if reindex job finishes with `FAILURE` status, the message is populated with information what was the reason of the failure.
         status:
           $ref: '#/components/schemas/ReindexJobStatus'
+        expectedCount:
+          type: integer
+          description: Expected number of entities which need to be indexed.
+        processedCount:
+          type: integer
+          description: Actual number of entities which were indexed. Allows to track the progress of reindexing process.
         metadata:
           $ref: '#/components/schemas/Metadata'
 
@@ -599,7 +616,27 @@ components:
                 Optional list of root product mixin keys to exclude from indexing.
                 When set, the specified mixin keys are omitted from both the non-localized
                 and localized portions of the indexed document.
-                Applies only to the `BATTERY_INCLUDED` provider; ignored for `ALGOLIA`.
+                Applies only to the `BATTERY_INCLUDED` provider.
+            includedMixinPaths:
+              type: array
+              items:
+                type: string
+              description: >-
+                Optional allowlist of product mixin paths to include in indexing for the
+                `BATTERY_INCLUDED` provider. Patterns are matched against full dot-notation
+                paths rooted at the mixin key, for example
+                `class_EA673_toolsClassification.sk.OnlineIsService_P`.
+
+                `*` matches within a single path segment, `**` matches across one or more
+                path segments, and matching is case sensitive.
+
+                If a matched path points to an object, the entire subtree under that object is
+                included. When this field is absent or an empty list, path filtering is inactive
+                and existing `excludedMixinKeys` behavior applies.
+
+                `includedMixinPaths` and `excludedMixinKeys` are mutually exclusive when
+                `includedMixinPaths` is non-empty. Malformed glob patterns are rejected with a
+                validation error on configuration writes.
           required:
             - provider
     IndexCreationResponse:

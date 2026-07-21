@@ -15,7 +15,7 @@ paths:
       tags:
         - Prices
       parameters:
-        - $ref: '#/components/parameters/trait_contentLanguageV2_header'
+        - $ref: '#/components/parameters/trait_contentLanguage_header'
       responses:
         '201':
           description: The request was successful. The price has been created.
@@ -34,7 +34,7 @@ paths:
                     type: string
                     description: Identifier of a newly created price.
               examples:
-                Response example (v2):
+                Response example:
                   value:
                     id: 624c3e7c3406122baacc7e93
         '400':
@@ -46,16 +46,6 @@ paths:
               examples:
                 AmbiguousTenant:
                   $ref: '#/components/examples/BadRequest400_AmbiguousTenant'
-                Price already exists:
-                  value:
-                    code: 400
-                    status: Bad Request
-                    message: 'Price has already been defined for productId : 53a358901b2e9dd2718b5c12 and currency : EUR and period of time between 2015-01-23T22:00:00Z and 2030-03-31T23:00:00Z'
-                ValidationExample:
-                  value:
-                    code: 400
-                    status: Bad Request
-                    message: The request should not contain both productId and itemYrn. You can create prices either for productId or for itemYrn.
         '401':
           $ref: '#/components/responses/Unauthorized_401'
         '403':
@@ -69,7 +59,7 @@ paths:
         content:
           application/json:
             examples:
-              Tiered/volume price (v2):
+              Tiered/volume price:
                 value:
                   id: 6245aa0a78a8576e338fa9c4
                   itemId:
@@ -86,7 +76,7 @@ paths:
                     - priceValue: 15.99
                     - priceValue: 14.99
                     - priceValue: 13.99
-              Basic price (v2):
+              Basic price:
                 value:
                   id: 6245aa0a78a8576e338fa9c4
                   itemId:
@@ -102,7 +92,7 @@ paths:
                   tierValues:
                     - priceValue: 15.99
             schema:
-              $ref: '#/components/schemas/createPriceV2'
+              $ref: '#/components/schemas/createPrice'
         required: false
       security:
         - OAuth2:
@@ -123,10 +113,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/pricesV2'
+                $ref: '#/components/schemas/prices'
               examples:
-                List of prices (v2):
-                  $ref: '#/components/examples/RetrievePricesV22Example'
+                List of prices:
+                  $ref: '#/components/examples/RetrievePricesExample'
         '400':
           $ref: '#/components/responses/BadRequest_400'
         '401':
@@ -158,8 +148,6 @@ paths:
           name: itemId
           description: |
             IDs of products for which prices should be retrieved.
-
-            **Note**: This parameter is only available in the `v2` version of the Price Service.
         - schema:
             type: string
           in: query
@@ -170,17 +158,13 @@ paths:
             * `SKU`
 
               **Note**: The SKU value is a `preview` value - the system does not fully operate on the SKU concept yet.
-
-            **Note**: This parameter is only available in the `v2` version of the Price Service.
         - schema:
             type: string
           in: query
           name: country
           description: |
             Codes of countries for which prices should be retrieved.
-
-            **Note**: This parameter is only available in the `v2` version of the Price Service.
-        - $ref: '#/components/parameters/trait_acceptLanguageV2_header'
+        - $ref: '#/components/parameters/trait_acceptLanguage_header'
         - $ref: '#/components/parameters/query_price_itemName'
       operationId: GET-price-list-all-prices
     parameters:
@@ -191,7 +175,7 @@ paths:
       tags:
         - Prices
       parameters:
-        - $ref: '#/components/parameters/trait_contentLanguageV2_header'
+        - $ref: '#/components/parameters/trait_contentLanguage_header'
       responses:
         '207':
           description: Multi-Status
@@ -287,7 +271,7 @@ paths:
             schema:
               type: array
               items:
-                $ref: '#/components/schemas/createPriceV2'
+                $ref: '#/components/schemas/createPrice'
         required: false
       security:
         - OAuth2:
@@ -298,7 +282,7 @@ paths:
       tags:
         - Prices
       parameters:
-        - $ref: '#/components/parameters/trait_contentLanguageV2_header'
+        - $ref: '#/components/parameters/trait_contentLanguage_header'
       responses:
         '207':
           description: Multi-Status
@@ -406,7 +390,7 @@ paths:
             schema:
               type: array
               items:
-                $ref: '#/components/schemas/updatePriceV2'
+                $ref: '#/components/schemas/updatePrice'
         required: false
       security:
         - OAuth2:
@@ -438,7 +422,7 @@ paths:
           name: extendWithPriceModel
           description: |
             If set to `true`, the response will also include the price model's details.
-        - $ref: '#/components/parameters/trait_acceptLanguageV2_header'
+        - $ref: '#/components/parameters/trait_acceptLanguage_header'
       responses:
         '200':
           description: |
@@ -446,7 +430,7 @@ paths:
           content:
             application/json:
               examples:
-                Response example (v2):
+                Response example:
                   value:
                     id: 62468170bddc000efeb10781
                     itemId:
@@ -468,7 +452,7 @@ paths:
                       createdAt: '2022-04-01T04:37:04.301Z'
                       modifiedAt: '2022-04-01T04:37:04.301Z'
               schema:
-                $ref: '#/components/schemas/getSinglePriceV2'
+                $ref: '#/components/schemas/getSinglePrice'
         '400':
           $ref: '#/components/responses/BadRequest_400'
         '401':
@@ -493,7 +477,7 @@ paths:
         - Prices
       parameters:
         - $ref: '#/components/parameters/trait_partiallyUpdatable_partial'
-        - $ref: '#/components/parameters/trait_contentLanguageV2_header'
+        - $ref: '#/components/parameters/trait_contentLanguage_header'
       responses:
         '201':
           $ref: '#/components/responses/Created_201'
@@ -518,9 +502,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/updatePriceV2'
+              $ref: '#/components/schemas/updatePrice'
             examples:
-              Request example (v2):
+              Request example:
                 value:
                   id: 62468170bddc000efeb10781
                   itemId:
@@ -895,9 +879,9 @@ paths:
                     itemId:
                       type: string
                     prices:
-                      $ref: '#/components/schemas/pricesV2'
+                      $ref: '#/components/schemas/prices'
               examples:
-                Search Prices (v2):
+                Search Prices:
                   value:
                     - itemId: 62d7d680a07705795f72f314
                       prices: []
@@ -978,9 +962,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/searchPricesV2'
+              $ref: '#/components/schemas/searchPrices'
             examples:
-              Search Prices (v2):
+              Search Prices:
                 value:
                   itemIds:
                     - 62d7d67da07705795f72f313
@@ -1013,7 +997,7 @@ paths:
         - OAuth2:
             - price.pricemodel_manage
       parameters:
-        - $ref: '#/components/parameters/trait_contentLanguageV2_header'
+        - $ref: '#/components/parameters/trait_contentLanguage_header'
       responses:
         '201':
           description: The request was successful. The price model has been created.
@@ -1124,7 +1108,7 @@ paths:
         - OAuth2:
             - price.pricemodel_read
       parameters:
-        - $ref: '#/components/parameters/trait_acceptLanguageV2_header'
+        - $ref: '#/components/parameters/trait_acceptLanguage_header'
         - $ref: '#/components/parameters/trait_paged_pageNumber'
         - $ref: '#/components/parameters/trait_paged_pageSize'
         - $ref: '#/components/parameters/trait_sort'
@@ -1199,7 +1183,7 @@ paths:
         - OAuth2:
             - price.pricemodel_read
       parameters:
-        - $ref: '#/components/parameters/trait_acceptLanguageV2_header'
+        - $ref: '#/components/parameters/trait_acceptLanguage_header'
       responses:
         '200':
           description: The request was successful. The price model is returned.
@@ -1316,7 +1300,7 @@ paths:
                     version: 1
         description: ''
       parameters:
-        - $ref: '#/components/parameters/trait_contentLanguageV2_header'
+        - $ref: '#/components/parameters/trait_contentLanguage_header'
     delete:
       summary: Deleting a price model 
       operationId: DELETE-price-remove-price-model
@@ -1370,7 +1354,7 @@ paths:
             - price.pricelist_read
       parameters:
         - $ref: '#/components/parameters/trait_qParam'
-        - $ref: '#/components/parameters/header_acceptLanguageV2'
+        - $ref: '#/components/parameters/header_acceptLanguage'
         - $ref: '#/components/parameters/trait_paged_pageNumber'
         - $ref: '#/components/parameters/trait_paged_pageSize'
         - $ref: '#/components/parameters/trait_sort'
@@ -1418,7 +1402,7 @@ paths:
       summary: Creating a new price list
       operationId: POST-price-create-price-list
       parameters:
-        - $ref: '#/components/parameters/header_contentLanguageV2'
+        - $ref: '#/components/parameters/header_contentLanguage'
       requestBody:
         content:
           application/json:
@@ -1463,7 +1447,7 @@ paths:
         - OAuth2:
             - price.pricelist_read
       parameters:
-        - $ref: '#/components/parameters/header_acceptLanguageV2'
+        - $ref: '#/components/parameters/header_acceptLanguage'
         - $ref: '#/components/parameters/trait_paged_pageNumber'
         - $ref: '#/components/parameters/trait_paged_pageSize'
         - $ref: '#/components/parameters/trait_sort'
@@ -1517,7 +1501,7 @@ paths:
         - OAuth2:
             - price.pricelist_read
       parameters:
-        - $ref: '#/components/parameters/header_acceptLanguageV2'
+        - $ref: '#/components/parameters/header_acceptLanguage'
       responses:
         '200':
           description: The request was successful. The price list is returned.
@@ -1554,7 +1538,7 @@ paths:
         - OAuth2:
             - price.pricelist_manage
       parameters:
-        - $ref: '#/components/parameters/header_contentLanguageV2'
+        - $ref: '#/components/parameters/header_contentLanguage'
       requestBody:
         content:
           application/json:
@@ -1627,7 +1611,7 @@ paths:
             - price.pricelist_read
       parameters:
         - $ref: '#/components/parameters/trait_qParam'
-        - $ref: '#/components/parameters/header_acceptLanguageV2'
+        - $ref: '#/components/parameters/header_acceptLanguage'
         - $ref: '#/components/parameters/trait_paged_pageNumber'
         - $ref: '#/components/parameters/trait_paged_pageSize'
         - $ref: '#/components/parameters/trait_sort'
@@ -1925,7 +1909,7 @@ paths:
         - OAuth2:
             - price.pricelist_read
       parameters:
-        - $ref: '#/components/parameters/header_acceptLanguageV2'
+        - $ref: '#/components/parameters/header_acceptLanguage'
       responses:
         '200':
           description: The request was successful. The price list's price is returned.
@@ -1962,7 +1946,7 @@ paths:
         - OAuth2:
             - price.pricelist_manage
       parameters:
-        - $ref: '#/components/parameters/header_contentLanguageV2'
+        - $ref: '#/components/parameters/header_contentLanguage'
       requestBody:
         content:
           application/json:
@@ -2019,9 +2003,9 @@ paths:
             - price.pricelist_manage
 components:
   schemas:
-    createPriceV2:
+    createPrice:
       type: object
-      title: Price (v2)
+      title: Price
       properties:
         id:
           type: string
@@ -2092,9 +2076,9 @@ components:
         - currency
         - location
         - tierValues
-    getPriceV2:
+    getPrice:
       type: object
-      title: Price (v2)
+      title: Price
       properties:
         id:
           type: string
@@ -2172,11 +2156,11 @@ components:
         errorCode:
           type: string
           description: Additional error code.
-    pricesV2:
+    prices:
       type: array
       items:
-        $ref: '#/components/schemas/getPriceV2'
-      title: List of prices (v2)
+        $ref: '#/components/schemas/getPrice'
+      title: List of prices
     metadata:
       type: object
       properties:
@@ -2192,43 +2176,6 @@ components:
           description: Version of the price object. If provided optimistic locking will be enabled and it has to match version in the database
     measurementUnit:
       type: object
-      properties:
-        quantity:
-          minimum: 0
-          description: Quantity of the measurement unit.
-          type: number
-        unitCode:
-          description: Code of the measurement unit.
-          enum:
-            - kg
-            - g
-            - mg
-            - l
-            - ml
-            - lb
-            - qt
-            - qtr
-            - gal
-            - pt
-            - oz
-            - MTR
-            - XRO
-            - MLT
-            - LTR
-            - H87
-            - KGM
-            - GRM
-            - HLT
-            - DL
-            - DAG
-            - RO
-          type: string
-      required:
-        - quantity
-        - unitCode
-      description: Measurement unit for which the price is defined.
-    measurementUnitV2:
-      type: object
       description: Measurement unit for which the price is defined.
       properties:
         quantity:
@@ -2242,7 +2189,7 @@ components:
         - quantity
         - unitCode
       title: ''
-    matchMeasurementUnitV2:
+    matchMeasurementUnit:
       type: object
       description: Measurement unit for which the price is defined.
       title: ''
@@ -2303,7 +2250,7 @@ components:
                     type: string
                     description: 'Item''s unique identifier, generated when the item is created.'
               quantity:
-                $ref: '#/components/schemas/matchMeasurementUnitV2'
+                $ref: '#/components/schemas/matchMeasurementUnit'
     match:
       title: Price matching (by criteria) request body
       type: object
@@ -2441,7 +2388,7 @@ components:
 
             **Note**: This is a **preview** field.
         measurementUnit:
-          $ref: '#/components/schemas/measurementUnitV2'
+          $ref: '#/components/schemas/measurementUnit'
         tierDefinition:
           type: object
           properties:
@@ -2613,7 +2560,7 @@ components:
               description: Definition of pricing tiers.
         measurementUnit:
           allOf:
-            - $ref: '#/components/schemas/measurementUnitV2'
+            - $ref: '#/components/schemas/measurementUnit'
             - type: object
               description: |
                 Measurement unit and quantity for which the price is defined.
@@ -2667,7 +2614,7 @@ components:
               description: Definition of pricing tiers.
         measurementUnit:
           allOf:
-            - $ref: '#/components/schemas/measurementUnitV2'
+            - $ref: '#/components/schemas/measurementUnit'
             - type: object
               description: |
                 Measurement unit and quantity for which the price is defined.
@@ -2736,7 +2683,7 @@ components:
           description: 'An identifier of the tier. If the value is not provided then it is automatically generated. The id is used during an update operation for recognizing whether a particular tier has been changed, removed or added. '
         minQuantity:
           allOf:
-            - $ref: '#/components/schemas/measurementUnitV2'
+            - $ref: '#/components/schemas/measurementUnit'
             - type: object
               description: Minimum quantity of the product from which the tier applies.
       required:
@@ -2816,7 +2763,7 @@ components:
 
             It's worth to mention that the cent part is not limited just to two digits. For example, if the price is for one piece of screw, it could look like this: 0.0000317
         quantity:
-          $ref: '#/components/schemas/measurementUnitV2'
+          $ref: '#/components/schemas/measurementUnit'
         salePrice:
           $ref: '#/components/schemas/salePrice'
         includesTax:
@@ -3134,7 +3081,7 @@ components:
             id:
               type: string
         - $ref: '#/components/schemas/errorMessage'
-    searchPricesV2:
+    searchPrices:
       type: object
       description: ''
       properties:
@@ -3220,16 +3167,16 @@ components:
             Price model to which the price is assigned.
 
             **Note**: This field is only returned if the `extendWithPriceModel` query param is set to `true` when retrieving a price by ID.
-    getSinglePriceV2:
+    getSinglePrice:
       allOf:
-        - $ref: '#/components/schemas/getPriceV2'
+        - $ref: '#/components/schemas/getPrice'
         - type: object
           properties:
             priceModel:
               $ref: '#/components/schemas/priceModelExpand'
-    updatePriceV2:
+    updatePrice:
       allOf:
-        - $ref: '#/components/schemas/getSinglePriceV2'
+        - $ref: '#/components/schemas/getSinglePrice'
         - type: object
           properties:
             metadata:
@@ -3432,8 +3379,6 @@ components:
       in: query
       description: |
         IDs of customers for whom the retrieved prices should be valid.
-
-        **Note**: This parameter is only available in the `v2` version of the Price Service.
       schema:
         type: string
     trait_priceModelIdAware_priceModelId:
@@ -3441,8 +3386,6 @@ components:
       in: query
       description: |
         ID of the price model to which the retrieved prices should be assigned.
-
-        **Note**: This parameter is only available in the `v2` version of the Price Service.
       schema:
         type: string
     trait_XTotalCount_header:
@@ -3522,7 +3465,7 @@ components:
       schema:
         type: string
         example: 'name,code:desc'
-    trait_contentLanguageV2_header:
+    trait_contentLanguage_header:
       name: Content-Language
       in: header
       required: false
@@ -3536,7 +3479,7 @@ components:
         * If the `Content-Language` header is empty, the endpoint will asume that the localized fields are provided in the default language defined in the Configuration Service.
 
         **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request will be rejected.
-    trait_acceptLanguageV2_header:
+    trait_acceptLanguage_header:
       name: Accept-Language
       in: header
       required: false
@@ -3554,7 +3497,7 @@ components:
       schema:
         type: string
       description: Filter price models by unit code
-    header_contentLanguageV2:
+    header_contentLanguage:
       name: Content-Language
       in: header
       required: false
@@ -3568,7 +3511,7 @@ components:
         * If the `Content-Language` header is empty, then the localized fields should be provided as maps of single translation, where the key is a language code and the value is in a respective language. The endpoint will asume that the localized fields are provided in the default language defined in the Configuration Service.
 
         **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request will be rejected.
-    header_acceptLanguageV2:
+    header_acceptLanguage:
       name: Accept-Language
       in: header
       required: false
@@ -3660,7 +3603,7 @@ components:
       required: false
       schema:
         type: string
-      description: A product or SKU name. <b>This attribute is available only for Price v2</b>
+      description: A product or SKU name.
     query_priceLists_region:
       name: region
       in: query
@@ -3688,7 +3631,7 @@ components:
       type: http
       scheme: bearer
   examples:
-    RetrievePricesV22Example:
+    RetrievePricesExample:
       value:
         - id: 6245aa0a78a8576e338fa9c4
           itemId:

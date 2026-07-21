@@ -36,6 +36,8 @@ tags:
     description: Manage Tokens
   - name: Tool
     description: Manage Tools
+  - name: Conversation
+    description: Manage Agent Conversations (Preview)
 servers:
   - url: https://api.emporix.io
 paths:
@@ -344,6 +346,50 @@ paths:
           $ref: '#/components/responses/500_resp_common'
       description: |-
         Allows for communication with Emporix agents.
+      security:
+        - OAuth2:
+            - ai.agentexecution_manage_own
+            - ai.agentexecution_manage
+      requestBody:
+        $ref: '#/components/requestBodies/AgenticChat'
+      tags:
+        - Agent Chat
+  '/ai-service/{tenant}/agentic/chat-stream':
+    parameters:
+      - $ref: '#/components/parameters/path_tenant'
+      - schema:
+          type: string
+          format: uuid
+        name: session-id
+        in: header
+        description: Unique session identifier which allows for storing the context of the chat. If not provided, the system generates it.
+      - schema:
+          type: string
+          example: text/event-stream
+        name: Accept
+        in: header
+        required: false
+        description: Use `text/event-stream` to receive the response as a Server-Sent Events stream.
+    post:
+      summary: Starting agent chat stream
+      operationId: POST-ai-agents-chat-stream
+      responses:
+        '200':
+          description: Chat response stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/400_resp_common'
+        '401':
+          $ref: '#/components/responses/401_resp_common'
+        '403':
+          $ref: '#/components/responses/403_resp_common'
+        '500':
+          $ref: '#/components/responses/500_resp_common'
+      description: |-
+        Allows for communication with Emporix agents using a Server-Sent Events stream.
       security:
         - OAuth2:
             - ai.agentexecution_manage_own
@@ -782,6 +828,94 @@ paths:
             - ai.agent_manage
       tags:
         - Agent
+  '/ai-service/{tenant}/agentic/conversations':
+    parameters:
+      - $ref: '#/components/parameters/path_tenant'
+      - $ref: '#/components/parameters/qParam'
+      - $ref: '#/components/parameters/pageSize'
+      - $ref: '#/components/parameters/pageNumber'
+      - $ref: '#/components/parameters/sort'
+      - $ref: '#/components/parameters/fields'
+      - $ref: '#/components/parameters/header_xTotalCount'
+    get:
+      summary: Listing conversations
+      operationId: GET-ai-list-conversations
+      responses:
+        '200':
+          description: List of conversations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConversationResponse'
+              examples:
+                Conversations Response:
+                  $ref: '#/components/examples/ConversationsResponse'
+        '400':
+          $ref: '#/components/responses/400_resp_common'
+        '401':
+          $ref: '#/components/responses/401_resp_common'
+        '403':
+          $ref: '#/components/responses/403_resp_common'
+      description: |-
+        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves agent conversations based on the provided query.
+      security:
+        - OAuth2:
+            - ai.agent_read
+      tags:
+        - Conversation
+  '/ai-service/{tenant}/agentic/conversations/search':
+    parameters:
+      - $ref: '#/components/parameters/path_tenant'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/pageNumber'
+        - $ref: '#/components/parameters/sort'
+        - $ref: '#/components/parameters/fields'
+        - $ref: '#/components/parameters/header_xTotalCount'
+      summary: Searching conversations
+      operationId: POST-ai-search-conversations
+      responses:
+        '200':
+          description: List of conversations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConversationResponse'
+              examples:
+                Conversations Response:
+                  $ref: '#/components/examples/ConversationsResponse'
+        '400':
+          $ref: '#/components/responses/400_resp_common'
+        '401':
+          $ref: '#/components/responses/401_resp_common'
+        '403':
+          $ref: '#/components/responses/403_resp_common'
+      requestBody:
+        $ref: '#/components/requestBodies/QParamSearchBody'
+      description: |-
+        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Searches for agent conversations based on the provided query.
+      security:
+        - OAuth2:
+            - ai.agent_read
+      tags:
+        - Conversation
   '/ai-service/{tenant}/agentic/tools':
     parameters:
       - $ref: '#/components/parameters/path_tenant'
@@ -884,6 +1018,7 @@ paths:
                   - $ref: '#/components/schemas/SlackNativeToolResponse'
                   - $ref: '#/components/schemas/RagCustomNativeToolResponse'
                   - $ref: '#/components/schemas/RagEmporixNativeToolResponse'
+                  - $ref: '#/components/schemas/TeamsNativeToolResponse'
               examples:
                 Tool Response:
                   $ref: '#/components/examples/SlackNativeToolResponse'
@@ -930,6 +1065,14 @@ paths:
       description: |-
         Updates or creates a specified tool by replacing all of its existing data with data from the request body.
         If the `metadata.version` is provided then optimistic locking is enabled and version must match the version in the database.`
+
+        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        The `teams` native tool type and its configuration fields are in preview.
       security:
         - OAuth2:
             - ai.agent_manage
@@ -1915,8 +2058,8 @@ components:
     # Native Tools:
     NativeToolType:
       type: string
-      enum: [ slack, rag_custom, rag_emporix ]
-      description: Type of the native tool.
+      enum: [ slack, rag_custom, rag_emporix, teams ]
+      description: Type of the native tool. Value `teams` is in preview.
     BaseNativeTool:
       type: object
       properties:
@@ -2231,6 +2374,75 @@ components:
               $ref: '#/components/schemas/SlackNativeToolConfigResponse'
             metadata:
               $ref: '#/components/schemas/MetadataResponse'
+    TeamsAllowedOperations:
+      type: string
+      enum:
+        - sendMessage
+        - createChat
+        - createChannel
+        - inviteParticipants
+        - collaborateOnChannel
+        - collaborateOnChat
+      description: MS Teams native tool operation identifier.
+    TeamsNativeToolConfigResponse:
+      type: object
+      description: |-
+        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Configuration of an MS Teams native tool instance.
+      properties:
+        teamId:
+          type: string
+          description: Microsoft Teams team ID the tool is bound to.
+        tenantId:
+          type: string
+          description: Customer Azure AD tenant ID for the Teams workspace.
+        defaultInboundAgentId:
+          type: string
+          description: Agent ID that handles inbound Teams replies when no conversation-specific owner is set.
+        allowedOperations:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamsAllowedOperations'
+          description: Operations the tool instance exposes to assigned agents. At least one value is required when the tool is enabled.
+      required:
+        - teamId
+    TeamsNativeToolConfigRequest:
+      allOf:
+        - $ref: '#/components/schemas/TeamsNativeToolConfigResponse'
+    TeamsNativeToolRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseNativeTool'
+        - type: object
+          properties:
+            type:
+              description: For TeamsNativeTool it has to be set to `teams`.
+              example: teams
+            config:
+              $ref: '#/components/schemas/TeamsNativeToolConfigRequest'
+            metadata:
+              $ref: '#/components/schemas/MetadataRequest'
+          required:
+            - config
+    TeamsNativeToolResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseNativeTool'
+        - type: object
+          properties:
+            id:
+              type: string
+              description: Unique identifier of the tool.
+            type:
+              description: For TeamsNativeTool it has to be set to `teams`.
+              example: teams
+            config:
+              $ref: '#/components/schemas/TeamsNativeToolConfigResponse'
+            metadata:
+              $ref: '#/components/schemas/MetadataResponse'
     RagCustomNativeToolRequest:
       allOf:
         - $ref: '#/components/schemas/BaseNativeTool'
@@ -2297,6 +2509,34 @@ components:
           - $ref: '#/components/schemas/SlackNativeToolResponse'
           - $ref: '#/components/schemas/RagCustomNativeToolResponse'
           - $ref: '#/components/schemas/RagEmporixNativeToolResponse'
+          - $ref: '#/components/schemas/TeamsNativeToolResponse'
+
+    ConversationResponse:
+      type: object
+      description: Represents an active agent conversation context (MS Teams channel or group chat).
+      properties:
+        conversationId:
+          type: string
+          description: Provider-side conversation identifier (Teams conversation ID).
+        conversationName:
+          type: string
+          description: Human-readable name of the conversation channel or group chat.
+        contextRef:
+          type: string
+          description: Caller-supplied reference key used to reuse an existing conversation.
+        channelId:
+          type: string
+          description: Teams channel or chat identifier.
+        agentId:
+          type: string
+          description: Identifier of the agent that owns this conversation.
+        sessionId:
+          type: string
+          description: LangGraph session (checkpointer) ID for agent continuity.
+        lastMessageAt:
+          type: string
+          format: date-time
+          description: Timestamp of the last message activity in this conversation.
 
     # MCP Servers:
     McpServerConfig:
@@ -2462,8 +2702,6 @@ components:
           example: 1000
       required:
         - model
-        - temperature
-        - maxTokens
     EmporixLlm:
       allOf:
         - $ref: '#/components/schemas/BaseLlm'
@@ -2476,6 +2714,42 @@ components:
               example: emporix_openai
           required:
             - provider
+    OAuthParams:
+      type: object
+      description: OAuth 2.0 client-credentials settings for authenticating with a self-hosted LLM backend.
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Base URL of the OAuth 2.0 authorization server. The access token is requested from `{url}/token`.
+        clientId:
+          type: string
+          description: OAuth 2.0 client identifier registered with the authorization server.
+        grantType:
+          type: string
+          description: OAuth 2.0 grant type used to obtain an access token.
+          enum: [ client_credentials ]
+        scope:
+          type: string
+          description: Optional space-separated list of scopes to request for the access token.
+      required:
+        - url
+        - clientId
+        - grantType
+    OAuthParamsRequest:
+      allOf:
+        - $ref: '#/components/schemas/OAuthParams'
+        - type: object
+        - properties:
+            clientSecret:
+              $ref: '#/components/schemas/InnerTokenRequest'
+    OAuthParamsResponse:
+      allOf:
+        - $ref: '#/components/schemas/OAuthParams'
+        - type: object
+          properties:
+            clientSecret:
+              $ref: '#/components/schemas/ExpandableTokenResponse'
     SelfHostedParams:
       type: object
       properties:
@@ -2494,6 +2768,8 @@ components:
         - properties:
             authorizationHeaderToken:
               $ref: '#/components/schemas/InnerTokenRequest'
+            oAuthParams:
+              $ref: '#/components/schemas/OAuthParamsRequest'
     SelfHostedParamsResponse:
       allOf:
         - $ref: '#/components/schemas/SelfHostedParams'
@@ -2501,6 +2777,8 @@ components:
           properties:
             authorizationHeaderToken:
               $ref: '#/components/schemas/ExpandableTokenResponse'
+            oAuthParams:
+              $ref: '#/components/schemas/OAuthParamsResponse'
     SelfHostedLlm:
       allOf:
         - $ref: '#/components/schemas/BaseLlm'
@@ -2635,6 +2913,27 @@ components:
       properties:
         id:
           type: string
+      required:
+        - id
+    NativeToolReferenceRequest:
+      type: object
+      description: |-
+        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Reference to a native tool assigned to an agent.
+      properties:
+        id:
+          type: string
+          description: Identifier of the native tool.
+        allowedOperations:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamsAllowedOperations'
+          description: Optional per-agent override of allowed MS Teams operations. When omitted, the tool instance defaults apply.
       required:
         - id
 
@@ -2888,6 +3187,13 @@ components:
               items:
                 type: string
                 description: Markers that allow you to categorize the agent.
+            outputFormat:
+              type: string
+              description: >
+                Optional JSON Schema (provided as a JSON string) that constrains the structure
+                of the agent's generated output. Use this when you need predictable, machine-readable
+                output instead of free-form text.
+              example: '{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"]}'
             enabled:
               type: boolean
               description: Indicates whether the agent is enabled.
@@ -2956,8 +3262,8 @@ components:
             nativeTools:
               type: array
               items:
-                $ref: '#/components/schemas/IdWrapper'
-              description: ID of the native tools.
+                $ref: '#/components/schemas/NativeToolReferenceRequest'
+              description: Native tools assigned to the agent, optionally with per-agent `allowedOperations` overrides.
             llmConfig:
               oneOf:
                 - $ref: '#/components/schemas/EmporixLlm'
@@ -4007,9 +4313,12 @@ components:
               - $ref: '#/components/schemas/SlackNativeToolRequest'
               - $ref: '#/components/schemas/RagCustomNativeToolRequest'
               - $ref: '#/components/schemas/RagEmporixNativeToolRequest'
+              - $ref: '#/components/schemas/TeamsNativeToolRequest'
           examples:
             Create Slack Tool:
               $ref: '#/components/examples/SlackNativeToolRequest'
+            Create Teams Tool:
+              $ref: '#/components/examples/TeamsNativeToolRequest'
     toolPatchBody:
       content:
         application/json:
@@ -4147,6 +4456,24 @@ components:
           type: slack
           config:
             teamId: "12345"
+    ConversationResponse:
+      value:
+        conversationId: "19:abc123@thread.tacv2"
+        conversationName: "Support - Order #12345"
+        contextRef: "order-12345"
+        channelId: "19:abc123@thread.tacv2"
+        agentId: "support-agent-id"
+        sessionId: "session-abc"
+        lastMessageAt: "2026-07-10T08:00:00Z"
+    ConversationsResponse:
+      value:
+        - conversationId: "19:abc123@thread.tacv2"
+          conversationName: "Support - Order #12345"
+          contextRef: "order-12345"
+          channelId: "19:abc123@thread.tacv2"
+          agentId: "support-agent-id"
+          sessionId: "session-abc"
+          lastMessageAt: "2026-07-10T08:00:00Z"
     AgentResponse:
       value:
         id: "123"
@@ -4237,6 +4564,33 @@ components:
         config:
           teamId: "12345"
           botToken: xoxb-35354
+    TeamsNativeToolRequest:
+      value:
+        name: MS Teams Support Tool
+        enabled: true
+        type: teams
+        config:
+          teamId: "19:team-id@thread.tacv2"
+          tenantId: "aad-tenant-id"
+          defaultInboundAgentId: "support-agent-id"
+          allowedOperations:
+            - sendMessage
+            - collaborateOnChannel
+            - inviteParticipants
+    TeamsNativeToolResponse:
+      value:
+        id: "teams-tool-1"
+        name: MS Teams Support Tool
+        enabled: true
+        type: teams
+        config:
+          teamId: "19:team-id@thread.tacv2"
+          tenantId: "aad-tenant-id"
+          defaultInboundAgentId: "support-agent-id"
+          allowedOperations:
+            - sendMessage
+            - collaborateOnChannel
+            - inviteParticipants
     AgentRequest:
       value:
         name:
@@ -4266,7 +4620,10 @@ components:
               - get-orders
               - get-order
         nativeTools:
-          - id: slack-1
+          - id: teams-tool-1
+            allowedOperations:
+              - sendMessage
+              - collaborateOnChannel
     ExportResponse:
       value:
         jobId: job-id-of-export-job

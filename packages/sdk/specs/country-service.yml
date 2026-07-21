@@ -27,7 +27,6 @@ paths:
         - $ref: '#/components/parameters/trait_country_code_query_param'
         - $ref: '#/components/parameters/trait_country_active_query_param'
         - $ref: '#/components/parameters/trait_country_regions_query_param'
-        - $ref: '#/components/parameters/trait_x-version-header'
       responses:
         '200':
           $ref: '#/components/responses/GetCountries'
@@ -61,7 +60,6 @@ paths:
         - Countries
       parameters:
         - $ref: '#/components/parameters/Price-api_Trait_acceptLanguage_header'
-        - $ref: '#/components/parameters/trait_x-version-header'
     patch:
       summary: Updating a country
       description: |-
@@ -101,8 +99,6 @@ paths:
       operationId: PATCH-country-update-country
       tags:
         - Countries
-      parameters:
-        - $ref: '#/components/parameters/trait_x-version-header'
   '/country/{tenant}/regions':
     get:
       summary: Get all regions
@@ -117,7 +113,6 @@ paths:
         - $ref: '#/components/parameters/trait_sort'
         - $ref: '#/components/parameters/trait_region_name_query_param'
         - $ref: '#/components/parameters/trait_region_code_query_param'
-        - $ref: '#/components/parameters/trait_x-version-header'
       responses:
         '200':
           $ref: '#/components/responses/GetRegions'
@@ -153,7 +148,6 @@ paths:
         - Regions
       parameters:
         - $ref: '#/components/parameters/trait_acceptLanguage_header'
-        - $ref: '#/components/parameters/trait_x-version-header'
 components:
   schemas:
     errorMessage:
@@ -582,15 +576,6 @@ components:
       schema:
         type: string
         example: 'fr-CH, fr;q=0.9, en;q=0.8, de;q=0.7'
-    trait_x-version-header:
-      name: X-Version
-      in: header
-      required: true
-      schema:
-        type: string
-        pattern: '^v[1-9][0-9]?$'
-        example: v2
-      description: The X-Version header with value v2 is required for the endpoint.
   securitySchemes:
     OAuth2:
       type: oauth2

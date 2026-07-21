@@ -4920,7 +4920,7 @@ components:
       in: path
       required: true
       description: |
-        Unique identifier of a scope. Only letters, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
+        Unique identifier of a scope. Only letters, digits, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
       schema:
         type: string
         example: custom.scope

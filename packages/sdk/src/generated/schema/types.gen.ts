@@ -46,7 +46,7 @@ export type IdResponse = {
 /**
  * Type which the schema should be assigned to. Can be one of the predefined values or any custom schema type id.
  */
-export type SchemaType = 'CART' | 'CART_ITEM' | 'CATEGORY' | 'COMPANY' | 'COUPON' | 'CUSTOMER' | 'CUSTOMER_ADDRESS' | 'ORDER' | 'ORDER_ENTRY' | 'PRODUCT' | 'QUOTE' | 'RETURN' | 'PRICE_LIST' | 'SITE' | 'CUSTOM_ENTITY' | 'VENDOR';
+export type SchemaType = 'CART' | 'CART_ITEM' | 'CATEGORY' | 'COMPANY' | 'COUPON' | 'CUSTOMER' | 'CUSTOMER_ADDRESS' | 'ORDER' | 'ORDER_ENTRY' | 'PRODUCT' | 'QUOTE' | 'RETURN' | 'PRICE_LIST' | 'SITE' | 'CUSTOM_ENTITY' | 'VENDOR' | 'MEDIA';
 
 /**
  * List of types to which assign the schema.
@@ -266,7 +266,7 @@ export type TypesResponse = Array<string>;
 
 export type CustomSchemaTypeCreation = {
     /**
-     * Unique code for the custom type. Can only contain uppercase letters and underscores.
+     * Unique code for the custom type. Can contain uppercase letters, digits, and underscores. The first character must be a letter.
      */
     id: string;
     /**
@@ -446,6 +446,19 @@ export type CustomInstanceResponse = {
 };
 
 export type CustomInstancesResponse = Array<CustomInstanceResponse>;
+
+export type BulkPatchCustomInstanceRequest = {
+    /**
+     * Unique identifier of the custom instance to patch.
+     */
+    id: string;
+    /**
+     * List of patch operations to apply to the custom instance.
+     */
+    data: Array<{
+        [key: string]: unknown;
+    }>;
+};
 
 export type BulkResponse = Array<{
     /**
@@ -743,7 +756,7 @@ export type GetSchemaRetrieveSchemasData = {
          */
         fields?: string;
         /**
-         * Filters schemas by type. Possible types to specify, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER.ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR. When the newest version of the schema is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
+         * Filters schemas by type. Possible types to specify, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA. When the newest version of the schema is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
          *
          */
         type?: string;
@@ -1330,7 +1343,7 @@ export type GetSchemaRetrieveReferencesData = {
          */
         fields?: string;
         /**
-         * Filters references by type. Possible types to specify, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR. When the newer version of a reference is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
+         * Filters references by type. Possible types to specify, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA. When the newer version of a reference is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
          *
          */
         type?: string;
@@ -2727,6 +2740,82 @@ export type DeleteSchemaCreateCustomInstancesBulkResponses = {
 };
 
 export type DeleteSchemaCreateCustomInstancesBulkResponse = DeleteSchemaCreateCustomInstancesBulkResponses[keyof DeleteSchemaCreateCustomInstancesBulkResponses];
+
+export type PatchSchemaBulkPatchCustomInstancesData = {
+    body?: Array<BulkPatchCustomInstanceRequest>;
+    headers?: {
+        /**
+         * The Content-Language request HTTP header defines language(s) of the payload.
+         */
+        'Content-Language'?: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: Always write the tenant name in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Custom schema type to which the custom instance is associated.
+         *
+         */
+        type: string;
+    };
+    query?: {
+        /**
+         * When set to true, references are validated if the provided resources exist. If set to false, validation is skipped.
+         *
+         */
+        validateReferences?: boolean;
+    };
+    url: '/schema/{tenant}/custom-entities/{type}/instances/bulk';
+};
+
+export type PatchSchemaBulkPatchCustomInstancesErrors = {
+    /**
+     * Mixins validation failed.
+     */
+    400: {
+        code?: number;
+        status?: string;
+        message?: string;
+        errorCode?: string;
+        details?: Array<{
+            field?: string;
+            type?: string;
+            message?: string;
+            moreInfo?: string;
+        }>;
+    };
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. It usually means that the tenant from the token does not match tenant from path.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Permission denied due to insufficient rights. This may happen when the request does not contain sufficient scopes for the given query values.
+     */
+    403: ErrorResponse;
+};
+
+export type PatchSchemaBulkPatchCustomInstancesError = PatchSchemaBulkPatchCustomInstancesErrors[keyof PatchSchemaBulkPatchCustomInstancesErrors];
+
+export type PatchSchemaBulkPatchCustomInstancesResponses = {
+    /**
+     * Bulk patch was processed. Each item contains its own result status.
+     */
+    207: BulkResponse;
+};
+
+export type PatchSchemaBulkPatchCustomInstancesResponse = PatchSchemaBulkPatchCustomInstancesResponses[keyof PatchSchemaBulkPatchCustomInstancesResponses];
 
 export type PostSchemaCreateCustomInstancesBulkData = {
     body?: Array<CustomInstanceCreation>;

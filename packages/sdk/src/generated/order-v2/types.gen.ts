@@ -129,12 +129,9 @@ export type OrderEntry = {
      */
     id?: string;
     itemYrn?: Yrn;
-    /**
-     * @deprecated
-     */
     fees?: AggregateFee & {
         [key: string]: unknown;
-    };
+    } & unknown;
     /**
      * The amount of items.
      */
@@ -152,12 +149,12 @@ export type OrderEntry = {
      */
     effectiveQuantity?: number;
     /**
-     * The original amount. This field is deprecated**. Please use `calculatedUnitPrice` instead. The `calculatedUnitPrice` field provides the same value with updated functionality.
+     * The original amount. **This field is deprecated**. Please use `calculatedUnitPrice` instead. The `calculatedUnitPrice` field provides the same value with updated functionality.
      * @deprecated
      */
     originalAmount?: number;
     /**
-     * The original price. This field is deprecated**. Please use `calculatedUnitPrice` instead. The `calculatedUnitPrice` field provides the same value with updated functionality.
+     * The original price. **This field is deprecated**. Please use `calculatedUnitPrice` instead. The `calculatedUnitPrice` field provides the same value with updated functionality.
      * @deprecated
      */
     originalPrice?: number;
@@ -190,12 +187,9 @@ export type OrderEntry = {
      */
     authorizedAmount?: number;
     product?: Product;
-    /**
-     * @deprecated
-     */
     tax?: Tax & {
         [key: string]: unknown;
-    };
+    } & unknown;
     price?: Price;
     metadata?: MixinsMetadata;
     mixins?: {
@@ -892,12 +886,9 @@ export type Vendor = {
  */
 export type OrderCommonDto = {
     restriction?: Restriction;
-    /**
-     * @deprecated
-     */
     feeYrnAggregate?: AggregateFee & {
         [key: string]: unknown;
-    };
+    } & unknown;
     status?: OrderStatus;
     /**
      * The identifier of a cart that was used to create this order.
@@ -937,18 +928,12 @@ export type OrderCommonDto = {
      * Payment list.
      */
     payments?: Array<Payment>;
-    /**
-     * @deprecated
-     */
     shipping?: Shipping & {
         [key: string]: unknown;
-    };
-    /**
-     * @deprecated
-     */
+    } & unknown;
     tax?: Tax & {
         [key: string]: unknown;
-    };
+    } & unknown;
     /**
      * Order sub total price. **This field is deprecated**. Please use `calculatedPrice.price` or `calculatedPrice.discountedPrice` instead. These fields provide the same value with updated functionality.
      * @deprecated
@@ -970,16 +955,14 @@ export type OrderCommonDto = {
     /**
      * Order cycle date.
      *
-     * ***NOTE***
-     * This attribute is DEPRECATED, please use the `deliveryWindow.deliveryCycle` attribute
+     * **This field is deprecated**. Please use the `deliveryWindow.deliveryCycle` attribute instead.
      * @deprecated
      */
     orderCycle?: string;
     /**
      * Delivery window's unique identifier.
      *
-     * ***NOTE***
-     * This attribute is DEPRECATED, please use the `deliveryWindow.id` attribute
+     * **This field is deprecated**. Please use the `deliveryWindow.id` attribute instead.
      * @deprecated
      */
     deliveryWindowId?: string;

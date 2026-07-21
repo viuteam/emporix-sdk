@@ -64,7 +64,7 @@ paths:
       description: |
         Creates an order by the tenant employee, on behalf of a customer. 
 
-        **Note:** The `entries.originalAmount` is DEPRECATED. Use the `entries.originalPrice` field instead.
+        **This field is deprecated**. Use the `entries.originalPrice` field instead of `entries.originalAmount`.
       security:
         - OAuth2:
             - order.order_create
@@ -949,7 +949,7 @@ components:
             - $ref: '#/components/schemas/aggregateFee'
             - type: object
               description: '**This field is deprecated**. Please use `calculatedPrice.fees` instead. The `calculatedPrice.fees` field provides the same value with updated functionality.'
-          deprecated: true
+            - deprecated: true
         amount:
           description: The amount of items.
           type: integer
@@ -964,11 +964,11 @@ components:
           type: number
           format: double
         originalAmount:
-          description: The original amount. This field is deprecated**. Please use `calculatedUnitPrice` instead. The `calculatedUnitPrice` field provides the same value with updated functionality.
+          description: The original amount. **This field is deprecated**. Please use `calculatedUnitPrice` instead. The `calculatedUnitPrice` field provides the same value with updated functionality.
           type: number
           deprecated: true
         originalPrice:
-          description: The original price. This field is deprecated**. Please use `calculatedUnitPrice` instead. The `calculatedUnitPrice` field provides the same value with updated functionality.
+          description: The original price. **This field is deprecated**. Please use `calculatedUnitPrice` instead. The `calculatedUnitPrice` field provides the same value with updated functionality.
           type: number
           deprecated: true
         unitPrice:
@@ -1003,7 +1003,7 @@ components:
             - $ref: '#/components/schemas/tax'
             - type: object
               description: '**This field is deprecated**. Please use `calculatedPrice.price` instead. The `calculatedPrice.price` field provides the same value with updated functionality.'
-          deprecated: true
+            - deprecated: true
         price:
           $ref: '#/components/schemas/price'
         metadata:
@@ -1677,7 +1677,7 @@ components:
             - type: object
               description: "**This field is deprecated**. Please use `calculatedPrice.totalFees` and `entries[].calculatedPrice.fees` instead.
                         These fields provide the same values with updated functionality."
-          deprecated: true
+            - deprecated: true
         status:
           $ref: '#/components/schemas/orderStatus'
         cartId:
@@ -1729,14 +1729,14 @@ components:
             - type: object
               description: "**This field is deprecated**. Please use `calculatedPrice.totalShipping` instead.
                         The `unitPrice` field provides the same value with updated functionality."
-          deprecated: true
+            - deprecated: true
         tax:
           allOf:
             - $ref: '#/components/schemas/tax'
             - type: object
               description: "**This field is deprecated**. Please use `calculatedPrice.finalPrice.taxAggregate` instead.
                         The `calculatedPrice.finalPrice.taxAggregate` field provides the same value with updated functionality."
-          deprecated: true
+            - deprecated: true
         subTotalPrice:
           type: number
           deprecated: true
@@ -1757,16 +1757,14 @@ components:
           description: |-
             Order cycle date.
 
-            ***NOTE***
-            This attribute is DEPRECATED, please use the `deliveryWindow.deliveryCycle` attribute
+            **This field is deprecated**. Please use the `deliveryWindow.deliveryCycle` attribute instead.
           deprecated: true
           type: string
         deliveryWindowId:
           description: |-
             Delivery window's unique identifier.
 
-            ***NOTE***
-            This attribute is DEPRECATED, please use the `deliveryWindow.id` attribute
+            **This field is deprecated**. Please use the `deliveryWindow.id` attribute instead.
           type: string
           deprecated: true
         deliveryWindow:
