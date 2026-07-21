@@ -6,6 +6,7 @@ import type { Product } from "./product";
 import type { Category as GeneratedCategory, CategoryTree } from "../generated/category";
 
 const ANON: AuthContext = { kind: "anonymous" };
+const SERVICE: AuthContext = { kind: "service" };
 
 /** A category as returned by the Category service (all generated fields). */
 export type Category = GeneratedCategory;
@@ -80,6 +81,18 @@ export class CategoryService {
     return this.ctx.http.request<Category[]>({
       method: "GET",
       path: `/category/${this.ctx.tenant}/category-trees`,
+      auth,
+    });
+  }
+
+  /**
+   * Rebuild a category tree from its root (`POST /category-trees/{rootCategoryId}/rebuild`).
+   * Admin write — defaults to the service token. Returns the rebuilt tree.
+   */
+  async rebuildTree(rootCategoryId: string, auth: AuthContext = SERVICE): Promise<CategoryNode> {
+    return this.ctx.http.request<CategoryNode>({
+      method: "POST",
+      path: `/category/${this.ctx.tenant}/category-trees/${encodeURIComponent(rootCategoryId)}/rebuild`,
       auth,
     });
   }
