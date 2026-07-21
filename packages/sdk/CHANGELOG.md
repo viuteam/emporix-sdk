@@ -1,5 +1,27 @@
 # @viu/emporix-sdk
 
+## 2.20.0
+
+### Minor Changes
+
+- [#148](https://github.com/viuteam/emporix-sdk/pull/148) [`176d098`](https://github.com/viuteam/emporix-sdk/commit/176d09873362be9f63a0867a0d8b7393ba047841) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): expose new Emporix endpoints and add SSE streaming
+
+  From the 2026-07 upstream sync:
+  - `ai.chatStream(input, { sessionId })` — streaming agent chat over Server-Sent
+    Events; yields each SSE `data` payload.
+  - `ai.listConversations()` / `ai.searchConversations({ q })`.
+  - `category.rebuildTree(rootCategoryId)`.
+  - `schema.bulkPatchInstances(type, items)` — bulk PATCH (207 per-item results).
+  - New core capability `HttpClient.requestStream` for `text/event-stream` responses.
+
+### Patch Changes
+
+- [#143](https://github.com/viuteam/emporix-sdk/pull/143) [`36b2a23`](https://github.com/viuteam/emporix-sdk/commit/36b2a2333eb8896ec37a6dff3750d5ee669d3f52) Thanks [@amnael1](https://github.com/amnael1)! - Add a daily GitHub Actions workflow that re-fetches the vendored Emporix OpenAPI specs, regenerates the SDK types, smoke-tests the bundle via `check:treeshake`, and opens/updates a single PR whenever the specs drift from upstream.
+
+- [#147](https://github.com/viuteam/emporix-sdk/pull/147) [`49de856`](https://github.com/viuteam/emporix-sdk/commit/49de8562eac2b8a8f24c27828ac15441a39c9d21) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+
+  Updated services: ai-rag-indexer,ai-service,cart,category,country-service,iam,indexing-service,media,order-v2,price,product,schema,webhook
+
 ## 2.19.0
 
 ### Minor Changes
