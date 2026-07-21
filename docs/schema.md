@@ -89,6 +89,13 @@ await client.schemas.deleteInstance("shoe", "instance-id");
 
 // structured search
 const found = await client.schemas.searchInstances<ShoeMixins>("shoe", { /* filter body */ });
+
+// bulk patch (up to 200 items). Returns a 207 envelope — success overall,
+// per-item outcome in each result's `code`/`status`.
+const results = await client.schemas.bulkPatchInstances("shoe", [
+  { id: "instance-id", data: [{ op: "REPLACE", path: "/mixins/size", value: 45 }] },
+]);
+results[0]?.code; // 204 on success
 ```
 
 ## Schema attribute types

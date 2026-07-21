@@ -5,6 +5,31 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-07-21 — synced (agentic streaming + conversations)
+
+Re-vendored all specs; 13 changed. **5 new endpoints, 0 removed, 0 newly
+deprecated.** Also fixed a transient upstream defect in `schema.yml` (see the
+generation-hardening work in the api-sync workflow); the defect was later
+corrected upstream, so no local spec patch remains active.
+
+### Endpoints
+
+- **ai-service** — new `POST …/agentic/chat-stream` (Server-Sent Events),
+  `GET …/agentic/conversations`, `POST …/agentic/conversations/search`. SDK:
+  added `ai.chatStream` (backed by the new `HttpClient.requestStream` SSE core
+  capability), `ai.listConversations`, `ai.searchConversations`.
+- **category** — new `POST …/category-trees/{rootCategoryId}/rebuild`. SDK:
+  added `category.rebuildTree`.
+- **schema** — new `PATCH …/custom-entities/{type}/instances/bulk`. SDK: added
+  `schema.bulkPatchInstances` (207 per-item results).
+
+### Tracked, no SDK action
+
+- The 11 endpoints carrying `deprecated: true` were all already deprecated at
+  the 2026-06-18 baseline. The two the SDK wraps (`indexing.reindex`,
+  `ragIndexer.reindex`) already carry `@deprecated`; the 8 `iam` ones have no
+  facade. `category.tree` already targets the non-deprecated `/category-trees`.
+
 ## 2026-06-18 — synced (reindex-jobs migration + deprecation sweep)
 
 Baseline sync; vendored all 38 specs and wrote the initial sync manifest.

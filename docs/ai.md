@@ -75,6 +75,30 @@ replies[0]?.sessionId; // continue a session by threading this back
 const [{ jobId }] = await client.ai.chatAsync({ agentId: "support-bot", message: "…" });
 ```
 
+### Streaming (Server-Sent Events)
+
+`chatStream` opens a `text/event-stream` and yields each SSE `data` payload
+verbatim as a string (the upstream contract types the stream body as opaque, so
+chunks are raw strings — parse them yourself if the agent emits JSON). Consume
+with `for await`. Pass `sessionId` to continue an existing context (sent as the
+`session-id` header; omit it and the server generates one).
+
+```ts
+for await (const chunk of client.ai.chatStream(
+  { agentId: "support-bot", message: "Where is my order?" },
+  { sessionId: "…" },
+)) {
+  process.stdout.write(chunk);
+}
+```
+
+## Conversations
+
+```ts
+const all = await client.ai.listConversations();
+const hits = await client.ai.searchConversations({ q: "agentId:support-bot" });
+```
+
 ## Overriding the token
 
 All methods take an optional trailing `auth` argument (default: the `"backend"`
