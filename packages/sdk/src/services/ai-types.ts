@@ -6,6 +6,8 @@ import type {
   PatchRequest as GenPatchRequest,
   QParamSearchBody as GenAgentSearchQuery,
   AgenticRequest as GenChatRequest,
+  ConversationResponse as GenConversation,
+  QParamSearchBody2 as GenConversationSearchQuery,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -75,3 +77,8 @@ export interface ChatStreamOptions {
    */
   sessionId?: string;
 }
+
+/** A stored agentic conversation (Teams-backed). */
+export type Conversation = GenConversation;
+/** Request body for `searchConversations` (`{ q? }`) — same shape as agent search. */
+export type ConversationSearchQuery = GenConversationSearchQuery;

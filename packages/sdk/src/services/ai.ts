@@ -14,6 +14,8 @@ import type {
   JobIdResponse,
   DeleteAgentOptions,
   ChatStreamOptions,
+  Conversation,
+  ConversationSearchQuery,
 } from "./ai-types";
 
 export type {
@@ -31,6 +33,8 @@ export type {
   JobIdResponse,
   DeleteAgentOptions,
   ChatStreamOptions,
+  Conversation,
+  ConversationSearchQuery,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -196,5 +200,27 @@ export class AiService {
       ...(opts.sessionId ? { headers: { "session-id": opts.sessionId } } : {}),
     });
     for await (const ev of events) yield ev.data;
+  }
+
+  /** List stored agentic conversations (`GET /agentic/conversations`). */
+  async listConversations(auth: AuthContext = SERVICE): Promise<Conversation[]> {
+    return this.ctx.http.request<Conversation[]>({
+      method: "GET",
+      path: `${this.base()}/agentic/conversations`,
+      auth,
+    });
+  }
+
+  /** Server-side conversation search (`POST /agentic/conversations/search`). */
+  async searchConversations(
+    query: ConversationSearchQuery,
+    auth: AuthContext = SERVICE,
+  ): Promise<Conversation[]> {
+    return this.ctx.http.request<Conversation[]>({
+      method: "POST",
+      path: `${this.base()}/agentic/conversations/search`,
+      auth,
+      body: query,
+    });
   }
 }
