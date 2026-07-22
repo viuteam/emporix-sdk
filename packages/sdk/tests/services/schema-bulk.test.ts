@@ -50,9 +50,9 @@ describe("SchemaService.bulkPatchInstances", () => {
       }),
     );
     const res = await svc().bulkPatchInstances("car", [
-      { id: "Ford", data: [{ op: "REPLACE", path: "/name/en", value: "Ford" }] },
+      { id: "Ford", data: [{ op: "replace", path: "/name/en", value: "Ford" }] },
     ]);
-    expect(body).toEqual([{ id: "Ford", data: [{ op: "REPLACE", path: "/name/en", value: "Ford" }] }]);
+    expect(body).toEqual([{ id: "Ford", data: [{ op: "replace", path: "/name/en", value: "Ford" }] }]);
     expect(res[0]?.code).toBe(204);
   });
 });
