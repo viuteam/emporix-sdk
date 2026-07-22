@@ -2451,20 +2451,6 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/CustomInstanceResponse'
-    BulkPatchCustomInstanceRequest:
-      type: object
-      required:
-        - id
-        - data
-      properties:
-        id:
-          type: string
-          description: Unique identifier of the custom instance to patch.
-        data:
-          type: array
-          description: List of patch operations to apply to the custom instance.
-          items:
-            type: object
     BulkResponse:
       type: array
       items:
@@ -2490,6 +2476,20 @@ components:
                 message:
                   type: string
                   description: Error details.
+    BulkPatchCustomInstanceRequest:
+      type: object
+      required:
+        - id
+        - data
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the custom instance to patch.
+        data:
+          type: array
+          description: List of patch operations to apply to the custom instance.
+          items:
+            $ref: '#/components/schemas/PatchOperation'
     CustomInstanceMetadata:
       type: object
       properties:

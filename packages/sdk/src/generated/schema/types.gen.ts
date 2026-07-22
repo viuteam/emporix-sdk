@@ -447,19 +447,6 @@ export type CustomInstanceResponse = {
 
 export type CustomInstancesResponse = Array<CustomInstanceResponse>;
 
-export type BulkPatchCustomInstanceRequest = {
-    /**
-     * Unique identifier of the custom instance to patch.
-     */
-    id: string;
-    /**
-     * List of patch operations to apply to the custom instance.
-     */
-    data: Array<{
-        [key: string]: unknown;
-    }>;
-};
-
 export type BulkResponse = Array<{
     /**
      * Index of the processed item, matching the item position in request body.
@@ -484,6 +471,17 @@ export type BulkResponse = Array<{
         message?: string;
     }>;
 }>;
+
+export type BulkPatchCustomInstanceRequest = {
+    /**
+     * Unique identifier of the custom instance to patch.
+     */
+    id: string;
+    /**
+     * List of patch operations to apply to the custom instance.
+     */
+    data: Array<PatchOperation>;
+};
 
 export type CustomInstanceMetadata = {
     /**
