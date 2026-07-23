@@ -1065,14 +1065,6 @@ paths:
       description: |-
         Updates or creates a specified tool by replacing all of its existing data with data from the request body.
         If the `metadata.version` is provided then optimistic locking is enabled and version must match the version in the database.`
-
-        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
-
-        {% hint style="danger" %}
-        This functionality is in preview mode - some of the features may not be fully operational yet.
-        {% endhint %}
-
-        The `teams` native tool type and its configuration fields are in preview.
       security:
         - OAuth2:
             - ai.agent_manage
@@ -2059,7 +2051,14 @@ components:
     NativeToolType:
       type: string
       enum: [ slack, rag_custom, rag_emporix, teams ]
-      description: Type of the native tool. Value `teams` is in preview.
+      description: |-
+        Type of the native tool. Possible values:
+        * `slack`
+        * `rag_custom`
+        * `rag_emporix`
+        * `teams`
+
+          **The `teams` value is in preview mode** - some of the features may not be fully operational yet.
     BaseNativeTool:
       type: object
       properties:
@@ -2387,13 +2386,9 @@ components:
     TeamsNativeToolConfigResponse:
       type: object
       description: |-
-        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
-
-        {% hint style="danger" %}
-        This functionality is in preview mode - some of the features may not be fully operational yet.
-        {% endhint %}
-
         Configuration of an MS Teams native tool instance.
+
+        **The MS Teams native tool configuration is in preview mode** - some of the features may not be fully operational yet.
       properties:
         teamId:
           type: string
@@ -2917,14 +2912,7 @@ components:
         - id
     NativeToolReferenceRequest:
       type: object
-      description: |-
-        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
-
-        {% hint style="danger" %}
-        This functionality is in preview mode - some of the features may not be fully operational yet.
-        {% endhint %}
-
-        Reference to a native tool assigned to an agent.
+      description: Reference to a native tool assigned to an agent.
       properties:
         id:
           type: string
@@ -2933,7 +2921,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TeamsAllowedOperations'
-          description: Optional per-agent override of allowed MS Teams operations. When omitted, the tool instance defaults apply.
+          description: |-
+            Optional per-agent override of allowed MS Teams operations. When omitted, the tool instance defaults apply.
+
+            **The `allowedOperations` field is in preview mode** - some of the features may not be fully operational yet.
       required:
         - id
 

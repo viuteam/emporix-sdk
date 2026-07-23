@@ -2,25 +2,8 @@ openapi: 3.0.0
 info:
   title: Indexing Service
   version: v1
-  description: |
-    The indexing service allows you to manage indexing configuration. Currently supported index providers:
-      * Algolia - https://www.algolia.com
-      * Battery Included - https://www.batteryincluded.io
-
-    **Provider mutual exclusivity:**
-    Only one provider can be active at a time per tenant. This constraint is enforced by the configuration service.
-
-    **Battery Included limitations:**
-    This feature is in a `preview` state and payload sent to battery included is subject to change. 
-    Battery Included only supports the `MERGE` site-aware fields strategy. Tenants configured with the `SPLIT`
-    strategy will have Battery Included indexing silently skipped.
-
-    **Algolia limitations:**
-    By default, Algolia indexes provided by Emporix support records up to 10kB in size.
-    In order to support larger records, you must provide your own Algolia service.
-    For more information, please refer to documents provided by Algolia:
-      * [Algolia documentation](https://www.algolia.com/doc/guides/scaling/algolia-service-limits#application-record-and-index-limits)
-      * [Algolia FAQ](https://support.algolia.com/hc/en-us/articles/4406981897617-Is-there-a-size-limit-for-my-index-records)
+  description: |-
+    The indexing service allows you to manage indexing configuration.
   contact:
     email: documentation@emporix.com
 servers:

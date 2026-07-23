@@ -157,7 +157,7 @@ paths:
             * `PRODUCT`
             * `SKU`
 
-              **Note**: The SKU value is a `preview` value - the system does not fully operate on the SKU concept yet.
+              **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
         - schema:
             type: string
           in: query
@@ -1632,7 +1632,7 @@ paths:
             * `PRODUCT`
             * `SKU`
 
-              **Note**: The SKU value is a `preview` value - the system does not fully operate on the SKU concept yet.
+              **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
       responses:
         '200':
           description: The request was successful. A list of prices is returned.
@@ -2024,13 +2024,13 @@ components:
                 * `PRODUCT`
                 * `SKU`
 
-                **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+                  **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
             id:
               type: string
               description: |
                 Product's unique identifier - ID or SKU.
 
-                **Note**: The SKU is a `preview` functionality - the system does not fully operate on the SKU concept yet.
+                **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
         itemYrn:
           description: Product's uniform resource name.
           type: string
@@ -2094,7 +2094,7 @@ components:
                 * `PRODUCT`
                 * `SKU`
 
-                **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+                  **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
             id:
               type: string
               description: |
@@ -2245,7 +2245,7 @@ components:
                       * `PRICE`
                       * `SKU`
 
-                      **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+                        **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
                   id:
                     type: string
                     description: 'Item''s unique identifier, generated when the item is created.'
@@ -2293,7 +2293,7 @@ components:
                       * `PRICE`
                       * `SKU`
 
-                      **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+                        **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
                   id:
                     type: string
                     description: 'Item''s unique identifier, generated when the item is created.'
@@ -2328,7 +2328,7 @@ components:
                 * `CUSTOMER`
                 * `GROUP`
 
-                **Note**: The `GROUP` value is a `preview` value - the system does not fully operate on the customer groups concept yet.
+                  **The `GROUP` value is in preview mode** - the system does not fully operate on the customer groups concept yet.
         useFallback:
           type: boolean
           description: |-
@@ -2386,7 +2386,7 @@ components:
           description: |
             Flag indicating whether prices assigned to the price model include markup.
 
-            **Note**: This is a **preview** field.
+            **The `includesMarkup` field is in preview mode** - some of the features may not be fully operational yet.
         measurementUnit:
           $ref: '#/components/schemas/measurementUnit'
         tierDefinition:
@@ -2437,7 +2437,7 @@ components:
             * `CUSTOMER`
             * `GROUP`
 
-            **Note**: The `GROUP` value is a `preview` value - the system does not fully operate on the customer groups concept yet.
+              **The `GROUP` value is in preview mode** - the system does not fully operate on the customer groups concept yet.
         id:
           type: string
           description: Unique identifier of the customer or customer group.
@@ -2454,7 +2454,7 @@ components:
           description: |-
             List of customers and customer groups for whom the price is valid.
 
-            **Note** Customer groups are a `preview` feature.
+            **The `GROUP` principals are in preview mode** - the system does not fully operate on the customer groups concept yet.
           items:
             allOf:
               - $ref: '#/components/schemas/principal'
@@ -2471,7 +2471,7 @@ components:
           description: |-
             Unique identifier of the price list to which the price should be assigned.
 
-            **Note**: It is a `preview` field.
+            **The `priceListId` field is in preview mode** - some of the features may not be fully operational yet.
       required:
         - siteCodes
     tierValueCreation:
@@ -2525,7 +2525,7 @@ components:
           description: |-
             Flag indicating whether prices assigned to the price model include markup.
 
-            **Note**: This is a **preview** field.
+            **The `includesMarkup` field is in preview mode** - some of the features may not be fully operational yet.
         default:
           type: boolean
           description: Indicates whether the price model is default one or not.
@@ -2593,7 +2593,7 @@ components:
           description: |
             Flag indicating whether prices assigned to the price model include markup.
 
-            **Note**: This is a **preview** field.
+            **The `includesMarkup` field is in preview mode** - some of the features may not be fully operational yet.
         default:
           type: boolean
           description: Indicates whether the price model is default one or not.
@@ -2711,7 +2711,7 @@ components:
                 * `PRODUCT`
                 * `SKU`
 
-                **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+                  **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
             id:
               type: string
               description: |
@@ -2888,7 +2888,7 @@ components:
 
             **Note**: Customer groups cannot be provided if there is a legal entity specified for the price list.
 
-            **Note**: This is a preview field - the system does not fully operate on the customer groups concept yet.
+            **The `customerGroups` field is in preview mode** - the system does not fully operate on the customer groups concept yet.
           type: array
           items:
             allOf:
@@ -2995,7 +2995,7 @@ components:
                 * `PRODUCT`
                 * `SKU`
 
-                **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+                  **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
             id:
               type: string
               description: |
@@ -3418,7 +3418,7 @@ components:
       description: |
         Flag indicating whether prices assigned to the price model include markup.
 
-        **Note**: This is a **preview** field.
+        **The `includesMarkup` field is in preview mode** - some of the features may not be fully operational yet.
     trait_priceModel_tierType:
       name: tierType
       in: query
