@@ -15,14 +15,14 @@ export type CreatePrice = {
          * * `PRODUCT`
          * * `SKU`
          *
-         * **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+         * **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
          *
          */
         itemType: string;
         /**
          * Product's unique identifier - ID or SKU.
          *
-         * **Note**: The SKU is a `preview` functionality - the system does not fully operate on the SKU concept yet.
+         * **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
          *
          */
         id: string;
@@ -76,7 +76,7 @@ export type GetPrice = {
          * * `PRODUCT`
          * * `SKU`
          *
-         * **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+         * **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
          *
          */
         itemType?: string;
@@ -221,7 +221,7 @@ export type MatchByContext = {
              * * `PRICE`
              * * `SKU`
              *
-             * **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+             * **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
              */
             itemType?: string;
             /**
@@ -266,7 +266,7 @@ export type Match = {
              * * `PRICE`
              * * `SKU`
              *
-             * **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+             * **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
              */
             itemType: string;
             /**
@@ -301,7 +301,7 @@ export type Match = {
          * * `CUSTOMER`
          * * `GROUP`
          *
-         * **Note**: The `GROUP` value is a `preview` value - the system does not fully operate on the customer groups concept yet.
+         * **The `GROUP` value is in preview mode** - the system does not fully operate on the customer groups concept yet.
          */
         type?: string;
     };
@@ -361,7 +361,7 @@ export type PriceModelRetrieval = {
     /**
      * Flag indicating whether prices assigned to the price model include markup.
      *
-     * **Note**: This is a **preview** field.
+     * **The `includesMarkup` field is in preview mode** - some of the features may not be fully operational yet.
      *
      */
     includesMarkup?: boolean;
@@ -410,7 +410,7 @@ export type Principal = {
      * * `CUSTOMER`
      * * `GROUP`
      *
-     * **Note**: The `GROUP` value is a `preview` value - the system does not fully operate on the customer groups concept yet.
+     * **The `GROUP` value is in preview mode** - the system does not fully operate on the customer groups concept yet.
      */
     type: string;
     /**
@@ -427,7 +427,7 @@ export type Restrictions = {
     /**
      * List of customers and customer groups for whom the price is valid.
      *
-     * **Note** Customer groups are a `preview` feature.
+     * **The `GROUP` principals are in preview mode** - the system does not fully operate on the customer groups concept yet.
      */
     principals?: Array<Principal>;
     validity?: DateValidity;
@@ -438,7 +438,7 @@ export type Restrictions = {
     /**
      * Unique identifier of the price list to which the price should be assigned.
      *
-     * **Note**: It is a `preview` field.
+     * **The `priceListId` field is in preview mode** - some of the features may not be fully operational yet.
      */
     priceListId?: string;
 };
@@ -490,7 +490,7 @@ export type PriceModelDefinitionCreation = {
     /**
      * Flag indicating whether prices assigned to the price model include markup.
      *
-     * **Note**: This is a **preview** field.
+     * **The `includesMarkup` field is in preview mode** - some of the features may not be fully operational yet.
      */
     includesMarkup?: boolean;
     /**
@@ -550,7 +550,7 @@ export type PriceModelDefinitionRetrieval = {
     /**
      * Flag indicating whether prices assigned to the price model include markup.
      *
-     * **Note**: This is a **preview** field.
+     * **The `includesMarkup` field is in preview mode** - some of the features may not be fully operational yet.
      *
      */
     includesMarkup?: boolean;
@@ -659,7 +659,7 @@ export type MatchResponse = {
          * * `PRODUCT`
          * * `SKU`
          *
-         * **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+         * **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
          */
         itemType?: string;
         /**
@@ -835,7 +835,7 @@ export type PriceListCore = {
      *
      * **Note**: Customer groups cannot be provided if there is a legal entity specified for the price list.
      *
-     * **Note**: This is a preview field - the system does not fully operate on the customer groups concept yet.
+     * **The `customerGroups` field is in preview mode** - the system does not fully operate on the customer groups concept yet.
      */
     customerGroups?: Array<unknown>;
     /**
@@ -932,7 +932,7 @@ export type PriceListPriceCore = {
          * * `PRODUCT`
          * * `SKU`
          *
-         * **Note**: The `SKU` value is a `preview` value - the system does not fully operate on the SKU concept yet.
+         * **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
          *
          */
         itemType?: string;
@@ -1177,7 +1177,7 @@ export type TraitPriceModelIncludesTax = boolean;
 /**
  * Flag indicating whether prices assigned to the price model include markup.
  *
- * **Note**: This is a **preview** field.
+ * **The `includesMarkup` field is in preview mode** - some of the features may not be fully operational yet.
  *
  */
 export type TraitPriceModelIncludesMarkup = boolean;
@@ -1423,7 +1423,7 @@ export type GetPriceListAllPricesData = {
          * * `PRODUCT`
          * * `SKU`
          *
-         * **Note**: The SKU value is a `preview` value - the system does not fully operate on the SKU concept yet.
+         * **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
          *
          */
         itemType?: string;
@@ -2123,7 +2123,7 @@ export type GetPriceListPriceModelsData = {
         /**
          * Flag indicating whether prices assigned to the price model include markup.
          *
-         * **Note**: This is a **preview** field.
+         * **The `includesMarkup` field is in preview mode** - some of the features may not be fully operational yet.
          *
          */
         includesMarkup?: boolean;
@@ -2954,7 +2954,7 @@ export type GetPriceListPricesInPriceListData = {
          * * `PRODUCT`
          * * `SKU`
          *
-         * **Note**: The SKU value is a `preview` value - the system does not fully operate on the SKU concept yet.
+         * **The `SKU` value is in preview mode** - the system does not fully operate on the SKU concept yet.
          *
          */
         itemType?: string;

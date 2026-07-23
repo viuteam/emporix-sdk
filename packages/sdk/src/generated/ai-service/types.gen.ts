@@ -106,7 +106,13 @@ export type ExpandedTokenResponse = InnerTokenResponse & {
 export type ExpandableTokenResponse = InnerTokenResponse | ExpandedTokenResponse;
 
 /**
- * Type of the native tool. Value `teams` is in preview.
+ * Type of the native tool. Possible values:
+ * * `slack`
+ * * `rag_custom`
+ * * `rag_emporix`
+ * * `teams`
+ *
+ * **The `teams` value is in preview mode** - some of the features may not be fully operational yet.
  */
 export type NativeToolType = 'slack' | 'rag_custom' | 'rag_emporix' | 'teams';
 
@@ -335,13 +341,9 @@ export type SlackNativeToolResponse = BaseNativeTool & {
 export type TeamsAllowedOperations = 'sendMessage' | 'createChat' | 'createChannel' | 'inviteParticipants' | 'collaborateOnChannel' | 'collaborateOnChat';
 
 /**
- * ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
- *
- * {% hint style="danger" %}
- * This functionality is in preview mode - some of the features may not be fully operational yet.
- * {% endhint %}
- *
  * Configuration of an MS Teams native tool instance.
+ *
+ * **The MS Teams native tool configuration is in preview mode** - some of the features may not be fully operational yet.
  */
 export type TeamsNativeToolConfigResponse = {
     /**
@@ -737,12 +739,6 @@ export type IdWrapper = {
 };
 
 /**
- * ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
- *
- * {% hint style="danger" %}
- * This functionality is in preview mode - some of the features may not be fully operational yet.
- * {% endhint %}
- *
  * Reference to a native tool assigned to an agent.
  */
 export type NativeToolReferenceRequest = {
@@ -752,6 +748,8 @@ export type NativeToolReferenceRequest = {
     id: string;
     /**
      * Optional per-agent override of allowed MS Teams operations. When omitted, the tool instance defaults apply.
+     *
+     * **The `allowedOperations` field is in preview mode** - some of the features may not be fully operational yet.
      */
     allowedOperations?: Array<TeamsAllowedOperations>;
 };
