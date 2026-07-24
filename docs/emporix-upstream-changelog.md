@@ -5,6 +5,25 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-07-24 — registered the 5 remaining specs
+
+Audited `fetch-specs.ts` against Emporix's
+[list of API services](https://developer.emporix.io/api-references/quickstart/list-of-api-services)
+and the `emporix/api-references` repo tree. Five services had **no vendored
+spec** and were added to the fetch registry (vendored + generated types):
+
+| Service | Upstream path | Note |
+|---|---|---|
+| OAuth Service | `authentication/oauth-service` | |
+| Site Settings Service | `configuration/site-settings-service` | backs the hand-written `site` service |
+| Invoice Service | `orders/invoice` | `api.yaml` extension |
+| Quote Service | `quotes/quote` | `api.yaml` extension |
+| Session Context Service | `users-and-permissions/session-context` | backs the hand-written `session-context` service |
+
+Three upstream specs use an `api.yaml` (not `.yml`) extension — the reason they
+were missed by earlier audits. The SDK now vendors **all 43** listed services.
+Generated types only; no service facades added yet (follow-up).
+
 ## 2026-07-24 — synced (ai-service full parity)
 
 Re-vendored specs; only `ai-service` changed (**6 new endpoints, 0 removed, 0
