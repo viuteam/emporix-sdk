@@ -78,9 +78,9 @@ describe("LocationsService", () => {
     expect(bodies).toHaveLength(3);
   });
 
-  it("update PATCHes the location", async () => {
+  it("update PUTs the location", async () => {
     server.use(
-      http.patch("https://api.emporix.io/customer-management/acme/locations/loc-1", () =>
+      http.put("https://api.emporix.io/customer-management/acme/locations/loc-1", () =>
         HttpResponse.json({ id: "loc-1", name: "Renamed", type: "HEADQUARTER" }),
       ),
     );

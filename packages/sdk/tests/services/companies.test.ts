@@ -74,9 +74,9 @@ describe("CompaniesService", () => {
     expect(body).toEqual({ name: "New Co" });
   });
 
-  it("update PATCHes the body and returns the entity", async () => {
+  it("update PUTs the body and returns the entity", async () => {
     server.use(
-      http.patch("https://api.emporix.io/customer-management/acme/legal-entities/le-1", () =>
+      http.put("https://api.emporix.io/customer-management/acme/legal-entities/le-1", () =>
         HttpResponse.json({ id: "le-1", name: "Patched", type: "COMPANY" }),
       ),
     );

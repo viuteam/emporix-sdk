@@ -61,7 +61,7 @@ describe("usePasswordReset", () => {
     let seenAuth: string | null = null;
     server.use(
       http.post(
-        "https://api.emporix.io/customer/acme/password/reset/confirm",
+        "https://api.emporix.io/customer/acme/password/reset/update",
         ({ request }) => {
           seenAuth = request.headers.get("authorization");
           return new HttpResponse(null, { status: 204 });

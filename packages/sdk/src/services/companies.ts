@@ -51,8 +51,10 @@ export class CompaniesService {
   }
 
   /**
-   * Patches a legal entity. The endpoint is a PATCH, so the body is a partial
-   * of the generated `LegalEntityUpdate` (full-replace) shape.
+   * Updates a legal entity via `PUT …/legal-entities/{id}` (upsert / full
+   * replace). The live API rejects `PATCH` on this path with 405; send the
+   * complete entity, as the server replaces the resource. The body stays typed
+   * as a partial of `LegalEntityUpdate` for backward compatibility.
    */
   async update(
     legalEntityId: string,
@@ -60,7 +62,7 @@ export class CompaniesService {
     auth: AuthContext,
   ): Promise<LegalEntity> {
     return this.ctx.http.request<LegalEntity>({
-      method: "PATCH",
+      method: "PUT",
       path: `${this.base()}/${legalEntityId}`,
       auth,
       body: patch,

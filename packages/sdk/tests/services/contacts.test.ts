@@ -68,9 +68,9 @@ describe("ContactsService", () => {
     });
   });
 
-  it("update PATCHes the assignment", async () => {
+  it("update PUTs the assignment", async () => {
     server.use(
-      http.patch("https://api.emporix.io/customer-management/acme/contact-assignments/ca-1", () =>
+      http.put("https://api.emporix.io/customer-management/acme/contact-assignments/ca-1", () =>
         HttpResponse.json({ id: "ca-1", type: "LOGISTICS" }),
       ),
     );
