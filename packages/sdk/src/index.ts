@@ -120,6 +120,19 @@ export type {
   SegmentCategoryTree,
   SegmentCategoryTreeNode,
   SegmentServiceDeps,
+  SegmentInput,
+  SegmentUpdateInput,
+  SegmentPatchInput,
+  SegmentSearchQuery,
+  SegmentMatchInput,
+  SegmentBulkItem,
+  SegmentBulkResult,
+  SegmentCustomerInput,
+  SegmentCustomerBulkInput,
+  SegmentCustomer,
+  SegmentItemInput,
+  SegmentItemBulkInput,
+  SegmentAssignmentBulkResult,
 } from "./services/segment";
 export { SiteService } from "./services/site";
 export type { Site } from "./services/site";
