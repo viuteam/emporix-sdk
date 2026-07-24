@@ -1,5 +1,29 @@
 # @viu/emporix-sdk-react
 
+## 2.22.0
+
+### Minor Changes
+
+- [#160](https://github.com/viuteam/emporix-sdk/pull/160) [`7a63559`](https://github.com/viuteam/emporix-sdk/commit/7a635592f7233dc35f35502538d6695d428897cf) Thanks [@amnael1](https://github.com/amnael1)! - Add storefront-facing facade methods and matching React hooks. Additive and
+  backward-compatible.
+  - **Cart** — `carts.validate`, `listItems`, `refresh`, `changeSite`,
+    `changeCurrency`, `updateItemsBatch` (state-changing ops re-fetch and return
+    the updated cart). Hooks: `useCartValidation`, `useCartItems`, and
+    `refresh`/`changeSite`/`changeCurrency`/`updateItemsBatch` on the
+    `useCartMutations` bundle.
+  - **Customer** — double opt-in (`confirmSignup`/`resendActivation`),
+    login-email change (`changeEmail`/`confirmEmailChange`), and address
+    `get`/`addTags`/`removeTags`. Hooks: `useConfirmSignup`,
+    `useResendActivation`, `useChangeEmail`, `useConfirmEmailChange`,
+    `useCustomerAddress`, `useAddAddressTags`, `useRemoveAddressTags`.
+  - **Category** — `categories.parents`, `childCategories` (dedicated
+    `/subcategories`), `getTree` (single tree by id). Hooks:
+    `useCategoryParents`, `useChildCategories`, `useCategoryTreeById`.
+  - **Payment** — `payments.getMode`, `initialize` (frontend, no scope). Hooks:
+    `usePaymentMode`, `useInitializePayment`.
+  - **Session context** — `sessionContext.addAttribute`/`removeAttribute`. Hooks:
+    `useAddSessionAttribute`, `useRemoveSessionAttribute`.
+
 ## 2.19.1
 
 ### Patch Changes
