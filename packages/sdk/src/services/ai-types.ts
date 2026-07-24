@@ -20,6 +20,8 @@ import type {
   Job as GenJob,
   AgentTemplateResponse as GenAgentTemplate,
   AgentFromTemplateRequest as GenAgentFromTemplate,
+  AgentRequestResponse as GenAgentRequestLog,
+  AgentSessionResponse as GenAgentSessionLog,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -163,3 +165,8 @@ export type Job = GenJob;
 export type AgentTemplate = GenAgentTemplate;
 /** Body for {@link AiService.templates}`.clone` — the user prompt + overrides. */
 export type AgentFromTemplate = GenAgentFromTemplate;
+
+/** One agent request-log entry. */
+export type AgentRequestLog = GenAgentRequestLog;
+/** One agent session-log entry. */
+export type AgentSessionLog = GenAgentSessionLog;

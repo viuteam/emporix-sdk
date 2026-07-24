@@ -10,6 +10,8 @@ import type {
   Job,
   AgentTemplate,
   AgentFromTemplate,
+  AgentRequestLog,
+  AgentSessionLog,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -139,5 +141,38 @@ export class TemplatesResource {
       auth,
       body,
     });
+  }
+}
+
+/** Agent logs (`/agentic/logs`): request logs and session logs. */
+export class LogsResource {
+  constructor(
+    private readonly ctx: ClientContext,
+    private readonly path: string, // `${base}/agentic/logs`
+  ) {}
+
+  /** List request logs (`GET /agentic/logs/requests`). */
+  listRequests(query: ListQuery = {}, auth: AuthContext = SERVICE): Promise<AgentRequestLog[]> {
+    return this.ctx.http.request<AgentRequestLog[]>({ method: "GET", path: `${this.path}/requests`, auth, query: { ...query } });
+  }
+  /** Retrieve one request log (`GET /agentic/logs/requests/{requestId}`). */
+  getRequest(requestId: string, auth: AuthContext = SERVICE): Promise<AgentRequestLog> {
+    return this.ctx.http.request<AgentRequestLog>({ method: "GET", path: `${this.path}/requests/${encodeURIComponent(requestId)}`, auth });
+  }
+  /** Structured request-log search (`POST /agentic/logs/requests/search`). */
+  searchRequests(query: SearchQuery, auth: AuthContext = SERVICE): Promise<AgentRequestLog[]> {
+    return this.ctx.http.request<AgentRequestLog[]>({ method: "POST", path: `${this.path}/requests/search`, auth, body: query });
+  }
+  /** List session logs (`GET /agentic/logs/sessions`). */
+  listSessions(query: ListQuery = {}, auth: AuthContext = SERVICE): Promise<AgentSessionLog[]> {
+    return this.ctx.http.request<AgentSessionLog[]>({ method: "GET", path: `${this.path}/sessions`, auth, query: { ...query } });
+  }
+  /** Retrieve one session log (`GET /agentic/logs/sessions/{sessionId}`). */
+  getSession(sessionId: string, auth: AuthContext = SERVICE): Promise<AgentSessionLog> {
+    return this.ctx.http.request<AgentSessionLog>({ method: "GET", path: `${this.path}/sessions/${encodeURIComponent(sessionId)}`, auth });
+  }
+  /** Structured session-log search (`POST /agentic/logs/sessions/search`). */
+  searchSessions(query: SearchQuery, auth: AuthContext = SERVICE): Promise<AgentSessionLog[]> {
+    return this.ctx.http.request<AgentSessionLog[]>({ method: "POST", path: `${this.path}/sessions/search`, auth, body: query });
   }
 }

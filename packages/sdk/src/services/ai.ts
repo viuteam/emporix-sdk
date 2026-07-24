@@ -1,6 +1,11 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
-import { AgenticCrudResource, JobsResource, TemplatesResource } from "./ai-resources";
+import {
+  AgenticCrudResource,
+  JobsResource,
+  TemplatesResource,
+  LogsResource,
+} from "./ai-resources";
 import type {
   TextRequest,
   TextResponse,
@@ -34,6 +39,8 @@ import type {
   Job,
   AgentTemplate,
   AgentFromTemplate,
+  AgentRequestLog,
+  AgentSessionLog,
 } from "./ai-types";
 
 export type {
@@ -70,6 +77,8 @@ export type {
   Job,
   AgentTemplate,
   AgentFromTemplate,
+  AgentRequestLog,
+  AgentSessionLog,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -130,6 +139,12 @@ export class AiService {
   /** Agent templates (`/agentic/templates`). `list · search · clone`. */
   get templates(): TemplatesResource {
     return (this._templates ??= new TemplatesResource(this.ctx, `${this.base()}/agentic/templates`));
+  }
+
+  private _logs?: LogsResource;
+  /** Agent logs (`/agentic/logs`): request + session logs. */
+  get logs(): LogsResource {
+    return (this._logs ??= new LogsResource(this.ctx, `${this.base()}/agentic/logs`));
   }
 
   /** Generate text from a single prompt (`POST /texts`). Honors `maxTokens`. */
