@@ -83,7 +83,7 @@ Quote methods (default `auth = { kind: "anonymous" }`, customer-first docs):
 - `list(query?: ListQuotesQuery, auth?): Promise<PaginatedItems<Quote>>` — `GET /quotes` (wrap the array like `listSchemas`; `hasNextPage = items.length === pageSize`)
 - `create(draft: QuoteDraft, auth?): Promise<QuoteCreated>` — `POST /quotes` (201)
 - `get(quoteId, auth?): Promise<Quote>` — `GET /quotes/{quoteId}`
-- `update(quoteId, update: QuoteUpdate, auth?): Promise<Quote>` — `PATCH /quotes/{quoteId}`
+- `update(quoteId, update: QuoteUpdate, auth?): Promise<void>` — `PATCH /quotes/{quoteId}` (204)
 - `delete(quoteId, auth?): Promise<void>` — `DELETE /quotes/{quoteId}` (needs `quote_manage`)
 - `history(quoteId, auth?): Promise<QuoteHistory>` — `GET /quotes/{quoteId}/history`
 - `generatePdf(quoteId, auth?): Promise<Blob>` — `POST /quotes/{quoteId}/pdf` — **binary**; use `ctx.http.requestRaw` and return `await res.blob()`; throw `errorFromResponse` when `!res.ok` (`requestRaw` does NOT map non-2xx to typed errors).
@@ -93,7 +93,7 @@ Quote methods (default `auth = { kind: "anonymous" }`, customer-first docs):
 - `list(query?: ListQuoteReasonsQuery, auth = { kind: "anonymous" }): Promise<PaginatedItems<QuoteReason>>` — `GET /quote-reasons`
 - `get(reasonId, auth = { kind: "anonymous" }): Promise<QuoteReason>` — `GET /quote-reasons/{id}`
 - `create(draft: QuoteReasonDraft, auth = { kind: "service" }): Promise<QuoteReasonCreated>` — `POST /quote-reasons`
-- `update(reasonId, draft: QuoteReasonUpdate, auth = { kind: "service" }): Promise<QuoteReason>` — `PUT /quote-reasons/{id}`
+- `update(reasonId, draft: QuoteReasonUpdate, auth = { kind: "service" }): Promise<void>` — `PUT /quote-reasons/{id}` (204; `draft.metadata.version` required for optimistic locking)
 - `delete(reasonId, auth = { kind: "service" }): Promise<void>` — `DELETE /quote-reasons/{id}` (needs `quote_manage`)
 
 ## Wiring (per new service)
