@@ -53,3 +53,49 @@ describe("CartService backend ops", () => {
     expect(res).toEqual({ id: "c1", items: [] });
   });
 });
+
+describe("CartService storefront ops", () => {
+  it("getItem/listDiscounts/getDeliveryRestrictions hit the right method+path", async () => {
+    const g = vi.fn().mockResolvedValue({ id: "i1" });
+    await svc(g).getItem("c1", "i1", CUST);
+    expect(g).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${B}/c1/items/i1`, auth: CUST }));
+
+    const l = vi.fn().mockResolvedValue([{ discountId: "d1" }]);
+    await svc(l).listDiscounts("c1", CUST);
+    expect(l).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${B}/c1/discounts`, auth: CUST }));
+
+    const dt = vi.fn().mockResolvedValue({ leadTime: 2 });
+    await svc(dt).getDeliveryRestrictions("c1", CUST);
+    expect(dt).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${B}/c1/dtRestrictions`, auth: CUST }));
+  });
+
+  it("removeAllDiscounts DELETEs /discounts (no codes) then re-fetches the cart", async () => {
+    const r = vi.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce({ id: "c1" });
+    const res = await svc(r).removeAllDiscounts("c1", CUST);
+    expect(r.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ method: "DELETE", path: `${B}/c1/discounts`, auth: CUST }));
+    expect(r.mock.calls[0]?.[0]).not.toHaveProperty("query");
+    expect(r.mock.calls[1]?.[0]).toEqual(expect.objectContaining({ method: "GET", path: `${B}/c1`, auth: CUST }));
+    expect(res).toEqual({ id: "c1" });
+  });
+
+  it("removeDiscountByIndex DELETEs /discounts/{index} then re-fetches", async () => {
+    const r = vi.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce({ id: "c1" });
+    await svc(r).removeDiscountByIndex("c1", "0", CUST);
+    expect(r.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ method: "DELETE", path: `${B}/c1/discounts/0`, auth: CUST }));
+    expect(r.mock.calls[1]?.[0]).toEqual(expect.objectContaining({ method: "GET", path: `${B}/c1`, auth: CUST }));
+  });
+});
+
+describe("CartService auth split", () => {
+  it("a storefront op rejects a service auth and makes no request", async () => {
+    const r = vi.fn();
+    await expect(svc(r).listDiscounts("c1", SVC)).rejects.toBeInstanceOf(EmporixValidationError);
+    expect(r).not.toHaveBeenCalled();
+  });
+
+  it("a backend op accepts a service auth", async () => {
+    const r = vi.fn().mockResolvedValue([]);
+    await svc(r).search({}, SVC);
+    expect(r).toHaveBeenCalledWith(expect.objectContaining({ auth: { kind: "service" } }));
+  });
+});

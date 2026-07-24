@@ -430,4 +430,61 @@ export class CartService {
       auth,
     });
   }
+
+  /** Fetches a single cart item's details (`GET /carts/{cartId}/items/{itemId}`). */
+  async getItem(cartId: string, itemId: string, auth: AuthContext): Promise<CartItem> {
+    return this.ctx.http.request<CartItem>({
+      method: "GET",
+      path: `${this.base()}/${cartId}/items/${itemId}`,
+      auth: requireCartAuth(auth),
+    });
+  }
+
+  /** Lists the discounts applied to a cart (`GET /carts/{cartId}/discounts`). */
+  async listDiscounts(cartId: string, auth: AuthContext): Promise<CartDiscount[]> {
+    return this.ctx.http.request<CartDiscount[]>({
+      method: "GET",
+      path: `${this.base()}/${cartId}/discounts`,
+      auth: requireCartAuth(auth),
+    });
+  }
+
+  /**
+   * Removes all discounts from a cart (`DELETE /carts/{cartId}/discounts` with
+   * no `codes` filter), then re-fetches and returns the updated cart. Use
+   * `removeCoupon(code)` to remove a specific coupon by code.
+   */
+  async removeAllDiscounts(cartId: string, auth: AuthContext): Promise<Cart> {
+    const cartAuth = requireCartAuth(auth);
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/${cartId}/discounts`,
+      auth: cartAuth,
+    });
+    return this.get(cartId, cartAuth);
+  }
+
+  /**
+   * Removes a single discount by its index (`DELETE
+   * /carts/{cartId}/discounts/{discountIndex}`), then re-fetches and returns
+   * the updated cart.
+   */
+  async removeDiscountByIndex(cartId: string, discountIndex: string, auth: AuthContext): Promise<Cart> {
+    const cartAuth = requireCartAuth(auth);
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/${cartId}/discounts/${discountIndex}`,
+      auth: cartAuth,
+    });
+    return this.get(cartId, cartAuth);
+  }
+
+  /** Retrieves the cart's lead-time and non-delivery-time restrictions (`GET /carts/{cartId}/dtRestrictions`). */
+  async getDeliveryRestrictions(cartId: string, auth: AuthContext): Promise<CartDeliveryRestrictions> {
+    return this.ctx.http.request<CartDeliveryRestrictions>({
+      method: "GET",
+      path: `${this.base()}/${cartId}/dtRestrictions`,
+      auth: requireCartAuth(auth),
+    });
+  }
 }
