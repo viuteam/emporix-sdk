@@ -12,6 +12,9 @@ import type {
   PasswordUpdate,
   AddressCreateDto,
   AddressUpdateDto,
+  ChangeEmailRequestDto,
+  UpdateEmail,
+  RefreshToken,
 } from "../generated/customer";
 
 /**
@@ -50,6 +53,9 @@ export type PasswordResetRequestInput = PasswordResetRequestDto;
 export type PasswordResetConfirmInput = PasswordUpdate;
 export type AddressCreateInput = AddressCreateDto;
 export type AddressUpdateInput = AddressUpdateDto;
+export type ChangeEmailInput = ChangeEmailRequestDto;
+export type ConfirmEmailChangeInput = UpdateEmail;
+export type ResendActivationInput = RefreshToken;
 
 /** Union of the wire shapes the four session endpoints return. snake_case is
  * canonical; camelCase is the deprecated fallback (vendored spec, design §2). */
@@ -285,6 +291,58 @@ export class CustomerService {
     });
   }
 
+  /**
+   * Completes double opt-in signup with the emailed token, creating the account
+   * and returning a logged-in {@link CustomerSession}. Default auth: anonymous.
+   */
+  async confirmSignup(
+    token: string,
+    auth: AuthContext = { kind: "anonymous" },
+  ): Promise<CustomerSession> {
+    const wire = await this.ctx.http.request<WireSession>({
+      method: "GET",
+      path: `/customer/${this.ctx.tenant}/signup/optin/${encodeURIComponent(token)}`,
+      auth,
+    });
+    return toSession("confirmSignup", wire);
+  }
+
+  /** Resends the double opt-in activation link. Default auth: anonymous. */
+  async resendActivation(
+    input: ResendActivationInput,
+    auth: AuthContext = { kind: "anonymous" },
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `/customer/${this.ctx.tenant}/signup/optin/refresh_token`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Requests a login-email change (emails a confirmation token). Requires customer/raw auth. */
+  async changeEmail(input: ChangeEmailInput, auth?: AuthContext): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `/customer/${this.ctx.tenant}/me/accounts/internal/email/change`,
+      auth: requireCustomer(auth),
+      body: input,
+    });
+  }
+
+  /** Confirms a login-email change with the emailed token. Default auth: anonymous. */
+  async confirmEmailChange(
+    input: ConfirmEmailChangeInput,
+    auth: AuthContext = { kind: "anonymous" },
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `/customer/${this.ctx.tenant}/me/accounts/internal/email/change/confirm`,
+      auth,
+      body: input,
+    });
+  }
+
   /** Address sub-resource. All operations require customer/raw auth. */
   readonly addresses = {
     list: async (auth?: AuthContext): Promise<Address[]> =>
@@ -313,5 +371,27 @@ export class CustomerService {
         path: `/customer/${this.ctx.tenant}/me/addresses/${id}`,
         auth: requireCustomer(auth),
       }),
+    get: async (id: string, auth?: AuthContext): Promise<Address> =>
+      this.ctx.http.request<Address>({
+        method: "GET",
+        path: `/customer/${this.ctx.tenant}/me/addresses/${id}`,
+        auth: requireCustomer(auth),
+      }),
+    addTags: async (id: string, tags: string[], auth?: AuthContext): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "POST",
+        path: `/customer/${this.ctx.tenant}/me/addresses/${id}/tags`,
+        query: { tags: tags.join(",") },
+        auth: requireCustomer(auth),
+      });
+    },
+    removeTags: async (id: string, tags: string[], auth?: AuthContext): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/customer/${this.ctx.tenant}/me/addresses/${id}/tags`,
+        query: { tags: tags.join(",") },
+        auth: requireCustomer(auth),
+      });
+    },
   };
 }

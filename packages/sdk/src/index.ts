@@ -46,6 +46,9 @@ export type {
   PasswordResetConfirmInput,
   AddressCreateInput,
   AddressUpdateInput,
+  ChangeEmailInput,
+  ConfirmEmailChangeInput,
+  ResendActivationInput,
 } from "./services/customer";
 export { ProductService } from "./services/product";
 export type { Product, Media } from "./services/product";
