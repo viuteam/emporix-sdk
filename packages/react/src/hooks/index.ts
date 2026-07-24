@@ -60,6 +60,9 @@ export { useUpdateCustomer, useChangePassword } from "./use-customer-profile";
 export {
   useCustomerAddresses,
   useAddressMutations,
+  useCustomerAddress,
+  useAddAddressTags,
+  useRemoveAddressTags,
 } from "./use-customer-addresses";
 export type { AddressMutationsApi } from "./use-customer-addresses";
 export { usePasswordReset } from "./use-password-reset";
