@@ -33,17 +33,21 @@ The user's intent for quotes is "customer-first with override". But the SDK
 customer token lives only in the React layer, not the core. Every SDK service
 method therefore takes an explicit trailing `auth` argument with a default.
 
-Realization, consistent with the existing customer-owned `CustomerService`
-(which defaults `auth` to `{ kind: "anonymous" }`):
+Realization:
 
-- **Quote** methods: trailing `auth: AuthContext = { kind: "anonymous" }`.
-  Docs/examples are customer-first (`auth.customer(token)`); `delete` and the
-  reason mutations require the admin `quote.quote_manage` scope (pass
-  `auth.service()` or an admin token).
+- **Quote domain (QuoteService + QuoteReasonsResource): `auth` is a REQUIRED
+  trailing argument (no default).** Quote endpoints never accept anonymous —
+  they need a customer (`_own`) or admin (`_manage`) token — so the signature
+  forces the caller to choose one explicitly rather than defaulting to an
+  anonymous context that would always 401/403. Pass `auth.customer(token)` for
+  a customer's own quotes, `auth.service()` (or an admin token) for
+  `_manage`-scoped ops (`delete`, reason mutations).
+  - TypeScript consequence: a required trailing `auth` cannot follow an
+    optional parameter, so the `list` methods take a **required** `query`
+    argument (pass `{}` for no filter): `list(query, auth)`.
 - **Invoice** methods: trailing `auth: AuthContext = { kind: "service" }`
-  (backend-only, like `SchemaService` / `AiService`).
-- **Quote reasons**: reads default `{ kind: "anonymous" }` (a storefront may
-  list reason options); mutations default `{ kind: "service" }`.
+  (backend-only, like `SchemaService` / `AiService`) — keeps the convenient
+  backend default since invoice is admin-only.
 
 ## Facades
 
@@ -79,22 +83,22 @@ Types (`quote-types.ts`, from `generated/quote`):
 | `ListQuotesQuery` | hand-written `{ q?; sort?; pageNumber?; pageSize? }` |
 | `ListQuoteReasonsQuery` | hand-written `{ pageNumber?; pageSize? }` |
 
-Quote methods (default `auth = { kind: "anonymous" }`, customer-first docs):
-- `list(query?: ListQuotesQuery, auth?): Promise<PaginatedItems<Quote>>` — `GET /quotes` (wrap the array like `listSchemas`; `hasNextPage = items.length === pageSize`)
-- `create(draft: QuoteDraft, auth?): Promise<QuoteCreated>` — `POST /quotes` (201)
-- `get(quoteId, auth?): Promise<Quote>` — `GET /quotes/{quoteId}`
-- `update(quoteId, update: QuoteUpdate, auth?): Promise<void>` — `PATCH /quotes/{quoteId}` (204)
-- `delete(quoteId, auth?): Promise<void>` — `DELETE /quotes/{quoteId}` (needs `quote_manage`)
-- `history(quoteId, auth?): Promise<QuoteHistory>` — `GET /quotes/{quoteId}/history`
-- `generatePdf(quoteId, auth?): Promise<Blob>` — `POST /quotes/{quoteId}/pdf` — **binary**; use `ctx.http.requestRaw` and return `await res.blob()`; throw `errorFromResponse` when `!res.ok` (`requestRaw` does NOT map non-2xx to typed errors).
+Quote methods (`auth` REQUIRED, no default — pass `auth.customer(token)` or `auth.service()`):
+- `list(query: ListQuotesQuery, auth): Promise<PaginatedItems<Quote>>` — `GET /quotes` (wrap the array like `listSchemas`; `hasNextPage = items.length === pageSize`). `query` required (pass `{}` for none).
+- `create(draft: QuoteDraft, auth): Promise<QuoteCreated>` — `POST /quotes` (201)
+- `get(quoteId, auth): Promise<Quote>` — `GET /quotes/{quoteId}`
+- `update(quoteId, update: QuoteUpdate, auth): Promise<void>` — `PATCH /quotes/{quoteId}` (204)
+- `delete(quoteId, auth): Promise<void>` — `DELETE /quotes/{quoteId}` (needs `quote_manage`)
+- `history(quoteId, auth): Promise<QuoteHistory>` — `GET /quotes/{quoteId}/history`
+- `generatePdf(quoteId, auth): Promise<Blob>` — `POST /quotes/{quoteId}/pdf` — **binary**; use `ctx.http.requestRaw` and return `await res.blob()`; throw `errorFromResponse(res.status, msg, body)` when `!res.ok` (`requestRaw` does NOT map non-2xx to typed errors).
 - `reasons` getter → `QuoteReasonsResource` (lazily instantiated)
 
-`QuoteReasonsResource` (exposed as `client.quotes.reasons`):
-- `list(query?: ListQuoteReasonsQuery, auth = { kind: "anonymous" }): Promise<PaginatedItems<QuoteReason>>` — `GET /quote-reasons`
-- `get(reasonId, auth = { kind: "anonymous" }): Promise<QuoteReason>` — `GET /quote-reasons/{id}`
-- `create(draft: QuoteReasonDraft, auth = { kind: "service" }): Promise<QuoteReasonCreated>` — `POST /quote-reasons`
-- `update(reasonId, draft: QuoteReasonUpdate, auth = { kind: "service" }): Promise<void>` — `PUT /quote-reasons/{id}` (204; `draft.metadata.version` required for optimistic locking)
-- `delete(reasonId, auth = { kind: "service" }): Promise<void>` — `DELETE /quote-reasons/{id}` (needs `quote_manage`)
+`QuoteReasonsResource` (exposed as `client.quotes.reasons`) — `auth` REQUIRED on every method (same rationale; reads take a customer/admin token, mutations need `quote_manage`):
+- `list(query: ListQuoteReasonsQuery, auth): Promise<PaginatedItems<QuoteReason>>` — `GET /quote-reasons` (`query` required, pass `{}`)
+- `get(reasonId, auth): Promise<QuoteReason>` — `GET /quote-reasons/{id}`
+- `create(draft: QuoteReasonDraft, auth): Promise<QuoteReasonCreated>` — `POST /quote-reasons`
+- `update(reasonId, draft: QuoteReasonUpdate, auth): Promise<void>` — `PUT /quote-reasons/{id}` (204; `draft.metadata.version` required for optimistic locking)
+- `delete(reasonId, auth): Promise<void>` — `DELETE /quote-reasons/{id}` (needs `quote_manage`)
 
 ## Wiring (per new service)
 

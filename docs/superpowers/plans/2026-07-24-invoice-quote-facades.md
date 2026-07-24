@@ -12,7 +12,7 @@
 
 - Branch `feat/invoice-quote-facades`, off `chore/register-missing-api-specs` (PR #155). Do not rebase onto main until #155 merges.
 - HTTP: `this.ctx.http.request<T>({ method, path, auth, query?, body? })`. Binary responses use `this.ctx.http.requestRaw(o): Promise<Response>` (does NOT map non-2xx to typed errors — check `res.ok` and throw `errorFromResponse`).
-- Auth defaults: invoice → `{ kind: "service" }`; quote methods → `{ kind: "anonymous" }` (customer-first via docs/examples); quote-reason reads → `{ kind: "anonymous" }`, mutations → `{ kind: "service" }`.
+- Auth: invoice methods default `auth` to `{ kind: "service" }` (backend-only). **Quote-domain methods (QuoteService + QuoteReasonsResource) take a REQUIRED trailing `auth` (no default)** — quotes never accept anonymous. Because a required arg cannot follow an optional one, the `list` methods take a **required** `query` (pass `{}` for none): `list(query, auth)`.
 - `PATCH /quotes/{id}` and `PUT /quote-reasons/{id}` both return **204** → facade returns `Promise<void>`.
 - List methods wrap the array in `PaginatedItems<T>` (`{ items, pageNumber, pageSize, hasNextPage: items.length === pageSize }`), mirroring `SchemaService.listSchemas`. Defaults `pageNumber: 1`, `pageSize: 60`.
 - Verify per task: `cd packages/sdk && pnpm exec tsc --noEmit && pnpm exec vitest run <files>`.
@@ -289,13 +289,11 @@ export type {
   QuoteReason, QuoteReasonDraft, QuoteReasonUpdate, QuoteReasonCreated, ListQuoteReasonsQuery,
 } from "./quote-types";
 
-const ANON: AuthContext = { kind: "anonymous" };
-
 /**
  * Quote Service (`/quote/{tenant}/…`): B2B quotes and quote reasons. Quotes are
- * customer-owned — pass `auth.customer(token)`; `delete` and reason mutations
- * need the admin `quote.quote_manage` scope. Default auth: anonymous (the SDK
- * convention; supply a token per call).
+ * customer-owned and never anonymous, so every method takes a REQUIRED `auth`:
+ * pass `auth.customer(token)` for a customer's own quotes, or `auth.service()`
+ * (an admin token) for `quote_manage`-scoped ops (`delete`, reason mutations).
  */
 export class QuoteService {
   static readonly channel = "quote" as const;
@@ -305,8 +303,8 @@ export class QuoteService {
     return `/quote/${this.ctx.tenant}/quotes`;
   }
 
-  /** List quotes, wrapped in {@link PaginatedItems}. */
-  async list(query: ListQuotesQuery = {}, auth: AuthContext = ANON): Promise<PaginatedItems<Quote>> {
+  /** List quotes, wrapped in {@link PaginatedItems}. Pass `{}` for no filter. */
+  async list(query: ListQuotesQuery, auth: AuthContext): Promise<PaginatedItems<Quote>> {
     const pageNumber = query.pageNumber ?? 1;
     const pageSize = query.pageSize ?? 60;
     const q: Record<string, string | number> = { pageNumber, pageSize };
@@ -319,35 +317,35 @@ export class QuoteService {
   }
 
   /** Create a quote (`POST /quotes`, 201). */
-  async create(draft: QuoteDraft, auth: AuthContext = ANON): Promise<QuoteCreated> {
+  async create(draft: QuoteDraft, auth: AuthContext): Promise<QuoteCreated> {
     return this.ctx.http.request<QuoteCreated>({
       method: "POST", path: this.quotesBase(), auth, body: draft,
     });
   }
 
   /** Retrieve one quote by id. */
-  async get(quoteId: string, auth: AuthContext = ANON): Promise<Quote> {
+  async get(quoteId: string, auth: AuthContext): Promise<Quote> {
     return this.ctx.http.request<Quote>({
       method: "GET", path: `${this.quotesBase()}/${encodeURIComponent(quoteId)}`, auth,
     });
   }
 
   /** Apply an update-op array to a quote (`PATCH /quotes/{id}`, 204). */
-  async update(quoteId: string, update: QuoteUpdate, auth: AuthContext = ANON): Promise<void> {
+  async update(quoteId: string, update: QuoteUpdate, auth: AuthContext): Promise<void> {
     await this.ctx.http.request<void>({
       method: "PATCH", path: `${this.quotesBase()}/${encodeURIComponent(quoteId)}`, auth, body: update,
     });
   }
 
   /** Delete a quote (`DELETE /quotes/{id}`). Requires the admin `quote_manage` scope. */
-  async delete(quoteId: string, auth: AuthContext = ANON): Promise<void> {
+  async delete(quoteId: string, auth: AuthContext): Promise<void> {
     await this.ctx.http.request<void>({
       method: "DELETE", path: `${this.quotesBase()}/${encodeURIComponent(quoteId)}`, auth,
     });
   }
 
   /** Retrieve a quote's change history (`GET /quotes/{id}/history`). */
-  async history(quoteId: string, auth: AuthContext = ANON): Promise<QuoteHistory> {
+  async history(quoteId: string, auth: AuthContext): Promise<QuoteHistory> {
     return this.ctx.http.request<QuoteHistory>({
       method: "GET", path: `${this.quotesBase()}/${encodeURIComponent(quoteId)}/history`, auth,
     });
@@ -357,7 +355,7 @@ export class QuoteService {
    * Generate a quote PDF (`POST /quotes/{id}/pdf`). Returns the raw PDF bytes.
    * Uses `requestRaw` (no typed-error mapping) — a non-2xx is thrown explicitly.
    */
-  async generatePdf(quoteId: string, auth: AuthContext = ANON): Promise<Blob> {
+  async generatePdf(quoteId: string, auth: AuthContext): Promise<Blob> {
     const path = `${this.quotesBase()}/${encodeURIComponent(quoteId)}/pdf`;
     const res = await this.ctx.http.requestRaw({ method: "POST", path, auth });
     if (!res.ok) {
@@ -489,12 +487,11 @@ git commit -m "feat(sdk): add QuoteService quotes CRUD (client.quotes)"
 - [ ] **Step 1: Add `QuoteReasonsResource` to `quote.ts`** (below `QuoteService`)
 
 ```ts
-const SERVICE: AuthContext = { kind: "service" };
-
 /**
- * Quote reasons (`/quote/{tenant}/quote-reasons`). Config data: reads default
- * anonymous (a storefront may list options); mutations need the admin
- * `quote.quote_manage` scope and default to the service token.
+ * Quote reasons (`/quote/{tenant}/quote-reasons`). Config data. Like the rest
+ * of the quote domain, every method takes a REQUIRED `auth`: reads accept a
+ * customer or admin token; `create`/`update`/`delete` need the admin
+ * `quote.quote_manage` scope (`auth.service()`).
  */
 export class QuoteReasonsResource {
   constructor(private readonly ctx: ClientContext) {}
@@ -503,7 +500,8 @@ export class QuoteReasonsResource {
     return `/quote/${this.ctx.tenant}/quote-reasons`;
   }
 
-  async list(query: ListQuoteReasonsQuery = {}, auth: AuthContext = ANON): Promise<PaginatedItems<QuoteReason>> {
+  /** List reasons, wrapped in {@link PaginatedItems}. Pass `{}` for no paging override. */
+  async list(query: ListQuoteReasonsQuery, auth: AuthContext): Promise<PaginatedItems<QuoteReason>> {
     const pageNumber = query.pageNumber ?? 1;
     const pageSize = query.pageSize ?? 60;
     const items = await this.ctx.http.request<QuoteReason[]>({
@@ -512,27 +510,27 @@ export class QuoteReasonsResource {
     return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
   }
 
-  async get(reasonId: string, auth: AuthContext = ANON): Promise<QuoteReason> {
+  async get(reasonId: string, auth: AuthContext): Promise<QuoteReason> {
     return this.ctx.http.request<QuoteReason>({
       method: "GET", path: `${this.base()}/${encodeURIComponent(reasonId)}`, auth,
     });
   }
 
-  async create(draft: QuoteReasonDraft, auth: AuthContext = SERVICE): Promise<QuoteReasonCreated> {
+  async create(draft: QuoteReasonDraft, auth: AuthContext): Promise<QuoteReasonCreated> {
     return this.ctx.http.request<QuoteReasonCreated>({
       method: "POST", path: this.base(), auth, body: draft,
     });
   }
 
   /** Replace a reason (`PUT`, 204). `draft.metadata.version` is required. */
-  async update(reasonId: string, draft: QuoteReasonUpdate, auth: AuthContext = SERVICE): Promise<void> {
+  async update(reasonId: string, draft: QuoteReasonUpdate, auth: AuthContext): Promise<void> {
     await this.ctx.http.request<void>({
       method: "PUT", path: `${this.base()}/${encodeURIComponent(reasonId)}`, auth, body: draft,
     });
   }
 
   /** Delete a reason. Requires the admin `quote_manage` scope. */
-  async delete(reasonId: string, auth: AuthContext = SERVICE): Promise<void> {
+  async delete(reasonId: string, auth: AuthContext): Promise<void> {
     await this.ctx.http.request<void>({
       method: "DELETE", path: `${this.base()}/${encodeURIComponent(reasonId)}`, auth,
     });
@@ -559,21 +557,24 @@ import { QuoteService } from "../../src/services/quote";
 import { auth } from "../../src/core/auth";
 
 describe("QuoteService.reasons", () => {
-  it("lists reasons (PaginatedItems) with anonymous default", async () => {
+  it("lists reasons (PaginatedItems)", async () => {
     server.use(http.get(`${BASE}/quote/acme/quote-reasons`, () => HttpResponse.json([{ id: "r1", type: "DECLINE" }])));
     const svc = new QuoteService(ctx("quote"));
-    const page = await svc.reasons.list();
+    const page = await svc.reasons.list({}, auth.customer("t"));
     expect(page.items).toEqual([{ id: "r1", type: "DECLINE" }]);
   });
 
-  it("create POSTs the draft (201) with the service token by default", async () => {
+  it("create POSTs the draft (201) with the supplied service token", async () => {
     let authz: string | null = null;
     server.use(http.post(`${BASE}/quote/acme/quote-reasons`, ({ request }) => {
       authz = request.headers.get("authorization");
       return HttpResponse.json({ id: "r1" }, { status: 201 });
     }));
     const svc = new QuoteService(ctx("quote"));
-    const res = await svc.reasons.create({ type: "DECLINE", code: "OUT_OF_STOCK", message: { en: "Out of stock" } });
+    const res = await svc.reasons.create(
+      { type: "DECLINE", code: "OUT_OF_STOCK", message: { en: "Out of stock" } },
+      auth.service(),
+    );
     expect(res).toEqual({ id: "r1" });
     expect(authz).toBe("Bearer svc-tok");
   });
@@ -584,8 +585,10 @@ describe("QuoteService.reasons", () => {
       http.delete(`${BASE}/quote/acme/quote-reasons/r1`, () => new HttpResponse(null, { status: 204 })),
     );
     const svc = new QuoteService(ctx("quote"));
-    await expect(svc.reasons.update("r1", { type: "CHANGE", code: "X", message: { en: "x" }, metadata: { version: 2 } })).resolves.toBeUndefined();
-    await expect(svc.reasons.delete("r1")).resolves.toBeUndefined();
+    await expect(
+      svc.reasons.update("r1", { type: "CHANGE", code: "X", message: { en: "x" }, metadata: { version: 2 } }, auth.service()),
+    ).resolves.toBeUndefined();
+    await expect(svc.reasons.delete("r1", auth.service())).resolves.toBeUndefined();
   });
 });
 ```
