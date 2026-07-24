@@ -25,6 +25,12 @@ import type {
   SearchQuery,
   OAuthConfig,
   OAuthInput,
+  Tool,
+  ToolInput,
+  Token,
+  TokenInput,
+  McpServer,
+  McpServerInput,
 } from "./ai-types";
 
 export type {
@@ -52,6 +58,12 @@ export type {
   SearchQuery,
   OAuthConfig,
   OAuthInput,
+  Tool,
+  ToolInput,
+  Token,
+  TokenInput,
+  McpServer,
+  McpServerInput,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -82,6 +94,24 @@ export class AiService {
   /** OAuth 2.0 client-credentials configs (`/agentic/oauths`). CRUD sub-resource. */
   get oauths(): AgenticCrudResource<OAuthConfig, OAuthInput> {
     return (this._oauths ??= new AgenticCrudResource(this.ctx, `${this.base()}/agentic/oauths`));
+  }
+
+  private _tools?: AgenticCrudResource<Tool, ToolInput>;
+  /** Agentic tools (`/agentic/tools`). CRUD sub-resource. */
+  get tools(): AgenticCrudResource<Tool, ToolInput> {
+    return (this._tools ??= new AgenticCrudResource(this.ctx, `${this.base()}/agentic/tools`));
+  }
+
+  private _tokens?: AgenticCrudResource<Token, TokenInput>;
+  /** Stored tokens (`/agentic/tokens`) — an OAuth config's client secret. CRUD sub-resource. */
+  get tokens(): AgenticCrudResource<Token, TokenInput> {
+    return (this._tokens ??= new AgenticCrudResource(this.ctx, `${this.base()}/agentic/tokens`));
+  }
+
+  private _mcpServers?: AgenticCrudResource<McpServer, McpServerInput>;
+  /** MCP-server configs (`/agentic/mcp-servers`). CRUD sub-resource. */
+  get mcpServers(): AgenticCrudResource<McpServer, McpServerInput> {
+    return (this._mcpServers ??= new AgenticCrudResource(this.ctx, `${this.base()}/agentic/mcp-servers`));
   }
 
   /** Generate text from a single prompt (`POST /texts`). Honors `maxTokens`. */

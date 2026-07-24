@@ -11,6 +11,12 @@ import type {
   IdResponse as GenIdResponse,
   OAuthResponse as GenOAuthResponse,
   OauthUpsertBody as GenOAuthInput,
+  NativeToolsResponse as GenNativeTools,
+  ToolUpsertBody as GenToolInput,
+  TokenResponse as GenToken,
+  TokenUpsertBody as GenTokenInput,
+  McpServerResponse as GenMcpServer,
+  McpServerUpsertBody as GenMcpServerInput,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -131,3 +137,18 @@ export interface SearchQuery {
 export type OAuthConfig = GenOAuthResponse;
 /** Write shape for {@link AiService.oauths}`.upsert` (`OAuthRequest`). */
 export type OAuthInput = GenOAuthInput;
+
+/** One agentic tool (union of the native-tool response variants). */
+export type Tool = GenNativeTools[number];
+/** Write shape for {@link AiService.tools}`.upsert`. */
+export type ToolInput = GenToolInput;
+
+/** A stored token (holds an OAuth client secret, referenced by OAuth configs). */
+export type Token = GenToken;
+/** Write shape for {@link AiService.tokens}`.upsert`. */
+export type TokenInput = GenTokenInput;
+
+/** An MCP-server configuration for the agentic layer. */
+export type McpServer = GenMcpServer;
+/** Write shape for {@link AiService.mcpServers}`.upsert`. */
+export type McpServerInput = GenMcpServerInput;
