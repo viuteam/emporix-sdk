@@ -89,6 +89,17 @@ export type {
   PriceMatchByContextInput,
   PriceMatchInput,
   MatchByContextChunkedOptions,
+  Price,
+  PriceCreateInput,
+  PriceModel,
+  PriceModelInput,
+  PriceList,
+  PriceListInput,
+  PriceListUpdateInput,
+  PriceListPrice,
+  PriceListPriceInput,
+  PriceListPriceUpdateInput,
+  PriceBulkResult,
 } from "./services/price";
 export { MediaService } from "./services/media";
 export type {

@@ -1,7 +1,22 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixAuthError } from "../core/errors";
-import type { Match, MatchByContext, MatchResponse } from "../generated/price";
+import type {
+  Match,
+  MatchByContext,
+  MatchResponse,
+  CreatePrice,
+  GetPrice,
+  PriceModelDefinitionCreation,
+  PriceModelRetrieval,
+  PriceListCreation,
+  PriceListUpdate,
+  PriceList as GenPriceList,
+  PriceListPriceCreation,
+  PriceListPriceUpdate,
+  PriceListPrice as GenPriceListPrice,
+  PriceBulkResponseEntry,
+} from "../generated/price";
 
 /** Session-context match request body (generated). */
 export type PriceMatchByContextInput = MatchByContext;
@@ -61,6 +76,29 @@ export interface MatchByContextChunkedOptions {
   /** When true, the first failing chunk rejects the whole call. Default false. */
   throwOnAnyChunkError?: boolean;
 }
+
+/** A resolved/stored price (generated read shape). */
+export type Price = GetPrice;
+/** Create/upsert body for a flat price (generated). */
+export type PriceCreateInput = CreatePrice;
+/** A price model (read). */
+export type PriceModel = PriceModelRetrieval;
+/** Create/upsert body for a price model (generated). */
+export type PriceModelInput = PriceModelDefinitionCreation;
+/** A price list (read). */
+export type PriceList = GenPriceList;
+/** Create body for a price list (generated). */
+export type PriceListInput = PriceListCreation;
+/** Upsert body for a price list (generated). */
+export type PriceListUpdateInput = PriceListUpdate;
+/** A price inside a price list (read). */
+export type PriceListPrice = GenPriceListPrice;
+/** Add body for a price-list price (generated). */
+export type PriceListPriceInput = PriceListPriceCreation;
+/** Upsert body for a price-list price (generated). */
+export type PriceListPriceUpdateInput = PriceListPriceUpdate;
+/** Per-entry result of a bulk price operation (generated). */
+export type PriceBulkResult = PriceBulkResponseEntry;
 
 const ANON: AuthContext = { kind: "anonymous" };
 const SERVICE: AuthContext = { kind: "service" };
@@ -170,4 +208,283 @@ export class PriceService {
 
     return results.flat();
   }
+
+  // --- Admin CRUD (flat prices). Default auth: service. ---
+
+  /** Creates a flat price. Default auth: service. */
+  async create(input: PriceCreateInput, authCtx: AuthContext = SERVICE): Promise<Price> {
+    return this.ctx.http.request<Price>({
+      method: "POST",
+      path: `/price/${this.ctx.tenant}/prices`,
+      auth: authCtx,
+      body: input,
+    });
+  }
+
+  /** Lists flat prices. Default auth: service. */
+  async list(
+    query?: Record<string, string | number>,
+    authCtx: AuthContext = SERVICE,
+  ): Promise<Price[]> {
+    return this.ctx.http.request<Price[]>({
+      method: "GET",
+      path: `/price/${this.ctx.tenant}/prices`,
+      auth: authCtx,
+      ...(query ? { query } : {}),
+    });
+  }
+
+  /** Retrieves one flat price by id. Default auth: service. */
+  async get(priceId: string, authCtx: AuthContext = SERVICE): Promise<Price> {
+    return this.ctx.http.request<Price>({
+      method: "GET",
+      path: `/price/${this.ctx.tenant}/prices/${priceId}`,
+      auth: authCtx,
+    });
+  }
+
+  /** Upserts a flat price by id (PUT). Default auth: service. */
+  async upsert(priceId: string, input: PriceCreateInput, authCtx: AuthContext = SERVICE): Promise<Price> {
+    return this.ctx.http.request<Price>({
+      method: "PUT",
+      path: `/price/${this.ctx.tenant}/prices/${priceId}`,
+      auth: authCtx,
+      body: input,
+    });
+  }
+
+  /** Deletes a flat price by id. Default auth: service. */
+  async delete(priceId: string, authCtx: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `/price/${this.ctx.tenant}/prices/${priceId}`,
+      auth: authCtx,
+    });
+  }
+
+  /** Searches flat prices (POST body query). Default auth: service. */
+  async search(query: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<Price[]> {
+    return this.ctx.http.request<Price[]>({
+      method: "POST",
+      path: `/price/${this.ctx.tenant}/prices/search`,
+      auth: authCtx,
+      body: query,
+    });
+  }
+
+  /** Creates multiple flat prices in one request. Default auth: service. */
+  async bulkCreate(inputs: PriceCreateInput[], authCtx: AuthContext = SERVICE): Promise<PriceBulkResult[]> {
+    return this.ctx.http.request<PriceBulkResult[]>({
+      method: "POST",
+      path: `/price/${this.ctx.tenant}/prices/bulk`,
+      auth: authCtx,
+      body: inputs,
+    });
+  }
+
+  /** Upserts multiple flat prices in one request (PUT). Default auth: service. */
+  async bulkUpsert(inputs: PriceCreateInput[], authCtx: AuthContext = SERVICE): Promise<PriceBulkResult[]> {
+    return this.ctx.http.request<PriceBulkResult[]>({
+      method: "PUT",
+      path: `/price/${this.ctx.tenant}/prices/bulk`,
+      auth: authCtx,
+      body: inputs,
+    });
+  }
+
+  /** Price-model admin CRUD (`/priceModels`). Default auth: service. */
+  readonly models = {
+    list: async (
+      query?: Record<string, string | number>,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceModel[]> =>
+      this.ctx.http.request<PriceModel[]>({
+        method: "GET",
+        path: `/price/${this.ctx.tenant}/priceModels`,
+        auth: authCtx,
+        ...(query ? { query } : {}),
+      }),
+    create: async (input: PriceModelInput, authCtx: AuthContext = SERVICE): Promise<PriceModel> =>
+      this.ctx.http.request<PriceModel>({
+        method: "POST",
+        path: `/price/${this.ctx.tenant}/priceModels`,
+        auth: authCtx,
+        body: input,
+      }),
+    get: async (modelId: string, authCtx: AuthContext = SERVICE): Promise<PriceModel> =>
+      this.ctx.http.request<PriceModel>({
+        method: "GET",
+        path: `/price/${this.ctx.tenant}/priceModels/${modelId}`,
+        auth: authCtx,
+      }),
+    upsert: async (
+      modelId: string,
+      input: PriceModelInput,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceModel> =>
+      this.ctx.http.request<PriceModel>({
+        method: "PUT",
+        path: `/price/${this.ctx.tenant}/priceModels/${modelId}`,
+        auth: authCtx,
+        body: input,
+      }),
+    delete: async (modelId: string, authCtx: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/price/${this.ctx.tenant}/priceModels/${modelId}`,
+        auth: authCtx,
+      });
+    },
+  };
+
+  /** Price-list admin CRUD (`/price-lists`) + nested price management. Default auth: service. */
+  readonly lists = {
+    list: async (
+      query?: Record<string, string | number>,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceList[]> =>
+      this.ctx.http.request<PriceList[]>({
+        method: "GET",
+        path: `/price/${this.ctx.tenant}/price-lists`,
+        auth: authCtx,
+        ...(query ? { query } : {}),
+      }),
+    create: async (input: PriceListInput, authCtx: AuthContext = SERVICE): Promise<PriceList> =>
+      this.ctx.http.request<PriceList>({
+        method: "POST",
+        path: `/price/${this.ctx.tenant}/price-lists`,
+        auth: authCtx,
+        body: input,
+      }),
+    search: async (query: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<PriceList[]> =>
+      this.ctx.http.request<PriceList[]>({
+        method: "POST",
+        path: `/price/${this.ctx.tenant}/price-lists/search`,
+        auth: authCtx,
+        body: query,
+      }),
+    get: async (listId: string, authCtx: AuthContext = SERVICE): Promise<PriceList> =>
+      this.ctx.http.request<PriceList>({
+        method: "GET",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}`,
+        auth: authCtx,
+      }),
+    upsert: async (
+      listId: string,
+      input: PriceListUpdateInput,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceList> =>
+      this.ctx.http.request<PriceList>({
+        method: "PUT",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}`,
+        auth: authCtx,
+        body: input,
+      }),
+    delete: async (listId: string, authCtx: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}`,
+        auth: authCtx,
+      });
+    },
+    listPrices: async (
+      listId: string,
+      query?: Record<string, string | number>,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceListPrice[]> =>
+      this.ctx.http.request<PriceListPrice[]>({
+        method: "GET",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}/prices`,
+        auth: authCtx,
+        ...(query ? { query } : {}),
+      }),
+    addPrice: async (
+      listId: string,
+      input: PriceListPriceInput,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceListPrice> =>
+      this.ctx.http.request<PriceListPrice>({
+        method: "POST",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}/prices`,
+        auth: authCtx,
+        body: input,
+      }),
+    getPrice: async (
+      listId: string,
+      priceId: string,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceListPrice> =>
+      this.ctx.http.request<PriceListPrice>({
+        method: "GET",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}/prices/${priceId}`,
+        auth: authCtx,
+      }),
+    upsertPrice: async (
+      listId: string,
+      priceId: string,
+      input: PriceListPriceUpdateInput,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceListPrice> =>
+      this.ctx.http.request<PriceListPrice>({
+        method: "PUT",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}/prices/${priceId}`,
+        auth: authCtx,
+        body: input,
+      }),
+    deletePrice: async (
+      listId: string,
+      priceId: string,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}/prices/${priceId}`,
+        auth: authCtx,
+      });
+    },
+    searchPrices: async (
+      listId: string,
+      query: Record<string, unknown>,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceListPrice[]> =>
+      this.ctx.http.request<PriceListPrice[]>({
+        method: "POST",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}/prices/search`,
+        auth: authCtx,
+        body: query,
+      }),
+    bulkCreatePrices: async (
+      listId: string,
+      inputs: PriceListPriceInput[],
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceBulkResult[]> =>
+      this.ctx.http.request<PriceBulkResult[]>({
+        method: "POST",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}/prices/bulk`,
+        auth: authCtx,
+        body: inputs,
+      }),
+    bulkUpsertPrices: async (
+      listId: string,
+      inputs: PriceListPriceInput[],
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceBulkResult[]> =>
+      this.ctx.http.request<PriceBulkResult[]>({
+        method: "PUT",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}/prices/bulk`,
+        auth: authCtx,
+        body: inputs,
+      }),
+    bulkDeletePrices: async (
+      listId: string,
+      body: Record<string, unknown>,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceBulkResult[]> =>
+      this.ctx.http.request<PriceBulkResult[]>({
+        method: "DELETE",
+        path: `/price/${this.ctx.tenant}/price-lists/${listId}/prices/bulk`,
+        auth: authCtx,
+        body,
+      }),
+  };
 }
