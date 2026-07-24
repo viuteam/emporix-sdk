@@ -203,6 +203,53 @@ export class OrdersService {
   ): Promise<void> {
     await this.transition(orderId, "DECLINED", auth, opts);
   }
+
+  /**
+   * Lists a legal entity's orders (`GET /legal-entity-orders/{legalEntityId}`),
+   * wrapped into `PaginatedItems`. B2B storefront view — requires a customer
+   * token with access to the legal entity.
+   */
+  async listForLegalEntity(
+    legalEntityId: string,
+    auth: AuthContext,
+    opts: ListLegalEntityOrdersOptions = {},
+  ): Promise<PaginatedItems<SalesOrder>> {
+    const pageNumber = opts.pageNumber ?? 1;
+    const pageSize = opts.pageSize ?? 50;
+    const query: Record<string, string | number | undefined> = { pageNumber, pageSize };
+    setIfDefined(query, "sort", opts.sort);
+    if (opts.q !== undefined) {
+      setIfDefined(query, "q", resolveQuery(opts.q, { compoundLogicalQuery: false }));
+    }
+    const headers = this.saasHeader(opts.saasToken);
+    const items = await this.ctx.http.request<SalesOrder[]>({
+      method: "GET",
+      path: `/order-v2/${this.ctx.tenant}/legal-entity-orders/${legalEntityId}`,
+      query,
+      auth,
+      ...(headers ? { headers } : {}),
+    });
+    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+  }
+
+  /**
+   * Fetches one order within a legal entity
+   * (`GET /legal-entity-orders/{legalEntityId}/{orderId}`).
+   */
+  async getForLegalEntity(
+    legalEntityId: string,
+    orderId: string,
+    auth: AuthContext,
+    opts: { saasToken?: string } = {},
+  ): Promise<SalesOrder> {
+    const headers = this.saasHeader(opts.saasToken);
+    return this.ctx.http.request<SalesOrder>({
+      method: "GET",
+      path: `/order-v2/${this.ctx.tenant}/legal-entity-orders/${legalEntityId}/${orderId}`,
+      auth,
+      ...(headers ? { headers } : {}),
+    });
+  }
 }
 
 /**

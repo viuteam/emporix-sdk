@@ -90,3 +90,25 @@ describe("SalesOrdersService actions", () => {
     expect(s).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${SB}/o1/split`, body: {}, auth: SVC }));
   });
 });
+
+describe("OrdersService legal-entity reads", () => {
+  it("listForLegalEntity GETs /legal-entity-orders/{leId} wrapped into PaginatedItems", async () => {
+    const l = vi.fn().mockResolvedValue([{ id: "o1" }]);
+    const res = await os(l).listForLegalEntity("le1", CUST, { pageSize: 25 });
+    expect(l).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        path: `${LEB}/le1`,
+        auth: CUST,
+        query: expect.objectContaining({ pageNumber: 1, pageSize: 25 }),
+      }),
+    );
+    expect(res).toEqual({ items: [{ id: "o1" }], pageNumber: 1, pageSize: 25, hasNextPage: false });
+  });
+
+  it("getForLegalEntity GETs /legal-entity-orders/{leId}/{orderId}", async () => {
+    const g = vi.fn().mockResolvedValue({ id: "o1" });
+    await os(g).getForLegalEntity("le1", "o1", CUST);
+    expect(g).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${LEB}/le1/o1`, auth: CUST }));
+  });
+});
