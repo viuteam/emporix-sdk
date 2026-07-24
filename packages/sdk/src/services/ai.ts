@@ -46,6 +46,8 @@ import type {
   AgentExecutions,
   AnalyticsQuery,
   ExecutionsQuery,
+  ProviderModels,
+  CommerceEvents,
 } from "./ai-types";
 
 export type {
@@ -88,6 +90,8 @@ export type {
   AgentExecutions,
   AnalyticsQuery,
   ExecutionsQuery,
+  ProviderModels,
+  CommerceEvents,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -324,6 +328,26 @@ export class AiService {
       path: `${this.base()}/agentic/conversations/search`,
       auth,
       body: query,
+    });
+  }
+
+  // --- Standalone agentic reads / bulk operations ------------------------
+
+  /** List models available to the tenant, grouped by provider (`GET /agentic/models`). */
+  async listModels(auth: AuthContext = SERVICE): Promise<ProviderModels[]> {
+    return this.ctx.http.request<ProviderModels[]>({
+      method: "GET",
+      path: `${this.base()}/agentic/models`,
+      auth,
+    });
+  }
+
+  /** List commerce events available to agent triggers (`GET /agentic/commerce-events`). */
+  async listCommerceEvents(auth: AuthContext = SERVICE): Promise<CommerceEvents> {
+    return this.ctx.http.request<CommerceEvents>({
+      method: "GET",
+      path: `${this.base()}/agentic/commerce-events`,
+      auth,
     });
   }
 }

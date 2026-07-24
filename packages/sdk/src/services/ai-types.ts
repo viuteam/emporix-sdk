@@ -24,6 +24,8 @@ import type {
   AgentSessionResponse as GenAgentSessionLog,
   AgentAnalyticsResponse as GenAgentAnalytics,
   ExecutionsResponse as GenAgentExecutions,
+  ProviderModelsResponse as GenProviderModels,
+  CommerceEventsResponse as GenCommerceEvents,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -190,3 +192,8 @@ export interface ExecutionsQuery {
   /** Time bucket per period (UTC). */
   granularity?: "QUARTER" | "MONTH" | "WEEK";
 }
+
+/** Models available to the tenant, grouped by LLM provider. */
+export type ProviderModels = GenProviderModels;
+/** The set of commerce events an agent trigger can subscribe to. */
+export type CommerceEvents = GenCommerceEvents;
