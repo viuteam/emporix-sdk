@@ -71,3 +71,30 @@ describe("AiService.uploadAttachment", () => {
     expect(fieldPresent).toBe(true);
   });
 });
+
+describe("AiService.exportAgents / importAgents", () => {
+  it("exports the given agent ids", async () => {
+    let body: unknown = null;
+    server.use(
+      http.post(`${BASE}/agentic/agents/export`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ data: "eyJ...", checksum: "abc" });
+      }),
+    );
+    const res = await svc().exportAgents({ agentIds: ["a", "b"] });
+    expect(res).toEqual({ data: "eyJ...", checksum: "abc" });
+    expect(body).toEqual({ agentIds: ["a", "b"] });
+  });
+  it("imports a data+checksum blob", async () => {
+    let body: unknown = null;
+    server.use(
+      http.post(`${BASE}/agentic/agents/import`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ id: "a" });
+      }),
+    );
+    const res = await svc().importAgents({ data: "eyJ...", checksum: "abc" });
+    expect(res).toEqual({ id: "a" });
+    expect(body).toEqual({ data: "eyJ...", checksum: "abc" });
+  });
+});

@@ -50,6 +50,10 @@ import type {
   CommerceEvents,
   Attachment,
   AttachmentOptions,
+  AgentsExport,
+  AgentsExportRequest,
+  AgentsImport,
+  AgentsImportRequest,
 } from "./ai-types";
 
 export type {
@@ -96,6 +100,10 @@ export type {
   CommerceEvents,
   Attachment,
   AttachmentOptions,
+  AgentsExport,
+  AgentsExportRequest,
+  AgentsImport,
+  AgentsImportRequest,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -375,6 +383,26 @@ export class AiService {
       auth,
       body: form,
       ...(opts.sessionId ? { headers: { "session-id": opts.sessionId } } : {}),
+    });
+  }
+
+  /** Export agents + components as a base64/checksum blob (`POST /agentic/agents/export`). */
+  async exportAgents(body: AgentsExportRequest, auth: AuthContext = SERVICE): Promise<AgentsExport> {
+    return this.ctx.http.request<AgentsExport>({
+      method: "POST",
+      path: `${this.base()}/agentic/agents/export`,
+      auth,
+      body,
+    });
+  }
+
+  /** Import previously-exported agents (`POST /agentic/agents/import`). */
+  async importAgents(body: AgentsImportRequest, auth: AuthContext = SERVICE): Promise<AgentsImport> {
+    return this.ctx.http.request<AgentsImport>({
+      method: "POST",
+      path: `${this.base()}/agentic/agents/import`,
+      auth,
+      body,
     });
   }
 }

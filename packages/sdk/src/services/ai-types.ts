@@ -27,6 +27,10 @@ import type {
   ProviderModelsResponse as GenProviderModels,
   CommerceEventsResponse as GenCommerceEvents,
   AttachmentResponse as GenAttachment,
+  ExportResponse as GenAgentsExport,
+  ExportRequest as GenAgentsExportRequest,
+  ImportResponse as GenAgentsImport,
+  ImportRequest as GenAgentsImportRequest,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -210,3 +214,12 @@ export interface AttachmentOptions {
    */
   sessionId?: string;
 }
+
+/** Base64+checksum export of agents with their components. */
+export type AgentsExport = GenAgentsExport;
+/** Body for {@link AiService.exportAgents} — `{ agentIds }`. */
+export type AgentsExportRequest = GenAgentsExportRequest;
+/** Result of an agents import. */
+export type AgentsImport = GenAgentsImport;
+/** Body for {@link AiService.importAgents} — `{ data, checksum }`. */
+export type AgentsImportRequest = GenAgentsImportRequest;
