@@ -3,7 +3,21 @@ import { iterateAll } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { resolveQuery, type QueryFor } from "../core/query";
 import type { Product } from "./product";
-import type { Category as GeneratedCategory, CategoryTree } from "../generated/category";
+import type {
+  Category as GeneratedCategory,
+  CategoryTree,
+  CategoryCreateRequest,
+  CategoryUpdateRequest,
+  CategoryPartialUpdateRequest,
+  CategoryIdResponse,
+  CategoryTreeSearchRequest,
+  CategoryAssignment as GeneratedCategoryAssignment,
+  AssignmentRequest,
+  BulkAssignmentRequest,
+  BulkAssignmentUpsertRequest,
+  BulkAssignmentResponse,
+  AssignmentIdResponse,
+} from "../generated/category";
 
 const ANON: AuthContext = { kind: "anonymous" };
 const SERVICE: AuthContext = { kind: "service" };
@@ -13,6 +27,39 @@ export type Category = GeneratedCategory;
 
 /** The category tree as returned by the Category service. */
 export type CategoryNode = CategoryTree;
+
+/** Body for creating a category (`POST /categories`). */
+export type CategoryCreateInput = CategoryCreateRequest;
+
+/** Body for a full category replace (`PUT /categories/{id}`). */
+export type CategoryUpdateInput = CategoryUpdateRequest;
+
+/** Body for a partial category update (`PATCH /categories/{id}`). */
+export type CategoryPatchInput = CategoryPartialUpdateRequest;
+
+/** Id envelope returned when a category is created. */
+export type CategoryCreated = CategoryIdResponse;
+
+/** Body for searching category trees (`POST /category-trees/search`). */
+export type CategoryTreeSearchInput = CategoryTreeSearchRequest;
+
+/** A category assignment (a resource reference bound to a category). */
+export type CategoryAssignment = GeneratedCategoryAssignment;
+
+/** Body for assigning a single resource to a category. */
+export type CategoryAssignmentInput = AssignmentRequest;
+
+/** Body for bulk-assigning resources to a category. */
+export type CategoryAssignmentBulkInput = BulkAssignmentRequest;
+
+/** Body for bulk-upserting assignment references (`ref.id` only). */
+export type CategoryAssignmentRefBulkInput = BulkAssignmentUpsertRequest;
+
+/** Multi-status result of a bulk assignment operation. */
+export type CategoryAssignmentBulkResult = BulkAssignmentResponse;
+
+/** Id envelope returned when an assignment is created. */
+export type CategoryAssignmentCreated = AssignmentIdResponse;
 
 /** Category reads. Default auth: anonymous. */
 export class CategoryService {
@@ -223,4 +270,245 @@ export class CategoryService {
       auth,
     });
   }
+
+  // --- Admin write CRUD. Default auth: service. ---
+
+  /**
+   * Creates a category (`POST /categories`). Default auth: service.
+   * `options.publish` sets the `publish` query flag (needs the
+   * `category.category_publish` scope).
+   */
+  async create(
+    input: CategoryCreateInput,
+    options: { publish?: boolean } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<CategoryCreated> {
+    return this.ctx.http.request<CategoryCreated>({
+      method: "POST",
+      path: `/category/${this.ctx.tenant}/categories`,
+      ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Full-replaces a category (`PUT /categories/{categoryId}`). This is an
+   * upsert: with a caller-supplied id it may create (201, returns the id) or
+   * update an existing one (204, returns nothing). Default auth: service.
+   */
+  async update(
+    categoryId: string,
+    input: CategoryUpdateInput,
+    options: { publish?: boolean } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<CategoryCreated | void> {
+    return this.ctx.http.request<CategoryCreated | void>({
+      method: "PUT",
+      path: `/category/${this.ctx.tenant}/categories/${categoryId}`,
+      ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Partially updates a category (`PATCH /categories/{categoryId}`). Default
+   * auth: service. `options.publish` sets the `publish` query flag.
+   */
+  async patch(
+    categoryId: string,
+    input: CategoryPatchInput,
+    options: { publish?: boolean } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PATCH",
+      path: `/category/${this.ctx.tenant}/categories/${categoryId}`,
+      ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /** Deletes a category (`DELETE /categories/{categoryId}`). Default auth: service. */
+  async delete(categoryId: string, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `/category/${this.ctx.tenant}/categories/${categoryId}`,
+      auth,
+    });
+  }
+
+  /**
+   * Searches categories via `POST /categories/search`. Same query capability
+   * as {@link search} (`compoundLogicalQuery: false` — Category rejects `or()`
+   * filters); the POST body avoids URL-length limits for large `q` filters.
+   * `params.showRoots` / `params.showUnpublished` are POST-only flags. Default
+   * auth: anonymous.
+   */
+  async searchByQuery(
+    query: QueryFor<"CATEGORY">,
+    params: { pageNumber?: number; pageSize?: number; sort?: string; showRoots?: boolean; showUnpublished?: boolean } = {},
+    auth: AuthContext = ANON,
+  ): Promise<PaginatedItems<Category>> {
+    const q = resolveQuery(query, { compoundLogicalQuery: false });
+    const pageNumber = params.pageNumber ?? 1;
+    const pageSize = params.pageSize ?? 50;
+    const items = await this.ctx.http.request<Category[]>({
+      method: "POST",
+      path: `/category/${this.ctx.tenant}/categories/search`,
+      query: {
+        pageNumber,
+        pageSize,
+        ...(params.sort === undefined ? {} : { sort: params.sort }),
+        ...(params.showRoots === undefined ? {} : { showRoots: String(params.showRoots) }),
+        ...(params.showUnpublished === undefined ? {} : { showUnpublished: String(params.showUnpublished) }),
+      },
+      body: { q },
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
+      auth,
+    });
+    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+  }
+
+  /**
+   * Searches category trees via `POST /category-trees/search` — returns the
+   * trees that include at least one of the given `categoryIds`. Default auth:
+   * anonymous.
+   */
+  async searchTrees(
+    input: CategoryTreeSearchInput,
+    options: { showUnpublished?: boolean } = {},
+    auth: AuthContext = ANON,
+  ): Promise<CategoryNode[]> {
+    return this.ctx.http.request<CategoryNode[]>({
+      method: "POST",
+      path: `/category/${this.ctx.tenant}/category-trees/search`,
+      ...(options.showUnpublished === undefined ? {} : { query: { showUnpublished: String(options.showUnpublished) } }),
+      body: input,
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
+      auth,
+    });
+  }
+
+  /**
+   * Category ↔ resource assignments. Writes default to service auth. The
+   * assignment `ref.type` is `'PRODUCT'` (per the API); category hierarchy is
+   * managed via `parentId` on the category, not via assignments.
+   */
+  readonly assignments = {
+    /** One page of a category's assignments. Default auth: anonymous. */
+    list: async (
+      categoryId: string,
+      params: { pageNumber?: number; pageSize?: number; sort?: string; expandSupercategoriesIds?: boolean; showUnpublished?: boolean } = {},
+      auth: AuthContext = ANON,
+    ): Promise<CategoryAssignment[]> =>
+      this.ctx.http.request<CategoryAssignment[]>({
+        method: "GET",
+        path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments`,
+        query: {
+          ...(params.pageNumber === undefined ? {} : { pageNumber: params.pageNumber }),
+          ...(params.pageSize === undefined ? {} : { pageSize: params.pageSize }),
+          ...(params.sort === undefined ? {} : { sort: params.sort }),
+          ...(params.expandSupercategoriesIds === undefined ? {} : { expandSupercategoriesIds: String(params.expandSupercategoriesIds) }),
+          ...(params.showUnpublished === undefined ? {} : { showUnpublished: String(params.showUnpublished) }),
+        },
+        auth,
+      }),
+
+    /** Assigns a single resource to a category (`POST …/assignments`). Default auth: service. */
+    create: async (categoryId: string, input: CategoryAssignmentInput, auth: AuthContext = SERVICE): Promise<CategoryAssignmentCreated> =>
+      this.ctx.http.request<CategoryAssignmentCreated>({
+        method: "POST",
+        path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments`,
+        body: input,
+        auth,
+      }),
+
+    /** Bulk-assigns resources to a category (`POST …/assignments/bulk`). Default auth: service. */
+    bulkCreate: async (categoryId: string, input: CategoryAssignmentBulkInput, auth: AuthContext = SERVICE): Promise<CategoryAssignmentBulkResult> =>
+      this.ctx.http.request<CategoryAssignmentBulkResult>({
+        method: "POST",
+        path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments/bulk`,
+        body: input,
+        auth,
+      }),
+
+    /** Removes one assignment by id (`DELETE …/assignments/{assignmentId}`). Default auth: service. */
+    remove: async (categoryId: string, assignmentId: string, auth: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments/${assignmentId}`,
+        auth,
+      });
+    },
+
+    /** Removes all of a category's assignments (`DELETE …/assignments`). Default auth: service. */
+    removeAll: async (categoryId: string, options: { assignmentType?: "PRODUCT" } = {}, auth: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments`,
+        ...(options.assignmentType === undefined ? {} : { query: { assignmentType: options.assignmentType } }),
+        auth,
+      });
+    },
+
+    /** Upserts an assignment by reference id — no body (`PUT …/assignments/references/{referenceId}`). Default auth: service. */
+    upsertByReference: async (categoryId: string, referenceId: string, auth: AuthContext = SERVICE): Promise<CategoryAssignmentCreated> =>
+      this.ctx.http.request<CategoryAssignmentCreated>({
+        method: "PUT",
+        path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments/references/${referenceId}`,
+        auth,
+      }),
+
+    /** Removes an assignment by reference id (`DELETE …/assignments/references/{referenceId}`). Default auth: service. */
+    removeByReference: async (categoryId: string, referenceId: string, auth: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments/references/${referenceId}`,
+        auth,
+      });
+    },
+
+    /** Bulk-upserts assignment references (`PUT …/assignments/references/bulk`). Default auth: service. */
+    bulkUpsertByReference: async (categoryId: string, input: CategoryAssignmentRefBulkInput, auth: AuthContext = SERVICE): Promise<CategoryAssignmentBulkResult> =>
+      this.ctx.http.request<CategoryAssignmentBulkResult>({
+        method: "PUT",
+        path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments/references/bulk`,
+        body: input,
+        auth,
+      }),
+
+    /**
+     * Lists every category assigned to the given reference id — tenant-wide
+     * (`GET /assignments/references/{referenceId}`). Default auth: anonymous.
+     */
+    listCategoriesByReference: async (
+      referenceId: string,
+      params: { pageNumber?: number; pageSize?: number; sort?: string; showUnpublished?: boolean; expandSupercategoriesIds?: boolean } = {},
+      auth: AuthContext = ANON,
+    ): Promise<Category[]> =>
+      this.ctx.http.request<Category[]>({
+        method: "GET",
+        path: `/category/${this.ctx.tenant}/assignments/references/${referenceId}`,
+        query: {
+          ...(params.pageNumber === undefined ? {} : { pageNumber: params.pageNumber }),
+          ...(params.pageSize === undefined ? {} : { pageSize: params.pageSize }),
+          ...(params.sort === undefined ? {} : { sort: params.sort }),
+          ...(params.showUnpublished === undefined ? {} : { showUnpublished: String(params.showUnpublished) }),
+          ...(params.expandSupercategoriesIds === undefined ? {} : { expandSupercategoriesIds: String(params.expandSupercategoriesIds) }),
+        },
+        auth,
+      }),
+
+    /** Removes all assignments to a given reference id — tenant-wide (`DELETE /assignments/references/{referenceId}`). Default auth: service. */
+    removeAllByReference: async (referenceId: string, auth: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/category/${this.ctx.tenant}/assignments/references/${referenceId}`,
+        auth,
+      });
+    },
+  };
 }
