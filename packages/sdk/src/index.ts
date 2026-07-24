@@ -60,6 +60,7 @@ export type {
   CategoryUpdateInput,
   CategoryPatchInput,
   CategoryCreated,
+  CategoryTreeSearchInput,
 } from "./services/category";
 export { CartService } from "./services/cart";
 export type {

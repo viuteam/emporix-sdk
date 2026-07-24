@@ -10,6 +10,7 @@ import type {
   CategoryUpdateRequest,
   CategoryPartialUpdateRequest,
   CategoryIdResponse,
+  CategoryTreeSearchRequest,
 } from "../generated/category";
 
 const ANON: AuthContext = { kind: "anonymous" };
@@ -32,6 +33,9 @@ export type CategoryPatchInput = CategoryPartialUpdateRequest;
 
 /** Id envelope returned when a category is created. */
 export type CategoryCreated = CategoryIdResponse;
+
+/** Body for searching category trees (`POST /category-trees/search`). */
+export type CategoryTreeSearchInput = CategoryTreeSearchRequest;
 
 /** Category reads. Default auth: anonymous. */
 export class CategoryService {
@@ -308,6 +312,58 @@ export class CategoryService {
     await this.ctx.http.request<void>({
       method: "DELETE",
       path: `/category/${this.ctx.tenant}/categories/${categoryId}`,
+      auth,
+    });
+  }
+
+  /**
+   * Searches categories via `POST /categories/search`. Same query capability
+   * as {@link search} (`compoundLogicalQuery: false` — Category rejects `or()`
+   * filters); the POST body avoids URL-length limits for large `q` filters.
+   * `params.showRoots` / `params.showUnpublished` are POST-only flags. Default
+   * auth: anonymous.
+   */
+  async searchByQuery(
+    query: QueryFor<"CATEGORY">,
+    params: { pageNumber?: number; pageSize?: number; sort?: string; showRoots?: boolean; showUnpublished?: boolean } = {},
+    auth: AuthContext = ANON,
+  ): Promise<PaginatedItems<Category>> {
+    const q = resolveQuery(query, { compoundLogicalQuery: false });
+    const pageNumber = params.pageNumber ?? 1;
+    const pageSize = params.pageSize ?? 50;
+    const items = await this.ctx.http.request<Category[]>({
+      method: "POST",
+      path: `/category/${this.ctx.tenant}/categories/search`,
+      query: {
+        pageNumber,
+        pageSize,
+        ...(params.sort === undefined ? {} : { sort: params.sort }),
+        ...(params.showRoots === undefined ? {} : { showRoots: String(params.showRoots) }),
+        ...(params.showUnpublished === undefined ? {} : { showUnpublished: String(params.showUnpublished) }),
+      },
+      body: { q },
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
+      auth,
+    });
+    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+  }
+
+  /**
+   * Searches category trees via `POST /category-trees/search` — returns the
+   * trees that include at least one of the given `categoryIds`. Default auth:
+   * anonymous.
+   */
+  async searchTrees(
+    input: CategoryTreeSearchInput,
+    options: { showUnpublished?: boolean } = {},
+    auth: AuthContext = ANON,
+  ): Promise<CategoryNode[]> {
+    return this.ctx.http.request<CategoryNode[]>({
+      method: "POST",
+      path: `/category/${this.ctx.tenant}/category-trees/search`,
+      ...(options.showUnpublished === undefined ? {} : { query: { showUnpublished: String(options.showUnpublished) } }),
+      body: input,
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
       auth,
     });
   }

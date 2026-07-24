@@ -51,3 +51,43 @@ describe("CategoryService admin core CRUD", () => {
     expect(r).toHaveBeenCalledWith(expect.objectContaining({ auth: { kind: "raw", token: "T" } }));
   });
 });
+
+describe("CategoryService search reads", () => {
+  it("searchByQuery POSTs /categories/search with a resolved q body and ANON default", async () => {
+    const s = vi.fn().mockResolvedValue([{ id: "c1" }]);
+    const res = await svc(s).searchByQuery("name:Shoes");
+    expect(s).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: `${B}/search`,
+        body: { q: "name:Shoes" },
+        auth: { kind: "anonymous" },
+      }),
+    );
+    expect(res.items).toEqual([{ id: "c1" }]);
+    expect(res.hasNextPage).toBe(false);
+  });
+
+  it("searchByQuery forwards optional query flags", async () => {
+    const s = vi.fn().mockResolvedValue([]);
+    await svc(s).searchByQuery("*", { showRoots: true, sort: "position:ASC" });
+    expect(s).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({ showRoots: "true", sort: "position:ASC" }),
+      }),
+    );
+  });
+
+  it("searchTrees POSTs /category-trees/search", async () => {
+    const t = vi.fn().mockResolvedValue([{ id: "root" }]);
+    await svc(t).searchTrees({ categoryIds: ["c1"] });
+    expect(t).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/category/acme/category-trees/search",
+        body: { categoryIds: ["c1"] },
+        auth: { kind: "anonymous" },
+      }),
+    );
+  });
+});
