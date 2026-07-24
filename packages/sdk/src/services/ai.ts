@@ -1,5 +1,12 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import {
+  AgenticCrudResource,
+  JobsResource,
+  TemplatesResource,
+  LogsResource,
+  AnalyticsResource,
+} from "./ai-resources";
 import type {
   TextRequest,
   TextResponse,
@@ -16,6 +23,37 @@ import type {
   ChatStreamOptions,
   Conversation,
   ConversationSearchQuery,
+  Created,
+  AgenticPatchOp,
+  ListQuery,
+  GetOptions,
+  MutateOptions,
+  SearchQuery,
+  OAuthConfig,
+  OAuthInput,
+  Tool,
+  ToolInput,
+  Token,
+  TokenInput,
+  McpServer,
+  McpServerInput,
+  Job,
+  AgentTemplate,
+  AgentFromTemplate,
+  AgentRequestLog,
+  AgentSessionLog,
+  AgentAnalytics,
+  AgentExecutions,
+  AnalyticsQuery,
+  ExecutionsQuery,
+  ProviderModels,
+  CommerceEvents,
+  Attachment,
+  AttachmentOptions,
+  AgentsExport,
+  AgentsExportRequest,
+  AgentsImport,
+  AgentsImportRequest,
 } from "./ai-types";
 
 export type {
@@ -35,6 +73,37 @@ export type {
   ChatStreamOptions,
   Conversation,
   ConversationSearchQuery,
+  Created,
+  AgenticPatchOp,
+  ListQuery,
+  GetOptions,
+  MutateOptions,
+  SearchQuery,
+  OAuthConfig,
+  OAuthInput,
+  Tool,
+  ToolInput,
+  Token,
+  TokenInput,
+  McpServer,
+  McpServerInput,
+  Job,
+  AgentTemplate,
+  AgentFromTemplate,
+  AgentRequestLog,
+  AgentSessionLog,
+  AgentAnalytics,
+  AgentExecutions,
+  AnalyticsQuery,
+  ExecutionsQuery,
+  ProviderModels,
+  CommerceEvents,
+  Attachment,
+  AttachmentOptions,
+  AgentsExport,
+  AgentsExportRequest,
+  AgentsImport,
+  AgentsImportRequest,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -57,6 +126,56 @@ export class AiService {
 
   private base(): string {
     return `/ai-service/${this.ctx.tenant}`;
+  }
+
+  // --- Agentic building blocks (CRUD sub-resources) ----------------------
+
+  private _oauths?: AgenticCrudResource<OAuthConfig, OAuthInput>;
+  /** OAuth 2.0 client-credentials configs (`/agentic/oauths`). CRUD sub-resource. */
+  get oauths(): AgenticCrudResource<OAuthConfig, OAuthInput> {
+    return (this._oauths ??= new AgenticCrudResource(this.ctx, `${this.base()}/agentic/oauths`));
+  }
+
+  private _tools?: AgenticCrudResource<Tool, ToolInput>;
+  /** Agentic tools (`/agentic/tools`). CRUD sub-resource. */
+  get tools(): AgenticCrudResource<Tool, ToolInput> {
+    return (this._tools ??= new AgenticCrudResource(this.ctx, `${this.base()}/agentic/tools`));
+  }
+
+  private _tokens?: AgenticCrudResource<Token, TokenInput>;
+  /** Stored tokens (`/agentic/tokens`) — an OAuth config's client secret. CRUD sub-resource. */
+  get tokens(): AgenticCrudResource<Token, TokenInput> {
+    return (this._tokens ??= new AgenticCrudResource(this.ctx, `${this.base()}/agentic/tokens`));
+  }
+
+  private _mcpServers?: AgenticCrudResource<McpServer, McpServerInput>;
+  /** MCP-server configs (`/agentic/mcp-servers`). CRUD sub-resource. */
+  get mcpServers(): AgenticCrudResource<McpServer, McpServerInput> {
+    return (this._mcpServers ??= new AgenticCrudResource(this.ctx, `${this.base()}/agentic/mcp-servers`));
+  }
+
+  private _jobs?: JobsResource;
+  /** AI async jobs (`/jobs`). `list · search · get · delete`. */
+  get jobs(): JobsResource {
+    return (this._jobs ??= new JobsResource(this.ctx, this.base()));
+  }
+
+  private _templates?: TemplatesResource;
+  /** Agent templates (`/agentic/templates`). `list · search · clone`. */
+  get templates(): TemplatesResource {
+    return (this._templates ??= new TemplatesResource(this.ctx, `${this.base()}/agentic/templates`));
+  }
+
+  private _logs?: LogsResource;
+  /** Agent logs (`/agentic/logs`): request + session logs. */
+  get logs(): LogsResource {
+    return (this._logs ??= new LogsResource(this.ctx, `${this.base()}/agentic/logs`));
+  }
+
+  private _analytics?: AnalyticsResource;
+  /** Agent analytics (`/agentic/analytics`). `get · executions`. */
+  get analytics(): AnalyticsResource {
+    return (this._analytics ??= new AnalyticsResource(this.ctx, `${this.base()}/agentic/analytics`));
   }
 
   /** Generate text from a single prompt (`POST /texts`). Honors `maxTokens`. */
@@ -221,6 +340,69 @@ export class AiService {
       path: `${this.base()}/agentic/conversations/search`,
       auth,
       body: query,
+    });
+  }
+
+  // --- Standalone agentic reads / bulk operations ------------------------
+
+  /** List models available to the tenant, grouped by provider (`GET /agentic/models`). */
+  async listModels(auth: AuthContext = SERVICE): Promise<ProviderModels[]> {
+    return this.ctx.http.request<ProviderModels[]>({
+      method: "GET",
+      path: `${this.base()}/agentic/models`,
+      auth,
+    });
+  }
+
+  /** List commerce events available to agent triggers (`GET /agentic/commerce-events`). */
+  async listCommerceEvents(auth: AuthContext = SERVICE): Promise<CommerceEvents> {
+    return this.ctx.http.request<CommerceEvents>({
+      method: "GET",
+      path: `${this.base()}/agentic/commerce-events`,
+      auth,
+    });
+  }
+
+  /**
+   * Upload a chat attachment for an agent
+   * (`POST /agentic/{agentId}/attachments`, multipart, HTTP 201). The response
+   * `sessionId` must be threaded into subsequent chat calls to bind the file.
+   * Pass `opts.sessionId` to attach to an existing session.
+   */
+  async uploadAttachment(
+    agentId: string,
+    attachment: Blob | File,
+    opts: AttachmentOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<Attachment> {
+    const form = new FormData();
+    form.append("attachment", attachment);
+    return this.ctx.http.request<Attachment>({
+      method: "POST",
+      path: `${this.base()}/agentic/${encodeURIComponent(agentId)}/attachments`,
+      auth,
+      body: form,
+      ...(opts.sessionId ? { headers: { "session-id": opts.sessionId } } : {}),
+    });
+  }
+
+  /** Export agents + components as a base64/checksum blob (`POST /agentic/agents/export`). */
+  async exportAgents(body: AgentsExportRequest, auth: AuthContext = SERVICE): Promise<AgentsExport> {
+    return this.ctx.http.request<AgentsExport>({
+      method: "POST",
+      path: `${this.base()}/agentic/agents/export`,
+      auth,
+      body,
+    });
+  }
+
+  /** Import previously-exported agents (`POST /agentic/agents/import`). */
+  async importAgents(body: AgentsImportRequest, auth: AuthContext = SERVICE): Promise<AgentsImport> {
+    return this.ctx.http.request<AgentsImport>({
+      method: "POST",
+      path: `${this.base()}/agentic/agents/import`,
+      auth,
+      body,
     });
   }
 }
