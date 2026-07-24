@@ -6,6 +6,17 @@ export {
   type OrderTransitionOptions,
   type UpdateSalesOrderOptions,
   type SalesOrderPatch,
+  type SalesOrderCreateInput,
+  type SalesOrderCreated,
+  type SalesOrderReplaceInput,
+  type SalesOrderSearchInput,
+  type SalesOrderHistoricalTransitions,
+  type SalesOrderCalculationInput,
+  type SalesOrderEntriesInput,
+  type SalesOrderSplitInput,
+  type SalesOrderSplitResult,
+  type ListSalesOrdersOptions,
+  type ListLegalEntityOrdersOptions,
 } from "./services/orders";
 export type {
   Order,
