@@ -7,6 +7,18 @@ import type {
   SegmentResponse,
   ItemAssignmentResponse,
   CategoryTreeResponse,
+  SegmentCreation,
+  SegmentUpdate,
+  SegmentsSearch,
+  SegmentUpdateBulk,
+  Match,
+  CustomerAssignmentUpsert,
+  CustomerAssignmentUpsertBulk,
+  CustomerAssignmentResponse,
+  ItemAssignmentUpsert,
+  ItemAssignmentUpsertBulk,
+  BulkResponse,
+  BulkAssignmentResponse,
 } from "../generated/customer-segment";
 
 /** Generated segment types (read shapes — storefront `segment_read_own`). */
@@ -14,6 +26,33 @@ export type Segment = SegmentResponse;
 export type SegmentItem = ItemAssignmentResponse;
 export type SegmentCategoryTree = CategoryTreeResponse;
 export type SegmentCategoryTreeNode = CategoryTreeResponse[number];
+
+/** Create body for a segment (generated). */
+export type SegmentInput = SegmentCreation;
+/** Full-replace (PUT) body for a segment (generated). */
+export type SegmentUpdateInput = SegmentUpdate;
+/** Partial (PATCH) body for a segment. */
+export type SegmentPatchInput = Partial<SegmentUpdate>;
+/** Search body for segments (generated). */
+export type SegmentSearchQuery = SegmentsSearch;
+/** Body for a segment match check (generated). */
+export type SegmentMatchInput = Match;
+/** One entry of a segment bulk request (generated). */
+export type SegmentBulkItem = SegmentUpdateBulk;
+/** Per-entry result of a segment bulk operation (generated). */
+export type SegmentBulkResult = BulkResponse;
+/** Customer→segment assignment body (generated). */
+export type SegmentCustomerInput = CustomerAssignmentUpsert;
+/** One entry of a customer-assignment bulk request (generated). */
+export type SegmentCustomerBulkInput = CustomerAssignmentUpsertBulk;
+/** A customer→segment assignment (read). */
+export type SegmentCustomer = CustomerAssignmentResponse;
+/** Item→segment assignment body (generated). */
+export type SegmentItemInput = ItemAssignmentUpsert;
+/** One entry of an item-assignment bulk request (generated). */
+export type SegmentItemBulkInput = ItemAssignmentUpsertBulk;
+/** Per-entry result of an assignment bulk operation (generated). */
+export type SegmentAssignmentBulkResult = BulkAssignmentResponse;
 
 /** Cross-service hydrate dependencies, injected from `EmporixClient`. */
 export interface SegmentServiceDeps {
@@ -30,6 +69,9 @@ function setIfDefined<V>(
     q[key] = value as unknown as string | number;
   }
 }
+
+/** Admin default: segment-manage operations use a service token. */
+const SERVICE: AuthContext = { kind: "service" };
 
 /**
  * Customer-segment reads. Every method requires a customer/raw
@@ -218,4 +260,207 @@ export class SegmentService {
     const items = await this.deps.categories.searchByIds(ids, undefined, auth);
     return { items, pageNumber, pageSize, hasNextPage: sourceItems.length === pageSize };
   }
+
+  // --- Admin CRUD (segment_manage). Default auth: service. ---
+
+  /** Creates a segment. Default auth: service. */
+  async create(input: SegmentInput, authCtx: AuthContext = SERVICE): Promise<Segment> {
+    return this.ctx.http.request<Segment>({ method: "POST", path: this.base(), auth: authCtx, body: input });
+  }
+
+  /** Searches segments (POST body). Default auth: service. */
+  async search(query: SegmentSearchQuery, authCtx: AuthContext = SERVICE): Promise<Segment[]> {
+    return this.ctx.http.request<Segment[]>({
+      method: "POST",
+      path: `${this.base()}/search`,
+      auth: authCtx,
+      body: query,
+    });
+  }
+
+  /** Full-replaces a segment (PUT). Default auth: service. */
+  async update(segmentId: string, input: SegmentUpdateInput, authCtx: AuthContext = SERVICE): Promise<Segment> {
+    return this.ctx.http.request<Segment>({
+      method: "PUT",
+      path: `${this.base()}/${segmentId}`,
+      auth: authCtx,
+      body: input,
+    });
+  }
+
+  /** Partially updates a segment (PATCH). Default auth: service. */
+  async patch(segmentId: string, input: SegmentPatchInput, authCtx: AuthContext = SERVICE): Promise<Segment> {
+    return this.ctx.http.request<Segment>({
+      method: "PATCH",
+      path: `${this.base()}/${segmentId}`,
+      auth: authCtx,
+      body: input,
+    });
+  }
+
+  /** Deletes a segment. Default auth: service. */
+  async delete(segmentId: string, authCtx: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/${segmentId}`,
+      auth: authCtx,
+    });
+  }
+
+  /** Checks which segments the given items/customers match. Default auth: service. */
+  async match(input: SegmentMatchInput, authCtx: AuthContext = SERVICE): Promise<Segment[]> {
+    return this.ctx.http.request<Segment[]>({
+      method: "POST",
+      path: `${this.base()}/match`,
+      auth: authCtx,
+      body: input,
+    });
+  }
+
+  /** Creates multiple segments. Default auth: service. */
+  async bulkCreate(inputs: SegmentBulkItem[], authCtx: AuthContext = SERVICE): Promise<SegmentBulkResult[]> {
+    return this.ctx.http.request<SegmentBulkResult[]>({
+      method: "POST",
+      path: `${this.base()}/bulk`,
+      auth: authCtx,
+      body: inputs,
+    });
+  }
+
+  /** Upserts multiple segments (PUT). Default auth: service. */
+  async bulkUpdate(inputs: SegmentBulkItem[], authCtx: AuthContext = SERVICE): Promise<SegmentBulkResult[]> {
+    return this.ctx.http.request<SegmentBulkResult[]>({
+      method: "PUT",
+      path: `${this.base()}/bulk`,
+      auth: authCtx,
+      body: inputs,
+    });
+  }
+
+  /** Deletes multiple segments (DELETE with a body of ids). Default auth: service. */
+  async bulkDelete(body: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<SegmentBulkResult[]> {
+    return this.ctx.http.request<SegmentBulkResult[]>({
+      method: "DELETE",
+      path: `${this.base()}/bulk`,
+      auth: authCtx,
+      body,
+    });
+  }
+
+  /** Customer→segment assignments (`segment_manage`). Default auth: service. */
+  readonly customers = {
+    list: async (segmentId: string, query?: Record<string, string | number>, authCtx: AuthContext = SERVICE): Promise<SegmentCustomer[]> =>
+      this.ctx.http.request<SegmentCustomer[]>({
+        method: "GET",
+        path: `${this.base()}/${segmentId}/customers`,
+        auth: authCtx,
+        ...(query ? { query } : {}),
+      }),
+    search: async (segmentId: string, query: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<SegmentCustomer[]> =>
+      this.ctx.http.request<SegmentCustomer[]>({
+        method: "POST",
+        path: `${this.base()}/${segmentId}/customers/search`,
+        auth: authCtx,
+        body: query,
+      }),
+    get: async (segmentId: string, customerId: string, authCtx: AuthContext = SERVICE): Promise<SegmentCustomer> =>
+      this.ctx.http.request<SegmentCustomer>({
+        method: "GET",
+        path: `${this.base()}/${segmentId}/customers/${customerId}`,
+        auth: authCtx,
+      }),
+    assign: async (segmentId: string, customerId: string, input: SegmentCustomerInput, authCtx: AuthContext = SERVICE): Promise<SegmentCustomer> =>
+      this.ctx.http.request<SegmentCustomer>({
+        method: "PUT",
+        path: `${this.base()}/${segmentId}/customers/${customerId}`,
+        auth: authCtx,
+        body: input,
+      }),
+    remove: async (segmentId: string, customerId: string, authCtx: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `${this.base()}/${segmentId}/customers/${customerId}`,
+        auth: authCtx,
+      });
+    },
+    getForEntity: async (segmentId: string, customerId: string, legalEntityId: string, authCtx: AuthContext = SERVICE): Promise<SegmentCustomer> =>
+      this.ctx.http.request<SegmentCustomer>({
+        method: "GET",
+        path: `${this.base()}/${segmentId}/customers/${customerId}/${legalEntityId}`,
+        auth: authCtx,
+      }),
+    assignForEntity: async (segmentId: string, customerId: string, legalEntityId: string, input: SegmentCustomerInput, authCtx: AuthContext = SERVICE): Promise<SegmentCustomer> =>
+      this.ctx.http.request<SegmentCustomer>({
+        method: "PUT",
+        path: `${this.base()}/${segmentId}/customers/${customerId}/${legalEntityId}`,
+        auth: authCtx,
+        body: input,
+      }),
+    removeForEntity: async (segmentId: string, customerId: string, legalEntityId: string, authCtx: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `${this.base()}/${segmentId}/customers/${customerId}/${legalEntityId}`,
+        auth: authCtx,
+      });
+    },
+    bulkAssign: async (segmentId: string, inputs: SegmentCustomerBulkInput[], authCtx: AuthContext = SERVICE): Promise<SegmentAssignmentBulkResult[]> =>
+      this.ctx.http.request<SegmentAssignmentBulkResult[]>({
+        method: "PUT",
+        path: `${this.base()}/${segmentId}/customers/bulk`,
+        auth: authCtx,
+        body: inputs,
+      }),
+    bulkRemove: async (segmentId: string, body: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<SegmentAssignmentBulkResult[]> =>
+      this.ctx.http.request<SegmentAssignmentBulkResult[]>({
+        method: "DELETE",
+        path: `${this.base()}/${segmentId}/customers/bulk`,
+        auth: authCtx,
+        body,
+      }),
+  };
+
+  /** Item→segment assignments (`type` = PRODUCT | CATEGORY). Default auth: service. */
+  readonly items = {
+    search: async (segmentId: string, query: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<SegmentItem[]> =>
+      this.ctx.http.request<SegmentItem[]>({
+        method: "POST",
+        path: `${this.base()}/${segmentId}/items/search`,
+        auth: authCtx,
+        body: query,
+      }),
+    get: async (segmentId: string, type: string, itemId: string, authCtx: AuthContext = SERVICE): Promise<SegmentItem> =>
+      this.ctx.http.request<SegmentItem>({
+        method: "GET",
+        path: `${this.base()}/${segmentId}/items/${type}/${itemId}`,
+        auth: authCtx,
+      }),
+    assign: async (segmentId: string, type: string, itemId: string, input: SegmentItemInput, authCtx: AuthContext = SERVICE): Promise<SegmentItem> =>
+      this.ctx.http.request<SegmentItem>({
+        method: "PUT",
+        path: `${this.base()}/${segmentId}/items/${type}/${itemId}`,
+        auth: authCtx,
+        body: input,
+      }),
+    remove: async (segmentId: string, type: string, itemId: string, authCtx: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `${this.base()}/${segmentId}/items/${type}/${itemId}`,
+        auth: authCtx,
+      });
+    },
+    bulkAssign: async (segmentId: string, type: string, inputs: SegmentItemBulkInput[], authCtx: AuthContext = SERVICE): Promise<SegmentAssignmentBulkResult[]> =>
+      this.ctx.http.request<SegmentAssignmentBulkResult[]>({
+        method: "PUT",
+        path: `${this.base()}/${segmentId}/items/${type}/bulk`,
+        auth: authCtx,
+        body: inputs,
+      }),
+    bulkRemove: async (segmentId: string, type: string, body: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<SegmentAssignmentBulkResult[]> =>
+      this.ctx.http.request<SegmentAssignmentBulkResult[]>({
+        method: "DELETE",
+        path: `${this.base()}/${segmentId}/items/${type}/bulk`,
+        auth: authCtx,
+        body,
+      }),
+  };
 }
