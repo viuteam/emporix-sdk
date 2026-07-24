@@ -140,3 +140,30 @@ describe("SessionContextService.patch", () => {
     );
   });
 });
+
+describe("SessionContextService attributes", () => {
+  it("addAttribute POSTs to /me/context/attributes", async () => {
+    const request = vi.fn().mockResolvedValue(undefined);
+    const svc = new SessionContextService(ctxWith(request));
+    await svc.addAttribute({ key: "k", value: "v" } as never);
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: "/session-context/viu/me/context/attributes",
+        body: { key: "k", value: "v" },
+      }),
+    );
+  });
+
+  it("removeAttribute DELETEs /me/context/attributes/{name}", async () => {
+    const request = vi.fn().mockResolvedValue(undefined);
+    const svc = new SessionContextService(ctxWith(request));
+    await svc.removeAttribute("color");
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "DELETE",
+        path: "/session-context/viu/me/context/attributes/color",
+      }),
+    );
+  });
+});

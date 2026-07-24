@@ -2,10 +2,14 @@ import type {
   SessionContextGet,
   SessionContextPatch as GenSessionContextPatch,
   Context,
+  ContextAttribute,
 } from "../generated/session-context";
 
 /** Custom session-context attributes — a nested key → (key → value) map. */
 export type SessionContextData = Context;
+
+/** A single session-context attribute (generated). */
+export type SessionAttributeInput = ContextAttribute;
 
 /**
  * The current session context (`GET /me/context`). Mirrors the generated

@@ -1,11 +1,16 @@
 import type { ClientContext } from "../core/context";
 import { auth, type AuthContext } from "../core/auth";
-import type { SessionContext, SessionContextPatch } from "./session-context-types";
+import type {
+  SessionContext,
+  SessionContextPatch,
+  SessionAttributeInput,
+} from "./session-context-types";
 
 export type {
   SessionContext,
   SessionContextPatch,
   SessionContextData,
+  SessionAttributeInput,
 } from "./session-context-types";
 
 const ANON: AuthContext = auth.anonymous();
@@ -67,6 +72,28 @@ export class SessionContextService {
       auth: authCtx,
     });
     return true;
+  }
+
+  /** Adds an attribute to the current session context. Default auth: anonymous. */
+  async addAttribute(
+    attribute: SessionAttributeInput,
+    authCtx: AuthContext = ANON,
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `/session-context/${this.ctx.tenant}/me/context/attributes`,
+      body: attribute,
+      auth: authCtx,
+    });
+  }
+
+  /** Removes a named attribute from the current session context. Default auth: anonymous. */
+  async removeAttribute(name: string, authCtx: AuthContext = ANON): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `/session-context/${this.ctx.tenant}/me/context/attributes/${encodeURIComponent(name)}`,
+      auth: authCtx,
+    });
   }
 }
 

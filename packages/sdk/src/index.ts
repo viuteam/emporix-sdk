@@ -129,7 +129,7 @@ export type {
   ListQuoteReasonsQuery,
 } from "./services/quote";
 export { SessionContextService } from "./services/session-context";
-export type { SessionContext, SessionContextPatch } from "./services/session-context";
+export type { SessionContext, SessionContextPatch, SessionAttributeInput } from "./services/session-context";
 export * from "./companies";
 export * from "./contacts";
 export * from "./locations";
