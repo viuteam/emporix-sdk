@@ -1,5 +1,56 @@
 # @viu/emporix-sdk
 
+## 2.21.0
+
+### Minor Changes
+
+- [#154](https://github.com/viuteam/emporix-sdk/pull/154) [`2c170d1`](https://github.com/viuteam/emporix-sdk/commit/2c170d182a2839bb39aba47a4075ee820195813a) Thanks [@amnael1](https://github.com/amnael1)! - Add full `AiService` parity with the ai-service API. New CRUD sub-resources
+  `ai.tools`, `ai.mcpServers`, `ai.tokens`, `ai.oauths` (list/search/get/upsert/patch/delete);
+  new resource groups `ai.jobs`, `ai.templates`, `ai.logs`, `ai.analytics`; and
+  new methods `ai.listModels`, `ai.listCommerceEvents`, `ai.uploadAttachment`,
+  `ai.exportAgents`, `ai.importAgents`.
+
+- [#157](https://github.com/viuteam/emporix-sdk/pull/157) [`f7e9839`](https://github.com/viuteam/emporix-sdk/commit/f7e983928c3d91d3093c875a3fef5c15d59133c0) Thanks [@amnael1](https://github.com/amnael1)! - Add `client.invoices` (invoice-generation jobs) and `client.quotes` (B2B quotes
+  CRUD + PDF + history, with a `client.quotes.reasons` config sub-resource),
+  backed by the generated `invoice` / `quote` types. Quote-domain methods take a
+  required `auth` argument (customer or admin token — quotes are never
+  anonymous). The OAuth Service is intentionally not wrapped — its token grant is
+  owned by the SDK auth core.
+
+- [#156](https://github.com/viuteam/emporix-sdk/pull/156) [`61df99e`](https://github.com/viuteam/emporix-sdk/commit/61df99ec09be5ff69327a3f70b82be58b7c90d34) Thanks [@amnael1](https://github.com/amnael1)! - Derive `SiteService` and `SessionContextService` public types from the
+  generated `site-settings-service` / `session-context` types. `Site` now
+  inherits every generated field (shipping/payment/tax/assistedBuying/mixins/
+  taxDeterminationBasedOn, richer address) while keeping `active`/`default`
+  required; `SessionContext.sessionId` stays required and the ergonomic flat
+  `patch({ …, version })` DX is unchanged. Note: `SessionContext.context` /
+  `SessionContextPatch.context` are now the accurate nested map type
+  (`Record<string, Record<string, unknown>>`) instead of `Record<string, unknown>`.
+
+### Patch Changes
+
+- [#151](https://github.com/viuteam/emporix-sdk/pull/151) [`7aa5fc9`](https://github.com/viuteam/emporix-sdk/commit/7aa5fc93c5ef6a83f7235b76e4e5ccc9bb545d33) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+
+  Updated services: ai-service
+
+- [#159](https://github.com/viuteam/emporix-sdk/pull/159) [`7a7c90c`](https://github.com/viuteam/emporix-sdk/commit/7a7c90c7d569988dfdce8ca84ea261d311a419e7) Thanks [@amnael1](https://github.com/amnael1)! - Fix four facade methods that targeted HTTP paths/methods the live Emporix API
+  rejects (verified against the tenant). Signatures are unchanged.
+  - `cart.applyCoupon` / `cart.removeCoupon` used `…/carts/{id}/coupons`, which
+    returns 404 "No endpoint". Coupons are applied via the cart **discounts**
+    endpoint: `applyCoupon` now `POST …/discounts` (coupon-code payload),
+    `removeCoupon` now `DELETE …/discounts?codes=<code>`. Both re-fetch and return
+    the updated cart.
+  - `customer.changePassword` used `PUT …/password` (404). Now `POST …/password/change`.
+  - `customer.confirmPasswordReset` used `POST …/password/reset/confirm` (404). Now
+    `POST …/password/reset/update`.
+  - `companies.update` / `contacts.update` / `locations.update` used `PATCH`, which
+    the customer-management API rejects with 405 Method Not Allowed. Now `PUT`
+    (upsert). Send the complete entity, as the server replaces the resource.
+
+- [#155](https://github.com/viuteam/emporix-sdk/pull/155) [`c78ce7b`](https://github.com/viuteam/emporix-sdk/commit/c78ce7bb25c0208b02a4469904c56c38b11cc6cf) Thanks [@amnael1](https://github.com/amnael1)! - Register the five remaining Emporix OpenAPI specs that were missing from the
+  fetch registry — `oauth-service`, `site-settings-service`, `invoice`, `quote`,
+  `session-context` — so the SDK vendors and generates types for all 43 listed
+  API services. Generated types only; no new service facades.
+
 ## 2.20.1
 
 ### Patch Changes
