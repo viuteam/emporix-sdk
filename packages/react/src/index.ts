@@ -61,6 +61,8 @@ export {
   useConfirmEmailChange,
   useConfirmSignup,
   useResendActivation,
+  useAddSessionAttribute,
+  useRemoveSessionAttribute,
   useCustomerAddresses,
   useAddressMutations,
   useCustomerAddress,

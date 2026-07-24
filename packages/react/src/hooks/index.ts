@@ -73,6 +73,10 @@ export {
   useConfirmSignup,
   useResendActivation,
 } from "./use-customer-credentials";
+export {
+  useAddSessionAttribute,
+  useRemoveSessionAttribute,
+} from "./use-session-context";
 export { useSites, useDefaultSite, useActiveSite } from "./use-sites";
 export { useSiteContext } from "./use-site-context";
 export { useMyCompanies } from "./use-my-companies";
