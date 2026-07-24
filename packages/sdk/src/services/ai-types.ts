@@ -22,6 +22,8 @@ import type {
   AgentFromTemplateRequest as GenAgentFromTemplate,
   AgentRequestResponse as GenAgentRequestLog,
   AgentSessionResponse as GenAgentSessionLog,
+  AgentAnalyticsResponse as GenAgentAnalytics,
+  ExecutionsResponse as GenAgentExecutions,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -170,3 +172,21 @@ export type AgentFromTemplate = GenAgentFromTemplate;
 export type AgentRequestLog = GenAgentRequestLog;
 /** One agent session-log entry. */
 export type AgentSessionLog = GenAgentSessionLog;
+
+/** Aggregated agent analytics (request/session metrics, trends). */
+export type AgentAnalytics = GenAgentAnalytics;
+/** Per-agent execution counts aligned to returned periods. */
+export type AgentExecutions = GenAgentExecutions;
+
+/** Query for {@link AiService.analytics}`.get`. */
+export interface AnalyticsQuery {
+  /** Scope metrics to one agent; omit for tenant-wide aggregates. */
+  agentId?: string;
+}
+/** Query for {@link AiService.analytics}`.executions` — `agentIds` is required. */
+export interface ExecutionsQuery {
+  /** Comma-separated agent IDs (no spaces, ≤100). */
+  agentIds: string;
+  /** Time bucket per period (UTC). */
+  granularity?: "QUARTER" | "MONTH" | "WEEK";
+}

@@ -12,6 +12,10 @@ import type {
   AgentFromTemplate,
   AgentRequestLog,
   AgentSessionLog,
+  AgentAnalytics,
+  AgentExecutions,
+  AnalyticsQuery,
+  ExecutionsQuery,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -174,5 +178,22 @@ export class LogsResource {
   /** Structured session-log search (`POST /agentic/logs/sessions/search`). */
   searchSessions(query: SearchQuery, auth: AuthContext = SERVICE): Promise<AgentSessionLog[]> {
     return this.ctx.http.request<AgentSessionLog[]>({ method: "POST", path: `${this.path}/sessions/search`, auth, body: query });
+  }
+}
+
+/** Agent analytics (`/agentic/analytics`). */
+export class AnalyticsResource {
+  constructor(
+    private readonly ctx: ClientContext,
+    private readonly path: string, // `${base}/agentic/analytics`
+  ) {}
+
+  /** Aggregated metrics (`GET /agentic/analytics`); scope with `agentId`. */
+  get(opts: AnalyticsQuery = {}, auth: AuthContext = SERVICE): Promise<AgentAnalytics> {
+    return this.ctx.http.request<AgentAnalytics>({ method: "GET", path: this.path, auth, query: { ...opts } });
+  }
+  /** Per-agent execution counts (`GET /agentic/analytics/executions`). `agentIds` required. */
+  executions(query: ExecutionsQuery, auth: AuthContext = SERVICE): Promise<AgentExecutions> {
+    return this.ctx.http.request<AgentExecutions>({ method: "GET", path: `${this.path}/executions`, auth, query: { ...query } });
   }
 }

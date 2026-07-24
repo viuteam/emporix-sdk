@@ -5,6 +5,7 @@ import {
   JobsResource,
   TemplatesResource,
   LogsResource,
+  AnalyticsResource,
 } from "./ai-resources";
 import type {
   TextRequest,
@@ -41,6 +42,10 @@ import type {
   AgentFromTemplate,
   AgentRequestLog,
   AgentSessionLog,
+  AgentAnalytics,
+  AgentExecutions,
+  AnalyticsQuery,
+  ExecutionsQuery,
 } from "./ai-types";
 
 export type {
@@ -79,6 +84,10 @@ export type {
   AgentFromTemplate,
   AgentRequestLog,
   AgentSessionLog,
+  AgentAnalytics,
+  AgentExecutions,
+  AnalyticsQuery,
+  ExecutionsQuery,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -145,6 +154,12 @@ export class AiService {
   /** Agent logs (`/agentic/logs`): request + session logs. */
   get logs(): LogsResource {
     return (this._logs ??= new LogsResource(this.ctx, `${this.base()}/agentic/logs`));
+  }
+
+  private _analytics?: AnalyticsResource;
+  /** Agent analytics (`/agentic/analytics`). `get · executions`. */
+  get analytics(): AnalyticsResource {
+    return (this._analytics ??= new AnalyticsResource(this.ctx, `${this.base()}/agentic/analytics`));
   }
 
   /** Generate text from a single prompt (`POST /texts`). Honors `maxTokens`. */
