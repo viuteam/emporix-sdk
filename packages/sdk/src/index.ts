@@ -103,6 +103,22 @@ export type {
 } from "./services/segment";
 export { SiteService } from "./services/site";
 export type { Site } from "./services/site";
+export { InvoiceService } from "./services/invoice";
+export type { InvoiceJobDraft, InvoiceJobCreated, InvoiceJob } from "./services/invoice";
+export { QuoteService } from "./services/quote";
+export type {
+  Quote,
+  QuoteDraft,
+  QuoteCreated,
+  QuoteUpdate,
+  QuoteHistory,
+  ListQuotesQuery,
+  QuoteReason,
+  QuoteReasonDraft,
+  QuoteReasonUpdate,
+  QuoteReasonCreated,
+  ListQuoteReasonsQuery,
+} from "./services/quote";
 export { SessionContextService } from "./services/session-context";
 export type { SessionContext, SessionContextPatch } from "./services/session-context";
 export * from "./companies";

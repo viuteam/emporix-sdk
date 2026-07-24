@@ -22,7 +22,14 @@ spec** and were added to the fetch registry (vendored + generated types):
 
 Three upstream specs use an `api.yaml` (not `.yml`) extension — the reason they
 were missed by earlier audits. The SDK now vendors **all 43** listed services.
-Generated types only; no service facades added yet (follow-up).
+
+**Facades (follow-up):** `site` and `session-context` already had services (now
+backed by the generated types). Added `client.invoices` (invoice-generation
+jobs) and `client.quotes` (quotes CRUD + PDF + history, with a
+`client.quotes.reasons` config sub-resource). **oauth-service is intentionally
+not wrapped** — its only endpoint is the `POST /oauth/token` client-credentials
+grant, which the SDK auth core (`DefaultTokenProvider`) already owns; a second
+public path would duplicate it.
 
 ## 2026-07-24 — synced (ai-service full parity)
 
