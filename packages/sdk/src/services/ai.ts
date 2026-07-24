@@ -1,6 +1,6 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
-import { AgenticCrudResource } from "./ai-resources";
+import { AgenticCrudResource, JobsResource } from "./ai-resources";
 import type {
   TextRequest,
   TextResponse,
@@ -31,6 +31,7 @@ import type {
   TokenInput,
   McpServer,
   McpServerInput,
+  Job,
 } from "./ai-types";
 
 export type {
@@ -64,6 +65,7 @@ export type {
   TokenInput,
   McpServer,
   McpServerInput,
+  Job,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -112,6 +114,12 @@ export class AiService {
   /** MCP-server configs (`/agentic/mcp-servers`). CRUD sub-resource. */
   get mcpServers(): AgenticCrudResource<McpServer, McpServerInput> {
     return (this._mcpServers ??= new AgenticCrudResource(this.ctx, `${this.base()}/agentic/mcp-servers`));
+  }
+
+  private _jobs?: JobsResource;
+  /** AI async jobs (`/jobs`). `list · search · get · delete`. */
+  get jobs(): JobsResource {
+    return (this._jobs ??= new JobsResource(this.ctx, this.base()));
   }
 
   /** Generate text from a single prompt (`POST /texts`). Honors `maxTokens`. */

@@ -7,6 +7,7 @@ import type {
   MutateOptions,
   SearchQuery,
   Created,
+  Job,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -78,5 +79,33 @@ export class AgenticCrudResource<Read, Write> {
       auth,
       ...(opts.force ? { query: { force: "true" } } : {}),
     });
+  }
+}
+
+/**
+ * AI async jobs (`/ai-service/{tenant}/jobs`). NOTE: not under `/agentic`.
+ * `chatAsync` returns a `jobId`; poll/list/delete it here.
+ */
+export class JobsResource {
+  constructor(
+    private readonly ctx: ClientContext,
+    private readonly base: string,
+  ) {}
+
+  /** List jobs (`GET /jobs`). */
+  list(query: ListQuery = {}, auth: AuthContext = SERVICE): Promise<Job[]> {
+    return this.ctx.http.request<Job[]>({ method: "GET", path: `${this.base}/jobs`, auth, query: { ...query } });
+  }
+  /** Structured job search (`POST /jobs/search`). */
+  search(query: SearchQuery, auth: AuthContext = SERVICE): Promise<Job[]> {
+    return this.ctx.http.request<Job[]>({ method: "POST", path: `${this.base}/jobs/search`, auth, body: query });
+  }
+  /** Retrieve one job (`GET /jobs/{jobId}`). */
+  get(jobId: string, auth: AuthContext = SERVICE): Promise<Job> {
+    return this.ctx.http.request<Job>({ method: "GET", path: `${this.base}/jobs/${encodeURIComponent(jobId)}`, auth });
+  }
+  /** Delete one job (`DELETE /jobs/{jobId}`). */
+  async delete(jobId: string, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({ method: "DELETE", path: `${this.base}/jobs/${encodeURIComponent(jobId)}`, auth });
   }
 }

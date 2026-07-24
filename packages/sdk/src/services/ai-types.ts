@@ -17,6 +17,7 @@ import type {
   TokenUpsertBody as GenTokenInput,
   McpServerResponse as GenMcpServer,
   McpServerUpsertBody as GenMcpServerInput,
+  Job as GenJob,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -152,3 +153,6 @@ export type TokenInput = GenTokenInput;
 export type McpServer = GenMcpServer;
 /** Write shape for {@link AiService.mcpServers}`.upsert`. */
 export type McpServerInput = GenMcpServerInput;
+
+/** An async AI job (`IMPORT` / `EXPORT` / `AGENT_CHAT`) with status + result. */
+export type Job = GenJob;
