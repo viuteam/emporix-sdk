@@ -9,6 +9,8 @@ import {
   type QuoteCheckoutInput,
   type CheckoutResult,
   type PaymentMode,
+  type InitializePaymentInput,
+  type InitializePaymentResult,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadAuth } from "./internal/use-read-auth";
@@ -90,4 +92,32 @@ export function usePaymentModes(
     queryFn: (ctx) => client.payments.listPaymentModes(ctx),
     staleTime: PAYMENT_MODES_STALE_TIME,
   });
+}
+
+/** Reads one frontend payment mode by id (customer or guest). Disabled when id is empty. */
+export function usePaymentMode(
+  id: string | undefined,
+  options: { enabled?: boolean } = {},
+): UseQueryResult<PaymentMode> {
+  const { client } = useEmporix();
+  return useEmporixQuery({
+    mode: "read-auth",
+    site: "full",
+    resource: "payment-mode",
+    args: [id ?? null],
+    enabled: (options.enabled ?? true) && typeof id === "string" && id !== "",
+    queryFn: (ctx) => client.payments.getMode(id as string, ctx),
+    staleTime: PAYMENT_MODES_STALE_TIME,
+  });
+}
+
+/** Initializes a frontend payment (customer or guest). */
+export function useInitializePayment(): UseMutationResult<
+  InitializePaymentResult,
+  unknown,
+  InitializePaymentInput
+> {
+  const { client } = useEmporix();
+  const { ctx } = useReadAuth();
+  return useMutation({ mutationFn: (input) => client.payments.initialize(input, ctx) });
 }

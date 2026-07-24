@@ -41,7 +41,7 @@ export {
   useCartItems,
 } from "./use-cart";
 export type { CartMutationsApi } from "./use-cart";
-export { useCheckout, usePaymentModes } from "./use-checkout";
+export { useCheckout, usePaymentModes, usePaymentMode, useInitializePayment } from "./use-checkout";
 export type { CheckoutApi } from "./use-checkout";
 export { useShippingZones } from "./use-shipping";
 export { useMatchPrices } from "./use-match-prices";

@@ -42,6 +42,8 @@ export {
   useCartItems,
   useCheckout,
   usePaymentModes,
+  usePaymentMode,
+  useInitializePayment,
   useShippingZones,
   useMatchPrices,
   useMatchPricesChunked,
