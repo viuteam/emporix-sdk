@@ -64,6 +64,12 @@ export {
 export type { AddressMutationsApi } from "./use-customer-addresses";
 export { usePasswordReset } from "./use-password-reset";
 export type { PasswordResetApi } from "./use-password-reset";
+export {
+  useChangeEmail,
+  useConfirmEmailChange,
+  useConfirmSignup,
+  useResendActivation,
+} from "./use-customer-credentials";
 export { useSites, useDefaultSite, useActiveSite } from "./use-sites";
 export { useSiteContext } from "./use-site-context";
 export { useMyCompanies } from "./use-my-companies";
