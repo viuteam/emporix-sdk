@@ -8,6 +8,8 @@ import type {
   SearchQuery,
   Created,
   Job,
+  AgentTemplate,
+  AgentFromTemplate,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -107,5 +109,35 @@ export class JobsResource {
   /** Delete one job (`DELETE /jobs/{jobId}`). */
   async delete(jobId: string, auth: AuthContext = SERVICE): Promise<void> {
     await this.ctx.http.request<void>({ method: "DELETE", path: `${this.base}/jobs/${encodeURIComponent(jobId)}`, auth });
+  }
+}
+
+/** Agent templates (`/agentic/templates`). `list · search · clone`. */
+export class TemplatesResource {
+  constructor(
+    private readonly ctx: ClientContext,
+    private readonly path: string, // `${base}/agentic/templates`
+  ) {}
+
+  /** List available templates (`GET /agentic/templates`). */
+  list(query: ListQuery = {}, auth: AuthContext = SERVICE): Promise<AgentTemplate[]> {
+    return this.ctx.http.request<AgentTemplate[]>({ method: "GET", path: this.path, auth, query: { ...query } });
+  }
+  /** Structured template search (`POST /agentic/templates/search`). */
+  search(query: SearchQuery, auth: AuthContext = SERVICE): Promise<AgentTemplate[]> {
+    return this.ctx.http.request<AgentTemplate[]>({ method: "POST", path: `${this.path}/search`, auth, body: query });
+  }
+  /**
+   * Instantiate a new agent from a template
+   * (`POST /agentic/templates/{templateId}/agents`, HTTP 201). Returns the
+   * created agent's id.
+   */
+  clone(templateId: string, body: AgentFromTemplate, auth: AuthContext = SERVICE): Promise<Created> {
+    return this.ctx.http.request<Created>({
+      method: "POST",
+      path: `${this.path}/${encodeURIComponent(templateId)}/agents`,
+      auth,
+      body,
+    });
   }
 }

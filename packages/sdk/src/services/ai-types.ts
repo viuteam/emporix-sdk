@@ -18,6 +18,8 @@ import type {
   McpServerResponse as GenMcpServer,
   McpServerUpsertBody as GenMcpServerInput,
   Job as GenJob,
+  AgentTemplateResponse as GenAgentTemplate,
+  AgentFromTemplateRequest as GenAgentFromTemplate,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -156,3 +158,8 @@ export type McpServerInput = GenMcpServerInput;
 
 /** An async AI job (`IMPORT` / `EXPORT` / `AGENT_CHAT`) with status + result. */
 export type Job = GenJob;
+
+/** An available agent template. */
+export type AgentTemplate = GenAgentTemplate;
+/** Body for {@link AiService.templates}`.clone` — the user prompt + overrides. */
+export type AgentFromTemplate = GenAgentFromTemplate;

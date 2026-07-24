@@ -1,6 +1,6 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
-import { AgenticCrudResource, JobsResource } from "./ai-resources";
+import { AgenticCrudResource, JobsResource, TemplatesResource } from "./ai-resources";
 import type {
   TextRequest,
   TextResponse,
@@ -32,6 +32,8 @@ import type {
   McpServer,
   McpServerInput,
   Job,
+  AgentTemplate,
+  AgentFromTemplate,
 } from "./ai-types";
 
 export type {
@@ -66,6 +68,8 @@ export type {
   McpServer,
   McpServerInput,
   Job,
+  AgentTemplate,
+  AgentFromTemplate,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -120,6 +124,12 @@ export class AiService {
   /** AI async jobs (`/jobs`). `list · search · get · delete`. */
   get jobs(): JobsResource {
     return (this._jobs ??= new JobsResource(this.ctx, this.base()));
+  }
+
+  private _templates?: TemplatesResource;
+  /** Agent templates (`/agentic/templates`). `list · search · clone`. */
+  get templates(): TemplatesResource {
+    return (this._templates ??= new TemplatesResource(this.ctx, `${this.base()}/agentic/templates`));
   }
 
   /** Generate text from a single prompt (`POST /texts`). Honors `maxTokens`. */
