@@ -26,6 +26,7 @@ import type {
   ExecutionsResponse as GenAgentExecutions,
   ProviderModelsResponse as GenProviderModels,
   CommerceEventsResponse as GenCommerceEvents,
+  AttachmentResponse as GenAttachment,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -197,3 +198,15 @@ export interface ExecutionsQuery {
 export type ProviderModels = GenProviderModels;
 /** The set of commerce events an agent trigger can subscribe to. */
 export type CommerceEvents = GenCommerceEvents;
+
+/** Result of an attachment upload — `{ id?, sessionId? }`. */
+export type Attachment = GenAttachment;
+
+/** Options for {@link AiService.uploadAttachment}. */
+export interface AttachmentOptions {
+  /**
+   * Reuse a chat context — sent as the `session-id` header. Thread the
+   * returned `sessionId` into chat calls to bind the file.
+   */
+  sessionId?: string;
+}

@@ -48,6 +48,8 @@ import type {
   ExecutionsQuery,
   ProviderModels,
   CommerceEvents,
+  Attachment,
+  AttachmentOptions,
 } from "./ai-types";
 
 export type {
@@ -92,6 +94,8 @@ export type {
   ExecutionsQuery,
   ProviderModels,
   CommerceEvents,
+  Attachment,
+  AttachmentOptions,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -348,6 +352,29 @@ export class AiService {
       method: "GET",
       path: `${this.base()}/agentic/commerce-events`,
       auth,
+    });
+  }
+
+  /**
+   * Upload a chat attachment for an agent
+   * (`POST /agentic/{agentId}/attachments`, multipart, HTTP 201). The response
+   * `sessionId` must be threaded into subsequent chat calls to bind the file.
+   * Pass `opts.sessionId` to attach to an existing session.
+   */
+  async uploadAttachment(
+    agentId: string,
+    attachment: Blob | File,
+    opts: AttachmentOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<Attachment> {
+    const form = new FormData();
+    form.append("attachment", attachment);
+    return this.ctx.http.request<Attachment>({
+      method: "POST",
+      path: `${this.base()}/agentic/${encodeURIComponent(agentId)}/attachments`,
+      auth,
+      body: form,
+      ...(opts.sessionId ? { headers: { "session-id": opts.sessionId } } : {}),
     });
   }
 }

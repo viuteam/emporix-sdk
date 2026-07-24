@@ -47,3 +47,27 @@ describe("AiService.listModels / listCommerceEvents", () => {
     expect(await svc().listCommerceEvents()).toEqual({ events: ["order.created"] });
   });
 });
+
+describe("AiService.uploadAttachment", () => {
+  it("posts multipart form data and forwards session-id", async () => {
+    let contentType: string | null = null;
+    let sessionId: string | null = null;
+    let fieldPresent = false;
+    server.use(
+      http.post(`${BASE}/agentic/bot/attachments`, async ({ request }) => {
+        contentType = request.headers.get("content-type");
+        sessionId = request.headers.get("session-id");
+        const fd = await request.formData();
+        fieldPresent = fd.has("attachment");
+        return HttpResponse.json({ id: "att-1", sessionId: "sess-9" }, { status: 201 });
+      }),
+    );
+    const res = await svc().uploadAttachment("bot", new Blob(["hello"], { type: "text/plain" }), {
+      sessionId: "sess-9",
+    });
+    expect(res).toEqual({ id: "att-1", sessionId: "sess-9" });
+    expect(contentType).toMatch(/multipart\/form-data/);
+    expect(sessionId).toBe("sess-9");
+    expect(fieldPresent).toBe(true);
+  });
+});
