@@ -1,5 +1,6 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { AgenticCrudResource } from "./ai-resources";
 import type {
   TextRequest,
   TextResponse,
@@ -16,6 +17,14 @@ import type {
   ChatStreamOptions,
   Conversation,
   ConversationSearchQuery,
+  Created,
+  AgenticPatchOp,
+  ListQuery,
+  GetOptions,
+  MutateOptions,
+  SearchQuery,
+  OAuthConfig,
+  OAuthInput,
 } from "./ai-types";
 
 export type {
@@ -35,6 +44,14 @@ export type {
   ChatStreamOptions,
   Conversation,
   ConversationSearchQuery,
+  Created,
+  AgenticPatchOp,
+  ListQuery,
+  GetOptions,
+  MutateOptions,
+  SearchQuery,
+  OAuthConfig,
+  OAuthInput,
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -57,6 +74,14 @@ export class AiService {
 
   private base(): string {
     return `/ai-service/${this.ctx.tenant}`;
+  }
+
+  // --- Agentic building blocks (CRUD sub-resources) ----------------------
+
+  private _oauths?: AgenticCrudResource<OAuthConfig, OAuthInput>;
+  /** OAuth 2.0 client-credentials configs (`/agentic/oauths`). CRUD sub-resource. */
+  get oauths(): AgenticCrudResource<OAuthConfig, OAuthInput> {
+    return (this._oauths ??= new AgenticCrudResource(this.ctx, `${this.base()}/agentic/oauths`));
   }
 
   /** Generate text from a single prompt (`POST /texts`). Honors `maxTokens`. */

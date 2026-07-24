@@ -8,6 +8,9 @@ import type {
   AgenticRequest as GenChatRequest,
   ConversationResponse as GenConversation,
   QParamSearchBody2 as GenConversationSearchQuery,
+  IdResponse as GenIdResponse,
+  OAuthResponse as GenOAuthResponse,
+  OauthUpsertBody as GenOAuthInput,
 } from "../generated/ai-service";
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
@@ -82,3 +85,49 @@ export interface ChatStreamOptions {
 export type Conversation = GenConversation;
 /** Request body for `searchConversations` (`{ q? }`) — same shape as agent search. */
 export type ConversationSearchQuery = GenConversationSearchQuery;
+
+// --- Agentic building blocks (CRUD sub-resources) --------------------------
+
+/** `{ id? }` — returned by an upsert on create (HTTP 201). */
+export type Created = GenIdResponse;
+
+/**
+ * One PATCH op for any agentic resource. `op` is the upstream UPPERCASE enum
+ * (`ADD | REMOVE | REPLACE`) — NOT RFC-6902. Passed verbatim. Same shape as
+ * {@link AgentPatchOp}.
+ */
+export type AgenticPatchOp = GenPatchRequest[number];
+
+/** Query for a CRUD `list` (`q`/paging/sort/fields/expand). Extra keys pass through. */
+export interface ListQuery {
+  q?: string;
+  pageSize?: number;
+  pageNumber?: number;
+  sort?: string;
+  fields?: string;
+  expand?: string;
+  [key: string]: string | number | undefined;
+}
+
+/** Options for a CRUD `get`. */
+export interface GetOptions {
+  fields?: string;
+  expand?: string;
+  [key: string]: string | number | undefined;
+}
+
+/** Options for a mutating CRUD call (`upsert`/`delete`). */
+export interface MutateOptions {
+  /** Cascade even if the entity is referenced elsewhere (`?force=true`). */
+  force?: boolean;
+}
+
+/** Body for any agentic `/search` endpoint. */
+export interface SearchQuery {
+  q?: string;
+}
+
+/** An OAuth 2.0 client-credentials configuration (read shape). */
+export type OAuthConfig = GenOAuthResponse;
+/** Write shape for {@link AiService.oauths}`.upsert` (`OAuthRequest`). */
+export type OAuthInput = GenOAuthInput;
