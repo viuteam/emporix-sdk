@@ -78,21 +78,7 @@ export type IdResponse = {
     id?: string;
 };
 
-export type InnerTokenRequest = {
-    /**
-     * ID of the token.
-     */
-    id: string;
-};
-
-export type InnerTokenResponse = {
-    /**
-     * ID of the token.
-     */
-    id?: string;
-};
-
-export type ExpandedTokenResponse = InnerTokenResponse & {
+export type ExpandedTokenResponse = IdResponse & {
     /**
      * Name of the token.
      */
@@ -103,7 +89,7 @@ export type ExpandedTokenResponse = InnerTokenResponse & {
 /**
  * The full response representing token. If the `expand=token` is **not** used, then only `id` field is returned, otherwise all fields are returned.
  */
-export type ExpandableTokenResponse = InnerTokenResponse | ExpandedTokenResponse;
+export type ExpandableTokenResponse = IdResponse | ExpandedTokenResponse;
 
 /**
  * Type of the native tool. Possible values:
@@ -136,7 +122,7 @@ export type RagCustomEmbeddingNativeToolConfig = {
 };
 
 export type RagCustomEmbeddingNativeToolConfigRequest = RagCustomEmbeddingNativeToolConfig & {
-    token: InnerTokenRequest;
+    token: IdWrapperRequest;
 };
 
 export type RagCustomEmbeddingNativeToolConfigResponse = RagCustomEmbeddingNativeToolConfig & {
@@ -167,7 +153,7 @@ export type RagCustomDatabaseNativeToolConfig = {
 };
 
 export type RagCustomDatabaseNativeToolConfigRequest = RagCustomDatabaseNativeToolConfig & {
-    token: InnerTokenRequest;
+    token: IdWrapperRequest;
 };
 
 export type RagCustomDatabaseNativeToolConfigResponse = RagCustomDatabaseNativeToolConfig & {
@@ -220,7 +206,7 @@ export type OpenAiRagEmporixEmbeddingNativeToolConfig = {
 };
 
 export type OpenAiRagEmporixEmbeddingNativeToolConfigRequest = OpenAiRagEmporixEmbeddingNativeToolConfig & {
-    token: InnerTokenRequest;
+    token: IdWrapperRequest;
 };
 
 export type OpenAiRagEmporixEmbeddingNativeToolConfigResponse = OpenAiRagEmporixEmbeddingNativeToolConfig & {
@@ -247,7 +233,7 @@ export type SelfHostedOllamaRagEmporixEmbeddingNativeToolConfig = {
 };
 
 export type SelfHostedOllamaRagEmporixEmbeddingNativeToolConfigRequest = SelfHostedOllamaRagEmporixEmbeddingNativeToolConfig & {
-    token: InnerTokenRequest;
+    token: IdWrapperRequest;
 };
 
 export type SelfHostedOllamaRagEmporixEmbeddingNativeToolConfigResponse = SelfHostedOllamaRagEmporixEmbeddingNativeToolConfig & {
@@ -483,7 +469,7 @@ export type McpServerConfig = {
 };
 
 export type McpServerConfigRequest = McpServerConfig & {
-    authorizationHeaderToken?: InnerTokenRequest;
+    authorizationHeaderToken?: IdWrapperRequest;
 };
 
 export type McpServerConfigResponse = McpServerConfig & {
@@ -597,38 +583,6 @@ export type EmporixLlm = BaseLlm & {
     provider: 'emporix_openai';
 };
 
-/**
- * OAuth 2.0 client-credentials settings for authenticating with a self-hosted LLM backend.
- */
-export type OAuthParams = {
-    /**
-     * Base URL of the OAuth 2.0 authorization server. The access token is requested from `{url}/token`.
-     */
-    url: string;
-    /**
-     * OAuth 2.0 client identifier registered with the authorization server.
-     */
-    clientId: string;
-    /**
-     * OAuth 2.0 grant type used to obtain an access token.
-     */
-    grantType: 'client_credentials';
-    /**
-     * Optional space-separated list of scopes to request for the access token.
-     */
-    scope?: string;
-};
-
-export type OAuthParamsRequest = OAuthParams & {
-    [key: string]: unknown;
-} & {
-    clientSecret?: InnerTokenRequest;
-};
-
-export type OAuthParamsResponse = OAuthParams & {
-    clientSecret?: ExpandableTokenResponse;
-};
-
 export type SelfHostedParams = {
     /**
      * Url of the self-hosted LLM.
@@ -643,13 +597,13 @@ export type SelfHostedParams = {
 export type SelfHostedParamsRequest = SelfHostedParams & {
     [key: string]: unknown;
 } & {
-    authorizationHeaderToken?: InnerTokenRequest;
-    oAuthParams?: OAuthParamsRequest;
+    authorizationHeaderToken?: IdWrapperRequest;
+    oauth?: IdWrapperRequest;
 };
 
 export type SelfHostedParamsResponse = SelfHostedParams & {
     authorizationHeaderToken?: ExpandableTokenResponse;
-    oAuthParams?: OAuthParamsResponse;
+    oauth?: ExpandableOAuthResponse;
 };
 
 export type SelfHostedLlm = BaseLlm & {
@@ -704,12 +658,57 @@ export type ApiKeyLlm = BaseLlm & {
 };
 
 export type ApiKeyLlmRequest = ApiKeyLlm & {
-    token: InnerTokenRequest;
+    token: IdWrapperRequest;
 };
 
 export type ApiKeyLlmResponse = ApiKeyLlm & {
     token?: ExpandableTokenResponse;
 };
+
+/**
+ * OAuth 2.0 client-credentials settings for authenticating with a self-hosted LLM backend.
+ */
+export type OAuth = {
+    /**
+     * Token endpoint URL of the OAuth 2.0 authorization server used to request an access token.
+     */
+    url: string;
+    /**
+     * OAuth 2.0 client identifier registered with the authorization server.
+     */
+    clientId: string;
+    /**
+     * OAuth 2.0 grant type used to obtain an access token. Currently only `client_credentials` is supported.
+     */
+    grantType: 'client_credentials';
+    /**
+     * Optional space-separated list of scopes to request for the access token.
+     */
+    scope?: string;
+    /**
+     * Indicates whether the OAuth configuration is enabled.
+     */
+    enabled?: boolean;
+};
+
+export type OAuthRequest = OAuth & {
+    clientSecretToken?: IdWrapperRequest;
+    metadata?: MetadataRequest;
+};
+
+export type OAuthResponse = OAuth & {
+    /**
+     * Unique identifier of the entity.
+     */
+    id?: string;
+    clientSecretToken?: ExpandableTokenResponse;
+    metadata?: MetadataResponse;
+};
+
+/**
+ * The full response representing OAuth. If the `expand=oauth` is **not** used, then only `id` field is returned, otherwise all fields are returned.
+ */
+export type ExpandableOAuthResponse = IdResponse | OAuthResponse;
 
 export type BaseToken = {
     /**
@@ -734,7 +733,7 @@ export type TokenResponse = BaseToken & {
     metadata?: MetadataResponse;
 };
 
-export type IdWrapper = {
+export type IdWrapperRequest = {
     id: string;
 };
 
@@ -1492,7 +1491,7 @@ export type Fields = string;
 /**
  * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
  */
-export type Expand = 'mcpServers' | 'nativeTools' | 'token';
+export type Expand = 'oauth' | 'mcpServers' | 'nativeTools' | 'token';
 
 /**
  * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
@@ -1503,6 +1502,11 @@ export type ExpandMcpServer = 'token';
  * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
  */
 export type ExpandTool = 'token';
+
+/**
+ * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
+ */
+export type ExpandOAuth = 'token';
 
 /**
  * Allows you to remove a given entity even if it is used as a dependency in other entries. In that case, the removed entity is unassigned from other entries.
@@ -1535,6 +1539,10 @@ export type McpServerPatchBody = PatchRequest;
 export type TokenUpsertBody = TokenRequest;
 
 export type TokenPatchBody = PatchRequest;
+
+export type OauthUpsertBody = OAuthRequest;
+
+export type OauthPatchBody = PatchRequest;
 
 export type ToolUpsertBody = SlackNativeToolRequest | RagCustomNativeToolRequest | RagEmporixNativeToolRequest | TeamsNativeToolRequest;
 
@@ -2123,7 +2131,7 @@ export type GetAiListTemplatesData = {
         /**
          * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
          */
-        expand?: 'mcpServers' | 'nativeTools' | 'token';
+        expand?: 'oauth' | 'mcpServers' | 'nativeTools' | 'token';
     };
     url: '/ai-service/{tenant}/agentic/templates';
 };
@@ -2200,7 +2208,7 @@ export type PostAiSearchTemplatesData = {
         /**
          * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
          */
-        expand?: 'mcpServers' | 'nativeTools' | 'token';
+        expand?: 'oauth' | 'mcpServers' | 'nativeTools' | 'token';
     };
     url: '/ai-service/{tenant}/agentic/templates/search';
 };
@@ -2343,7 +2351,7 @@ export type GetAiListAgentsData = {
         /**
          * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
          */
-        expand?: 'mcpServers' | 'nativeTools' | 'token';
+        expand?: 'oauth' | 'mcpServers' | 'nativeTools' | 'token';
     };
     url: '/ai-service/{tenant}/agentic/agents';
 };
@@ -2416,7 +2424,7 @@ export type PostAiSearchAgentsData = {
         /**
          * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
          */
-        expand?: 'mcpServers' | 'nativeTools' | 'token';
+        expand?: 'oauth' | 'mcpServers' | 'nativeTools' | 'token';
     };
     url: '/ai-service/{tenant}/agentic/agents/search';
 };
@@ -2525,7 +2533,7 @@ export type GetAiRetrieveAgentData = {
         /**
          * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
          */
-        expand?: 'mcpServers' | 'nativeTools' | 'token';
+        expand?: 'oauth' | 'mcpServers' | 'nativeTools' | 'token';
     };
     url: '/ai-service/{tenant}/agentic/agents/{agentId}';
 };
@@ -3499,6 +3507,361 @@ export type PutAiUpsertTokenResponses = {
 };
 
 export type PutAiUpsertTokenResponse = PutAiUpsertTokenResponses[keyof PutAiUpsertTokenResponses];
+
+export type GetAiListOauthsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Flag indicating whether the total number of retrieved results should be returned.
+         */
+        'X-Total-Count'?: boolean;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * A standard query parameter is used to search for specific values.
+         *
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         *
+         */
+        q?: string;
+        /**
+         * The number of documents to be retrieved per page.
+         */
+        pageSize?: string;
+        /**
+         * The page number to be retrieved. The size of the pages should be specified by the `pageSize` parameter.
+         */
+        pageNumber?: string;
+        /**
+         * List of properties used to sort the results, separated by colons.
+         */
+        sort?: string;
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+        /**
+         * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
+         */
+        expand?: 'token';
+    };
+    url: '/ai-service/{tenant}/agentic/oauths';
+};
+
+export type GetAiListOauthsErrors = {
+    /**
+     * The request was syntactically incorrect.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * Authorization scopes of the access token are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+};
+
+export type GetAiListOauthsError = GetAiListOauthsErrors[keyof GetAiListOauthsErrors];
+
+export type GetAiListOauthsResponses = {
+    /**
+     * List of OAuth configurations.
+     */
+    200: Array<OAuthResponse>;
+};
+
+export type GetAiListOauthsResponse = GetAiListOauthsResponses[keyof GetAiListOauthsResponses];
+
+export type PostAiSearchOauthsData = {
+    body?: QParamSearchBody2;
+    headers?: {
+        /**
+         * Flag indicating whether the total number of retrieved results should be returned.
+         */
+        'X-Total-Count'?: boolean;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * The number of documents to be retrieved per page.
+         */
+        pageSize?: string;
+        /**
+         * The page number to be retrieved. The size of the pages should be specified by the `pageSize` parameter.
+         */
+        pageNumber?: string;
+        /**
+         * List of properties used to sort the results, separated by colons.
+         */
+        sort?: string;
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+        /**
+         * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
+         */
+        expand?: 'token';
+    };
+    url: '/ai-service/{tenant}/agentic/oauths/search';
+};
+
+export type PostAiSearchOauthsErrors = {
+    /**
+     * The request was syntactically incorrect.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * Authorization scopes of the access token are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+};
+
+export type PostAiSearchOauthsError = PostAiSearchOauthsErrors[keyof PostAiSearchOauthsErrors];
+
+export type PostAiSearchOauthsResponses = {
+    /**
+     * List of OAuth configurations.
+     */
+    200: Array<OAuthResponse>;
+};
+
+export type PostAiSearchOauthsResponse = PostAiSearchOauthsResponses[keyof PostAiSearchOauthsResponses];
+
+export type DeleteAiDeleteOauthData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+        oauthId: string;
+    };
+    query?: {
+        /**
+         * Allows you to remove a given entity even if it is used as a dependency in other entries. In that case, the removed entity is unassigned from other entries.
+         */
+        force?: boolean;
+    };
+    url: '/ai-service/{tenant}/agentic/oauths/{oauthId}';
+};
+
+export type DeleteAiDeleteOauthErrors = {
+    /**
+     * The request was syntactically incorrect.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * Authorization scopes of the access token are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+};
+
+export type DeleteAiDeleteOauthError = DeleteAiDeleteOauthErrors[keyof DeleteAiDeleteOauthErrors];
+
+export type DeleteAiDeleteOauthResponses = {
+    /**
+     * Given OAuth configuration has been deleted.
+     */
+    204: void;
+};
+
+export type DeleteAiDeleteOauthResponse = DeleteAiDeleteOauthResponses[keyof DeleteAiDeleteOauthResponses];
+
+export type GetAiRetrieveOauthData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+        oauthId: string;
+    };
+    query?: {
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+        /**
+         * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
+         */
+        expand?: 'token';
+    };
+    url: '/ai-service/{tenant}/agentic/oauths/{oauthId}';
+};
+
+export type GetAiRetrieveOauthErrors = {
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * Authorization scopes of the access token are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Example response
+     */
+    404: ErrorMessage;
+};
+
+export type GetAiRetrieveOauthError = GetAiRetrieveOauthErrors[keyof GetAiRetrieveOauthErrors];
+
+export type GetAiRetrieveOauthResponses = {
+    /**
+     * A single OAuth configuration.
+     */
+    200: OAuthResponse;
+};
+
+export type GetAiRetrieveOauthResponse = GetAiRetrieveOauthResponses[keyof GetAiRetrieveOauthResponses];
+
+export type PatchAiUpdateOauthData = {
+    body?: OauthPatchBody;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+        oauthId: string;
+    };
+    query?: {
+        /**
+         * Allows you to disable a given entity even if it is used as a dependency in other entries. In that case, cascade disable is performed.
+         */
+        force?: boolean;
+    };
+    url: '/ai-service/{tenant}/agentic/oauths/{oauthId}';
+};
+
+export type PatchAiUpdateOauthErrors = {
+    /**
+     * The request was syntactically incorrect.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * Authorization scopes of the access token are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Example response
+     */
+    404: ErrorMessage;
+};
+
+export type PatchAiUpdateOauthError = PatchAiUpdateOauthErrors[keyof PatchAiUpdateOauthErrors];
+
+export type PatchAiUpdateOauthResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type PatchAiUpdateOauthResponse = PatchAiUpdateOauthResponses[keyof PatchAiUpdateOauthResponses];
+
+export type PutAiUpsertOauthData = {
+    body?: OauthUpsertBody;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+        oauthId: string;
+    };
+    query?: {
+        /**
+         * Allows you to disable a given entity even if it is used as a dependency in other entries. In that case, cascade disable is performed.
+         */
+        force?: boolean;
+    };
+    url: '/ai-service/{tenant}/agentic/oauths/{oauthId}';
+};
+
+export type PutAiUpsertOauthErrors = {
+    /**
+     * The request was syntactically incorrect.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * Authorization scopes of the access token are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Example response
+     */
+    404: ErrorMessage;
+    /**
+     * There are three possible reasons:
+     * 1. Resource with given code already exists, please choose unique code for your resource
+     * 2. Optimistic locking failed. If user sends metadata/version attribute which is outdated (someone else updated resource in the time user was performing his changes). User should retrieve the latest product data and retry the request.
+     * 3. Optimistic locking failed. User did not provide metadata/version attribute in update request, but someone else updated product while it was internally handled by product service. Resending the same request can result in successful update, but the update can override recently persisted changes.
+     *
+     */
+    409: ErrorMessage;
+};
+
+export type PutAiUpsertOauthError = PutAiUpsertOauthErrors[keyof PutAiUpsertOauthErrors];
+
+export type PutAiUpsertOauthResponses = {
+    /**
+     * ID of created OAuth configuration.
+     */
+    201: IdResponse;
+    /**
+     * The resource has been successfully updated.
+     */
+    204: void;
+};
+
+export type PutAiUpsertOauthResponse = PutAiUpsertOauthResponses[keyof PutAiUpsertOauthResponses];
 
 export type GetAiListModelsData = {
     body?: never;

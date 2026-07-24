@@ -30,6 +30,8 @@ tags:
     description: Manage MCP Servers
   - name: Model
     description: Read LLM models from supported providers
+  - name: OAuth
+    description: Manage OAuth configurations
   - name: Text Generation
     description: AI Text Generation
   - name: Token
@@ -1328,6 +1330,212 @@ paths:
             - ai.agent_manage
       tags:
         - Token
+  '/ai-service/{tenant}/agentic/oauths':
+    parameters:
+      - $ref: '#/components/parameters/path_tenant'
+      - $ref: '#/components/parameters/qParam'
+      - $ref: '#/components/parameters/pageSize'
+      - $ref: '#/components/parameters/pageNumber'
+      - $ref: '#/components/parameters/sort'
+      - $ref: '#/components/parameters/fields'
+      - $ref: '#/components/parameters/expandOAuth'
+      - $ref: '#/components/parameters/header_xTotalCount'
+    get:
+      summary: Listing OAuth configurations
+      operationId: GET-ai-list-oauths
+      responses:
+        '200':
+          description: List of OAuth configurations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OAuthResponse'
+              examples:
+                OAuths Response:
+                  $ref: '#/components/examples/OAuthsResponse'
+        '400':
+          $ref: '#/components/responses/400_resp_common'
+        '401':
+          $ref: '#/components/responses/401_resp_common'
+        '403':
+          $ref: '#/components/responses/403_resp_common'
+      description: |-
+        Retrieves OAuth configurations based on the provided query.
+      security:
+        - OAuth2:
+            - ai.agent_read
+      tags:
+        - OAuth
+  '/ai-service/{tenant}/agentic/oauths/search':
+    parameters:
+      - $ref: '#/components/parameters/path_tenant'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/pageNumber'
+        - $ref: '#/components/parameters/sort'
+        - $ref: '#/components/parameters/fields'
+        - $ref: '#/components/parameters/expandOAuth'
+        - $ref: '#/components/parameters/header_xTotalCount'
+      summary: Searching OAuth configurations
+      operationId: POST-ai-search-oauths
+      responses:
+        '200':
+          description: List of OAuth configurations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OAuthResponse'
+              examples:
+                OAuths Response:
+                  $ref: '#/components/examples/OAuthsResponse'
+        '400':
+          $ref: '#/components/responses/400_resp_common'
+        '401':
+          $ref: '#/components/responses/401_resp_common'
+        '403':
+          $ref: '#/components/responses/403_resp_common'
+      requestBody:
+        $ref: '#/components/requestBodies/QParamSearchBody'
+      description: |-
+        Searches for OAuth configurations based on the provided query.
+      security:
+        - OAuth2:
+            - ai.agent_read
+      tags:
+        - OAuth
+  '/ai-service/{tenant}/agentic/oauths/{oauthId}':
+    parameters:
+      - $ref: '#/components/parameters/path_tenant'
+      - schema:
+          type: string
+        name: oauthId
+        in: path
+        required: true
+    get:
+      parameters:
+        - $ref: '#/components/parameters/fields'
+        - $ref: '#/components/parameters/expandOAuth'
+      summary: Retrieving OAuth configuration by ID
+      operationId: GET-ai-retrieve-oauth
+      responses:
+        '200':
+          description: A single OAuth configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthResponse'
+              examples:
+                OAuth Response:
+                  $ref: '#/components/examples/OAuthResponse'
+        '401':
+          $ref: '#/components/responses/401_resp_common'
+        '403':
+          $ref: '#/components/responses/403_resp_common'
+        '404':
+          $ref: '#/components/responses/404_resp_common'
+      description: |-
+        Retrieves the OAuth configuration by a given ID.
+      security:
+        - OAuth2:
+            - ai.agent_read
+      tags:
+        - OAuth
+    put:
+      summary: Upserting OAuth configuration
+      parameters:
+        - $ref: '#/components/parameters/forceDisable'
+      operationId: PUT-ai-upsert-oauth
+      responses:
+        '201':
+          description: ID of created OAuth configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdResponse'
+              examples:
+                Id Of Created OAuth:
+                  $ref: '#/components/examples/IdResponse'
+        '204':
+          description: The resource has been successfully updated.
+        '400':
+          $ref: '#/components/responses/400_resp_common'
+        '401':
+          $ref: '#/components/responses/401_resp_common'
+        '403':
+          $ref: '#/components/responses/403_resp_common'
+        '404':
+          $ref: '#/components/responses/404_resp_common'
+        '409':
+          $ref: '#/components/responses/409_resp_common'
+      description: |-
+        Updates or creates a specified OAuth configuration by replacing all of its existing data with data from the request body.
+        If the `metadata.version` is provided, then optimistic locking is enabled and version must match the version in the database.
+
+        Currently only the `client_credentials` grant type is supported.
+      security:
+        - OAuth2:
+            - ai.agent_manage
+      requestBody:
+        $ref: '#/components/requestBodies/oauthUpsertBody'
+      tags:
+        - OAuth
+    patch:
+      summary: Partially updating OAuth configuration
+      parameters:
+        - $ref: '#/components/parameters/forceDisable'
+      operationId: PATCH-ai-update-oauth
+      responses:
+        '204':
+          description: No Content
+        '400':
+          $ref: '#/components/responses/400_resp_common'
+        '401':
+          $ref: '#/components/responses/401_resp_common'
+        '403':
+          $ref: '#/components/responses/403_resp_common'
+        '404':
+          $ref: '#/components/responses/404_resp_common'
+      description: |-
+        Partially updates a single OAuth configuration document with given information.
+        Single update may contain multiple partial updates in the form of an array. It contains the allowed operations list:
+          - `add` (adding an item to the items list)
+          - `remove` (removing an item from the items list)
+          - `replace` (replacing an item with given ID with new definition)
+      security:
+        - OAuth2:
+            - ai.agent_manage
+      requestBody:
+        $ref: '#/components/requestBodies/oauthPatchBody'
+      tags:
+        - OAuth
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/force'
+      summary: Deleting OAuth configuration
+      operationId: DELETE-ai-delete-oauth
+      responses:
+        '204':
+          description: Given OAuth configuration has been deleted.
+        '400':
+          $ref: '#/components/responses/400_resp_common'
+        '401':
+          $ref: '#/components/responses/401_resp_common'
+        '403':
+          $ref: '#/components/responses/403_resp_common'
+      description: |-
+        Deletes OAuth configuration by given ID.
+
+        ***Important***: If an OAuth configuration is being used by an agent, then delete operation is not possible without `force` flag set to `true`.
+      security:
+        - OAuth2:
+            - ai.agent_manage
+      tags:
+        - OAuth
   '/ai-service/{tenant}/agentic/models':
     parameters:
       - $ref: '#/components/parameters/path_tenant'
@@ -2017,23 +2225,9 @@ components:
           description: Identifier of the resource.
 
     # Tokens:
-    InnerTokenRequest:
-      type: object
-      properties:
-        id:
-          type: string
-          description: ID of the token.
-      required:
-        - id
-    InnerTokenResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          description: ID of the token.
     ExpandedTokenResponse:
       allOf:
-        - $ref: '#/components/schemas/InnerTokenResponse'
+        - $ref: '#/components/schemas/IdResponse'
         - type: object
           properties:
             name:
@@ -2043,7 +2237,7 @@ components:
               $ref: '#/components/schemas/MetadataResponse'
     ExpandableTokenResponse:
       oneOf:
-        - $ref: '#/components/schemas/InnerTokenResponse'
+        - $ref: '#/components/schemas/IdResponse'
         - $ref: '#/components/schemas/ExpandedTokenResponse'
       description: The full response representing token. If the `expand=token` is **not** used, then only `id` field is returned, otherwise all fields are returned.
 
@@ -2088,7 +2282,7 @@ components:
         - type: object
           properties:
             token:
-              $ref: '#/components/schemas/InnerTokenRequest'
+              $ref: '#/components/schemas/IdWrapperRequest'
           required:
             - token
     RagCustomEmbeddingNativeToolConfigResponse:
@@ -2132,7 +2326,7 @@ components:
         - type: object
           properties:
             token:
-              $ref: '#/components/schemas/InnerTokenRequest'
+              $ref: '#/components/schemas/IdWrapperRequest'
           required:
             - token
     RagCustomDatabaseNativeToolConfigResponse:
@@ -2213,7 +2407,7 @@ components:
         - type: object
           properties:
             token:
-              $ref: '#/components/schemas/InnerTokenRequest'
+              $ref: '#/components/schemas/IdWrapperRequest'
           required:
             - token
     OpenAiRagEmporixEmbeddingNativeToolConfigResponse:
@@ -2252,7 +2446,7 @@ components:
         - type: object
           properties:
             token:
-              $ref: '#/components/schemas/InnerTokenRequest'
+              $ref: '#/components/schemas/IdWrapperRequest'
           required:
             - token
     SelfHostedOllamaRagEmporixEmbeddingNativeToolConfigResponse:
@@ -2551,7 +2745,7 @@ components:
         - type: object
           properties:
             authorizationHeaderToken:
-              $ref: '#/components/schemas/InnerTokenRequest'
+              $ref: '#/components/schemas/IdWrapperRequest'
     McpServerConfigResponse:
       allOf:
         - $ref: '#/components/schemas/McpServerConfig'
@@ -2709,42 +2903,7 @@ components:
               example: emporix_openai
           required:
             - provider
-    OAuthParams:
-      type: object
-      description: OAuth 2.0 client-credentials settings for authenticating with a self-hosted LLM backend.
-      properties:
-        url:
-          type: string
-          format: uri
-          description: Base URL of the OAuth 2.0 authorization server. The access token is requested from `{url}/token`.
-        clientId:
-          type: string
-          description: OAuth 2.0 client identifier registered with the authorization server.
-        grantType:
-          type: string
-          description: OAuth 2.0 grant type used to obtain an access token.
-          enum: [ client_credentials ]
-        scope:
-          type: string
-          description: Optional space-separated list of scopes to request for the access token.
-      required:
-        - url
-        - clientId
-        - grantType
-    OAuthParamsRequest:
-      allOf:
-        - $ref: '#/components/schemas/OAuthParams'
-        - type: object
-        - properties:
-            clientSecret:
-              $ref: '#/components/schemas/InnerTokenRequest'
-    OAuthParamsResponse:
-      allOf:
-        - $ref: '#/components/schemas/OAuthParams'
-        - type: object
-          properties:
-            clientSecret:
-              $ref: '#/components/schemas/ExpandableTokenResponse'
+
     SelfHostedParams:
       type: object
       properties:
@@ -2762,9 +2921,9 @@ components:
         - type: object
         - properties:
             authorizationHeaderToken:
-              $ref: '#/components/schemas/InnerTokenRequest'
-            oAuthParams:
-              $ref: '#/components/schemas/OAuthParamsRequest'
+              $ref: '#/components/schemas/IdWrapperRequest'
+            oauth:
+              $ref: '#/components/schemas/IdWrapperRequest'
     SelfHostedParamsResponse:
       allOf:
         - $ref: '#/components/schemas/SelfHostedParams'
@@ -2772,8 +2931,8 @@ components:
           properties:
             authorizationHeaderToken:
               $ref: '#/components/schemas/ExpandableTokenResponse'
-            oAuthParams:
-              $ref: '#/components/schemas/OAuthParamsResponse'
+            oauth:
+              $ref: '#/components/schemas/ExpandableOAuthResponse'
     SelfHostedLlm:
       allOf:
         - $ref: '#/components/schemas/BaseLlm'
@@ -2860,7 +3019,7 @@ components:
         - type: object
           properties:
             token:
-              $ref: '#/components/schemas/InnerTokenRequest'
+              $ref: '#/components/schemas/IdWrapperRequest'
           required:
             - token
     ApiKeyLlmResponse:
@@ -2870,6 +3029,60 @@ components:
           properties:
             token:
               $ref: '#/components/schemas/ExpandableTokenResponse'
+
+    ## OAuth:
+    OAuth:
+      type: object
+      description: OAuth 2.0 client-credentials settings for authenticating with a self-hosted LLM backend.
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Token endpoint URL of the OAuth 2.0 authorization server used to request an access token.
+        clientId:
+          type: string
+          description: OAuth 2.0 client identifier registered with the authorization server.
+        grantType:
+          type: string
+          description: OAuth 2.0 grant type used to obtain an access token. Currently only `client_credentials` is supported.
+          enum: [ client_credentials ]
+        scope:
+          type: string
+          description: Optional space-separated list of scopes to request for the access token.
+        enabled:
+          type: boolean
+          description: Indicates whether the OAuth configuration is enabled.
+          example: true
+      required:
+        - url
+        - clientId
+        - grantType
+    OAuthRequest:
+      allOf:
+        - $ref: '#/components/schemas/OAuth'
+        - type: object
+          properties:
+            clientSecretToken:
+              $ref: '#/components/schemas/IdWrapperRequest'
+            metadata:
+              $ref: '#/components/schemas/MetadataRequest'
+    OAuthResponse:
+      allOf:
+        - $ref: '#/components/schemas/OAuth'
+        - type: object
+          properties:
+            id:
+              type: string
+              description: Unique identifier of the entity.
+            clientSecretToken:
+              $ref: '#/components/schemas/ExpandableTokenResponse'
+            metadata:
+              $ref: '#/components/schemas/MetadataResponse'
+    ExpandableOAuthResponse:
+      oneOf:
+        - $ref: '#/components/schemas/IdResponse'
+        - $ref: '#/components/schemas/OAuthResponse'
+      description: The full response representing OAuth. If the `expand=oauth` is **not** used, then only `id` field is returned, otherwise all fields are returned.
 
     ## Token:
     BaseToken:
@@ -2903,7 +3116,7 @@ components:
             metadata:
               $ref: '#/components/schemas/MetadataResponse'
 
-    IdWrapper:
+    IdWrapperRequest:
       type: object
       properties:
         id:
@@ -3902,6 +4115,7 @@ components:
       schema:
         type: string
         enum:
+          - oauth
           - mcpServers
           - nativeTools
           - token
@@ -3917,6 +4131,14 @@ components:
       name: expand
       description: Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
     expandTool:
+      schema:
+        type: string
+        enum:
+          - token
+      in: query
+      name: expand
+      description: Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
+    expandOAuth:
       schema:
         type: string
         enum:
@@ -4296,6 +4518,30 @@ components:
                 - op: REPLACE
                   path: /name
                   value: New OpenAI Token
+    oauthUpsertBody:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OAuthRequest'
+          examples:
+            Create Client Credentials OAuth:
+              $ref: '#/components/examples/OAuthRequest'
+    oauthPatchBody:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PatchRequest'
+          examples:
+            Change clientId:
+              value:
+                - op: REPLACE
+                  path: /clientId
+                  value: client-1-updated
+            Disable OAuth:
+              value:
+                - op: REPLACE
+                  path: /enabled
+                  value: false
     toolUpsertBody:
       content:
         application/json:
@@ -4547,6 +4793,43 @@ components:
       value:
         name: OpenAI Token
         value: sk-secret
+    OAuthRequest:
+      value:
+        url: 'https://auth.example.com/token'
+        clientId: client-1
+        clientSecretToken:
+          id: token-id
+        grantType: client_credentials
+        scope: llm read
+        enabled: true
+    OAuthResponse:
+      value:
+        id: oauth-1
+        url: 'https://auth.example.com/token'
+        clientId: client-1
+        clientSecretToken:
+          id: token-id
+        grantType: client_credentials
+        scope: llm read
+        enabled: true
+    OAuthsResponse:
+      value:
+        - id: oauth-1
+          url: 'https://auth.example.com/token'
+          clientId: client-1
+          clientSecretToken:
+            id: token-id
+          grantType: client_credentials
+          scope: llm read
+          enabled: true
+        - id: oauth-2
+          url: 'https://auth2.example.com/token'
+          clientId: client-2
+          clientSecretToken:
+            id: token-id-2
+          grantType: client_credentials
+          scope: llm
+          enabled: true
     SlackNativeToolRequest:
       value:
         name: Slack Native Tool
