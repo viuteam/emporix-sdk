@@ -5,6 +5,20 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-07-24 — synced (ai-service full parity)
+
+Re-vendored specs; only `ai-service` changed (**6 new endpoints, 0 removed, 0
+newly deprecated**) — the OAuth-config CRUD. Alongside the sync, the SDK's
+`AiService` facade was brought to **full parity** with the ai-service spec.
+
+### Endpoints
+
+- **ai-service** — new `…/agentic/oauths` CRUD (list/search/get/upsert/patch/delete).
+  SDK: added `ai.oauths`, plus the previously-unbound `ai.tools`, `ai.tokens`,
+  `ai.mcpServers` (CRUD), `ai.jobs`, `ai.templates`, `ai.logs`, `ai.analytics`,
+  and `ai.listModels` / `ai.listCommerceEvents` / `ai.uploadAttachment` /
+  `ai.exportAgents` / `ai.importAgents`. 44 operations total.
+
 ## 2026-07-21 — synced (agentic streaming + conversations)
 
 Re-vendored all specs; 13 changed. **5 new endpoints, 0 removed, 0 newly

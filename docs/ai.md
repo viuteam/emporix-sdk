@@ -1,8 +1,10 @@
 # AI Service
 
 Bindings for the Emporix **AI Service** (`/ai-service/{tenant}/…`): text
-generation, chat completions, and the agentic layer (agent CRUD + synchronous /
-asynchronous chat).
+generation, chat completions, and the full agentic layer — agent CRUD,
+synchronous / asynchronous / streaming chat, the agent building blocks (tools,
+MCP servers, tokens, OAuth configs), templates, jobs, logs, analytics, models,
+commerce events, attachments, and agent export/import.
 
 > **Server-side only.** Every endpoint requires a backend `ai.*` scope, served
 > by the **service (clientCredentials) token**. Never construct these calls from
@@ -99,6 +101,64 @@ const all = await client.ai.listConversations();
 const hits = await client.ai.searchConversations({ q: "agentId:support-bot" });
 ```
 
+## Agent building blocks (`tools`, `mcpServers`, `tokens`, `oauths`)
+
+Each is a uniform CRUD sub-resource: `list · search · get · upsert · patch · delete`.
+
+```ts
+const tools = await client.ai.tools.list();
+const server = await client.ai.mcpServers.get("my-mcp");
+
+// OAuth config + the token holding its client secret
+const { id: tokenId } = (await client.ai.tokens.upsert("gh-secret", {
+  name: "gh-secret",
+  value: process.env.GH_SECRET!,
+})) ?? {};
+await client.ai.oauths.upsert("gh-app", {
+  url: "https://github.com/login/oauth/access_token",
+  clientId: "Iv1.abc",
+  grantType: "client_credentials",
+  clientSecretToken: { id: tokenId! },
+});
+```
+
+`upsert` resolves to `{ id }` on create (HTTP 201) and `undefined` on update
+(HTTP 204). `patch` uses the UPPERCASE op enum (`ADD | REMOVE | REPLACE`), not
+RFC-6902. Pass `{ force: true }` to `upsert`/`delete` to cascade over
+dependents.
+
+## Jobs, templates, logs, analytics
+
+```ts
+const jobs = await client.ai.jobs.list();                 // /jobs (not /agentic)
+const [{ jobId }] = await client.ai.chatAsync({ agentId: "bot", message: "…" });
+const job = await client.ai.jobs.get(jobId);
+
+const { id: agentId } = await client.ai.templates.clone("support", {
+  userPrompt: "Handle returns",
+});
+
+const errors = await client.ai.logs.searchSessions({ q: "severity:ERROR" });
+const metrics = await client.ai.analytics.get({ agentId: "support" });
+const exec = await client.ai.analytics.executions({
+  agentIds: "support,sales",
+  granularity: "WEEK",
+});
+```
+
+## Models, commerce events, attachments, export/import
+
+```ts
+const models = await client.ai.listModels();
+const events = await client.ai.listCommerceEvents();
+
+const { sessionId } = await client.ai.uploadAttachment("bot", file); // file: Blob | File
+await client.ai.chat({ agentId: "bot", message: "See attachment", sessionId } as never);
+
+const bundle = await client.ai.exportAgents({ agentIds: ["bot"] });
+await client.ai.importAgents({ data: bundle.data, checksum: bundle.checksum });
+```
+
 ## Overriding the token
 
 All methods take an optional trailing `auth` argument (default: the `"backend"`
@@ -109,5 +169,6 @@ configured credential set, or `auth.raw(token)` for a pre-obtained token.
 
 ## Out of scope
 
-Templates, import/export, logs/sessions, and tokens endpoints are not yet bound.
-The AI Service API is version `0.0.1` (unstable); shapes may change.
+The facade now covers every `ai-service` operation. Note the AI Service API is
+version `0.0.1` (unstable); shapes may change. There is no React binding — the
+service is server-side only.
