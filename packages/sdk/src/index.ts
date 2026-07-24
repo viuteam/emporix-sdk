@@ -59,6 +59,10 @@ export type {
   CreateCartInput,
   CartItemInput,
   CartItemUpdate,
+  CartValidationResult,
+  CartItem,
+  CartItemsBatchUpdateInput,
+  CartItemsBatchUpdateResult,
 } from "./services/cart";
 export { CheckoutService } from "./services/checkout";
 export type {
