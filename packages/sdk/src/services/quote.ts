@@ -8,6 +8,11 @@ import type {
   QuoteUpdate,
   QuoteHistory,
   ListQuotesQuery,
+  QuoteReason,
+  QuoteReasonDraft,
+  QuoteReasonUpdate,
+  QuoteReasonCreated,
+  ListQuoteReasonsQuery,
 } from "./quote-types";
 
 export type {
@@ -36,6 +41,12 @@ export class QuoteService {
 
   private quotesBase(): string {
     return `/quote/${this.ctx.tenant}/quotes`;
+  }
+
+  private _reasons?: QuoteReasonsResource;
+  /** Quote reasons config (`/quote-reasons`). CRUD sub-resource. */
+  get reasons(): QuoteReasonsResource {
+    return (this._reasons ??= new QuoteReasonsResource(this.ctx));
   }
 
   /** List quotes, wrapped in {@link PaginatedItems}. Pass `{}` for no filter. */
@@ -113,5 +124,73 @@ export class QuoteService {
       throw errorFromResponse(res.status, `POST ${path} failed: ${res.status}`, body);
     }
     return await res.blob();
+  }
+}
+
+/**
+ * Quote reasons (`/quote/{tenant}/quote-reasons`). Config data. Like the rest
+ * of the quote domain, every method takes a REQUIRED `auth`: reads accept a
+ * customer or admin token; `create`/`update`/`delete` need the admin
+ * `quote.quote_manage` scope (`auth.service()`).
+ */
+export class QuoteReasonsResource {
+  constructor(private readonly ctx: ClientContext) {}
+
+  private base(): string {
+    return `/quote/${this.ctx.tenant}/quote-reasons`;
+  }
+
+  /** List reasons, wrapped in {@link PaginatedItems}. Pass `{}` for no paging override. */
+  async list(query: ListQuoteReasonsQuery, auth: AuthContext): Promise<PaginatedItems<QuoteReason>> {
+    const pageNumber = query.pageNumber ?? 1;
+    const pageSize = query.pageSize ?? 60;
+    const items = await this.ctx.http.request<QuoteReason[]>({
+      method: "GET",
+      path: this.base(),
+      auth,
+      query: { pageNumber, pageSize },
+    });
+    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+  }
+
+  /** Retrieve one reason by id. */
+  async get(reasonId: string, auth: AuthContext): Promise<QuoteReason> {
+    return this.ctx.http.request<QuoteReason>({
+      method: "GET",
+      path: `${this.base()}/${encodeURIComponent(reasonId)}`,
+      auth,
+    });
+  }
+
+  /** Create a reason (`POST /quote-reasons`). Requires the admin `quote_manage` scope. */
+  async create(draft: QuoteReasonDraft, auth: AuthContext): Promise<QuoteReasonCreated> {
+    return this.ctx.http.request<QuoteReasonCreated>({
+      method: "POST",
+      path: this.base(),
+      auth,
+      body: draft,
+    });
+  }
+
+  /**
+   * Replace a reason (`PUT /quote-reasons/{id}`, 204). `draft.metadata.version`
+   * is required for optimistic locking. Requires the admin `quote_manage` scope.
+   */
+  async update(reasonId: string, draft: QuoteReasonUpdate, auth: AuthContext): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PUT",
+      path: `${this.base()}/${encodeURIComponent(reasonId)}`,
+      auth,
+      body: draft,
+    });
+  }
+
+  /** Delete a reason (`DELETE /quote-reasons/{id}`). Requires the admin `quote_manage` scope. */
+  async delete(reasonId: string, auth: AuthContext): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/${encodeURIComponent(reasonId)}`,
+      auth,
+    });
   }
 }
