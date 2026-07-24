@@ -53,7 +53,14 @@ export type {
 export { ProductService } from "./services/product";
 export type { Product, Media } from "./services/product";
 export { CategoryService } from "./services/category";
-export type { Category, CategoryNode } from "./services/category";
+export type {
+  Category,
+  CategoryNode,
+  CategoryCreateInput,
+  CategoryUpdateInput,
+  CategoryPatchInput,
+  CategoryCreated,
+} from "./services/category";
 export { CartService } from "./services/cart";
 export type {
   Cart,

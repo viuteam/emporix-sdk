@@ -3,7 +3,14 @@ import { iterateAll } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { resolveQuery, type QueryFor } from "../core/query";
 import type { Product } from "./product";
-import type { Category as GeneratedCategory, CategoryTree } from "../generated/category";
+import type {
+  Category as GeneratedCategory,
+  CategoryTree,
+  CategoryCreateRequest,
+  CategoryUpdateRequest,
+  CategoryPartialUpdateRequest,
+  CategoryIdResponse,
+} from "../generated/category";
 
 const ANON: AuthContext = { kind: "anonymous" };
 const SERVICE: AuthContext = { kind: "service" };
@@ -13,6 +20,18 @@ export type Category = GeneratedCategory;
 
 /** The category tree as returned by the Category service. */
 export type CategoryNode = CategoryTree;
+
+/** Body for creating a category (`POST /categories`). */
+export type CategoryCreateInput = CategoryCreateRequest;
+
+/** Body for a full category replace (`PUT /categories/{id}`). */
+export type CategoryUpdateInput = CategoryUpdateRequest;
+
+/** Body for a partial category update (`PATCH /categories/{id}`). */
+export type CategoryPatchInput = CategoryPartialUpdateRequest;
+
+/** Id envelope returned when a category is created. */
+export type CategoryCreated = CategoryIdResponse;
 
 /** Category reads. Default auth: anonymous. */
 export class CategoryService {
@@ -220,6 +239,75 @@ export class CategoryService {
     return this.ctx.http.request<CategoryNode>({
       method: "GET",
       path: `/category/${this.ctx.tenant}/category-trees/${encodeURIComponent(categoryId)}`,
+      auth,
+    });
+  }
+
+  // --- Admin write CRUD. Default auth: service. ---
+
+  /**
+   * Creates a category (`POST /categories`). Default auth: service.
+   * `options.publish` sets the `publish` query flag (needs the
+   * `category.category_publish` scope).
+   */
+  async create(
+    input: CategoryCreateInput,
+    options: { publish?: boolean } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<CategoryCreated> {
+    return this.ctx.http.request<CategoryCreated>({
+      method: "POST",
+      path: `/category/${this.ctx.tenant}/categories`,
+      ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Full-replaces a category (`PUT /categories/{categoryId}`). This is an
+   * upsert: with a caller-supplied id it may create (201, returns the id) or
+   * update an existing one (204, returns nothing). Default auth: service.
+   */
+  async update(
+    categoryId: string,
+    input: CategoryUpdateInput,
+    options: { publish?: boolean } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<CategoryCreated | void> {
+    return this.ctx.http.request<CategoryCreated | void>({
+      method: "PUT",
+      path: `/category/${this.ctx.tenant}/categories/${categoryId}`,
+      ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Partially updates a category (`PATCH /categories/{categoryId}`). Default
+   * auth: service. `options.publish` sets the `publish` query flag.
+   */
+  async patch(
+    categoryId: string,
+    input: CategoryPatchInput,
+    options: { publish?: boolean } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PATCH",
+      path: `/category/${this.ctx.tenant}/categories/${categoryId}`,
+      ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /** Deletes a category (`DELETE /categories/{categoryId}`). Default auth: service. */
+  async delete(categoryId: string, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `/category/${this.ctx.tenant}/categories/${categoryId}`,
       auth,
     });
   }
