@@ -130,6 +130,27 @@ export type {
 } from "./services/quote";
 export { SessionContextService } from "./services/session-context";
 export type { SessionContext, SessionContextPatch, SessionAttributeInput } from "./services/session-context";
+export { IamService } from "./services/iam";
+export type {
+  IamUser,
+  IamUserDetail,
+  IamUserCreate,
+  IamUserUpdate,
+  IamUserScopes,
+  IamUserCreated,
+  IamGroup,
+  IamGroupCreate,
+  IamGroupUpdate,
+  IamGroupCreated,
+  IamGroupMemberInput,
+  IamGroupMemberCreated,
+  IamAccessControl,
+  IamAccessControlUpsert,
+  IamAccessControlCreated,
+  IamScope,
+  IamScopeUpsert,
+  IamScopeCreated,
+} from "./services/iam";
 export * from "./companies";
 export * from "./contacts";
 export * from "./locations";
