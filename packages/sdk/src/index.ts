@@ -80,6 +80,11 @@ export type {
   CartItem,
   CartItemsBatchUpdateInput,
   CartItemsBatchUpdateResult,
+  CartSearchInput,
+  CartSummary,
+  CartUpdateInput,
+  CartDiscount,
+  CartDeliveryRestrictions,
 } from "./services/cart";
 export { CheckoutService } from "./services/checkout";
 export type {

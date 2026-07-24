@@ -15,6 +15,11 @@ import type {
   CartItemResponse,
   CartItemsBatchUpdateRequest,
   CartItemsBatchUpdateResponse,
+  Search,
+  CartGetAll,
+  UpdateCart,
+  DiscountResponse,
+  CartDtRestrictions,
 } from "../generated/cart";
 
 /** A cart as returned by the Cart service (all generated fields). */
@@ -47,6 +52,21 @@ export type CartItemsBatchUpdateInput = CartItemsBatchUpdateRequest;
 
 /** Per-entry response for a multi-item update (generated). */
 export type CartItemsBatchUpdateResult = CartItemsBatchUpdateResponse;
+
+/** Body for searching carts (`POST /carts/search`) — a `q` filter. */
+export type CartSearchInput = Search;
+
+/** A cart summary as returned by `POST /carts/search`. */
+export type CartSummary = CartGetAll;
+
+/** Body for a full cart update (`PUT /carts/{id}`). */
+export type CartUpdateInput = UpdateCart;
+
+/** A discount entry as returned by `GET /carts/{id}/discounts`. */
+export type CartDiscount = DiscountResponse;
+
+/** Lead-time and non-delivery-time restrictions for a cart (`GET …/dtRestrictions`). */
+export type CartDeliveryRestrictions = CartDtRestrictions;
 
 function requireCartAuth(auth: AuthContext | undefined): AuthContext {
   if (auth && (auth.kind === "customer" || auth.kind === "anonymous")) return auth;
@@ -348,6 +368,123 @@ export class CartService {
       path: `${this.base()}/${customerCartId}/merge`,
       auth: requireCustomerAuth(auth),
       body: { carts: anonymousCartIds },
+    });
+  }
+
+  /**
+   * Searches carts tenant-wide (`POST /carts/search`, body `{ q }`). This is a
+   * backend/admin operation — a customer token cannot scan other customers'
+   * carts, so `auth` is forwarded unguarded (pass a service token for admin
+   * use). The server enforces scope (403 on insufficient).
+   */
+  async search(
+    query: CartSearchInput,
+    auth: AuthContext,
+    params: { pageNumber?: number; pageSize?: number; sort?: string; fields?: string } = {},
+  ): Promise<CartSummary[]> {
+    return this.ctx.http.request<CartSummary[]>({
+      method: "POST",
+      path: `${this.base()}/search`,
+      query: {
+        ...(params.pageNumber === undefined ? {} : { pageNumber: params.pageNumber }),
+        ...(params.pageSize === undefined ? {} : { pageSize: params.pageSize }),
+        ...(params.sort === undefined ? {} : { sort: params.sort }),
+        ...(params.fields === undefined ? {} : { fields: params.fields }),
+      },
+      body: query,
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
+      auth,
+    });
+  }
+
+  /**
+   * Deletes a cart (`DELETE /carts/{cartId}`). Backend/admin or owner
+   * operation — `auth` is forwarded unguarded (service or customer). Returns
+   * nothing; the cart no longer exists.
+   */
+  async delete(cartId: string, auth: AuthContext): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/${cartId}`,
+      auth,
+    });
+  }
+
+  /**
+   * Full-updates a cart (`PUT /carts/{cartId}`, body `UpdateCart`). Backend or
+   * owner operation — `auth` is forwarded unguarded. The endpoint returns 204,
+   * so the cart is re-fetched with the same `auth` (via a direct GET, not
+   * `get()`, so a service token is not rejected by the cart-auth guard) and
+   * returned.
+   */
+  async update(cartId: string, input: CartUpdateInput, auth: AuthContext): Promise<Cart> {
+    await this.ctx.http.request<void>({
+      method: "PUT",
+      path: `${this.base()}/${cartId}`,
+      auth,
+      body: input,
+    });
+    return this.ctx.http.request<Cart>({
+      method: "GET",
+      path: `${this.base()}/${cartId}`,
+      auth,
+    });
+  }
+
+  /** Fetches a single cart item's details (`GET /carts/{cartId}/items/{itemId}`). */
+  async getItem(cartId: string, itemId: string, auth: AuthContext): Promise<CartItem> {
+    return this.ctx.http.request<CartItem>({
+      method: "GET",
+      path: `${this.base()}/${cartId}/items/${itemId}`,
+      auth: requireCartAuth(auth),
+    });
+  }
+
+  /** Lists the discounts applied to a cart (`GET /carts/{cartId}/discounts`). */
+  async listDiscounts(cartId: string, auth: AuthContext): Promise<CartDiscount[]> {
+    return this.ctx.http.request<CartDiscount[]>({
+      method: "GET",
+      path: `${this.base()}/${cartId}/discounts`,
+      auth: requireCartAuth(auth),
+    });
+  }
+
+  /**
+   * Removes all discounts from a cart (`DELETE /carts/{cartId}/discounts` with
+   * no `codes` filter), then re-fetches and returns the updated cart. Use
+   * `removeCoupon(code)` to remove a specific coupon by code.
+   */
+  async removeAllDiscounts(cartId: string, auth: AuthContext): Promise<Cart> {
+    const cartAuth = requireCartAuth(auth);
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/${cartId}/discounts`,
+      auth: cartAuth,
+    });
+    return this.get(cartId, cartAuth);
+  }
+
+  /**
+   * Removes a single discount by its index (`DELETE
+   * /carts/{cartId}/discounts/{discountIndex}`), then re-fetches and returns
+   * the updated cart.
+   */
+  async removeDiscountByIndex(cartId: string, discountIndex: string, auth: AuthContext): Promise<Cart> {
+    const cartAuth = requireCartAuth(auth);
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/${cartId}/discounts/${discountIndex}`,
+      auth: cartAuth,
+    });
+    return this.get(cartId, cartAuth);
+  }
+
+  /** Retrieves the cart's lead-time and non-delivery-time restrictions (`GET /carts/{cartId}/dtRestrictions`). */
+  async getDeliveryRestrictions(cartId: string, auth: AuthContext): Promise<CartDeliveryRestrictions> {
+    return this.ctx.http.request<CartDeliveryRestrictions>({
+      method: "GET",
+      path: `${this.base()}/${cartId}/dtRestrictions`,
+      auth: requireCartAuth(auth),
     });
   }
 }
