@@ -61,6 +61,12 @@ export type {
   CategoryPatchInput,
   CategoryCreated,
   CategoryTreeSearchInput,
+  CategoryAssignment,
+  CategoryAssignmentInput,
+  CategoryAssignmentBulkInput,
+  CategoryAssignmentRefBulkInput,
+  CategoryAssignmentBulkResult,
+  CategoryAssignmentCreated,
 } from "./services/category";
 export { CartService } from "./services/cart";
 export type {

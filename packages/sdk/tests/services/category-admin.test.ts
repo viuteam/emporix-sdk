@@ -91,3 +91,52 @@ describe("CategoryService search reads", () => {
     );
   });
 });
+
+describe("CategoryService.assignments", () => {
+  it("category-bound assignment ops hit the right method+path", async () => {
+    const l = vi.fn().mockResolvedValue([{ id: "a1" }]);
+    await svc(l).assignments.list("c1");
+    expect(l).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${B}/c1/assignments`, auth: { kind: "anonymous" } }));
+
+    const cr = vi.fn().mockResolvedValue({ id: "a1" });
+    await svc(cr).assignments.create("c1", { ref: { id: "p1", type: "PRODUCT" } });
+    expect(cr).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${B}/c1/assignments`, auth: { kind: "service" } }));
+
+    const bc = vi.fn().mockResolvedValue([{ status: "201" }]);
+    await svc(bc).assignments.bulkCreate("c1", [{ ref: { id: "p1", type: "PRODUCT" } }]);
+    expect(bc).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${B}/c1/assignments/bulk`, auth: { kind: "service" } }));
+
+    const rm = vi.fn().mockResolvedValue(undefined);
+    await svc(rm).assignments.remove("c1", "a1");
+    expect(rm).toHaveBeenCalledWith(expect.objectContaining({ method: "DELETE", path: `${B}/c1/assignments/a1`, auth: { kind: "service" } }));
+
+    const ra = vi.fn().mockResolvedValue(undefined);
+    await svc(ra).assignments.removeAll("c1", { assignmentType: "PRODUCT" });
+    expect(ra).toHaveBeenCalledWith(expect.objectContaining({ method: "DELETE", path: `${B}/c1/assignments`, query: { assignmentType: "PRODUCT" } }));
+  });
+
+  it("reference-based assignment ops hit /assignments/references/...", async () => {
+    const up = vi.fn().mockResolvedValue({ id: "a1" });
+    await svc(up).assignments.upsertByReference("c1", "p1");
+    expect(up).toHaveBeenCalledWith(expect.objectContaining({ method: "PUT", path: `${B}/c1/assignments/references/p1`, auth: { kind: "service" } }));
+    expect(up.mock.calls[0]?.[0]).not.toHaveProperty("body");
+
+    const rr = vi.fn().mockResolvedValue(undefined);
+    await svc(rr).assignments.removeByReference("c1", "p1");
+    expect(rr).toHaveBeenCalledWith(expect.objectContaining({ method: "DELETE", path: `${B}/c1/assignments/references/p1` }));
+
+    const bu = vi.fn().mockResolvedValue([{ status: "200" }]);
+    await svc(bu).assignments.bulkUpsertByReference("c1", [{ ref: { id: "p1" } }]);
+    expect(bu).toHaveBeenCalledWith(expect.objectContaining({ method: "PUT", path: `${B}/c1/assignments/references/bulk`, auth: { kind: "service" } }));
+  });
+
+  it("tenant-level reference ops target /assignments/references/{id}", async () => {
+    const lc = vi.fn().mockResolvedValue([{ id: "c1" }]);
+    await svc(lc).assignments.listCategoriesByReference("p1");
+    expect(lc).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: "/category/acme/assignments/references/p1", auth: { kind: "anonymous" } }));
+
+    const rl = vi.fn().mockResolvedValue(undefined);
+    await svc(rl).assignments.removeAllByReference("p1");
+    expect(rl).toHaveBeenCalledWith(expect.objectContaining({ method: "DELETE", path: "/category/acme/assignments/references/p1", auth: { kind: "service" } }));
+  });
+});
