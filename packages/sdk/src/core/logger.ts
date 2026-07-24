@@ -49,6 +49,8 @@ export type ServiceName =
   | "pick-pack"
   | "customer-admin"
   | "approval"
+  | "invoice"
+  | "quote"
   | "cloud-functions"
   | "http"
   | "auth";

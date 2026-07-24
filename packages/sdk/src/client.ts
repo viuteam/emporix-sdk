@@ -37,6 +37,7 @@ import { LabelService } from "./services/label";
 import { CountryService } from "./services/country";
 import { CurrencyService } from "./services/currency";
 import { ShippingService } from "./services/shipping";
+import { InvoiceService } from "./services/invoice";
 import { ReturnsService } from "./services/returns";
 import { SepaExportService } from "./services/sepa-export";
 import { IndexingService } from "./services/indexing";
@@ -85,6 +86,7 @@ export class EmporixClient {
   readonly countries: CountryService;
   readonly currencies: CurrencyService;
   readonly shipping: ShippingService;
+  readonly invoices: InvoiceService;
   readonly returns: ReturnsService;
   readonly sepaExport: SepaExportService;
   readonly indexing: IndexingService;
@@ -158,6 +160,7 @@ export class EmporixClient {
     this.countries = new CountryService(mk(CountryService.channel));
     this.currencies = new CurrencyService(mk(CurrencyService.channel));
     this.shipping = new ShippingService(mk(ShippingService.channel));
+    this.invoices = new InvoiceService(mk(InvoiceService.channel));
     this.returns = new ReturnsService(mk(ReturnsService.channel));
     this.sepaExport = new SepaExportService(mk(SepaExportService.channel));
     this.indexing = new IndexingService(mk(IndexingService.channel));
