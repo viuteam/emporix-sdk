@@ -15,6 +15,9 @@ import {
   type CartItemUpdate,
   type CartCreated,
   type CreateCartInput,
+  type CartValidationResult,
+  type CartItem,
+  type CartItemsBatchUpdateInput,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
@@ -40,6 +43,35 @@ export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResul
   });
 }
 
+/** Validates the given cart's items. Disabled when the id is empty. */
+export function useCartValidation(
+  cartId: string | undefined,
+  options: QueryOpts = {},
+): UseQueryResult<CartValidationResult> {
+  const { client } = useEmporix();
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "cart-validation", args: [cartId ?? null],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    enabled: typeof cartId === "string" && cartId !== "",
+    queryFn: (ctx) => client.carts.validate(cartId as string, ctx),
+    staleTime: 0,
+  });
+}
+
+/** Lists the items in the given cart. Disabled when the id is empty. */
+export function useCartItems(
+  cartId: string | undefined,
+  options: QueryOpts = {},
+): UseQueryResult<CartItem[]> {
+  const { client } = useEmporix();
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "cart-items", args: [cartId ?? null],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    enabled: typeof cartId === "string" && cartId !== "",
+    queryFn: (ctx) => client.carts.listItems(cartId as string, ctx),
+  });
+}
+
 type Mut<TVars> = UseMutationResult<Cart, unknown, TVars, { previous: Cart | undefined }>;
 
 /** Cart write operations with optimistic cache updates and rollback. */
@@ -52,6 +84,10 @@ export interface CartMutationsApi {
   removeCoupon: Mut<{ code: string }>;
   setShippingAddress: Mut<CartAddress>;
   setBillingAddress: Mut<CartAddress>;
+  refresh: Mut<void>;
+  changeSite: Mut<{ siteCode: string }>;
+  changeCurrency: Mut<{ currency: string }>;
+  updateItemsBatch: Mut<{ items: CartItemsBatchUpdateInput }>;
 }
 
 /**
@@ -158,6 +194,14 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
     removeCoupon: make((id, v) => client.carts.removeCoupon(id, v.code, ctx)),
     setShippingAddress: make((id, v) => client.carts.setShippingAddress(id, v, ctx)),
     setBillingAddress: make((id, v) => client.carts.setBillingAddress(id, v, ctx)),
+    refresh: make((id) => client.carts.refresh(id, ctx)),
+    changeSite: make((id, v: { siteCode: string }) => client.carts.changeSite(id, v.siteCode, ctx)),
+    changeCurrency: make((id, v: { currency: string }) =>
+      client.carts.changeCurrency(id, v.currency, ctx),
+    ),
+    updateItemsBatch: make((id, v: { items: CartItemsBatchUpdateInput }) =>
+      client.carts.updateItemsBatch(id, v.items, ctx).then(() => client.carts.get(id, ctx)),
+    ),
   };
 }
 

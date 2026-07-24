@@ -38,6 +38,8 @@ export {
   useActiveCart,
   useCartMutations,
   useCreateCart,
+  useCartValidation,
+  useCartItems,
   useCheckout,
   usePaymentModes,
   useShippingZones,
