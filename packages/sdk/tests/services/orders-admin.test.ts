@@ -60,3 +60,33 @@ describe("SalesOrdersService CRUD", () => {
     expect(d).toHaveBeenCalledWith(expect.objectContaining({ method: "DELETE", path: `${SB}/o1`, auth: SVC }));
   });
 });
+
+describe("SalesOrdersService actions", () => {
+  it("transition ops hit /salesorders/{id}/transitions and historical-transitions", async () => {
+    const lt = vi.fn().mockResolvedValue([{ status: "COMPLETED" }]);
+    await so(lt).listTransitions("o1", SVC);
+    expect(lt).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${SB}/o1/transitions`, auth: SVC }));
+
+    const t = vi.fn().mockResolvedValue(undefined);
+    await so(t).transition("o1", { status: "COMPLETED" } as never, SVC);
+    expect(t).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${SB}/o1/transitions`, body: { status: "COMPLETED" }, auth: SVC }));
+
+    const h = vi.fn().mockResolvedValue({ transitions: [] });
+    await so(h).listHistoricalTransitions("o1", SVC);
+    expect(h).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${SB}/o1/historical-transitions`, auth: SVC }));
+  });
+
+  it("calculate / updateEntries / split POST the right paths", async () => {
+    const c = vi.fn().mockResolvedValue({});
+    await so(c).calculate("o1", {} as never, SVC);
+    expect(c).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${SB}/o1/calculations`, body: {}, auth: SVC }));
+
+    const e = vi.fn().mockResolvedValue({ id: "o1" });
+    await so(e).updateEntries("o1", {} as never, SVC);
+    expect(e).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${SB}/o1/entries`, body: {}, auth: SVC }));
+
+    const s = vi.fn().mockResolvedValue({ orders: [] });
+    await so(s).split("o1", {} as never, SVC);
+    expect(s).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${SB}/o1/split`, body: {}, auth: SVC }));
+  });
+});

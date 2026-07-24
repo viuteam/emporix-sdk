@@ -326,4 +326,62 @@ export class SalesOrdersService {
       auth,
     });
   }
+
+  /** Lists the available transitions for a sales-order (`GET /salesorders/{orderId}/transitions`). */
+  async listTransitions(orderId: string, auth: AuthContext): Promise<Transition[]> {
+    return this.ctx.http.request<Transition[]>({
+      method: "GET",
+      path: `${this.base()}/${orderId}/transitions`,
+      auth,
+    });
+  }
+
+  /** Transitions a sales-order to a new status (`POST /salesorders/{orderId}/transitions`). */
+  async transition(orderId: string, input: Transition, auth: AuthContext): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `${this.base()}/${orderId}/transitions`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Lists the historical transitions of a sales-order (`GET /salesorders/{orderId}/historical-transitions`). */
+  async listHistoricalTransitions(orderId: string, auth: AuthContext): Promise<SalesOrderHistoricalTransitions> {
+    return this.ctx.http.request<SalesOrderHistoricalTransitions>({
+      method: "GET",
+      path: `${this.base()}/${orderId}/historical-transitions`,
+      auth,
+    });
+  }
+
+  /** Calculates order-entry totals for a sales-order (`POST /salesorders/{orderId}/calculations`). */
+  async calculate(orderId: string, input: SalesOrderCalculationInput, auth: AuthContext): Promise<unknown> {
+    return this.ctx.http.request<unknown>({
+      method: "POST",
+      path: `${this.base()}/${orderId}/calculations`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Updates a sales-order's entries (`POST /salesorders/{orderId}/entries`). Returns the updated order. */
+  async updateEntries(orderId: string, input: SalesOrderEntriesInput, auth: AuthContext): Promise<SalesOrder> {
+    return this.ctx.http.request<SalesOrder>({
+      method: "POST",
+      path: `${this.base()}/${orderId}/entries`,
+      auth,
+      body: input,
+    });
+  }
+
+  /** Splits a sales-order (`POST /salesorders/{orderId}/split`). */
+  async split(orderId: string, input: SalesOrderSplitInput, auth: AuthContext): Promise<SalesOrderSplitResult> {
+    return this.ctx.http.request<SalesOrderSplitResult>({
+      method: "POST",
+      path: `${this.base()}/${orderId}/split`,
+      auth,
+      body: input,
+    });
+  }
 }
