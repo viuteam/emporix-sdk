@@ -53,6 +53,13 @@ const SPECS: Record<string, string> = {
   "approval-service": `${BASE}/companies-and-customers/approval-service/approval-api-reference/api.yml`,
   iam: `${BASE}/users-and-permissions/iam/api-reference/api.yml`,
   availability: `${BASE}/orders/availability/api-reference/api.yml`,
+  // Upstream serves these five with an `api.yaml` (not `.yml`) extension for
+  // three of them — mind the extension when editing.
+  "oauth-service": `${BASE}/authentication/oauth-service/api-reference/api.yml`,
+  "site-settings-service": `${BASE}/configuration/site-settings-service/api-reference/api.yml`,
+  invoice: `${BASE}/orders/invoice/api-reference/api.yaml`,
+  quote: `${BASE}/quotes/quote/api-reference/api.yaml`,
+  "session-context": `${BASE}/users-and-permissions/session-context/api-reference/api.yaml`,
 };
 
 async function readManifest(path: string): Promise<SyncManifest | null> {
