@@ -8,6 +8,7 @@ import type {
   CartItemRequest,
   UpdateCartItem,
   AddressRequest,
+  AppliedDiscount,
   BatchResponse as GeneratedBatchResponse,
   SingleBatchResponse as GeneratedSingleBatchResponse,
 } from "../generated/cart";
@@ -180,23 +181,38 @@ export class CartService {
     });
   }
 
-  /** Applies a coupon. */
+  /**
+   * Applies a coupon by code. Coupon application goes through the cart's
+   * `discounts` endpoint (`POST …/discounts` with a coupon-code-only payload) —
+   * the live API has no `…/coupons` path. The apply response only carries the
+   * applied-discount reference (`{ discountId, discountIndex }`), so the updated
+   * cart is re-fetched and returned to preserve the `Cart` contract.
+   */
   async applyCoupon(cartId: string, code: string, auth: AuthContext): Promise<Cart> {
-    return this.ctx.http.request<Cart>({
+    const cartAuth = requireCartAuth(auth);
+    await this.ctx.http.request<AppliedDiscount>({
       method: "POST",
-      path: `${this.base()}/${cartId}/coupons`,
-      auth: requireCartAuth(auth),
+      path: `${this.base()}/${cartId}/discounts`,
+      auth: cartAuth,
       body: { code },
     });
+    return this.get(cartId, cartAuth);
   }
 
-  /** Removes a coupon. */
+  /**
+   * Removes a coupon by code via `DELETE …/discounts?codes=<code>` — the live
+   * API has no `…/coupons/<code>` path. The delete responds 204 No Content, so
+   * the updated cart is re-fetched and returned.
+   */
   async removeCoupon(cartId: string, code: string, auth: AuthContext): Promise<Cart> {
-    return this.ctx.http.request<Cart>({
+    const cartAuth = requireCartAuth(auth);
+    await this.ctx.http.request<void>({
       method: "DELETE",
-      path: `${this.base()}/${cartId}/coupons/${code}`,
-      auth: requireCartAuth(auth),
+      path: `${this.base()}/${cartId}/discounts`,
+      query: { codes: code },
+      auth: cartAuth,
     });
+    return this.get(cartId, cartAuth);
   }
 
   /** Sets the shipping address. */

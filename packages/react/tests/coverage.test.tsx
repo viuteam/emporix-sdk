@@ -52,11 +52,11 @@ const server = setupServer(
   http.delete("https://api.emporix.io/cart/acme/carts/cart1/items", () =>
     HttpResponse.json({ id: "cart1", items: [] }),
   ),
-  http.post("https://api.emporix.io/cart/acme/carts/cart1/coupons", () =>
-    HttpResponse.json({ id: "cart1", items: [] }),
+  http.post("https://api.emporix.io/cart/acme/carts/cart1/discounts", () =>
+    HttpResponse.json({ discountId: "d1", discountIndex: 0 }, { status: 201 }),
   ),
-  http.delete("https://api.emporix.io/cart/acme/carts/cart1/coupons/CC", () =>
-    HttpResponse.json({ id: "cart1", items: [] }),
+  http.delete("https://api.emporix.io/cart/acme/carts/cart1/discounts", () =>
+    new HttpResponse(null, { status: 204 }),
   ),
   http.put("https://api.emporix.io/cart/acme/carts/cart1/shipping-address", () =>
     HttpResponse.json({ id: "cart1", items: [] }),

@@ -28,9 +28,9 @@ const server = setupServer(
   http.put("https://api.emporix.io/customer/acme/me", () =>
     HttpResponse.json({ id: "c1", email: "a@b.co", firstName: "Z" }),
   ),
-  http.put("https://api.emporix.io/customer/acme/password", () => new HttpResponse(null, { status: 204 })),
+  http.post("https://api.emporix.io/customer/acme/password/change", () => new HttpResponse(null, { status: 204 })),
   http.post("https://api.emporix.io/customer/acme/password/reset", () => new HttpResponse(null, { status: 204 })),
-  http.post("https://api.emporix.io/customer/acme/password/reset/confirm", () => new HttpResponse(null, { status: 204 })),
+  http.post("https://api.emporix.io/customer/acme/password/reset/update", () => new HttpResponse(null, { status: 204 })),
   http.post("https://api.emporix.io/customer/acme/me/addresses", () =>
     HttpResponse.json({ id: "ad1", city: "Berlin" }),
   ),
@@ -75,11 +75,11 @@ const server = setupServer(
   http.delete("https://api.emporix.io/cart/acme/carts/cart1/items", () =>
     HttpResponse.json({ id: "cart1", items: [] }),
   ),
-  http.post("https://api.emporix.io/cart/acme/carts/cart1/coupons", () =>
-    HttpResponse.json({ id: "cart1", items: [] }),
+  http.post("https://api.emporix.io/cart/acme/carts/cart1/discounts", () =>
+    HttpResponse.json({ discountId: "d1", discountIndex: 0 }, { status: 201 }),
   ),
-  http.delete("https://api.emporix.io/cart/acme/carts/cart1/coupons/C1", () =>
-    HttpResponse.json({ id: "cart1", items: [] }),
+  http.delete("https://api.emporix.io/cart/acme/carts/cart1/discounts", () =>
+    new HttpResponse(null, { status: 204 }),
   ),
   http.put("https://api.emporix.io/cart/acme/carts/cart1/shipping-address", () =>
     HttpResponse.json({ id: "cart1", items: [] }),

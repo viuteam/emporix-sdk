@@ -81,10 +81,10 @@ describe("company mutation hooks", () => {
     await waitFor(() => expect(calls).toBeGreaterThan(before));
   });
 
-  it("useUpdateCompany PATCHes", async () => {
+  it("useUpdateCompany PUTs", async () => {
     const { Wrapper } = wrap();
     server.use(
-      http.patch("https://api.emporix.io/customer-management/acme/legal-entities/le-1", () =>
+      http.put("https://api.emporix.io/customer-management/acme/legal-entities/le-1", () =>
         HttpResponse.json({ id: "le-1", name: "Patched", type: "COMPANY" }),
       ),
     );
@@ -139,10 +139,10 @@ describe("company mutation hooks", () => {
     await waitFor(() => expect(result.current.u.isSuccess).toBe(true));
   });
 
-  it("useUpdateContactAssignment PATCHes", async () => {
+  it("useUpdateContactAssignment PUTs", async () => {
     const { Wrapper } = wrap();
     server.use(
-      http.patch("https://api.emporix.io/customer-management/acme/contact-assignments/ca-1", () =>
+      http.put("https://api.emporix.io/customer-management/acme/contact-assignments/ca-1", () =>
         HttpResponse.json({ id: "ca-1", type: "LOGISTICS" }),
       ),
     );
@@ -160,7 +160,7 @@ describe("company mutation hooks", () => {
       http.post("https://api.emporix.io/customer-management/acme/locations", () =>
         HttpResponse.json({ id: "loc-new" }, { status: 201 }),
       ),
-      http.patch("https://api.emporix.io/customer-management/acme/locations/loc-new", () =>
+      http.put("https://api.emporix.io/customer-management/acme/locations/loc-new", () =>
         HttpResponse.json({ id: "loc-new", name: "Renamed", type: "HEADQUARTER" }),
       ),
       http.delete("https://api.emporix.io/customer-management/acme/locations/loc-new", () =>

@@ -252,8 +252,8 @@ export class CustomerService {
   /** Changes the password. Requires customer/raw auth. */
   async changePassword(input: PasswordChangeInput, auth?: AuthContext): Promise<void> {
     await this.ctx.http.request<void>({
-      method: "PUT",
-      path: `/customer/${this.ctx.tenant}/password`,
+      method: "POST",
+      path: `/customer/${this.ctx.tenant}/password/change`,
       auth: requireCustomer(auth),
       body: input,
     });
@@ -279,7 +279,7 @@ export class CustomerService {
   ): Promise<void> {
     await this.ctx.http.request<void>({
       method: "POST",
-      path: `/customer/${this.ctx.tenant}/password/reset/confirm`,
+      path: `/customer/${this.ctx.tenant}/password/reset/update`,
       auth,
       body: input,
     });

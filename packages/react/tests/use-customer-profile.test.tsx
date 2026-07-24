@@ -91,11 +91,11 @@ describe("useUpdateCustomer", () => {
 });
 
 describe("useChangePassword", () => {
-  it("PUTs the input and resolves to void", async () => {
+  it("POSTs the input and resolves to void", async () => {
     let seenBody: { currentPassword?: string; newPassword?: string } | undefined;
     server.use(
-      http.put(
-        "https://api.emporix.io/customer/acme/password",
+      http.post(
+        "https://api.emporix.io/customer/acme/password/change",
         async ({ request }) => {
           seenBody = (await request.json()) as {
             currentPassword?: string;

@@ -42,8 +42,10 @@ export class ContactsService {
   }
 
   /**
-   * Patches a contact assignment. PATCH endpoint, so the body is a partial of
-   * the generated `ContactAssignmentUpdate` shape.
+   * Updates a contact assignment via `PUT …/contact-assignments/{id}` (upsert /
+   * full replace). The live API rejects `PATCH` on this path with 405; send the
+   * complete entity, as the server replaces the resource. The body stays typed
+   * as a partial of `ContactAssignmentUpdate` for backward compatibility.
    */
   async update(
     contactAssignmentId: string,
@@ -51,7 +53,7 @@ export class ContactsService {
     auth: AuthContext,
   ): Promise<ContactAssignment> {
     return this.ctx.http.request<ContactAssignment>({
-      method: "PATCH",
+      method: "PUT",
       path: `${this.base()}/${contactAssignmentId}`,
       auth,
       body: patch,

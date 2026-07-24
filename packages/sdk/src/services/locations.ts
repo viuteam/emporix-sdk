@@ -51,8 +51,10 @@ export class LocationsService {
   }
 
   /**
-   * Patches a location. PATCH endpoint, so the body is a partial of the
-   * generated `LocationUpdate` shape.
+   * Updates a location via `PUT …/locations/{id}` (upsert / full replace). The
+   * live API rejects `PATCH` on this path with 405; send the complete entity,
+   * as the server replaces the resource. The body stays typed as a partial of
+   * `LocationUpdate` for backward compatibility.
    */
   async update(
     locationId: string,
@@ -60,7 +62,7 @@ export class LocationsService {
     auth: AuthContext,
   ): Promise<Location> {
     return this.ctx.http.request<Location>({
-      method: "PATCH",
+      method: "PUT",
       path: `${this.base()}/${locationId}`,
       auth,
       body: patch,
