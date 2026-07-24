@@ -79,6 +79,8 @@ export type {
   PaymentMode,
   AuthorizePaymentInput,
   AuthorizePaymentResult,
+  InitializePaymentInput,
+  InitializePaymentResult,
 } from "./services/payment";
 export { PriceService } from "./services/price";
 export type {
