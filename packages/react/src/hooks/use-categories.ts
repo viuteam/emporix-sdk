@@ -5,6 +5,7 @@ import {
 import {
   type PaginatedItems,
   type Category,
+  type CategoryNode,
   type Product,
   type QueryFor,
 } from "@viu/emporix-sdk";
@@ -87,6 +88,51 @@ export function useCategoryTree(options: QueryOpts = {}): UseQueryResult<Categor
     mode: "read-auth", site: "full", resource: "category-tree", args: [],
     ...(options.auth ? { authOverride: options.auth } : {}),
     queryFn: (ctx) => client.categories.tree(ctx),
+    staleTime: CATEGORIES_STALE_TIME,
+  });
+}
+
+/** Ancestor categories of a category (breadcrumb-up). Disabled when id is empty. */
+export function useCategoryParents(
+  categoryId: string | undefined,
+  options: QueryOpts = {},
+): UseQueryResult<Category[]> {
+  const { client } = useEmporix();
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "category-parents", args: [categoryId ?? null],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    enabled: typeof categoryId === "string" && categoryId !== "",
+    queryFn: (ctx) => client.categories.parents(categoryId as string, ctx),
+    staleTime: CATEGORIES_STALE_TIME,
+  });
+}
+
+/** Direct child categories via the dedicated `/subcategories` endpoint. Disabled when id is empty. */
+export function useChildCategories(
+  categoryId: string | undefined,
+  options: QueryOpts = {},
+): UseQueryResult<Category[]> {
+  const { client } = useEmporix();
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "child-categories", args: [categoryId ?? null],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    enabled: typeof categoryId === "string" && categoryId !== "",
+    queryFn: (ctx) => client.categories.childCategories(categoryId as string, ctx),
+    staleTime: CATEGORIES_STALE_TIME,
+  });
+}
+
+/** One category tree by root id (the argument-less `useCategoryTree` lists all trees). Disabled when id is empty. */
+export function useCategoryTreeById(
+  categoryId: string | undefined,
+  options: QueryOpts = {},
+): UseQueryResult<CategoryNode> {
+  const { client } = useEmporix();
+  return useEmporixQuery({
+    mode: "read-auth", site: "full", resource: "category-tree-by-id", args: [categoryId ?? null],
+    ...(options.auth ? { authOverride: options.auth } : {}),
+    enabled: typeof categoryId === "string" && categoryId !== "",
+    queryFn: (ctx) => client.categories.getTree(categoryId as string, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
 }
