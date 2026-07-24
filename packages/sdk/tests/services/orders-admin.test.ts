@@ -1,0 +1,62 @@
+import { describe, it, expect, vi } from "vitest";
+import { SalesOrdersService, OrdersService } from "../../src/services/orders";
+
+function ctxWith(request: ReturnType<typeof vi.fn>) {
+  return {
+    tenant: "acme",
+    http: { request },
+    tokenProvider: { getToken: vi.fn() },
+    logger: { trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: vi.fn() },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+}
+const so = (req: ReturnType<typeof vi.fn>): SalesOrdersService => new SalesOrdersService(ctxWith(req));
+const os = (req: ReturnType<typeof vi.fn>): OrdersService => new OrdersService(ctxWith(req));
+const SB = "/order-v2/acme/salesorders";
+const LEB = "/order-v2/acme/legal-entity-orders";
+const SVC = { kind: "service" } as const;
+const CUST = { kind: "customer", token: "T" } as const;
+
+describe("SalesOrdersService CRUD", () => {
+  it("list wraps the array into PaginatedItems and forwards auth + paging", async () => {
+    const l = vi.fn().mockResolvedValue([{ id: "o1" }]);
+    const res = await so(l).list(SVC, { pageSize: 10, q: "status:COMPLETED" });
+    expect(l).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        path: SB,
+        auth: { kind: "service" },
+        query: expect.objectContaining({ pageNumber: 1, pageSize: 10, q: "status:COMPLETED" }),
+      }),
+    );
+    expect(res).toEqual({ items: [{ id: "o1" }], pageNumber: 1, pageSize: 10, hasNextPage: false });
+  });
+
+  it("search POSTs /salesorders/search with the body and returns the array", async () => {
+    const s = vi.fn().mockResolvedValue([{ id: "o1" }]);
+    const res = await so(s).search({ q: "status:COMPLETED" } as never, SVC);
+    expect(s).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${SB}/search`, body: { q: "status:COMPLETED" }, auth: SVC }));
+    expect(res).toEqual([{ id: "o1" }]);
+  });
+
+  it("create POSTs /salesorders and returns the ResourceLocation", async () => {
+    const c = vi.fn().mockResolvedValue({ id: "o1" });
+    const res = await so(c).create({} as never, SVC);
+    expect(c).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: SB, body: {}, auth: SVC }));
+    expect(res).toEqual({ id: "o1" });
+  });
+
+  it("replace PUTs /salesorders/{id} then re-fetches the sales-order", async () => {
+    const r = vi.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce({ id: "o1" });
+    const res = await so(r).replace("o1", {} as never, SVC);
+    expect(r.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ method: "PUT", path: `${SB}/o1`, body: {}, auth: SVC }));
+    expect(r.mock.calls[1]?.[0]).toEqual(expect.objectContaining({ method: "GET", path: `${SB}/o1`, auth: SVC }));
+    expect(res).toEqual({ id: "o1" });
+  });
+
+  it("delete DELETEs /salesorders/{id}", async () => {
+    const d = vi.fn().mockResolvedValue(undefined);
+    await so(d).delete("o1", SVC);
+    expect(d).toHaveBeenCalledWith(expect.objectContaining({ method: "DELETE", path: `${SB}/o1`, auth: SVC }));
+  });
+});
