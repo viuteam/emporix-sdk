@@ -1,36 +1,10 @@
 import type { ClientContext } from "../core/context";
 import { auth, type AuthContext } from "../core/auth";
+import type { Site } from "./site-types";
+
+export type { Site, SiteAddress, SiteHomeBase } from "./site-types";
 
 const ANON: AuthContext = auth.anonymous();
-
-/**
- * One site as returned by the Site Settings Service. Mirrors the public
- * SiteDto schema with the fields a storefront actually consumes.
- */
-export interface Site {
-  code: string;
-  name: string;
-  active: boolean;
-  default: boolean;
-  includesTax?: boolean;
-  defaultLanguage: string;
-  languages: string[];
-  currency: string;
-  availableCurrencies?: string[];
-  homeBase: {
-    address: {
-      country: string;
-      zipCode: string;
-      street?: string;
-      city?: string;
-      state?: string;
-    };
-    timezone?: string;
-  };
-  shipToCountries: string[];
-  cartCalculationScale?: number;
-  metadata?: { version?: number };
-}
 
 /**
  * Read-only access to the tenant's site catalog. List returns active sites

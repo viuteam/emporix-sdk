@@ -1,46 +1,14 @@
 import type { ClientContext } from "../core/context";
 import { auth, type AuthContext } from "../core/auth";
+import type { SessionContext, SessionContextPatch } from "./session-context-types";
+
+export type {
+  SessionContext,
+  SessionContextPatch,
+  SessionContextData,
+} from "./session-context-types";
 
 const ANON: AuthContext = auth.anonymous();
-
-/**
- * One session context as returned by `GET /session-context/{tenant}/me/context`.
- * Created server-side when the user creates a cart. Until then, the server
- * returns 404 and {@link SessionContextService.get} resolves to `null`.
- */
-export interface SessionContext {
-  sessionId: string;
-  customerId?: string;
-  siteCode?: string;
-  currency?: string;
-  cartId?: string;
-  targetLocation?: string;
-  language?: string;
-  context?: Record<string, unknown>;
-  metadata?: {
-    version?: number;
-    createdAt?: string;
-    modifiedAt?: string;
-  };
-}
-
-/**
- * Input for {@link SessionContextService.patch}. Only the listed fields are
- * accepted by the server; everything else is ignored.
- *
- * If `version` is omitted, the service fetches the current version via GET
- * before PATCHing (one extra round-trip). Pass it explicitly when you already
- * know it (e.g. after a `get()` call earlier in the same flow).
- */
-export interface SessionContextPatch {
-  siteCode?: string;
-  currency?: string;
-  targetLocation?: string;
-  language?: string;
-  context?: Record<string, unknown>;
-  /** Override for optimistic-locking version. If omitted, GET resolves it. */
-  version?: number;
-}
 
 /**
  * Session-context binding for the current storefront session. Both endpoints
