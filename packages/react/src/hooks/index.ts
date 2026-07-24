@@ -25,13 +25,23 @@ export {
   useCategories,
   useCategoriesInfinite,
   useCategoryTree,
+  useCategoryParents,
+  useChildCategories,
+  useCategoryTreeById,
   useProductsInCategory,
   useProductsInCategoryInfinite,
   useCategorySearch,
 } from "./use-categories";
-export { useCart, useActiveCart, useCartMutations, useCreateCart } from "./use-cart";
+export {
+  useCart,
+  useActiveCart,
+  useCartMutations,
+  useCreateCart,
+  useCartValidation,
+  useCartItems,
+} from "./use-cart";
 export type { CartMutationsApi } from "./use-cart";
-export { useCheckout, usePaymentModes } from "./use-checkout";
+export { useCheckout, usePaymentModes, usePaymentMode, useInitializePayment } from "./use-checkout";
 export type { CheckoutApi } from "./use-checkout";
 export { useShippingZones } from "./use-shipping";
 export { useMatchPrices } from "./use-match-prices";
@@ -50,10 +60,23 @@ export { useUpdateCustomer, useChangePassword } from "./use-customer-profile";
 export {
   useCustomerAddresses,
   useAddressMutations,
+  useCustomerAddress,
+  useAddAddressTags,
+  useRemoveAddressTags,
 } from "./use-customer-addresses";
 export type { AddressMutationsApi } from "./use-customer-addresses";
 export { usePasswordReset } from "./use-password-reset";
 export type { PasswordResetApi } from "./use-password-reset";
+export {
+  useChangeEmail,
+  useConfirmEmailChange,
+  useConfirmSignup,
+  useResendActivation,
+} from "./use-customer-credentials";
+export {
+  useAddSessionAttribute,
+  useRemoveSessionAttribute,
+} from "./use-session-context";
 export { useSites, useDefaultSite, useActiveSite } from "./use-sites";
 export { useSiteContext } from "./use-site-context";
 export { useMyCompanies } from "./use-my-companies";

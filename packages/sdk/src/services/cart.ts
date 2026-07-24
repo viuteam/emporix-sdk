@@ -11,6 +11,10 @@ import type {
   AppliedDiscount,
   BatchResponse as GeneratedBatchResponse,
   SingleBatchResponse as GeneratedSingleBatchResponse,
+  CartValidationResult as GeneratedCartValidationResult,
+  CartItemResponse,
+  CartItemsBatchUpdateRequest,
+  CartItemsBatchUpdateResponse,
 } from "../generated/cart";
 
 /** A cart as returned by the Cart service (all generated fields). */
@@ -31,6 +35,18 @@ export type CartItemsBatchResponse = GeneratedBatchResponse;
 
 /** An address payload for cart shipping/billing (generated). */
 export type CartAddress = AddressRequest;
+
+/** Result of validating a cart's items (generated). */
+export type CartValidationResult = GeneratedCartValidationResult;
+
+/** A single cart item as returned by the Cart service (generated). */
+export type CartItem = CartItemResponse;
+
+/** Request body for updating multiple cart items (generated). */
+export type CartItemsBatchUpdateInput = CartItemsBatchUpdateRequest;
+
+/** Per-entry response for a multi-item update (generated). */
+export type CartItemsBatchUpdateResult = CartItemsBatchUpdateResponse;
 
 function requireCartAuth(auth: AuthContext | undefined): AuthContext {
   if (auth && (auth.kind === "customer" || auth.kind === "anonymous")) return auth;
@@ -213,6 +229,77 @@ export class CartService {
       auth: cartAuth,
     });
     return this.get(cartId, cartAuth);
+  }
+
+  /** Validates the cart's items (pricing/consistency checks). */
+  async validate(cartId: string, auth: AuthContext): Promise<CartValidationResult> {
+    return this.ctx.http.request<CartValidationResult>({
+      method: "GET",
+      path: `${this.base()}/${cartId}/validate`,
+      auth: requireCartAuth(auth),
+    });
+  }
+
+  /** Lists the items in a cart with calculated prices. */
+  async listItems(cartId: string, auth: AuthContext): Promise<CartItem[]> {
+    return this.ctx.http.request<CartItem[]>({
+      method: "GET",
+      path: `${this.base()}/${cartId}/items`,
+      auth: requireCartAuth(auth),
+    });
+  }
+
+  /** Refreshes a cart and its items (re-prices), then returns the updated cart. */
+  async refresh(cartId: string, auth: AuthContext): Promise<Cart> {
+    const cartAuth = requireCartAuth(auth);
+    await this.ctx.http.request<void>({
+      method: "PUT",
+      path: `${this.base()}/${cartId}/refresh`,
+      auth: cartAuth,
+    });
+    return this.get(cartId, cartAuth);
+  }
+
+  /** Changes the cart's site (re-prices to the new site's currency), then returns the updated cart. */
+  async changeSite(cartId: string, siteCode: string, auth: AuthContext): Promise<Cart> {
+    const cartAuth = requireCartAuth(auth);
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `${this.base()}/${cartId}/changeSite`,
+      auth: cartAuth,
+      body: { siteCode },
+    });
+    return this.get(cartId, cartAuth);
+  }
+
+  /** Changes the cart's currency (re-prices), then returns the updated cart. */
+  async changeCurrency(cartId: string, currency: string, auth: AuthContext): Promise<Cart> {
+    const cartAuth = requireCartAuth(auth);
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `${this.base()}/${cartId}/changeCurrency`,
+      auth: cartAuth,
+      body: { currency },
+    });
+    return this.get(cartId, cartAuth);
+  }
+
+  /**
+   * Updates multiple cart items in one request (`PUT …/itemsBatch`). Like
+   * `addItemsBatch`, the response carries a per-entry `status`; partial failures
+   * do not throw — inspect each entry.
+   */
+  async updateItemsBatch(
+    cartId: string,
+    items: CartItemsBatchUpdateInput,
+    auth: AuthContext,
+  ): Promise<CartItemsBatchUpdateResult> {
+    return this.ctx.http.request<CartItemsBatchUpdateResult>({
+      method: "PUT",
+      path: `${this.base()}/${cartId}/itemsBatch`,
+      auth: requireCartAuth(auth),
+      body: items,
+    });
   }
 
   /** Sets the shipping address. */

@@ -6,7 +6,14 @@ import { QueryClient } from "@tanstack/react-query";
 import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
-import { useCart, useCartMutations, useCreateCart, useActiveCart } from "../src/hooks/use-cart";
+import {
+  useCart,
+  useCartMutations,
+  useCreateCart,
+  useActiveCart,
+  useCartValidation,
+  useCartItems,
+} from "../src/hooks/use-cart";
 import type { EmporixStorage } from "../src/storage";
 import type { ReactNode } from "react";
 
@@ -299,5 +306,54 @@ describe("useActiveCart + useCart cache sharing", () => {
     });
     // After mutation, useActiveCart reflects the updated cart from the shared cache.
     await waitFor(() => expect(result.current.active.data?.items).toHaveLength(1));
+  });
+});
+
+describe("cart storefront completeness hooks", () => {
+  it("useCartItems lists items for a cart", async () => {
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts/cart1/items", () =>
+        HttpResponse.json([{ id: "0" }]),
+      ),
+    );
+    const { result } = renderHook(() => useCartItems("cart1"), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.[0]?.id).toBe("0");
+  });
+
+  it("useCartValidation returns the validation result", async () => {
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts/cart1/validate", () =>
+        HttpResponse.json({ isValid: true }),
+      ),
+    );
+    const { result } = renderHook(() => useCartValidation("cart1"), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.isValid).toBe(true);
+  });
+
+  it("mutations: refresh / changeSite / changeCurrency re-fetch the cart", async () => {
+    server.use(
+      http.put("https://api.emporix.io/cart/acme/carts/cart1/refresh", () =>
+        new HttpResponse(null, { status: 204 }),
+      ),
+      http.post("https://api.emporix.io/cart/acme/carts/cart1/changeSite", () =>
+        new HttpResponse(null, { status: 200 }),
+      ),
+      http.post("https://api.emporix.io/cart/acme/carts/cart1/changeCurrency", () =>
+        new HttpResponse(null, { status: 200 }),
+      ),
+    );
+    const { result } = renderHook(() => useCartMutations("cart1"), { wrapper: wrap() });
+    await act(async () => {
+      await result.current.refresh.mutateAsync();
+    });
+    await act(async () => {
+      await result.current.changeSite.mutateAsync({ siteCode: "USA" });
+    });
+    await act(async () => {
+      await result.current.changeCurrency.mutateAsync({ currency: "USD" });
+    });
+    expect(result.current.changeCurrency.isSuccess).toBe(true);
   });
 });

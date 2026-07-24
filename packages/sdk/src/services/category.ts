@@ -192,4 +192,35 @@ export class CategoryService {
     );
     return pages.flat();
   }
+
+  /** Lists a category's ancestor categories (breadcrumb-up). Default auth: anonymous. */
+  async parents(categoryId: string, auth: AuthContext = ANON): Promise<Category[]> {
+    return this.ctx.http.request<Category[]>({
+      method: "GET",
+      path: `/category/${this.ctx.tenant}/categories/${categoryId}/parents`,
+      auth,
+    });
+  }
+
+  /**
+   * Lists a category's direct child categories via the dedicated
+   * `…/subcategories` endpoint. (The older `subcategories()` reads `/assignments`
+   * and is kept for backward compatibility.) Default auth: anonymous.
+   */
+  async childCategories(categoryId: string, auth: AuthContext = ANON): Promise<Category[]> {
+    return this.ctx.http.request<Category[]>({
+      method: "GET",
+      path: `/category/${this.ctx.tenant}/categories/${categoryId}/subcategories`,
+      auth,
+    });
+  }
+
+  /** Retrieves one category tree by its root category id. Default auth: anonymous. */
+  async getTree(categoryId: string, auth: AuthContext = ANON): Promise<CategoryNode> {
+    return this.ctx.http.request<CategoryNode>({
+      method: "GET",
+      path: `/category/${this.ctx.tenant}/category-trees/${encodeURIComponent(categoryId)}`,
+      auth,
+    });
+  }
 }

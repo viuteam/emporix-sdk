@@ -308,3 +308,94 @@ describe("CustomerService.refresh with legalEntityId", () => {
     expect((q as URLSearchParams | null)?.has("legalEntityId")).toBe(false);
   });
 });
+
+describe("CustomerService storefront completeness methods", () => {
+  it("confirmSignup activates via double opt-in and returns a session", async () => {
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/signup/optin/Tok123", () =>
+        HttpResponse.json({ access_token: "cust", refresh_token: "rt", expires_in: 2591999 }),
+      ),
+    );
+    const s = await svc().confirmSignup("Tok123");
+    expect(s.customerToken).toBe("cust");
+  });
+
+  it("resendActivation POSTs the email", async () => {
+    let body: unknown;
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/signup/optin/refresh_token", async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 202 });
+      }),
+    );
+    await expect(svc().resendActivation({ email: "a@b.co" })).resolves.toBeUndefined();
+    expect(body).toEqual({ email: "a@b.co" });
+  });
+
+  it("changeEmail POSTs the change request with the customer bearer", async () => {
+    let authz: string | null = null;
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/me/accounts/internal/email/change", ({ request }) => {
+        authz = request.headers.get("authorization");
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await expect(
+      svc().changeEmail(
+        { email: "a@b.co", password: "p", newEmail: "c@d.co" },
+        { kind: "customer", token: "CUST" },
+      ),
+    ).resolves.toBeUndefined();
+    expect(authz).toBe("Bearer CUST");
+  });
+
+  it("confirmEmailChange POSTs the token with anonymous auth", async () => {
+    let body: unknown;
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/me/accounts/internal/email/change/confirm", async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await expect(svc().confirmEmailChange({ token: "T" })).resolves.toBeUndefined();
+    expect(body).toEqual({ token: "T" });
+  });
+
+  it("addresses.get GETs one address", async () => {
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/me/addresses/ad1", () =>
+        HttpResponse.json({ id: "ad1", city: "Berlin" }),
+      ),
+    );
+    const a = await svc().addresses.get("ad1", { kind: "customer", token: "CUST" });
+    expect(a.id).toBe("ad1");
+  });
+
+  it("addresses.addTags POSTs tags as a comma-separated query", async () => {
+    let url = "";
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/me/addresses/ad1/tags", ({ request }) => {
+        url = request.url;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await expect(
+      svc().addresses.addTags("ad1", ["BILLING", "SHIPPING"], { kind: "customer", token: "CUST" }),
+    ).resolves.toBeUndefined();
+    expect(new URL(url).searchParams.get("tags")).toBe("BILLING,SHIPPING");
+  });
+
+  it("addresses.removeTags DELETEs with the tags query", async () => {
+    let url = "";
+    server.use(
+      http.delete("https://api.emporix.io/customer/acme/me/addresses/ad1/tags", ({ request }) => {
+        url = request.url;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await expect(
+      svc().addresses.removeTags("ad1", ["BILLING"], { kind: "customer", token: "CUST" }),
+    ).resolves.toBeUndefined();
+    expect(new URL(url).searchParams.get("tags")).toBe("BILLING");
+  });
+});

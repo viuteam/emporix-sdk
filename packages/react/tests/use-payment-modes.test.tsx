@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
-import { usePaymentModes } from "../src/hooks/use-checkout";
+import { usePaymentModes, usePaymentMode, useInitializePayment } from "../src/hooks/use-checkout";
 import type { ReactNode } from "react";
 
 const server = setupServer(
@@ -57,5 +57,31 @@ describe("usePaymentModes", () => {
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.[0]?.code).toBe("card");
+  });
+});
+
+describe("usePaymentMode / useInitializePayment", () => {
+  it("usePaymentMode fetches one frontend mode", async () => {
+    server.use(
+      http.get("https://api.emporix.io/payment-gateway/acme/paymentmodes/frontend/pm1", () =>
+        HttpResponse.json({ id: "pm1", code: "CARD" }),
+      ),
+    );
+    const { result } = renderHook(() => usePaymentMode("pm1"), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.id).toBe("pm1");
+  });
+
+  it("useInitializePayment POSTs the initialize request", async () => {
+    server.use(
+      http.post("https://api.emporix.io/payment-gateway/acme/payment/frontend/initialize", () =>
+        HttpResponse.json({ paymentId: "p1" }),
+      ),
+    );
+    const { result } = renderHook(() => useInitializePayment(), { wrapper: wrap() });
+    await act(async () => {
+      await result.current.mutateAsync({ orderId: "o1" } as never);
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 });

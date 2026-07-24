@@ -10,6 +10,9 @@ import {
   useCategory,
   useSubcategories,
   useCategories,
+  useCategoryParents,
+  useChildCategories,
+  useCategoryTreeById,
   useProductsInCategory,
   useProductsInCategoryInfinite,
   useCategorySearch,
@@ -79,6 +82,40 @@ describe("category hooks", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.items).toEqual([{ id: "c1" }]);
     expect(result.current.data?.hasNextPage).toBe(false);
+  });
+
+  it("useCategoryParents fetches ancestor categories", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories/c1/parents", () =>
+        HttpResponse.json([{ id: "root" }]),
+      ),
+    );
+    const { result } = renderHook(() => useCategoryParents("c1"), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.[0]?.id).toBe("root");
+  });
+
+  it("useChildCategories fetches dedicated subcategories (disabled without id)", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories/c1/subcategories", () =>
+        HttpResponse.json([{ id: "child1" }]),
+      ),
+    );
+    const idle = renderHook(() => useChildCategories(undefined), { wrapper: wrap() });
+    expect(idle.result.current.fetchStatus).toBe("idle");
+    const { result } = renderHook(() => useChildCategories("c1"), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.data?.[0]?.id).toBe("child1"));
+  });
+
+  it("useCategoryTreeById fetches a single tree", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/category-trees/c1", () =>
+        HttpResponse.json({ id: "c1", name: { en: "Root" } }),
+      ),
+    );
+    const { result } = renderHook(() => useCategoryTreeById("c1"), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.id).toBe("c1");
   });
 });
 

@@ -46,6 +46,9 @@ export type {
   PasswordResetConfirmInput,
   AddressCreateInput,
   AddressUpdateInput,
+  ChangeEmailInput,
+  ConfirmEmailChangeInput,
+  ResendActivationInput,
 } from "./services/customer";
 export { ProductService } from "./services/product";
 export type { Product, Media } from "./services/product";
@@ -59,6 +62,10 @@ export type {
   CreateCartInput,
   CartItemInput,
   CartItemUpdate,
+  CartValidationResult,
+  CartItem,
+  CartItemsBatchUpdateInput,
+  CartItemsBatchUpdateResult,
 } from "./services/cart";
 export { CheckoutService } from "./services/checkout";
 export type {
@@ -72,6 +79,8 @@ export type {
   PaymentMode,
   AuthorizePaymentInput,
   AuthorizePaymentResult,
+  InitializePaymentInput,
+  InitializePaymentResult,
 } from "./services/payment";
 export { PriceService } from "./services/price";
 export type {
@@ -120,7 +129,7 @@ export type {
   ListQuoteReasonsQuery,
 } from "./services/quote";
 export { SessionContextService } from "./services/session-context";
-export type { SessionContext, SessionContextPatch } from "./services/session-context";
+export type { SessionContext, SessionContextPatch, SessionAttributeInput } from "./services/session-context";
 export * from "./companies";
 export * from "./contacts";
 export * from "./locations";

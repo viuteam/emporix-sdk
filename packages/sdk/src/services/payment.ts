@@ -4,6 +4,8 @@ import { requireCustomer } from "../core/require-customer";
 import type {
   PaymentModeFrontendResponse,
   AuthorizePaymentRequest,
+  InitializePaymentRequest,
+  InitializePaymentResponse,
 } from "../generated/payment";
 
 const ANON: AuthContext = auth.anonymous();
@@ -13,6 +15,12 @@ export type PaymentMode = PaymentModeFrontendResponse;
 
 /** Post-checkout authorize request (generated; caller sends the exact wire shape). */
 export type AuthorizePaymentInput = AuthorizePaymentRequest;
+
+/** Frontend payment-initialize request (generated). */
+export type InitializePaymentInput = InitializePaymentRequest;
+
+/** Frontend payment-initialize response (generated). */
+export type InitializePaymentResult = InitializePaymentResponse;
 
 /** Post-checkout authorize result. */
 export interface AuthorizePaymentResult {
@@ -52,6 +60,28 @@ export class PaymentGatewayService {
       method: "POST",
       path: `/payment-gateway/${this.ctx.tenant}/payment/frontend/authorize`,
       auth: requireCustomer(authCtx),
+      body: input,
+    });
+  }
+
+  /** Retrieves a single frontend payment mode by id. Defaults to anonymous (no scope required). */
+  async getMode(id: string, authCtx: AuthContext = ANON): Promise<PaymentMode> {
+    return this.ctx.http.request<PaymentMode>({
+      method: "GET",
+      path: `/payment-gateway/${this.ctx.tenant}/paymentmodes/frontend/${id}`,
+      auth: authCtx,
+    });
+  }
+
+  /** Initializes a payment from the frontend. Defaults to anonymous (no scope required). */
+  async initialize(
+    input: InitializePaymentInput,
+    authCtx: AuthContext = ANON,
+  ): Promise<InitializePaymentResult> {
+    return this.ctx.http.request<InitializePaymentResult>({
+      method: "POST",
+      path: `/payment-gateway/${this.ctx.tenant}/payment/frontend/initialize`,
+      auth: authCtx,
       body: input,
     });
   }

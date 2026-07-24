@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { CartService } from "../../src/services/cart";
+import type { CartItemsBatchUpdateInput } from "../../src/services/cart";
 import { HttpClient } from "../../src/core/http";
 import { DefaultTokenProvider } from "../../src/core/auth";
 import { LevelResolver } from "../../src/core/logger";
@@ -279,5 +280,87 @@ describe("CartService.addItemsBatch", () => {
     );
     await svc().updateItem("c1", "0", { quantity: 2 } as never, { kind: "anonymous" });
     expect(search).toBe("");
+  });
+});
+
+describe("CartService storefront completeness methods", () => {
+  it("validate GETs the cart validation result", async () => {
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts/cart1/validate", () =>
+        HttpResponse.json({ isValid: false, itemsValidationDetails: [{ id: "0", errors: [] }] }),
+      ),
+    );
+    const r = await svc().validate("cart1", { kind: "anonymous" });
+    expect(r.isValid).toBe(false);
+  });
+
+  it("listItems GETs the cart items", async () => {
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts/cart1/items", () =>
+        HttpResponse.json([{ id: "0", quantity: 2 }, { id: "1", quantity: 1 }]),
+      ),
+    );
+    const items = await svc().listItems("cart1", { kind: "anonymous" });
+    expect(items).toHaveLength(2);
+    expect(items[0]?.id).toBe("0");
+  });
+
+  it("refresh PUTs then returns the re-fetched cart", async () => {
+    server.use(
+      http.put("https://api.emporix.io/cart/acme/carts/cart1/refresh", () =>
+        new HttpResponse(null, { status: 204 }),
+      ),
+      http.get("https://api.emporix.io/cart/acme/carts/cart1", () =>
+        HttpResponse.json({ id: "cart1", items: [{ id: "i1" }] }),
+      ),
+    );
+    const cart = await svc().refresh("cart1", { kind: "anonymous" });
+    expect(cart.id).toBe("cart1");
+  });
+
+  it("changeSite POSTs the site then returns the re-fetched cart", async () => {
+    let body: unknown;
+    server.use(
+      http.post("https://api.emporix.io/cart/acme/carts/cart1/changeSite", async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 200 });
+      }),
+      http.get("https://api.emporix.io/cart/acme/carts/cart1", () =>
+        HttpResponse.json({ id: "cart1", items: [] }),
+      ),
+    );
+    const cart = await svc().changeSite("cart1", "USA", { kind: "anonymous" });
+    expect(cart.id).toBe("cart1");
+    expect(body).toEqual({ siteCode: "USA" });
+  });
+
+  it("changeCurrency POSTs the currency then returns the re-fetched cart", async () => {
+    let body: unknown;
+    server.use(
+      http.post("https://api.emporix.io/cart/acme/carts/cart1/changeCurrency", async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 200 });
+      }),
+      http.get("https://api.emporix.io/cart/acme/carts/cart1", () =>
+        HttpResponse.json({ id: "cart1", items: [] }),
+      ),
+    );
+    const cart = await svc().changeCurrency("cart1", "USD", { kind: "anonymous" });
+    expect(cart.id).toBe("cart1");
+    expect(body).toEqual({ currency: "USD" });
+  });
+
+  it("updateItemsBatch PUTs the items batch and returns per-entry results", async () => {
+    server.use(
+      http.put("https://api.emporix.io/cart/acme/carts/cart1/itemsBatch", () =>
+        HttpResponse.json([{ index: 0, status: 200, id: "0" }]),
+      ),
+    );
+    const res = await svc().updateItemsBatch(
+      "cart1",
+      [{ id: "0", quantity: 3 } as unknown as CartItemsBatchUpdateInput[number]],
+      { kind: "anonymous" },
+    );
+    expect(res[0]?.status).toBe(200);
   });
 });

@@ -9,6 +9,9 @@ import { createMemoryStorage } from "../src/storage/memory";
 import {
   useCustomerAddresses,
   useAddressMutations,
+  useCustomerAddress,
+  useAddAddressTags,
+  useRemoveAddressTags,
 } from "../src/hooks/use-customer-addresses";
 import type { EmporixStorage } from "../src/storage";
 import type { ReactNode } from "react";
@@ -146,5 +149,50 @@ describe("useAddressMutations", () => {
     expect(() => renderHook(() => useAddressMutations(), { wrapper: wrap(storage) })).toThrow(
       /logged-in customer/,
     );
+  });
+});
+
+describe("address get + tag hooks", () => {
+  it("useCustomerAddress fetches one address", async () => {
+    server.use(
+      http.get("https://api.emporix.io/customer/acme/me/addresses/a1", () =>
+        HttpResponse.json({ id: "a1", city: "Berlin" }),
+      ),
+    );
+    const { result } = renderHook(() => useCustomerAddress("a1"), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.id).toBe("a1");
+  });
+
+  it("useAddAddressTags POSTs tags as a comma-separated query", async () => {
+    let url = "";
+    server.use(
+      http.post("https://api.emporix.io/customer/acme/me/addresses/a1/tags", ({ request }) => {
+        url = request.url;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { result } = renderHook(() => useAddAddressTags(), { wrapper: wrap() });
+    await act(async () => {
+      await result.current.mutateAsync({ id: "a1", tags: ["BILLING", "SHIPPING"] });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(new URL(url).searchParams.get("tags")).toBe("BILLING,SHIPPING");
+  });
+
+  it("useRemoveAddressTags DELETEs with the tags query", async () => {
+    let url = "";
+    server.use(
+      http.delete("https://api.emporix.io/customer/acme/me/addresses/a1/tags", ({ request }) => {
+        url = request.url;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { result } = renderHook(() => useRemoveAddressTags(), { wrapper: wrap() });
+    await act(async () => {
+      await result.current.mutateAsync({ id: "a1", tags: ["BILLING"] });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(new URL(url).searchParams.get("tags")).toBe("BILLING");
   });
 });

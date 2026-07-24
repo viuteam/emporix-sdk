@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { PaymentGatewayService } from "../../src/services/payment";
+import type { InitializePaymentInput } from "../../src/services/payment";
 import { HttpClient } from "../../src/core/http";
 import { DefaultTokenProvider } from "../../src/core/auth";
 import { LevelResolver } from "../../src/core/logger";
@@ -79,5 +80,30 @@ describe("PaymentGatewayService", () => {
     );
     expect(r.successful).toBe(true);
     expect(r.externalPaymentRedirectURL).toContain("redir");
+  });
+});
+
+describe("PaymentGatewayService storefront completeness methods", () => {
+  it("getMode GETs a single frontend payment mode", async () => {
+    server.use(
+      http.get("https://api.emporix.io/payment-gateway/acme/paymentmodes/frontend/pm1", () =>
+        HttpResponse.json({ id: "pm1", code: "CARD" }),
+      ),
+    );
+    const mode = await svc().getMode("pm1", { kind: "anonymous" });
+    expect(mode.id).toBe("pm1");
+  });
+
+  it("initialize POSTs the frontend initialize request", async () => {
+    server.use(
+      http.post("https://api.emporix.io/payment-gateway/acme/payment/frontend/initialize", () =>
+        HttpResponse.json({ paymentId: "p1" }),
+      ),
+    );
+    const res = await svc().initialize(
+      { orderId: "o1" } as unknown as InitializePaymentInput,
+      { kind: "anonymous" },
+    );
+    expect((res as { paymentId?: string }).paymentId).toBe("p1");
   });
 });

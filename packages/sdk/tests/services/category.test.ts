@@ -244,3 +244,35 @@ describe("CategoryService.search", () => {
     ).rejects.toThrow(/does not support/i);
   });
 });
+
+describe("CategoryService storefront completeness methods", () => {
+  it("parents GETs the ancestor categories", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories/c1/parents", () =>
+        HttpResponse.json([{ id: "root" }, { id: "mid" }]),
+      ),
+    );
+    const parents = await svc().parents("c1", { kind: "anonymous" });
+    expect(parents.map((c) => c.id)).toEqual(["root", "mid"]);
+  });
+
+  it("childCategories GETs the dedicated subcategories endpoint", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/categories/c1/subcategories", () =>
+        HttpResponse.json([{ id: "child1" }]),
+      ),
+    );
+    const kids = await svc().childCategories("c1", { kind: "anonymous" });
+    expect(kids[0]?.id).toBe("child1");
+  });
+
+  it("getTree GETs a single category tree by id", async () => {
+    server.use(
+      http.get("https://api.emporix.io/category/acme/category-trees/c1", () =>
+        HttpResponse.json({ id: "c1", name: { en: "Root" } }),
+      ),
+    );
+    const tree = await svc().getTree("c1", { kind: "anonymous" });
+    expect(tree.id).toBe("c1");
+  });
+});
