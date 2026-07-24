@@ -17,6 +17,7 @@ import { CompaniesService } from "./services/companies";
 import { ContactsService } from "./services/contacts";
 import { LocationsService } from "./services/locations";
 import { CustomerGroupsService } from "./services/customer-groups";
+import { IamService } from "./services/iam";
 import { OrdersService, SalesOrdersService } from "./services/orders";
 import { AvailabilityService } from "./services/availability";
 import { TenantConfigService } from "./services/tenant-config";
@@ -66,6 +67,7 @@ export class EmporixClient {
   readonly contacts: ContactsService;
   readonly locations: LocationsService;
   readonly customerGroups: CustomerGroupsService;
+  readonly iam: IamService;
   readonly orders: OrdersService;
   readonly salesOrders: SalesOrdersService;
   readonly availability: AvailabilityService;
@@ -141,6 +143,7 @@ export class EmporixClient {
     this.contacts = new ContactsService(mk(ContactsService.channel));
     this.locations = new LocationsService(mk(LocationsService.channel));
     this.customerGroups = new CustomerGroupsService(mk(CustomerGroupsService.channel));
+    this.iam = new IamService(mk(IamService.channel));
     this.orders = new OrdersService(mk(OrdersService.channel));
     this.salesOrders = new SalesOrdersService(mk(SalesOrdersService.channel));
     this.availability = new AvailabilityService(mk(AvailabilityService.channel));
