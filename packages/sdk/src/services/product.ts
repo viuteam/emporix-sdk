@@ -381,4 +381,90 @@ export class ProductService {
       auth,
     });
   }
+
+  /**
+   * Bulk-creates products (`POST /products/bulk`). Responds 207 Multi-Status:
+   * partial failures do **not** throw — inspect each entry. Default auth: service.
+   */
+  async bulkCreate(
+    input: ProductBulkCreateInput,
+    options: ProductWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductBulkResult[]> {
+    const query = {
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    return this.ctx.http.request<ProductBulkResult[]>({
+      method: "POST",
+      path: `/product/${this.ctx.tenant}/products/bulk`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Bulk-updates products (`PUT /products/bulk`). Responds 207 Multi-Status:
+   * partial failures do **not** throw — inspect each entry. Default auth: service.
+   */
+  async bulkUpdate(
+    input: ProductBulkUpdateInput,
+    options: ProductWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductBulkResult[]> {
+    const query = {
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    return this.ctx.http.request<ProductBulkResult[]>({
+      method: "PUT",
+      path: `/product/${this.ctx.tenant}/products/bulk`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Triggers a dynamic-variant recalculation for the given product ids
+   * (`POST /products/recalculate`, 202). The result carries the created or
+   * already-referenced `jobs` plus `skippedProductIds` — products whose root
+   * already has a PENDING/PROCESSING job. Default auth: service.
+   */
+  async recalculate(
+    input: ProductRecalculationInput,
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductRecalculationResult> {
+    return this.ctx.http.request<ProductRecalculationResult>({
+      method: "POST",
+      path: `/product/${this.ctx.tenant}/products/recalculate`,
+      body: input,
+      auth,
+    });
+  }
+
+  /** Lists dynamic-variant recalculation jobs, optionally filtered by status. Default auth: anonymous. */
+  async listRecalculationJobs(
+    params: { status?: ProductRecalculationJobStatus } = {},
+    auth: AuthContext = ANON,
+  ): Promise<ProductRecalculationJob[]> {
+    return this.ctx.http.request<ProductRecalculationJob[]>({
+      method: "GET",
+      path: `/product/${this.ctx.tenant}/products/recalculate/jobs`,
+      ...(params.status === undefined ? {} : { query: { status: params.status } }),
+      auth,
+    });
+  }
+
+  /** Fetches one dynamic-variant recalculation job by id. Default auth: anonymous. */
+  async getRecalculationJob(jobId: string, auth: AuthContext = ANON): Promise<ProductRecalculationJob> {
+    return this.ctx.http.request<ProductRecalculationJob>({
+      method: "GET",
+      path: `/product/${this.ctx.tenant}/products/recalculate/jobs/${jobId}`,
+      auth,
+    });
+  }
 }

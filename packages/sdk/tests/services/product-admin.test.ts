@@ -61,3 +61,36 @@ describe("ProductService write CRUD", () => {
     expect(c).toHaveBeenCalledWith(expect.objectContaining({ auth: { kind: "raw", token: "X" } }));
   });
 });
+
+describe("ProductService bulk + recalculation", () => {
+  it("bulkCreate POSTs and bulkUpdate PUTs /products/bulk", async () => {
+    const bc = vi.fn().mockResolvedValue([{ status: 201 }]);
+    await svc(bc).bulkCreate([] as never);
+    expect(bc).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${B}/bulk`, body: [], auth: { kind: "service" } }));
+
+    const bu = vi.fn().mockResolvedValue([{ status: 200 }]);
+    await svc(bu).bulkUpdate([] as never);
+    expect(bu).toHaveBeenCalledWith(expect.objectContaining({ method: "PUT", path: `${B}/bulk`, body: [], auth: { kind: "service" } }));
+  });
+
+  it("recalculate POSTs /products/recalculate with the productIds body", async () => {
+    const r = vi.fn().mockResolvedValue({ jobs: [], skippedProductIds: [] });
+    const res = await svc(r).recalculate({ productIds: ["p1"] });
+    expect(r).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "POST", path: `${B}/recalculate`, body: { productIds: ["p1"] }, auth: { kind: "service" } }),
+    );
+    expect(res).toEqual({ jobs: [], skippedProductIds: [] });
+  });
+
+  it("job reads GET the jobs paths with ANON default and forward a status filter", async () => {
+    const l = vi.fn().mockResolvedValue([{ id: "j1" }]);
+    await svc(l).listRecalculationJobs({ status: "PENDING" });
+    expect(l).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "GET", path: `${B}/recalculate/jobs`, query: { status: "PENDING" }, auth: { kind: "anonymous" } }),
+    );
+
+    const g = vi.fn().mockResolvedValue({ id: "j1" });
+    await svc(g).getRecalculationJob("j1");
+    expect(g).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${B}/recalculate/jobs/j1`, auth: { kind: "anonymous" } }));
+  });
+});
