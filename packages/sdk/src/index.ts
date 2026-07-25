@@ -119,6 +119,15 @@ export type {
   AuthorizePaymentResult,
   InitializePaymentInput,
   InitializePaymentResult,
+  PaymentModeConfig,
+  PaymentModeCreateInput,
+  PaymentModeUpdateInput,
+  PaymentTransaction,
+  PaymentAuthorizeResult,
+  PaymentCaptureInput,
+  PaymentRefundInput,
+  PaymentActionResult,
+  PaymentCaptureResult,
 } from "./services/payment";
 export { PriceService } from "./services/price";
 export type {
