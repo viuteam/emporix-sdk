@@ -79,3 +79,36 @@ describe("SchemaService.references", () => {
     expect(without.mock.calls[0]?.[0]).not.toHaveProperty("query");
   });
 });
+
+describe("SchemaService instance bulk", () => {
+  it("bulkCreate POSTs, bulkUpsert PUTs, bulkDelete DELETEs with an id-array body", async () => {
+    const B = `${E}/product/instances/bulk`;
+
+    const c = vi.fn().mockResolvedValue([{ index: 0, code: 201 }]);
+    await svc(c).bulkCreateInstances("product", [{ name: { en: "a" } }] as never);
+    expect(c).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "POST", path: B, body: [{ name: { en: "a" } }], auth: { kind: "service" } }),
+    );
+
+    const u = vi.fn().mockResolvedValue([{ index: 0, code: 200 }]);
+    await svc(u).bulkUpsertInstances("product", [{ id: "i1" }] as never);
+    expect(u).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "PUT", path: B, body: [{ id: "i1" }], auth: { kind: "service" } }),
+    );
+
+    const d = vi.fn().mockResolvedValue([{ index: 0, code: 204 }]);
+    const res = await svc(d).bulkDeleteInstances("product", ["i1", "i2"]);
+    expect(d).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "DELETE", path: B, body: ["i1", "i2"], auth: { kind: "service" } }),
+    );
+    expect(res).toEqual([{ index: 0, code: 204 }]);
+  });
+
+  it("escapes the type in the bulk path", async () => {
+    const c = vi.fn().mockResolvedValue([]);
+    await svc(c).bulkCreateInstances("my type", [] as never);
+    expect(c).toHaveBeenCalledWith(
+      expect.objectContaining({ path: `${E}/my%20type/instances/bulk` }),
+    );
+  });
+});

@@ -363,6 +363,67 @@ export class SchemaService {
     });
   }
 
+  /**
+   * Create multiple instances in one request
+   * (`POST /custom-entities/{type}/instances/bulk`). Returns a 207 envelope:
+   * a per-item result array — a 207 is success, individual failures live in
+   * each item's `code`/`status`.
+   */
+  async bulkCreateInstances(
+    type: string,
+    items: SchemaInstanceBulkCreateItem[],
+    auth: AuthContext = SERVICE,
+  ): Promise<BulkInstanceResult> {
+    return this.ctx.http.request<BulkInstanceResult>({
+      method: "POST",
+      path: `${this.instancesBase(type)}/bulk`,
+      auth,
+      body: items,
+    });
+  }
+
+  /**
+   * Upsert multiple instances in one request
+   * (`PUT /custom-entities/{type}/instances/bulk`). Each item carries its `id`.
+   * Returns the same 207 per-item envelope as {@link bulkCreateInstances}.
+   */
+  async bulkUpsertInstances(
+    type: string,
+    items: SchemaInstanceBulkUpsertItem[],
+    auth: AuthContext = SERVICE,
+  ): Promise<BulkInstanceResult> {
+    return this.ctx.http.request<BulkInstanceResult>({
+      method: "PUT",
+      path: `${this.instancesBase(type)}/bulk`,
+      auth,
+      body: items,
+    });
+  }
+
+  /**
+   * Delete multiple instances by id
+   * (`DELETE /custom-entities/{type}/instances/bulk`). Returns the same 207
+   * per-item envelope as {@link bulkCreateInstances}.
+   *
+   * **Note:** the OpenAPI schema declares no request body for this operation,
+   * but its description mandates one — "The IDs of items should be defined in
+   * the request body as an array of strings" (example
+   * `["firstId", "secondId"]`). The SDK follows the description and sends the
+   * id array. Unverified against the live API.
+   */
+  async bulkDeleteInstances(
+    type: string,
+    ids: string[],
+    auth: AuthContext = SERVICE,
+  ): Promise<BulkInstanceResult> {
+    return this.ctx.http.request<BulkInstanceResult>({
+      method: "DELETE",
+      path: `${this.instancesBase(type)}/bulk`,
+      auth,
+      body: ids,
+    });
+  }
+
   /** Delete an instance by id. */
   async deleteInstance(type: string, id: string, auth: AuthContext = SERVICE): Promise<void> {
     await this.ctx.http.request<void>({
