@@ -467,4 +467,70 @@ export class ProductService {
       auth,
     });
   }
+
+  /**
+   * Product templates (`/product-templates`). Reads default to anonymous,
+   * writes to service auth.
+   */
+  readonly templates = {
+    /** One page of product templates. Default auth: anonymous. */
+    list: async (
+      params: { pageNumber?: number; pageSize?: number; sort?: string; q?: string } = {},
+      auth: AuthContext = ANON,
+    ): Promise<ProductTemplate[]> =>
+      this.ctx.http.request<ProductTemplate[]>({
+        method: "GET",
+        path: `/product/${this.ctx.tenant}/product-templates`,
+        query: {
+          ...(params.pageNumber === undefined ? {} : { pageNumber: params.pageNumber }),
+          ...(params.pageSize === undefined ? {} : { pageSize: params.pageSize }),
+          ...(params.sort === undefined ? {} : { sort: params.sort }),
+          ...(params.q === undefined ? {} : { q: params.q }),
+        },
+        auth,
+      }),
+
+    /** Fetches one product template by id. Default auth: anonymous. */
+    get: async (templateId: string, auth: AuthContext = ANON): Promise<ProductTemplate> =>
+      this.ctx.http.request<ProductTemplate>({
+        method: "GET",
+        path: `/product/${this.ctx.tenant}/product-templates/${templateId}`,
+        auth,
+      }),
+
+    /** Creates a product template. Default auth: service. */
+    create: async (
+      input: ProductTemplateCreateInput,
+      auth: AuthContext = SERVICE,
+    ): Promise<ProductTemplateCreated> =>
+      this.ctx.http.request<ProductTemplateCreated>({
+        method: "POST",
+        path: `/product/${this.ctx.tenant}/product-templates`,
+        body: input,
+        auth,
+      }),
+
+    /** Full-replaces a product template (`PUT`). Default auth: service. */
+    update: async (
+      templateId: string,
+      input: ProductTemplateUpdateInput,
+      auth: AuthContext = SERVICE,
+    ): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "PUT",
+        path: `/product/${this.ctx.tenant}/product-templates/${templateId}`,
+        body: input,
+        auth,
+      });
+    },
+
+    /** Deletes a product template. Default auth: service. */
+    delete: async (templateId: string, auth: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/product/${this.ctx.tenant}/product-templates/${templateId}`,
+        auth,
+      });
+    },
+  };
 }

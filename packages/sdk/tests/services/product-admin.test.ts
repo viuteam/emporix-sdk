@@ -94,3 +94,37 @@ describe("ProductService bulk + recalculation", () => {
     expect(g).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${B}/recalculate/jobs/j1`, auth: { kind: "anonymous" } }));
   });
 });
+
+describe("ProductService.templates", () => {
+  it("reads default to ANON and hit the template paths", async () => {
+    const l = vi.fn().mockResolvedValue([{ id: "t1" }]);
+    await svc(l).templates.list({ pageSize: 10, q: "name:Shirt" });
+    expect(l).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        path: T,
+        auth: { kind: "anonymous" },
+        query: expect.objectContaining({ pageSize: 10, q: "name:Shirt" }),
+      }),
+    );
+
+    const g = vi.fn().mockResolvedValue({ id: "t1" });
+    await svc(g).templates.get("t1");
+    expect(g).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${T}/t1`, auth: { kind: "anonymous" } }));
+  });
+
+  it("writes default to SERVICE and hit the template paths", async () => {
+    const c = vi.fn().mockResolvedValue({ id: "t1" });
+    const res = await svc(c).templates.create({} as never);
+    expect(c).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: T, body: {}, auth: { kind: "service" } }));
+    expect(res).toEqual({ id: "t1" });
+
+    const u = vi.fn().mockResolvedValue(undefined);
+    await svc(u).templates.update("t1", {} as never);
+    expect(u).toHaveBeenCalledWith(expect.objectContaining({ method: "PUT", path: `${T}/t1`, body: {}, auth: { kind: "service" } }));
+
+    const d = vi.fn().mockResolvedValue(undefined);
+    await svc(d).templates.delete("t1");
+    expect(d).toHaveBeenCalledWith(expect.objectContaining({ method: "DELETE", path: `${T}/t1`, auth: { kind: "service" } }));
+  });
+});
