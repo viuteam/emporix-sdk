@@ -424,6 +424,34 @@ export class SchemaService {
     });
   }
 
+  /**
+   * Export custom entities and their schemas
+   * (`POST /custom-entities/export`). Pass the entity types to include; the
+   * result carries a base64 `data` payload plus `exportedAt`.
+   */
+  async exportCustomEntities(types: string[], auth: AuthContext = SERVICE): Promise<SchemaExport> {
+    return this.ctx.http.request<SchemaExport>({
+      method: "POST",
+      path: `${this.entitiesBase()}/export`,
+      auth,
+      body: types,
+    });
+  }
+
+  /**
+   * Import custom entities and their schemas
+   * (`POST /custom-entities/import`) from the base64 `data` produced by
+   * {@link exportCustomEntities}.
+   */
+  async importCustomEntities(input: SchemaImportInput, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `${this.entitiesBase()}/import`,
+      auth,
+      body: input,
+    });
+  }
+
   /** Delete an instance by id. */
   async deleteInstance(type: string, id: string, auth: AuthContext = SERVICE): Promise<void> {
     await this.ctx.http.request<void>({

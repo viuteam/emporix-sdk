@@ -112,3 +112,32 @@ describe("SchemaService instance bulk", () => {
     );
   });
 });
+
+describe("SchemaService export/import", () => {
+  it("exportCustomEntities POSTs the type array", async () => {
+    const e = vi.fn().mockResolvedValue({ data: "YmFzZTY0", exportedAt: "2026-07-25T00:00:00Z" });
+    const res = await svc(e).exportCustomEntities(["product", "recipe"]);
+    expect(e).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: `${E}/export`,
+        body: ["product", "recipe"],
+        auth: { kind: "service" },
+      }),
+    );
+    expect(res).toEqual({ data: "YmFzZTY0", exportedAt: "2026-07-25T00:00:00Z" });
+  });
+
+  it("importCustomEntities POSTs the data envelope", async () => {
+    const i = vi.fn().mockResolvedValue(undefined);
+    await svc(i).importCustomEntities({ data: "YmFzZTY0" });
+    expect(i).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: `${E}/import`,
+        body: { data: "YmFzZTY0" },
+        auth: { kind: "service" },
+      }),
+    );
+  });
+});
