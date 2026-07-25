@@ -1,9 +1,23 @@
-import type { ClientContext } from "../core/context";
+import type { ClientContext, PaginatedItems } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixNotFoundError } from "../core/errors";
-import type { Availability } from "./availability-types";
+import type {
+  Availability,
+  AvailabilityInput,
+  AvailabilityCreated,
+  AvailabilityBulkInput,
+  AvailabilityBulkDeleteInput,
+  AvailabilityBulkResult,
+} from "./availability-types";
 
-export type { Availability } from "./availability-types";
+export type {
+  Availability,
+  AvailabilityInput,
+  AvailabilityCreated,
+  AvailabilityBulkInput,
+  AvailabilityBulkDeleteInput,
+  AvailabilityBulkResult,
+} from "./availability-types";
 
 /** Shared options for {@link AvailabilityService} reads. */
 export interface AvailabilityOptions {
@@ -17,6 +31,7 @@ export interface AvailabilityOptions {
 }
 
 const ANON: AuthContext = { kind: "anonymous" };
+const SERVICE: AuthContext = { kind: "service" };
 
 /**
  * Reads product availability per site. Default auth is anonymous (like
@@ -86,5 +101,89 @@ export class AvailabilityService {
           available: Boolean(opts.defaultAvailableOnNotFound),
         },
     );
+  }
+
+  /**
+   * Lists every availability record for a site (`GET /availability/site/{site}`),
+   * wrapped into `PaginatedItems`. Default auth: anonymous.
+   */
+  async listForSite(
+    siteCode: string,
+    params: { pageNumber?: number; pageSize?: number; q?: string; sort?: string } = {},
+    auth: AuthContext = ANON,
+  ): Promise<PaginatedItems<Availability>> {
+    const pageNumber = params.pageNumber ?? 1;
+    const pageSize = params.pageSize ?? 50;
+    const items = await this.ctx.http.request<Availability[]>({
+      method: "GET",
+      path: `/availability/${this.ctx.tenant}/availability/site/${encodeURIComponent(siteCode)}`,
+      query: {
+        pageNumber,
+        pageSize,
+        ...(params.q === undefined ? {} : { q: params.q }),
+        ...(params.sort === undefined ? {} : { sort: params.sort }),
+      },
+      auth,
+    });
+    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+  }
+
+  // --- Admin writes. Default auth: service. ---
+
+  /**
+   * Creates an availability record for a product on a site
+   * (`POST /availability/{productId}/{site}`). Responds 409 when the record
+   * already exists — use {@link update} to upsert. Default auth: service.
+   */
+  async create(
+    productId: string,
+    siteCode: string,
+    input: AvailabilityInput,
+    auth: AuthContext = SERVICE,
+  ): Promise<AvailabilityCreated> {
+    return this.ctx.http.request<AvailabilityCreated>({
+      method: "POST",
+      path: `/availability/${this.ctx.tenant}/availability/${encodeURIComponent(
+        productId,
+      )}/${encodeURIComponent(siteCode)}`,
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Upserts a product's availability on a site
+   * (`PUT /availability/{productId}/{site}`). Returns the created record's id
+   * on 201 and nothing on 204. This endpoint has no PATCH counterpart.
+   * Default auth: service.
+   */
+  async update(
+    productId: string,
+    siteCode: string,
+    input: AvailabilityInput,
+    auth: AuthContext = SERVICE,
+  ): Promise<AvailabilityCreated | void> {
+    return this.ctx.http.request<AvailabilityCreated | void>({
+      method: "PUT",
+      path: `/availability/${this.ctx.tenant}/availability/${encodeURIComponent(
+        productId,
+      )}/${encodeURIComponent(siteCode)}`,
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Deletes a product's availability on a site
+   * (`DELETE /availability/{productId}/{site}`). Default auth: service.
+   */
+  async delete(productId: string, siteCode: string, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `/availability/${this.ctx.tenant}/availability/${encodeURIComponent(
+        productId,
+      )}/${encodeURIComponent(siteCode)}`,
+      auth,
+    });
   }
 }
