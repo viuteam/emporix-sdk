@@ -50,3 +50,58 @@ describe("PaymentGatewayService.modes", () => {
     expect(l).toHaveBeenCalledWith(expect.objectContaining({ auth: { kind: "raw", token: "X" } }));
   });
 });
+
+describe("PaymentGatewayService.transactions", () => {
+  it("reads hit the transaction paths and forward paging", async () => {
+    const l = vi.fn().mockResolvedValue([{ id: "t1" }]);
+    await svc(l).transactions.list({ pageSize: 10, sort: "created:desc" });
+    expect(l).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        path: TX,
+        auth: { kind: "service" },
+        query: expect.objectContaining({ pageSize: 10, sort: "created:desc" }),
+      }),
+    );
+
+    const bare = vi.fn().mockResolvedValue([]);
+    await svc(bare).transactions.list();
+    expect(bare.mock.calls[0]?.[0]).not.toHaveProperty("query");
+
+    const g = vi.fn().mockResolvedValue({ id: "t1" });
+    await svc(g).transactions.get("t1");
+    expect(g).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${TX}/t1`, auth: { kind: "service" } }));
+  });
+
+  it("authorize POSTs the backend authorize path", async () => {
+    const a = vi.fn().mockResolvedValue({ successful: true });
+    await svc(a).transactions.authorize({} as never);
+    expect(a).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${P}/authorize`, body: {}, auth: { kind: "service" } }));
+  });
+
+  it("capture/refund send a body only when given; cancel never does", async () => {
+    const c = vi.fn().mockResolvedValue({ successful: true, captureId: "c1" });
+    const res = await svc(c).transactions.capture("t1", { amount: 10, currency: "CHF" });
+    expect(c).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "POST", path: `${P}/t1/capture`, body: { amount: 10, currency: "CHF" }, auth: { kind: "service" } }),
+    );
+    expect(res).toEqual({ successful: true, captureId: "c1" });
+
+    const cb = vi.fn().mockResolvedValue({ successful: true });
+    await svc(cb).transactions.capture("t1");
+    expect(cb.mock.calls[0]?.[0]).not.toHaveProperty("body");
+
+    const r = vi.fn().mockResolvedValue({ successful: true });
+    await svc(r).transactions.refund("t1", { amount: 5 });
+    expect(r).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${P}/t1/refund`, body: { amount: 5 } }));
+
+    const rb = vi.fn().mockResolvedValue({ successful: true });
+    await svc(rb).transactions.refund("t1");
+    expect(rb.mock.calls[0]?.[0]).not.toHaveProperty("body");
+
+    const x = vi.fn().mockResolvedValue({ successful: true });
+    await svc(x).transactions.cancel("t1");
+    expect(x).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${P}/t1/cancel`, auth: { kind: "service" } }));
+    expect(x.mock.calls[0]?.[0]).not.toHaveProperty("body");
+  });
+});
