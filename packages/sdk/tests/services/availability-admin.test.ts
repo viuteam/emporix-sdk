@@ -63,3 +63,47 @@ describe("AvailabilityService per-product writes", () => {
     );
   });
 });
+
+describe("AvailabilityService bulk", () => {
+  it("bulkCreate/bulkUpdate/bulkDelete hit /availability/bulk with a body", async () => {
+    const c = vi.fn().mockResolvedValue([{ code: 201 }]);
+    await svc(c).bulkCreate([{ productId: "p1" }] as never);
+    expect(c).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        path: `${A}/bulk`,
+        body: [{ productId: "p1" }],
+        auth: { kind: "service" },
+      }),
+    );
+
+    const u = vi.fn().mockResolvedValue([{ code: 200 }]);
+    await svc(u).bulkUpdate([{ productId: "p1" }] as never);
+    expect(u).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "PUT", path: `${A}/bulk`, body: [{ productId: "p1" }] }),
+    );
+
+    const d = vi.fn().mockResolvedValue([{ code: 204 }]);
+    await svc(d).bulkDelete([{ productId: "p1", site: "main" }] as never);
+    expect(d).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "DELETE",
+        path: `${A}/bulk`,
+        body: [{ productId: "p1", site: "main" }],
+        auth: { kind: "service" },
+      }),
+    );
+  });
+
+  it("sends the vendor-id header only when vendorId is given", async () => {
+    const withVendor = vi.fn().mockResolvedValue([]);
+    await svc(withVendor).bulkCreate([] as never, { vendorId: "v1" });
+    expect(withVendor).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: { "vendor-id": "v1" } }),
+    );
+
+    const without = vi.fn().mockResolvedValue([]);
+    await svc(without).bulkCreate([] as never);
+    expect(without.mock.calls[0]?.[0]).not.toHaveProperty("headers");
+  });
+});

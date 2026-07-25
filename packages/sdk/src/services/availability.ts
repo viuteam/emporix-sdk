@@ -186,4 +186,71 @@ export class AvailabilityService {
       auth,
     });
   }
+
+  /**
+   * Bulk-creates availability records (`POST /availability/bulk`). Responds 207
+   * Multi-Status: partial failures do **not** throw — inspect each entry.
+   *
+   * `options.vendorId` limits the operation to a vendor's products. It is sent
+   * as the `vendor-id` header. **Note:** the OpenAPI schema spells this header
+   * `venodr-id`, which is an evident upstream typo (the body field is
+   * `vendorId`); the SDK sends the corrected name. Unverified against the live
+   * API — if the service really expects the misspelling, the filter silently
+   * has no effect.
+   *
+   * Default auth: service.
+   */
+  async bulkCreate(
+    input: AvailabilityBulkInput[],
+    options: { vendorId?: string } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<AvailabilityBulkResult[]> {
+    return this.ctx.http.request<AvailabilityBulkResult[]>({
+      method: "POST",
+      path: `/availability/${this.ctx.tenant}/availability/bulk`,
+      ...(options.vendorId === undefined ? {} : { headers: { "vendor-id": options.vendorId } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Bulk-updates availability records (`PUT /availability/bulk`). Responds 207
+   * Multi-Status: partial failures do **not** throw — inspect each entry. See
+   * {@link bulkCreate} for the `vendorId` header caveat. Default auth: service.
+   */
+  async bulkUpdate(
+    input: AvailabilityBulkInput[],
+    options: { vendorId?: string } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<AvailabilityBulkResult[]> {
+    return this.ctx.http.request<AvailabilityBulkResult[]>({
+      method: "PUT",
+      path: `/availability/${this.ctx.tenant}/availability/bulk`,
+      ...(options.vendorId === undefined ? {} : { headers: { "vendor-id": options.vendorId } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Bulk-deletes availability records (`DELETE /availability/bulk`). Unusually
+   * for a DELETE, this endpoint takes a body listing the records to remove.
+   * Responds 207 Multi-Status: partial failures do **not** throw — inspect each
+   * entry. See {@link bulkCreate} for the `vendorId` header caveat. Default
+   * auth: service.
+   */
+  async bulkDelete(
+    input: AvailabilityBulkDeleteInput[],
+    options: { vendorId?: string } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<AvailabilityBulkResult[]> {
+    return this.ctx.http.request<AvailabilityBulkResult[]>({
+      method: "DELETE",
+      path: `/availability/${this.ctx.tenant}/availability/bulk`,
+      ...(options.vendorId === undefined ? {} : { headers: { "vendor-id": options.vendorId } }),
+      body: input,
+      auth,
+    });
+  }
 }
