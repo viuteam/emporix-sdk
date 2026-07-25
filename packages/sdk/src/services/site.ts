@@ -128,4 +128,82 @@ export class SiteService {
       auth: authCtx,
     });
   }
+
+  /**
+   * Site mixins (`/sites/{siteCode}/mixins`). Mixin content is an open map —
+   * the spec defines no structure. Reads default to anonymous, writes to
+   * service auth.
+   */
+  readonly mixins = {
+    /** All mixin groups of a site, as a map of group name to content. */
+    list: async (siteCode: string, authCtx: AuthContext = ANON): Promise<SiteMixins> =>
+      this.ctx.http.request<SiteMixins>({
+        method: "GET",
+        path: `/site/${this.ctx.tenant}/sites/${siteCode}/mixins`,
+        auth: authCtx,
+      }),
+
+    /** One mixin group's content by name. */
+    get: async (siteCode: string, mixinName: string, authCtx: AuthContext = ANON): Promise<SiteMixin> =>
+      this.ctx.http.request<SiteMixin>({
+        method: "GET",
+        path: `/site/${this.ctx.tenant}/sites/${siteCode}/mixins/${mixinName}`,
+        auth: authCtx,
+      }),
+
+    /** Adds a mixin to a site. Default auth: service. */
+    create: async (
+      siteCode: string,
+      input: SiteMixin,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<SiteMixinCreated> =>
+      this.ctx.http.request<SiteMixinCreated>({
+        method: "POST",
+        path: `/site/${this.ctx.tenant}/sites/${siteCode}/mixins`,
+        body: input,
+        auth: authCtx,
+      }),
+
+    /**
+     * Partially updates a mixin (PATCH). Responds 200 without a defined body,
+     * so nothing is returned. Default auth: service.
+     */
+    update: async (
+      siteCode: string,
+      mixinName: string,
+      input: SiteMixin,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "PATCH",
+        path: `/site/${this.ctx.tenant}/sites/${siteCode}/mixins/${mixinName}`,
+        body: input,
+        auth: authCtx,
+      });
+    },
+
+    /** Full-replaces a mixin (PUT). Returns nothing, like {@link update}. Default auth: service. */
+    replace: async (
+      siteCode: string,
+      mixinName: string,
+      input: SiteMixin,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "PUT",
+        path: `/site/${this.ctx.tenant}/sites/${siteCode}/mixins/${mixinName}`,
+        body: input,
+        auth: authCtx,
+      });
+    },
+
+    /** Removes a mixin from a site. Default auth: service. */
+    delete: async (siteCode: string, mixinName: string, authCtx: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/site/${this.ctx.tenant}/sites/${siteCode}/mixins/${mixinName}`,
+        auth: authCtx,
+      });
+    },
+  };
 }

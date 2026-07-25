@@ -65,3 +65,46 @@ describe("SiteService writes", () => {
     expect(c).toHaveBeenCalledWith(expect.objectContaining({ auth: { kind: "raw", token: "X" } }));
   });
 });
+
+describe("SiteService.mixins", () => {
+  it("reads default to ANON", async () => {
+    const l = vi.fn().mockResolvedValue({ seo: {} });
+    await svc(l).mixins.list("main");
+    expect(l).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "GET", path: `${S}/main/mixins`, auth: { kind: "anonymous" } }),
+    );
+
+    const g = vi.fn().mockResolvedValue({ title: "x" });
+    await svc(g).mixins.get("main", "seo");
+    expect(g).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "GET", path: `${S}/main/mixins/seo`, auth: { kind: "anonymous" } }),
+    );
+  });
+
+  it("writes default to SERVICE", async () => {
+    const c = vi.fn().mockResolvedValue({ id: "seo" });
+    const res = await svc(c).mixins.create("main", { seo: {} });
+    expect(c).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "POST", path: `${S}/main/mixins`, body: { seo: {} }, auth: { kind: "service" } }),
+    );
+    expect(res).toEqual({ id: "seo" });
+
+    const u = vi.fn().mockResolvedValue(undefined);
+    await svc(u).mixins.update("main", "seo", { title: "x" });
+    expect(u).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "PATCH", path: `${S}/main/mixins/seo`, body: { title: "x" }, auth: { kind: "service" } }),
+    );
+
+    const r = vi.fn().mockResolvedValue(undefined);
+    await svc(r).mixins.replace("main", "seo", { title: "y" });
+    expect(r).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "PUT", path: `${S}/main/mixins/seo`, body: { title: "y" }, auth: { kind: "service" } }),
+    );
+
+    const d = vi.fn().mockResolvedValue(undefined);
+    await svc(d).mixins.delete("main", "seo");
+    expect(d).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "DELETE", path: `${S}/main/mixins/seo`, auth: { kind: "service" } }),
+    );
+  });
+});
