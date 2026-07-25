@@ -7,15 +7,82 @@ import type {
   BundleProductWithId,
   ParentVariantProductWithId,
   ProductMedia,
+  ProductCreateBody,
+  ProductUpdateBody,
+  ProductPartialUpdateBody,
+  ProductBulkCreateBody,
+  ProductBulkUpdateBody,
+  BulkResponse,
+  ResourceLocation,
+  DynamicVariantRecalculationRequest,
+  DynamicVariantRecalculationResponse,
+  DynamicVariantRecalculationJobResponse,
+  DynamicVariantRecalculationJobStatus,
+  ProductTemplateResponse,
+  ProductTemplateCreation,
+  ProductTemplateUpdate,
 } from "../generated/product";
 
 const ANON: AuthContext = { kind: "anonymous" };
+const SERVICE: AuthContext = { kind: "service" };
 
 /** A product as returned by the Product service (all generated fields). */
 export type Product = BasicProductWithId | BundleProductWithId | ParentVariantProductWithId;
 
 /** A single product media entry (generated; `ProductMedia` is the list type). */
 export type Media = ProductMedia[number];
+
+/** Body for creating a product (`POST /products`) — any of the 5 product shapes. */
+export type ProductCreateInput = ProductCreateBody;
+
+/** Body for a full product replace (`PUT /products/{id}`). */
+export type ProductUpdateInput = ProductUpdateBody;
+
+/** Body for a partial product update (`PATCH /products/{id}`). */
+export type ProductPatchInput = ProductPartialUpdateBody;
+
+/** Id/location envelope returned when a product is created. */
+export type ProductCreated = ResourceLocation;
+
+/** Body for bulk-creating products (`POST /products/bulk`). */
+export type ProductBulkCreateInput = ProductBulkCreateBody;
+
+/** Body for bulk-updating products (`PUT /products/bulk`). */
+export type ProductBulkUpdateInput = ProductBulkUpdateBody;
+
+/** Per-entry result of a bulk product operation (207 Multi-Status). */
+export type ProductBulkResult = BulkResponse;
+
+/** Body for triggering a dynamic-variant recalculation. */
+export type ProductRecalculationInput = DynamicVariantRecalculationRequest;
+
+/** Result of triggering a recalculation — created jobs plus skipped product ids. */
+export type ProductRecalculationResult = DynamicVariantRecalculationResponse;
+
+/** A dynamic-variant recalculation job. */
+export type ProductRecalculationJob = DynamicVariantRecalculationJobResponse;
+
+/** Status of a recalculation job. */
+export type ProductRecalculationJobStatus = DynamicVariantRecalculationJobStatus;
+
+/** A product template as returned by the Product service. */
+export type ProductTemplate = ProductTemplateResponse;
+
+/** Body for creating a product template. */
+export type ProductTemplateCreateInput = ProductTemplateCreation;
+
+/** Body for updating a product template (`PUT`, full replace). */
+export type ProductTemplateUpdateInput = ProductTemplateUpdate;
+
+/** Id envelope returned when a product template is created. */
+export type ProductTemplateCreated = { id?: string };
+
+/** Query flags shared by the product write endpoints. */
+export interface ProductWriteOptions {
+  skipVariantGeneration?: boolean;
+  doIndex?: boolean;
+  skipRelatedItemsValidation?: boolean;
+}
 
 /** Catalog reads. Default auth: anonymous; pass customer for personalized pricing. */
 export class ProductService {
@@ -217,4 +284,253 @@ export class ProductService {
     }
     return out;
   }
+
+  // --- Admin writes. Default auth: service. ---
+
+  /**
+   * Creates a product (`POST /products`). Default auth: service. Accepts any of
+   * the five product shapes (basic, bundle, parent-variant, variant,
+   * dynamic-variant).
+   */
+  async create(
+    input: ProductCreateInput,
+    options: ProductWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductCreated> {
+    const query = {
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    return this.ctx.http.request<ProductCreated>({
+      method: "POST",
+      path: `/product/${this.ctx.tenant}/products`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Partially updates a product (`PATCH /products/{productId}`). Default auth:
+   * service. Use {@link replace} for a full replace (PUT).
+   */
+  async update(
+    productId: string,
+    input: ProductPatchInput,
+    options: ProductWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<void> {
+    const query = {
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    await this.ctx.http.request<void>({
+      method: "PATCH",
+      path: `/product/${this.ctx.tenant}/products/${productId}`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Full-replaces a product (`PUT /products/{productId}`). Returns the created
+   * resource on 201 (upsert) and nothing on 204. `options.partial` sends
+   * `?partial=true` for a merge-style replace. Default auth: service.
+   */
+  async replace(
+    productId: string,
+    input: ProductUpdateInput,
+    options: ProductWriteOptions & { partial?: boolean } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductCreated | void> {
+    const query = {
+      ...(options.partial === undefined ? {} : { partial: String(options.partial) }),
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    return this.ctx.http.request<ProductCreated | void>({
+      method: "PUT",
+      path: `/product/${this.ctx.tenant}/products/${productId}`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Deletes a product (`DELETE /products/{productId}`). `options.force` deletes
+   * even when the product is referenced. Default auth: service.
+   */
+  async delete(
+    productId: string,
+    options: { force?: boolean; doIndex?: boolean } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<void> {
+    const query = {
+      ...(options.force === undefined ? {} : { force: String(options.force) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+    };
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `/product/${this.ctx.tenant}/products/${productId}`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      auth,
+    });
+  }
+
+  /**
+   * Bulk-creates products (`POST /products/bulk`). Responds 207 Multi-Status:
+   * partial failures do **not** throw — inspect each entry. Default auth: service.
+   */
+  async bulkCreate(
+    input: ProductBulkCreateInput,
+    options: ProductWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductBulkResult[]> {
+    const query = {
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    return this.ctx.http.request<ProductBulkResult[]>({
+      method: "POST",
+      path: `/product/${this.ctx.tenant}/products/bulk`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Bulk-updates products (`PUT /products/bulk`). Responds 207 Multi-Status:
+   * partial failures do **not** throw — inspect each entry. Default auth: service.
+   */
+  async bulkUpdate(
+    input: ProductBulkUpdateInput,
+    options: ProductWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductBulkResult[]> {
+    const query = {
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    return this.ctx.http.request<ProductBulkResult[]>({
+      method: "PUT",
+      path: `/product/${this.ctx.tenant}/products/bulk`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Triggers a dynamic-variant recalculation for the given product ids
+   * (`POST /products/recalculate`, 202). The result carries the created or
+   * already-referenced `jobs` plus `skippedProductIds` — products whose root
+   * already has a PENDING/PROCESSING job. Default auth: service.
+   */
+  async recalculate(
+    input: ProductRecalculationInput,
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductRecalculationResult> {
+    return this.ctx.http.request<ProductRecalculationResult>({
+      method: "POST",
+      path: `/product/${this.ctx.tenant}/products/recalculate`,
+      body: input,
+      auth,
+    });
+  }
+
+  /** Lists dynamic-variant recalculation jobs, optionally filtered by status. Default auth: anonymous. */
+  async listRecalculationJobs(
+    params: { status?: ProductRecalculationJobStatus } = {},
+    auth: AuthContext = ANON,
+  ): Promise<ProductRecalculationJob[]> {
+    return this.ctx.http.request<ProductRecalculationJob[]>({
+      method: "GET",
+      path: `/product/${this.ctx.tenant}/products/recalculate/jobs`,
+      ...(params.status === undefined ? {} : { query: { status: params.status } }),
+      auth,
+    });
+  }
+
+  /** Fetches one dynamic-variant recalculation job by id. Default auth: anonymous. */
+  async getRecalculationJob(jobId: string, auth: AuthContext = ANON): Promise<ProductRecalculationJob> {
+    return this.ctx.http.request<ProductRecalculationJob>({
+      method: "GET",
+      path: `/product/${this.ctx.tenant}/products/recalculate/jobs/${jobId}`,
+      auth,
+    });
+  }
+
+  /**
+   * Product templates (`/product-templates`). Reads default to anonymous,
+   * writes to service auth.
+   */
+  readonly templates = {
+    /** One page of product templates. Default auth: anonymous. */
+    list: async (
+      params: { pageNumber?: number; pageSize?: number; sort?: string; q?: string } = {},
+      auth: AuthContext = ANON,
+    ): Promise<ProductTemplate[]> =>
+      this.ctx.http.request<ProductTemplate[]>({
+        method: "GET",
+        path: `/product/${this.ctx.tenant}/product-templates`,
+        query: {
+          ...(params.pageNumber === undefined ? {} : { pageNumber: params.pageNumber }),
+          ...(params.pageSize === undefined ? {} : { pageSize: params.pageSize }),
+          ...(params.sort === undefined ? {} : { sort: params.sort }),
+          ...(params.q === undefined ? {} : { q: params.q }),
+        },
+        auth,
+      }),
+
+    /** Fetches one product template by id. Default auth: anonymous. */
+    get: async (templateId: string, auth: AuthContext = ANON): Promise<ProductTemplate> =>
+      this.ctx.http.request<ProductTemplate>({
+        method: "GET",
+        path: `/product/${this.ctx.tenant}/product-templates/${templateId}`,
+        auth,
+      }),
+
+    /** Creates a product template. Default auth: service. */
+    create: async (
+      input: ProductTemplateCreateInput,
+      auth: AuthContext = SERVICE,
+    ): Promise<ProductTemplateCreated> =>
+      this.ctx.http.request<ProductTemplateCreated>({
+        method: "POST",
+        path: `/product/${this.ctx.tenant}/product-templates`,
+        body: input,
+        auth,
+      }),
+
+    /** Full-replaces a product template (`PUT`). Default auth: service. */
+    update: async (
+      templateId: string,
+      input: ProductTemplateUpdateInput,
+      auth: AuthContext = SERVICE,
+    ): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "PUT",
+        path: `/product/${this.ctx.tenant}/product-templates/${templateId}`,
+        body: input,
+        auth,
+      });
+    },
+
+    /** Deletes a product template. Default auth: service. */
+    delete: async (templateId: string, auth: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `/product/${this.ctx.tenant}/product-templates/${templateId}`,
+        auth,
+      });
+    },
+  };
 }
