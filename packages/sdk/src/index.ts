@@ -51,7 +51,26 @@ export type {
   ResendActivationInput,
 } from "./services/customer";
 export { ProductService } from "./services/product";
-export type { Product, Media } from "./services/product";
+export type {
+  Product,
+  Media,
+  ProductCreateInput,
+  ProductUpdateInput,
+  ProductPatchInput,
+  ProductCreated,
+  ProductBulkCreateInput,
+  ProductBulkUpdateInput,
+  ProductBulkResult,
+  ProductRecalculationInput,
+  ProductRecalculationResult,
+  ProductRecalculationJob,
+  ProductRecalculationJobStatus,
+  ProductTemplate,
+  ProductTemplateCreateInput,
+  ProductTemplateUpdateInput,
+  ProductTemplateCreated,
+  ProductWriteOptions,
+} from "./services/product";
 export { CategoryService } from "./services/category";
 export type {
   Category,

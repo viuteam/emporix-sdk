@@ -7,15 +7,82 @@ import type {
   BundleProductWithId,
   ParentVariantProductWithId,
   ProductMedia,
+  ProductCreateBody,
+  ProductUpdateBody,
+  ProductPartialUpdateBody,
+  ProductBulkCreateBody,
+  ProductBulkUpdateBody,
+  BulkResponse,
+  ResourceLocation,
+  DynamicVariantRecalculationRequest,
+  DynamicVariantRecalculationResponse,
+  DynamicVariantRecalculationJobResponse,
+  DynamicVariantRecalculationJobStatus,
+  ProductTemplateResponse,
+  ProductTemplateCreation,
+  ProductTemplateUpdate,
 } from "../generated/product";
 
 const ANON: AuthContext = { kind: "anonymous" };
+const SERVICE: AuthContext = { kind: "service" };
 
 /** A product as returned by the Product service (all generated fields). */
 export type Product = BasicProductWithId | BundleProductWithId | ParentVariantProductWithId;
 
 /** A single product media entry (generated; `ProductMedia` is the list type). */
 export type Media = ProductMedia[number];
+
+/** Body for creating a product (`POST /products`) — any of the 5 product shapes. */
+export type ProductCreateInput = ProductCreateBody;
+
+/** Body for a full product replace (`PUT /products/{id}`). */
+export type ProductUpdateInput = ProductUpdateBody;
+
+/** Body for a partial product update (`PATCH /products/{id}`). */
+export type ProductPatchInput = ProductPartialUpdateBody;
+
+/** Id/location envelope returned when a product is created. */
+export type ProductCreated = ResourceLocation;
+
+/** Body for bulk-creating products (`POST /products/bulk`). */
+export type ProductBulkCreateInput = ProductBulkCreateBody;
+
+/** Body for bulk-updating products (`PUT /products/bulk`). */
+export type ProductBulkUpdateInput = ProductBulkUpdateBody;
+
+/** Per-entry result of a bulk product operation (207 Multi-Status). */
+export type ProductBulkResult = BulkResponse;
+
+/** Body for triggering a dynamic-variant recalculation. */
+export type ProductRecalculationInput = DynamicVariantRecalculationRequest;
+
+/** Result of triggering a recalculation — created jobs plus skipped product ids. */
+export type ProductRecalculationResult = DynamicVariantRecalculationResponse;
+
+/** A dynamic-variant recalculation job. */
+export type ProductRecalculationJob = DynamicVariantRecalculationJobResponse;
+
+/** Status of a recalculation job. */
+export type ProductRecalculationJobStatus = DynamicVariantRecalculationJobStatus;
+
+/** A product template as returned by the Product service. */
+export type ProductTemplate = ProductTemplateResponse;
+
+/** Body for creating a product template. */
+export type ProductTemplateCreateInput = ProductTemplateCreation;
+
+/** Body for updating a product template (`PUT`, full replace). */
+export type ProductTemplateUpdateInput = ProductTemplateUpdate;
+
+/** Id envelope returned when a product template is created. */
+export type ProductTemplateCreated = { id?: string };
+
+/** Query flags shared by the product write endpoints. */
+export interface ProductWriteOptions {
+  skipVariantGeneration?: boolean;
+  doIndex?: boolean;
+  skipRelatedItemsValidation?: boolean;
+}
 
 /** Catalog reads. Default auth: anonymous; pass customer for personalized pricing. */
 export class ProductService {
@@ -216,5 +283,102 @@ export class ProductService {
       out.push(child);
     }
     return out;
+  }
+
+  // --- Admin writes. Default auth: service. ---
+
+  /**
+   * Creates a product (`POST /products`). Default auth: service. Accepts any of
+   * the five product shapes (basic, bundle, parent-variant, variant,
+   * dynamic-variant).
+   */
+  async create(
+    input: ProductCreateInput,
+    options: ProductWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductCreated> {
+    const query = {
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    return this.ctx.http.request<ProductCreated>({
+      method: "POST",
+      path: `/product/${this.ctx.tenant}/products`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Partially updates a product (`PATCH /products/{productId}`). Default auth:
+   * service. Use {@link replace} for a full replace (PUT).
+   */
+  async update(
+    productId: string,
+    input: ProductPatchInput,
+    options: ProductWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<void> {
+    const query = {
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    await this.ctx.http.request<void>({
+      method: "PATCH",
+      path: `/product/${this.ctx.tenant}/products/${productId}`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Full-replaces a product (`PUT /products/{productId}`). Returns the created
+   * resource on 201 (upsert) and nothing on 204. `options.partial` sends
+   * `?partial=true` for a merge-style replace. Default auth: service.
+   */
+  async replace(
+    productId: string,
+    input: ProductUpdateInput,
+    options: ProductWriteOptions & { partial?: boolean } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductCreated | void> {
+    const query = {
+      ...(options.partial === undefined ? {} : { partial: String(options.partial) }),
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    return this.ctx.http.request<ProductCreated | void>({
+      method: "PUT",
+      path: `/product/${this.ctx.tenant}/products/${productId}`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Deletes a product (`DELETE /products/{productId}`). `options.force` deletes
+   * even when the product is referenced. Default auth: service.
+   */
+  async delete(
+    productId: string,
+    options: { force?: boolean; doIndex?: boolean } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<void> {
+    const query = {
+      ...(options.force === undefined ? {} : { force: String(options.force) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+    };
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `/product/${this.ctx.tenant}/products/${productId}`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      auth,
+    });
   }
 }
