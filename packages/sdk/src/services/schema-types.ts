@@ -6,6 +6,14 @@ import type {
   CustomInstanceResponse,
   BulkPatchCustomInstanceRequest as GenBulkPatchInstanceItem,
   BulkResponse as GenBulkResponse,
+  ReferenceResponse,
+  ReferenceCreation,
+  ReferenceUpdate,
+  IdResponse,
+  CustomInstanceCreation,
+  CustomInstanceUpdate,
+  ExportImportRequest,
+  ExportImportResponse,
 } from "../generated/schema";
 
 /** One item for {@link SchemaService.bulkPatchInstances} — `{ id, data: op[] }`. */
@@ -97,3 +105,38 @@ export interface ListCustomEntitiesOptions {
 
 /** Structured search filter body for {@link SchemaService.searchInstances}. */
 export type InstanceSearchBody = Record<string, unknown>;
+
+/** A reference entity (a schema attached to an uploaded JSON file). */
+export type SchemaReference = ReferenceResponse;
+
+/** Metadata part for creating a reference. */
+export type SchemaReferenceInput = ReferenceCreation;
+
+/** Metadata part for updating a reference. */
+export type SchemaReferenceUpdateInput = ReferenceUpdate;
+
+/** Id envelope returned when a reference is created. */
+export type SchemaReferenceCreated = IdResponse;
+
+/** One item for {@link SchemaService.bulkCreateInstances}. */
+export type SchemaInstanceBulkCreateItem = CustomInstanceCreation;
+
+/** One item for {@link SchemaService.bulkUpsertInstances} — an update plus its id. */
+export type SchemaInstanceBulkUpsertItem = { id: string } & CustomInstanceUpdate;
+
+/** Result of a custom-entity export — base64 `data` plus `exportedAt`. */
+export type SchemaExport = ExportImportResponse;
+
+/** Body for a custom-entity import — the base64 `data` produced by an export. */
+export type SchemaImportInput = ExportImportRequest;
+
+/** Filter / pagination options for `schema.references.list`. */
+export interface ListSchemaReferencesQuery {
+  pageNumber?: number;
+  pageSize?: number;
+  sort?: string;
+  q?: string;
+  fields?: string;
+  /** Restrict to references attached to this entity type (e.g. `PRODUCT`). */
+  type?: string;
+}

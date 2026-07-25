@@ -15,6 +15,15 @@ import type {
   InstanceSearchBody,
   BulkPatchInstanceItem,
   BulkInstanceResult,
+  SchemaReference,
+  SchemaReferenceInput,
+  SchemaReferenceUpdateInput,
+  SchemaReferenceCreated,
+  SchemaInstanceBulkCreateItem,
+  SchemaInstanceBulkUpsertItem,
+  SchemaExport,
+  SchemaImportInput,
+  ListSchemaReferencesQuery,
 } from "./schema-types";
 
 export type {
@@ -33,9 +42,25 @@ export type {
   InstanceSearchBody,
   BulkPatchInstanceItem,
   BulkInstanceResult,
+  SchemaReference,
+  SchemaReferenceInput,
+  SchemaReferenceUpdateInput,
+  SchemaReferenceCreated,
+  SchemaInstanceBulkCreateItem,
+  SchemaInstanceBulkUpsertItem,
+  SchemaExport,
+  SchemaImportInput,
+  ListSchemaReferencesQuery,
 } from "./schema-types";
 
 const SERVICE: AuthContext = { kind: "service" };
+
+/** Passes a `Blob` through; serializes a plain object into a JSON blob. */
+function toJsonBlob(file: Blob | Record<string, unknown>): Blob {
+  return file instanceof Blob
+    ? file
+    : new Blob([JSON.stringify(file)], { type: "application/json" });
+}
 
 /**
  * Schema Service (`/schema/{tenant}/…`): schemas, entity types, custom
@@ -57,6 +82,10 @@ export class SchemaService {
 
   private instancesBase(type: string): string {
     return `${this.entitiesBase()}/${encodeURIComponent(type)}/instances`;
+  }
+
+  private referencesBase(): string {
+    return `/schema/${this.ctx.tenant}/references`;
   }
 
   // --- (A) Schemas ---------------------------------------------------------
@@ -334,6 +363,95 @@ export class SchemaService {
     });
   }
 
+  /**
+   * Create multiple instances in one request
+   * (`POST /custom-entities/{type}/instances/bulk`). Returns a 207 envelope:
+   * a per-item result array — a 207 is success, individual failures live in
+   * each item's `code`/`status`.
+   */
+  async bulkCreateInstances(
+    type: string,
+    items: SchemaInstanceBulkCreateItem[],
+    auth: AuthContext = SERVICE,
+  ): Promise<BulkInstanceResult> {
+    return this.ctx.http.request<BulkInstanceResult>({
+      method: "POST",
+      path: `${this.instancesBase(type)}/bulk`,
+      auth,
+      body: items,
+    });
+  }
+
+  /**
+   * Upsert multiple instances in one request
+   * (`PUT /custom-entities/{type}/instances/bulk`). Each item carries its `id`.
+   * Returns the same 207 per-item envelope as {@link bulkCreateInstances}.
+   */
+  async bulkUpsertInstances(
+    type: string,
+    items: SchemaInstanceBulkUpsertItem[],
+    auth: AuthContext = SERVICE,
+  ): Promise<BulkInstanceResult> {
+    return this.ctx.http.request<BulkInstanceResult>({
+      method: "PUT",
+      path: `${this.instancesBase(type)}/bulk`,
+      auth,
+      body: items,
+    });
+  }
+
+  /**
+   * Delete multiple instances by id
+   * (`DELETE /custom-entities/{type}/instances/bulk`). Returns the same 207
+   * per-item envelope as {@link bulkCreateInstances}.
+   *
+   * **Note:** the OpenAPI schema declares no request body for this operation,
+   * but its description mandates one — "The IDs of items should be defined in
+   * the request body as an array of strings" (example
+   * `["firstId", "secondId"]`). The SDK follows the description and sends the
+   * id array. Unverified against the live API.
+   */
+  async bulkDeleteInstances(
+    type: string,
+    ids: string[],
+    auth: AuthContext = SERVICE,
+  ): Promise<BulkInstanceResult> {
+    return this.ctx.http.request<BulkInstanceResult>({
+      method: "DELETE",
+      path: `${this.instancesBase(type)}/bulk`,
+      auth,
+      body: ids,
+    });
+  }
+
+  /**
+   * Export custom entities and their schemas
+   * (`POST /custom-entities/export`). Pass the entity types to include; the
+   * result carries a base64 `data` payload plus `exportedAt`.
+   */
+  async exportCustomEntities(types: string[], auth: AuthContext = SERVICE): Promise<SchemaExport> {
+    return this.ctx.http.request<SchemaExport>({
+      method: "POST",
+      path: `${this.entitiesBase()}/export`,
+      auth,
+      body: types,
+    });
+  }
+
+  /**
+   * Import custom entities and their schemas
+   * (`POST /custom-entities/import`) from the base64 `data` produced by
+   * {@link exportCustomEntities}.
+   */
+  async importCustomEntities(input: SchemaImportInput, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `${this.entitiesBase()}/import`,
+      auth,
+      body: input,
+    });
+  }
+
   /** Delete an instance by id. */
   async deleteInstance(type: string, id: string, auth: AuthContext = SERVICE): Promise<void> {
     await this.ctx.http.request<void>({
@@ -360,4 +478,96 @@ export class SchemaService {
     });
     return { items, pageNumber: 1, pageSize: items.length, hasNextPage: false };
   }
+
+  // --- (E) References ------------------------------------------------------
+
+  /**
+   * Reference entities (`/references`) — a schema plus an uploaded JSON file.
+   * Create/update are `multipart/form-data` (parts `file` and `body`), like
+   * the media service's blob upload. Default auth: service.
+   */
+  readonly references = {
+    /**
+     * List references, wrapped in {@link PaginatedItems}. Pagination defaults
+     * match the rest of this service (`pageNumber: 1`, `pageSize: 60`).
+     */
+    list: async (
+      query: ListSchemaReferencesQuery = {},
+      auth: AuthContext = SERVICE,
+    ): Promise<PaginatedItems<SchemaReference>> => {
+      const pageNumber = query.pageNumber ?? 1;
+      const pageSize = query.pageSize ?? 60;
+      const q: Record<string, string | number> = { pageNumber, pageSize };
+      if (query.sort) q.sort = query.sort;
+      if (query.q) q.q = query.q;
+      if (query.fields) q.fields = query.fields;
+      if (query.type) q.type = query.type;
+      const items = await this.ctx.http.request<SchemaReference[]>({
+        method: "GET",
+        path: this.referencesBase(),
+        auth,
+        query: q,
+      });
+      return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    },
+
+    /** Retrieve one reference by id. */
+    get: async (id: string, auth: AuthContext = SERVICE): Promise<SchemaReference> =>
+      this.ctx.http.request<SchemaReference>({
+        method: "GET",
+        path: `${this.referencesBase()}/${encodeURIComponent(id)}`,
+        auth,
+      }),
+
+    /**
+     * Create a reference. `file` is the reference's JSON content — pass a
+     * `Blob` to upload as-is, or a plain object to have it serialized into a
+     * JSON blob. `body` carries the metadata.
+     */
+    create: async (
+      input: { file: Blob | Record<string, unknown>; body: SchemaReferenceInput },
+      auth: AuthContext = SERVICE,
+    ): Promise<SchemaReferenceCreated> => {
+      const fd = new FormData();
+      fd.set("file", toJsonBlob(input.file));
+      fd.set("body", JSON.stringify(input.body));
+      return this.ctx.http.request<SchemaReferenceCreated>({
+        method: "POST",
+        path: this.referencesBase(),
+        auth,
+        body: fd,
+      });
+    },
+
+    /**
+     * Update a reference (multipart, like {@link create}). `options.version`
+     * enables optimistic locking — the server answers 409 on a stale version.
+     */
+    update: async (
+      id: string,
+      input: { file: Blob | Record<string, unknown>; body: SchemaReferenceUpdateInput },
+      options: { version?: number } = {},
+      auth: AuthContext = SERVICE,
+    ): Promise<void> => {
+      const fd = new FormData();
+      fd.set("file", toJsonBlob(input.file));
+      fd.set("body", JSON.stringify(input.body));
+      await this.ctx.http.request<void>({
+        method: "PUT",
+        path: `${this.referencesBase()}/${encodeURIComponent(id)}`,
+        ...(options.version === undefined ? {} : { query: { version: options.version } }),
+        auth,
+        body: fd,
+      });
+    },
+
+    /** Delete a reference by id. */
+    delete: async (id: string, auth: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `${this.referencesBase()}/${encodeURIComponent(id)}`,
+        auth,
+      });
+    },
+  };
 }
