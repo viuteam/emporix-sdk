@@ -182,7 +182,14 @@ export type {
   SegmentAssignmentBulkResult,
 } from "./services/segment";
 export { SiteService } from "./services/site";
-export type { Site } from "./services/site";
+export type {
+  Site,
+  SiteInput,
+  SiteCreated,
+  SiteMixin,
+  SiteMixins,
+  SiteMixinCreated,
+} from "./services/site";
 export { InvoiceService } from "./services/invoice";
 export type { InvoiceJobDraft, InvoiceJobCreated, InvoiceJob } from "./services/invoice";
 export { QuoteService } from "./services/quote";

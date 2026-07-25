@@ -1,10 +1,27 @@
 import type { ClientContext } from "../core/context";
 import { auth, type AuthContext } from "../core/auth";
-import type { Site } from "./site-types";
+import type {
+  Site,
+  SiteInput,
+  SiteCreated,
+  SiteMixin,
+  SiteMixins,
+  SiteMixinCreated,
+} from "./site-types";
 
-export type { Site, SiteAddress, SiteHomeBase } from "./site-types";
+export type {
+  Site,
+  SiteAddress,
+  SiteHomeBase,
+  SiteInput,
+  SiteCreated,
+  SiteMixin,
+  SiteMixins,
+  SiteMixinCreated,
+} from "./site-types";
 
 const ANON: AuthContext = auth.anonymous();
+const SERVICE: AuthContext = auth.service();
 
 /**
  * Read-only access to the tenant's site catalog. List returns active sites
@@ -46,5 +63,69 @@ export class SiteService {
       );
     }
     return def;
+  }
+
+  /** Lists just the tenant's site codes (`GET /siteslist`). Default auth: anonymous. */
+  async listCodes(authCtx: AuthContext = ANON): Promise<string[]> {
+    return this.ctx.http.request<string[]>({
+      method: "GET",
+      path: `/site/${this.ctx.tenant}/siteslist`,
+      auth: authCtx,
+    });
+  }
+
+  // --- Admin writes. Default auth: service. ---
+
+  /** Creates a site (`POST /sites`). Default auth: service. */
+  async create(input: SiteInput, authCtx: AuthContext = SERVICE): Promise<SiteCreated> {
+    return this.ctx.http.request<SiteCreated>({
+      method: "POST",
+      path: `/site/${this.ctx.tenant}/sites`,
+      body: input,
+      auth: authCtx,
+    });
+  }
+
+  /**
+   * Partially updates a site (`PATCH /sites/{siteCode}`). The endpoint responds
+   * 200 without a defined body, so nothing is returned — re-read with
+   * {@link get} when the updated site is needed. Default auth: service.
+   */
+  async update(siteCode: string, input: SiteInput, authCtx: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PATCH",
+      path: `/site/${this.ctx.tenant}/sites/${siteCode}`,
+      body: input,
+      auth: authCtx,
+    });
+  }
+
+  /**
+   * Full-replaces a site (`PUT /sites/{siteCode}`). Like {@link update} it
+   * returns nothing (200 with no defined body). `options.expand` is forwarded as
+   * a query parameter. Default auth: service.
+   */
+  async replace(
+    siteCode: string,
+    input: SiteInput,
+    options: { expand?: string } = {},
+    authCtx: AuthContext = SERVICE,
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PUT",
+      path: `/site/${this.ctx.tenant}/sites/${siteCode}`,
+      ...(options.expand === undefined ? {} : { query: { expand: options.expand } }),
+      body: input,
+      auth: authCtx,
+    });
+  }
+
+  /** Deletes a site (`DELETE /sites/{siteCode}`). Default auth: service. */
+  async delete(siteCode: string, authCtx: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `/site/${this.ctx.tenant}/sites/${siteCode}`,
+      auth: authCtx,
+    });
   }
 }
