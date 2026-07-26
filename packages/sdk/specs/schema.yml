@@ -226,7 +226,7 @@ paths:
         - name: type
           in: query
           description: |
-            Filters schemas by type. Possible types to specify, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA. When the newest version of the schema is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
+            Filters schemas by type. Possible types to specify, AVAILABILITY, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, LOCATION, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA. When the newest version of the schema is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
           # DEV NOTE: If you add another type, the tutorial and MD guides have to be updated as well.
           schema:
             type: string
@@ -373,6 +373,7 @@ paths:
                 value:
                   - PRODUCT
                   - ORDER
+                  - AVAILABILITY
         description: ''
       responses:
         '204':
@@ -462,6 +463,8 @@ paths:
               examples:
                 Types:
                   value:
+                    - AVAILABILITY
+                    - LOCATION
                     - ORDER
                     - PRODUCT
                     - QUOTE
@@ -583,7 +586,7 @@ paths:
         - name: type
           in: query
           description: |
-            Filters references by type. Possible types to specify, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA. When the newer version of a reference is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
+            Filters references by type. Possible types to specify, AVAILABILITY, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, LOCATION, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA. When the newer version of a reference is of different type than the previous one and the previous one matches the type specified in this query param, then the previous version is returned.
           schema:
             type: string
   '/schema/{tenant}/references/{id}':
@@ -699,6 +702,8 @@ paths:
         Creates a custom type entity that can be later used for creating custom instances.
 
         **Note**: When a custom entity type is created, a set of custom scopes is created, which allow managing custom instances of that type.
+
+        Reserved built-in type IDs cannot be used as custom schema type IDs. This includes AVAILABILITY and LOCATION.
 
       operationId: POST-schema-create-custom-schema-type
       requestBody:
