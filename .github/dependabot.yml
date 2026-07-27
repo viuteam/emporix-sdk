@@ -1,0 +1,27 @@
+version: 2
+
+updates:
+  # Keep the workflow actions current on their own, so a forced runtime bump
+  # (Node 20 -> 24 and whatever comes next) never has to be chased by hand.
+  # npm is deliberately not covered: a dependency bump in packages/* is a
+  # published change and needs a changeset, which Dependabot cannot author.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    # One PR for the whole set instead of ten — the actions move together and
+    # are verified by the same pr-check run.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      # `deps` is in commitlint's scope-enum; Dependabot's subject already
+      # starts with the lowercase verb "bump".
+      prefix: chore(deps)
+    labels:
+      - dependencies
+      - automated
+      # changeset-check skips PRs carrying this label. Workflow-only changes
+      # never affect the published packages, so there is nothing to release.
+      - no-release
