@@ -34,8 +34,18 @@ const products = await sdk.products.list();
 const { customerToken } = await sdk.customers.login({ email, password });
 const ctx = auth.customer(customerToken);
 const me = await sdk.customers.me(ctx);
+
+// create() returns CartCreated → cart.cartId (getCurrent() returns a Cart → .id)
 const cart = await sdk.carts.create({ currency: "EUR" }, ctx);
-await sdk.carts.addItem(cart.id, { productId: "p_1", quantity: 2 }, ctx);
+await sdk.carts.addItem(
+  cart.cartId,
+  {
+    itemYrn: `urn:yaas:hybris:product:product:${sdk.tenant};p_1`,
+    quantity: 2,
+    price: { priceId: "pr_1", originalAmount: 10, effectiveAmount: 10, currency: "EUR" },
+  },
+  ctx,
+);
 
 // Service account with a custom credential set
 await sdk.products.list(undefined, auth.service("partner"));
@@ -62,8 +72,8 @@ The sections below highlight the most-used services; per-service guides live in
 
 ## Searching by mixin (custom) fields
 
-`products.search`, `categories.search`, `orders.listMine({ q })`,
-`customerAdmin.searchCustomers({ q })` and `vendor.searchVendors({ q })` accept a
+`products.search`, `categories.search`, `orders.listMine(auth, { q })`,
+`customerAdmin.searchCustomers({ q })` and `vendors.searchVendors({ q })` accept a
 raw Emporix `q` string **or** a type-safe filter built with `mixinQuery` from
 [`@viu/emporix-mixins`](../mixins). The filter is entity-gated (a filter built for
 one entity is a compile error on another) and an `or()` filter is rejected on
