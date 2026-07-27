@@ -163,6 +163,46 @@ describe("CartService address setters (regression: #159-class path bug)", () => 
   });
 });
 
+describe("CartService.setAddresses", () => {
+  it("PUTs both addresses in one request, with no leading read", async () => {
+    const r = vi
+      .fn()
+      .mockResolvedValueOnce(undefined) // PUT
+      .mockResolvedValueOnce({ id: "c1", addresses: [] }); // re-fetch
+    await svc(r).setAddresses(
+      "c1",
+      { shipping: { contactName: "Ship" }, billing: { contactName: "Bill" } },
+      CUST,
+    );
+    expect(r).toHaveBeenCalledTimes(2);
+    const put = r.mock.calls[0]?.[0];
+    expect(put).toEqual(expect.objectContaining({ method: "PUT", path: `${B}/c1`, auth: CUST }));
+    expect(put.body.addresses).toEqual([
+      { contactName: "Ship", type: "SHIPPING" },
+      { contactName: "Bill", type: "BILLING" },
+    ]);
+    expect(r.mock.calls[1]?.[0]).toEqual(expect.objectContaining({ method: "GET", path: `${B}/c1` }));
+  });
+
+  it("sends only the given type — documented as clearing the other", async () => {
+    const r = vi.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce({ id: "c1" });
+    await svc(r).setAddresses("c1", { shipping: { contactName: "Ship" } }, CUST);
+    expect(r.mock.calls[0]?.[0].body.addresses).toEqual([{ contactName: "Ship", type: "SHIPPING" }]);
+  });
+
+  it("sends an empty array when given none", async () => {
+    const r = vi.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce({ id: "c1" });
+    await svc(r).setAddresses("c1", {}, CUST);
+    expect(r.mock.calls[0]?.[0].body.addresses).toEqual([]);
+  });
+
+  it("rejects a non-cart auth context before any request", async () => {
+    const r = vi.fn();
+    await expect(svc(r).setAddresses("c1", {}, SVC)).rejects.toBeInstanceOf(EmporixValidationError);
+    expect(r).not.toHaveBeenCalled();
+  });
+});
+
 describe("CartService auth split", () => {
   it("a storefront op rejects a service auth and makes no request", async () => {
     const r = vi.fn();
