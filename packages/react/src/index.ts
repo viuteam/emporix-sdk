@@ -30,6 +30,7 @@ export {
   useCategoriesInfinite,
   useCategoryTree,
   useCategoryParents,
+  useCategorySearch,
   useChildCategories,
   useCategoryTreeById,
   useProductsInCategory,
@@ -111,6 +112,10 @@ export {
   useMyReturns,
   useReturn,
   useCreateReturn,
+  useApprovals,
+  useApproval,
+  useCreateApproval,
+  useUpdateApproval,
 } from "./hooks/index";
 export type {
   CompanySwitcherApi,
@@ -121,6 +126,13 @@ export type {
   UseAvailabilitiesOptions,
   CouponActionVars,
   InvokeCloudFunctionVars,
+  UseUpdateApprovalVars,
+  UseOrderOptions,
+  UseCancelOrderVars,
+  UseOrderTransitionVars,
+  UseReorderVars,
+  UseReorderResult,
+  UseUpdateSalesOrderVars,
 } from "./hooks/index";
 export type {
   CustomerSessionApi,
