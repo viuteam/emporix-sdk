@@ -1,5 +1,127 @@
 # @viu/emporix-sdk
 
+## 2.23.0
+
+### Minor Changes
+
+- [#172](https://github.com/viuteam/emporix-sdk/pull/172) [`3761f0f`](https://github.com/viuteam/emporix-sdk/commit/3761f0fd7f0eace3dd0dfa30fb76811c484dd7ee) Thanks [@amnael1](https://github.com/amnael1)! - Add availability admin operations to `client.availability`: `listForSite`
+  (paginated per-site listing), per-product `create`/`update`/`delete`, and
+  `bulkCreate`/`bulkUpdate`/`bulkDelete` (207 Multi-Status — inspect each entry;
+  the bulk delete carries a body). Writes default to service auth. The bulk
+  methods accept `{ vendorId }`, sent as the `vendor-id` header — note the OpenAPI
+  schema spells it `venodr-id`, an apparent upstream typo, and the corrected name
+  is not yet verified against the live API. The deprecated location-management
+  endpoints remain unwrapped, and the existing reads are unchanged.
+
+- [#176](https://github.com/viuteam/emporix-sdk/pull/176) [`6f3b296`](https://github.com/viuteam/emporix-sdk/commit/6f3b296ca3c4e81a62459fab82fbd33af6feb7a3) Thanks [@amnael1](https://github.com/amnael1)! - Fix `carts.setShippingAddress` and `carts.setBillingAddress`, which called
+  `/carts/{id}/shipping-address` and `/carts/{id}/billing-address` — paths that do
+  not exist and returned 404 on every call (verified against a live tenant). Cart
+  addresses are set through `PUT /carts/{id}` with an `addresses` array. Because
+  that array is a full replace — sending one type leaves the other as an empty
+  stub — both methods now read the cart, merge in the new address, write, and
+  return the re-fetched cart. Their signatures are unchanged.
+
+  Adds `carts.setAddresses(cartId, { shipping, billing }, auth)` for setting both
+  in a single request, skipping the read. Note it **replaces** the address set: an
+  omitted type is cleared.
+
+- [#167](https://github.com/viuteam/emporix-sdk/pull/167) [`3b7f63a`](https://github.com/viuteam/emporix-sdk/commit/3b7f63afe0264adcf0655694440732fc923b63db) Thanks [@amnael1](https://github.com/amnael1)! - Add the remaining cart operations to `client.carts`: backend `search` (POST
+  `/carts/search`), `delete`, and `update` (which take an unguarded auth so a
+  service token can manage any cart), plus storefront `getItem`, `listDiscounts`,
+  `removeAllDiscounts`, `removeDiscountByIndex`, and `getDeliveryRestrictions`
+  (which keep the customer/anonymous guard). Mutating ops re-fetch and return the
+  updated `Cart` (`delete` returns void). Existing cart methods are unchanged.
+
+- [#166](https://github.com/viuteam/emporix-sdk/pull/166) [`3c058d0`](https://github.com/viuteam/emporix-sdk/commit/3c058d0786132b0ff6281ab39d5f584943c6bf70) Thanks [@amnael1](https://github.com/amnael1)! - Add category admin CRUD to `client.categories`: core writes
+  (`create`/`update`/`patch`/`delete`), POST-body search (`searchByQuery`,
+  `searchTrees`), and a `categories.assignments` sub-resource — `list`,
+  `create`, `bulkCreate`, `remove`, `removeAll`, reference-based
+  `upsertByReference`/`removeByReference`/`bulkUpsertByReference`, and
+  tenant-wide `listCategoriesByReference`/`removeAllByReference`. Writes default
+  to service auth (overridable). The existing storefront reads are unchanged.
+
+- [#162](https://github.com/viuteam/emporix-sdk/pull/162) [`7a4b4a5`](https://github.com/viuteam/emporix-sdk/commit/7a4b4a552ad3c49c08b1b3b9dc057f6d57ef7fb2) Thanks [@amnael1](https://github.com/amnael1)! - Add `client.iam` — a CRUD facade for the current IAM admin surface: `iam.users`
+  (list/create/get/getMe/update/delete + group/scope/access-control reads),
+  `iam.groups` (CRUD + membership + access-controls), `iam.accessControls`
+  (list/get/upsert/delete), `iam.scopes` (list/get/upsertCustom/deleteCustom).
+  Every method takes a required `auth`. `client.customerGroups` now delegates its
+  list/add operations to `iam.groups` (public API unchanged). The deprecated
+  legacy-RBAC model (roles/permissions/resources/templates) is not wrapped.
+
+- [#168](https://github.com/viuteam/emporix-sdk/pull/168) [`81a9b82`](https://github.com/viuteam/emporix-sdk/commit/81a9b826ffad4bdc1fe2b5a8a008e33d77873df2) Thanks [@amnael1](https://github.com/amnael1)! - Complete the order-v2 admin surface. `client.salesOrders` gains `list`,
+  `search`, `create`, `replace` (PUT full-replace, alongside the existing `update`
+  PATCH), `delete`, `listTransitions`, `transition`, `listHistoricalTransitions`,
+  `calculate`, `updateEntries`, and `split`. `client.orders` gains the B2B reads
+  `listForLegalEntity` and `getForLegalEntity`. All sales-order admin methods take
+  a required (service-token) auth; the legal-entity reads take a required customer
+  auth. Existing order methods are unchanged.
+
+- [#171](https://github.com/viuteam/emporix-sdk/pull/171) [`e10181b`](https://github.com/viuteam/emporix-sdk/commit/e10181b9839c4129b6f5ae782de6093e76958772) Thanks [@amnael1](https://github.com/amnael1)! - Add the payment admin surface to `client.payments`. New `payments.modes`
+  sub-resource for payment-mode configuration (`list`/`get`/`create`/`update`/`delete`
+  against `/paymentmodes/config`), and new `payments.transactions` sub-resource for
+  the backend lifecycle: `list`, `get`, `authorize` (backend counterpart of the
+  storefront `authorize`), `capture`, `refund`, and `cancel`. All new methods
+  default to service auth. Note that these endpoints report business failures in
+  the 200 response body (`successful: false`), not as HTTP errors. The existing
+  storefront methods are unchanged.
+
+- [#164](https://github.com/viuteam/emporix-sdk/pull/164) [`ac816f4`](https://github.com/viuteam/emporix-sdk/commit/ac816f431d33433e2d974325e258ded1078fb4bf) Thanks [@amnael1](https://github.com/amnael1)! - Add price admin CRUD to `client.prices`: flat prices
+  (`create`/`list`/`get`/`upsert`/`delete`/`search`/`bulkCreate`/`bulkUpsert`),
+  `prices.models` (price models CRUD), and `prices.lists` (price-list CRUD +
+  search + nested price-list prices incl. bulk create/upsert/delete). Every admin
+  method defaults to `service` auth (override allowed). The existing `match*`
+  methods are unchanged.
+
+- [#170](https://github.com/viuteam/emporix-sdk/pull/170) [`ea68a89`](https://github.com/viuteam/emporix-sdk/commit/ea68a89e4bff3f7c5cd713b9b7804b1714a548c0) Thanks [@amnael1](https://github.com/amnael1)! - Add product admin writes to `client.products`: `create`, `update` (PATCH),
+  `replace` (PUT, with an optional `partial` flag), `delete` (with `force`),
+  `bulkCreate`/`bulkUpdate` (207 Multi-Status — inspect each entry), the
+  dynamic-variant recalculation group (`recalculate`, `listRecalculationJobs`,
+  `getRecalculationJob`), and a `products.templates` sub-resource
+  (`list`/`get`/`create`/`update`/`delete`). Writes default to service auth and
+  expose the endpoints' query flags (`skipVariantGeneration`, `doIndex`,
+  `skipRelatedItemsValidation`); the existing catalog reads are unchanged.
+
+- [#175](https://github.com/viuteam/emporix-sdk/pull/175) [`9cb253b`](https://github.com/viuteam/emporix-sdk/commit/9cb253b2ffea1709cfedbc24e749f964f65b9cc3) Thanks [@amnael1](https://github.com/amnael1)! - Close the last API-coverage gaps. `client.companies` gains `search` (POST
+  `/legal-entities/search`) and `parentHierarchy`; `client.contacts` gains `get`.
+  `client.fees` gains `deleteProductFee` (removing a single fee from a product,
+  next to the existing `deleteProductFees` which clears all) plus
+  `searchItemFeesByProductId` and `searchItemFeesByProductIds` — note these two
+  search bodies are asymmetric upstream (`siteCodes: string[]` vs a single
+  `siteCode`, and `productIds` as a comma-separated string), which the SDK mirrors
+  verbatim. `client.tenantConfig` gains `listGlobal` and `client.clientConfig`
+  gains `listClients`. Every service keeps its existing auth convention.
+
+- [#174](https://github.com/viuteam/emporix-sdk/pull/174) [`58243bb`](https://github.com/viuteam/emporix-sdk/commit/58243bb31e4aca4110d57225c91e1b221d6f29bd) Thanks [@amnael1](https://github.com/amnael1)! - Complete the schema-service coverage in `client.schema`. New `schema.references`
+  sub-resource (`list`/`get`/`create`/`update`/`delete`) — create and update are
+  `multipart/form-data` uploads whose `file` part accepts a `Blob` or a plain
+  object (serialized to JSON). New instance bulk methods `bulkCreateInstances`,
+  `bulkUpsertInstances` and `bulkDeleteInstances` alongside the existing
+  `bulkPatchInstances`, plus `exportCustomEntities` / `importCustomEntities`.
+  Note: the OpenAPI schema declares no request body for the bulk delete, but its
+  description mandates an array of ids — the SDK follows the description and sends
+  one. All methods keep the service's service-token default.
+
+- [#165](https://github.com/viuteam/emporix-sdk/pull/165) [`3a3c611`](https://github.com/viuteam/emporix-sdk/commit/3a3c61123674a523f30982b944b1f04b80d2cc58) Thanks [@amnael1](https://github.com/amnael1)! - Add customer-segment admin CRUD to `client.segments`: segment core
+  (`create`/`search`/`update`/`patch`/`delete`/`match` + `bulkCreate`/`bulkUpdate`/`bulkDelete`),
+  `segments.customers` (list/search + B2C & B2B assign/remove + bulk), and
+  `segments.items` (search + assign/remove per PRODUCT/CATEGORY + bulk). Every
+  admin method defaults to `service` auth (override allowed). The existing
+  storefront read methods are unchanged.
+
+- [#173](https://github.com/viuteam/emporix-sdk/pull/173) [`9a2ddfe`](https://github.com/viuteam/emporix-sdk/commit/9a2ddfe7d66b2eabdb056c99b81f4dad412a9082) Thanks [@amnael1](https://github.com/amnael1)! - Add site-settings admin operations to `client.sites`: `create`, `update`
+  (PATCH), `replace` (PUT, with an optional `expand` query), `delete`,
+  `listCodes` (GET `/siteslist`), and a `sites.mixins` sub-resource
+  (`list`/`get`/`create`/`update`/`replace`/`delete`). Writes default to service
+  auth. `update`/`replace` return nothing — those endpoints respond 200 without a
+  defined body, so re-read with `get(siteCode)` when the updated site is needed.
+  The existing reads are unchanged.
+
+### Patch Changes
+
+- [#169](https://github.com/viuteam/emporix-sdk/pull/169) [`130811b`](https://github.com/viuteam/emporix-sdk/commit/130811b688bd93525964e680224528548af03644) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+
+  Updated services: schema
+
 ## 2.22.0
 
 ### Minor Changes
