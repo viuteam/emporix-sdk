@@ -111,6 +111,10 @@ export {
   useMyReturns,
   useReturn,
   useCreateReturn,
+  useApprovals,
+  useApproval,
+  useCreateApproval,
+  useUpdateApproval,
 } from "./hooks/index";
 export type {
   CompanySwitcherApi,
@@ -121,6 +125,7 @@ export type {
   UseAvailabilitiesOptions,
   CouponActionVars,
   InvokeCloudFunctionVars,
+  UseUpdateApprovalVars,
 } from "./hooks/index";
 export type {
   CustomerSessionApi,
