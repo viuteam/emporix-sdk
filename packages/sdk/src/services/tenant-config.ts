@@ -72,4 +72,17 @@ export class TenantConfigService {
       auth,
     });
   }
+
+  /**
+   * List the platform-wide global configurations
+   * (`GET /global-configurations`) — a separate resource from the tenant's own
+   * `/configurations`.
+   */
+  async listGlobal<T = unknown>(auth: AuthContext = SERVICE): Promise<Configuration<T>[]> {
+    return this.ctx.http.request<Configuration<T>[]>({
+      method: "GET",
+      path: `/configuration/${this.ctx.tenant}/global-configurations`,
+      auth,
+    });
+  }
 }
