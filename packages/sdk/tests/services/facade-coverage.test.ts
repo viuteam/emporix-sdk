@@ -81,11 +81,8 @@ const server = setupServer(
   http.delete("https://api.emporix.io/cart/acme/carts/cart1/discounts", () =>
     new HttpResponse(null, { status: 204 }),
   ),
-  http.put("https://api.emporix.io/cart/acme/carts/cart1/shipping-address", () =>
-    HttpResponse.json({ id: "cart1", items: [] }),
-  ),
-  http.put("https://api.emporix.io/cart/acme/carts/cart1/billing-address", () =>
-    HttpResponse.json({ id: "cart1", items: [] }),
+  http.put("https://api.emporix.io/cart/acme/carts/cart1", () =>
+    new HttpResponse(null, { status: 204 }),
   ),
 );
 beforeAll(() => server.listen());
