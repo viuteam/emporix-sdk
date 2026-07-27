@@ -100,7 +100,7 @@ jobs:
   drift:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: npm i
       - run: npx emporix-mixins pull && npx emporix-mixins generate
       - uses: peter-evans/create-pull-request@v8
