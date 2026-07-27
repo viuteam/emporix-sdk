@@ -6,6 +6,9 @@ import type {
   LegalEntityUpdate,
 } from "../generated/customer-management";
 
+/** Body for `companies.search` — an Emporix `q`-syntax filter. */
+export type LegalEntitySearchInput = { q?: string };
+
 /**
  * Storefront-customer access to Legal Entities.
  *
@@ -74,6 +77,32 @@ export class CompaniesService {
     await this.ctx.http.request<void>({
       method: "DELETE",
       path: `${this.base()}/${legalEntityId}`,
+      auth,
+    });
+  }
+
+  /**
+   * Searches legal entities via `POST /legal-entities/search` with an Emporix
+   * `q`-syntax filter body. Requires the same read scope as {@link listMine}.
+   */
+  async search(query: LegalEntitySearchInput, auth: AuthContext): Promise<LegalEntity[]> {
+    return this.ctx.http.request<LegalEntity[]>({
+      method: "POST",
+      path: `${this.base()}/search`,
+      auth,
+      body: query,
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
+    });
+  }
+
+  /**
+   * Retrieves a legal entity's chain of parent entities
+   * (`GET /legal-entities/{id}/parent-hierarchy`).
+   */
+  async parentHierarchy(legalEntityId: string, auth: AuthContext): Promise<LegalEntity[]> {
+    return this.ctx.http.request<LegalEntity[]>({
+      method: "GET",
+      path: `${this.base()}/${legalEntityId}/parent-hierarchy`,
       auth,
     });
   }

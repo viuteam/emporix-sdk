@@ -68,4 +68,13 @@ export class ContactsService {
       auth,
     });
   }
+
+  /** Fetches a single contact assignment by id. */
+  async get(contactAssignmentId: string, auth: AuthContext): Promise<ContactAssignment> {
+    return this.ctx.http.request<ContactAssignment>({
+      method: "GET",
+      path: `${this.base()}/${contactAssignmentId}`,
+      auth,
+    });
+  }
 }
