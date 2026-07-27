@@ -87,4 +87,17 @@ export class ClientConfigService {
       auth,
     });
   }
+
+  /**
+   * List the client ids that have configurations (`GET /clients`). Note this
+   * targets `/configuration/{tenant}/clients` directly — the private `base`
+   * helper appends `/configurations` for a specific client.
+   */
+  async listClients(auth: AuthContext = SERVICE): Promise<string[]> {
+    return this.ctx.http.request<string[]>({
+      method: "GET",
+      path: `/configuration/${this.ctx.tenant}/clients`,
+      auth,
+    });
+  }
 }

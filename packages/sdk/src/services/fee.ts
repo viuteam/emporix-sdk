@@ -6,6 +6,8 @@ import type {
   FeeDraft,
   ItemFeeDraft,
   ItemFeeSearch,
+  ItemFeeSearchByProductId,
+  ItemFeeSearchByProductIds,
   ListFeesQuery,
   SetItemFeesOptions,
 } from "./fee-types";
@@ -16,6 +18,8 @@ export type {
   FeeDraft,
   ItemFeeDraft,
   ItemFeeSearch,
+  ItemFeeSearchByProductId,
+  ItemFeeSearchByProductIds,
   ListFeesQuery,
   SetItemFeesOptions,
 } from "./fee-types";
@@ -216,6 +220,58 @@ export class FeeService {
       method: "DELETE",
       path: `${this.productFeesBase()}/${encodeURIComponent(productId)}/fees`,
       auth,
+    });
+  }
+
+  /**
+   * Removes **one** fee from a product
+   * (`DELETE /productFees/{productId}/fees/{feeId}`). Use
+   * {@link deleteProductFees} to clear every fee of a product.
+   */
+  async deleteProductFee(
+    productId: string,
+    feeId: string,
+    auth: AuthContext = SERVICE,
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.productFeesBase()}/${encodeURIComponent(productId)}/fees/${encodeURIComponent(feeId)}`,
+      auth,
+    });
+  }
+
+  /**
+   * Finds item fees for one product across several sites
+   * (`POST /itemFees/searchByProductId`).
+   */
+  async searchItemFeesByProductId(
+    search: ItemFeeSearchByProductId,
+    auth: AuthContext = SERVICE,
+  ): Promise<ItemFee[]> {
+    return this.ctx.http.request<ItemFee[]>({
+      method: "POST",
+      path: `${this.itemFeesBase()}/searchByProductId`,
+      auth,
+      body: search,
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
+    });
+  }
+
+  /**
+   * Finds item fees for several products on one site
+   * (`POST /itemFees/searchByProductIds`). Note the upstream asymmetry:
+   * `productIds` is a comma-separated **string** and `siteCode` is singular.
+   */
+  async searchItemFeesByProductIds(
+    search: ItemFeeSearchByProductIds,
+    auth: AuthContext = SERVICE,
+  ): Promise<ItemFee[]> {
+    return this.ctx.http.request<ItemFee[]>({
+      method: "POST",
+      path: `${this.itemFeesBase()}/searchByProductIds`,
+      auth,
+      body: search,
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
     });
   }
 }
