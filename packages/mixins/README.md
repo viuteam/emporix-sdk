@@ -39,7 +39,7 @@ const q = mixinQuery(mixins.attrs, {
   title: { lang: "en", eq: "Sale" },   // localized → mixins.attrs.title.en:Sale
 });
 
-await client.products.search(q);   // also categories.search, orders.listMine({ q }), …
+await client.products.search(q);   // also categories.search, orders.listMine(auth, { q }), …
 ```
 
 - `and(...)` joins with a space (AND); `or(...)` emits `compoundLogicalQuery`,
@@ -100,10 +100,10 @@ jobs:
   drift:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: npm i
       - run: npx emporix-mixins pull && npx emporix-mixins generate
-      - uses: peter-evans/create-pull-request@v6
+      - uses: peter-evans/create-pull-request@v8
         with:
           title: "chore(mixins): sync schema versions"
           branch: "mixins/sync"
