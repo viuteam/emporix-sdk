@@ -1,5 +1,23 @@
 # @viu/emporix-sdk-react
 
+## 2.24.0
+
+### Minor Changes
+
+- [#180](https://github.com/viuteam/emporix-sdk/pull/180) [`a9b0ca8`](https://github.com/viuteam/emporix-sdk/commit/a9b0ca88e8293300da769986bfbbdfd4141c12fd) Thanks [@amnael1](https://github.com/amnael1)! - fix(react): export the remaining hooks-barrel symbols from the package root
+
+  Twelve symbols were reachable only through the `@viu/emporix-sdk-react/hooks`
+  subpath because the package-root barrel omitted them, so the top-level import
+  the README documents did not resolve:
+  - Hooks: `useApprovals`, `useApproval`, `useCreateApproval`, `useUpdateApproval`,
+    `useCategorySearch`
+  - Types: `UseUpdateApprovalVars`, `UseOrderOptions`, `UseCancelOrderVars`,
+    `UseOrderTransitionVars`, `UseReorderVars`, `UseReorderResult`,
+    `UseUpdateSalesOrderVars`
+
+  All twelve are now re-exported from the root like every other hook, so the root
+  barrel and the `./hooks` subpath expose the same surface again.
+
 ## 2.22.0
 
 ### Minor Changes
