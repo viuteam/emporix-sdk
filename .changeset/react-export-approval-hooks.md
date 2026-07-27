@@ -2,11 +2,17 @@
 "@viu/emporix-sdk-react": minor
 ---
 
-fix(react): export approval hooks from the package root
+fix(react): export the remaining hooks-barrel symbols from the package root
 
-`useApprovals`, `useApproval`, `useCreateApproval`, `useUpdateApproval` and the
-`UseUpdateApprovalVars` type were reachable only through the
-`@viu/emporix-sdk-react/hooks` subpath — the package-root barrel omitted them,
-so `import { useApprovals } from "@viu/emporix-sdk-react"` failed to resolve
-even though the README lists them as top-level hooks. They are now re-exported
-from the root like every other hook.
+Twelve symbols were reachable only through the `@viu/emporix-sdk-react/hooks`
+subpath because the package-root barrel omitted them, so the top-level import
+the README documents did not resolve:
+
+- Hooks: `useApprovals`, `useApproval`, `useCreateApproval`, `useUpdateApproval`,
+  `useCategorySearch`
+- Types: `UseUpdateApprovalVars`, `UseOrderOptions`, `UseCancelOrderVars`,
+  `UseOrderTransitionVars`, `UseReorderVars`, `UseReorderResult`,
+  `UseUpdateSalesOrderVars`
+
+All twelve are now re-exported from the root like every other hook, so the root
+barrel and the `./hooks` subpath expose the same surface again.

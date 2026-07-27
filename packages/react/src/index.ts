@@ -30,6 +30,7 @@ export {
   useCategoriesInfinite,
   useCategoryTree,
   useCategoryParents,
+  useCategorySearch,
   useChildCategories,
   useCategoryTreeById,
   useProductsInCategory,
@@ -126,6 +127,12 @@ export type {
   CouponActionVars,
   InvokeCloudFunctionVars,
   UseUpdateApprovalVars,
+  UseOrderOptions,
+  UseCancelOrderVars,
+  UseOrderTransitionVars,
+  UseReorderVars,
+  UseReorderResult,
+  UseUpdateSalesOrderVars,
 } from "./hooks/index";
 export type {
   CustomerSessionApi,
