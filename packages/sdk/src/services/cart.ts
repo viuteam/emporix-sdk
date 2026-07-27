@@ -322,32 +322,82 @@ export class CartService {
     });
   }
 
-  /** Sets the shipping address. */
+  /**
+   * Sets the cart's shipping address, preserving the billing address.
+   *
+   * The API has no per-type address endpoint: addresses live in the cart's
+   * `addresses` array, written via `PUT /carts/{cartId}`. That array is a **full
+   * replace** — sending only one type leaves the other as an empty stub — so
+   * this method reads the cart, merges, writes, and re-fetches. Use
+   * {@link setAddresses} to set both in a single request.
+   */
   async setShippingAddress(
     cartId: string,
     address: CartAddress,
     auth: AuthContext,
   ): Promise<Cart> {
-    return this.ctx.http.request<Cart>({
-      method: "PUT",
-      path: `${this.base()}/${cartId}/shipping-address`,
-      auth: requireCartAuth(auth),
-      body: address,
-    });
+    return this.mergeAddress(cartId, address, "SHIPPING", requireCartAuth(auth));
   }
 
-  /** Sets the billing address. */
+  /**
+   * Sets the cart's billing address, preserving the shipping address. See
+   * {@link setShippingAddress} for why this reads before writing.
+   */
   async setBillingAddress(
     cartId: string,
     address: CartAddress,
     auth: AuthContext,
   ): Promise<Cart> {
-    return this.ctx.http.request<Cart>({
+    return this.mergeAddress(cartId, address, "BILLING", requireCartAuth(auth));
+  }
+
+  /**
+   * Sets both cart addresses in one request (`PUT /carts/{cartId}`), skipping
+   * the read that {@link setShippingAddress} needs.
+   *
+   * **This replaces the cart's address set**: a type you omit is cleared, and
+   * `{}` clears both. Use it when you already hold both addresses (a checkout
+   * form submitting them together); use the per-type setters to change one and
+   * keep the other.
+   */
+  async setAddresses(
+    cartId: string,
+    addresses: { shipping?: CartAddress; billing?: CartAddress },
+    auth: AuthContext,
+  ): Promise<Cart> {
+    const cartAuth = requireCartAuth(auth);
+    const next: CartAddress[] = [];
+    if (addresses.shipping) next.push({ ...addresses.shipping, type: "SHIPPING" });
+    if (addresses.billing) next.push({ ...addresses.billing, type: "BILLING" });
+    await this.ctx.http.request<void>({
       method: "PUT",
-      path: `${this.base()}/${cartId}/billing-address`,
-      auth: requireCartAuth(auth),
-      body: address,
+      path: `${this.base()}/${cartId}`,
+      auth: cartAuth,
+      body: { addresses: next },
     });
+    return this.get(cartId, cartAuth);
+  }
+
+  /**
+   * Reads the cart, replaces the entry of `type` with `address` (keeping every
+   * other type verbatim — resending it unchanged is what stops the server from
+   * wiping it), writes, and returns the re-fetched cart.
+   */
+  private async mergeAddress(
+    cartId: string,
+    address: CartAddress,
+    type: "SHIPPING" | "BILLING",
+    cartAuth: AuthContext,
+  ): Promise<Cart> {
+    const current = await this.get(cartId, cartAuth);
+    const others = (current.addresses ?? []).filter((a) => a.type !== type);
+    await this.ctx.http.request<void>({
+      method: "PUT",
+      path: `${this.base()}/${cartId}`,
+      auth: cartAuth,
+      body: { addresses: [...others, { ...address, type }] },
+    });
+    return this.get(cartId, cartAuth);
   }
 
   /**
