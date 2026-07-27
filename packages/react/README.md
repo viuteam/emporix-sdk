@@ -37,14 +37,22 @@ per request/render.
 
 | Hook | Purpose |
 | --- | --- |
+| `useEmporix()` | the provider's `{ client, storage }` — escape hatch for direct SDK calls |
 | `useCustomerSession()` | `customerToken`, `customer`, `isAuthenticated`, `login`, `signup`, `logout`, `refresh` |
 | `useUpdateCustomer` / `useChangePassword` / `usePasswordReset` | account management |
-| `useCustomerAddresses` / `useAddressMutations` | address CRUD |
-| `useProduct` / `useProducts` / `useProductsInfinite` / `useProductByCode` / `useProductsByCodes` / `useProductSearch` / `useVariantChildren` | product reads |
-| `useCategory` / `useCategories` / `useCategoriesInfinite` / `useCategoryTree` / `useProductsInCategory(Infinite)` / `useCategorySearch` | category reads |
-| `useCart(cartId?)` / `useActiveCart(opts?)` / `useCreateCart()` | cart read + bootstrap |
+| `useChangeEmail` / `useConfirmEmailChange` | email change + confirmation |
+| `useConfirmSignup` / `useResendActivation` | signup activation |
+| `useAddSessionAttribute` / `useRemoveSessionAttribute` | customer session attributes |
+| `useCustomerAddresses` / `useCustomerAddress` / `useAddressMutations` | address CRUD |
+| `useAddAddressTags` / `useRemoveAddressTags` | address tagging |
+| `useProduct` / `useProducts` / `useProductsInfinite` / `useProductByCode` / `useProductsByCodes` / `useProductSearch` / `useProductNameSearch` / `useVariantChildren` | product reads |
+| `useCategory` / `useCategories` / `useCategoriesInfinite` / `useCategoryTree` / `useCategoryTreeById` / `useProductsInCategory(Infinite)` / `useCategorySearch` | category reads |
+| `useSubcategories` / `useChildCategories` / `useCategoryParents` | category tree navigation |
+| `useCart(cartId?)` / `useActiveCart(opts?)` / `useCreateCart()` / `useCartItems()` | cart read + bootstrap |
 | `useCartMutations(cartId?)` | add/update/remove/clear/coupons/addresses — optimistic + rollback |
-| `useCheckout()` / `usePaymentModes()` | checkout flow + payment-mode list |
+| `useCartValidation()` | cart item validation |
+| `useCheckout()` / `usePaymentModes()` / `usePaymentMode()` / `useInitializePayment()` | checkout flow + payment modes |
+| `useShippingZones()` | shipping zone reads |
 | `useMatchPrices()` / `useMatchPricesChunked()` | price matching (chunked variant for large carts) |
 | `useProductMedia()` | product media reads |
 | `useMyOrders` / `useMyOrdersInfinite` / `useOrder` / `useCancelOrder` / `useOrderTransition` / `useReorder` | order history + actions |
@@ -56,12 +64,14 @@ per request/render.
 | `useApprovals` / `useApproval` / `useCreateApproval` / `useUpdateApproval` | B2B approval workflows |
 | `useShoppingLists` / `useCreateShoppingList` / `useDeleteShoppingList` / `useAddToShoppingList` / `useRemoveFromShoppingList` / `useSetShoppingListItemQuantity` | shopping lists |
 | `useMySegments` / `useMySegmentItems` / `useMySegment{Products,Categories}(Infinite)` / `useMySegmentCategoryTree` | customer-segment reads |
-| `useSites` / `useDefaultSite` / `useSiteContext` | multi-site context |
+| `useSites` / `useDefaultSite` / `useActiveSite` / `useSiteContext` | multi-site context |
 | `useActiveCompany` / `useCompanySwitcher` | active legal entity (B2B) |
 | `useMyCompanies` / `useCompany` / `useCompanyContacts` / `useCompanyLocations` / `useCompanyGroups` | B2B reads |
 | `useCreateCompany` / `useUpdateCompany` / `useDeleteCompany` | B2B admin mutations |
 | `useAssignContact` / `useUpdateContactAssignment` / `useUnassignContact` | B2B contact-assignment mutations |
 | `useCreateLocation` / `useUpdateLocation` / `useDeleteLocation` | B2B location mutations |
+| `useAddGroupMember` / `useRemoveGroupMember` | B2B customer-group membership |
+| `useCloudFunction` / `useInvokeCloudFunction` | Emporix-hosted cloud functions |
 
 `useProductSearch`, `useCategorySearch` and `useMyOrders({ q })` accept a raw
 `q` string **or** a type-safe mixin filter built with `mixinQuery` from
@@ -85,7 +95,7 @@ call (default: `customer` if a token is stored, else `anonymous`).
 ## Errors & SSR
 
 `<EmporixErrorBoundary>` and `useEmporixErrorHandler` for error coordination;
-`prefetchProduct` / `prefetchCart` for server-side hydration. See
+`prefetchProduct` / `prefetchCart` / `prefetchOrder` for server-side hydration. See
 [`../../docs/react.md`](../../docs/react.md).
 
 ## Analytics & tracking

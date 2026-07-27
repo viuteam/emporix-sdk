@@ -63,9 +63,9 @@ property on the `EmporixClient` instance:
 | --- | --- |
 | Catalog | `products`, `categories`, `prices`, `brands`, `labels`, `catalogs` |
 | Cart & checkout | `carts`, `checkout`, `payments`, `coupons`, `taxes`, `shipping`, `fees` |
-| Orders & fulfilment | `orders`, `salesOrders`, `returns`, `pickPack`, `availability`, `indexing` |
-| Customers & B2B | `customers`, `customerAdmin`, `companies`, `contacts`, `locations`, `customerGroups`, `approvals`, `rewardPoints`, `segments` |
-| Platform & config | `sites`, `sessionContext`, `tenantConfig`, `clientConfig`, `media`, `schemas`, `webhooks`, `sequentialIds`, `units`, `countries`, `currencies`, `vendors`, `shoppingLists`, `sepaExport`, `ai`, `ragIndexer` |
+| Orders & fulfilment | `orders`, `salesOrders`, `quotes`, `invoices`, `returns`, `pickPack`, `availability`, `indexing` |
+| Customers & B2B | `customers`, `customerAdmin`, `companies`, `contacts`, `locations`, `customerGroups`, `approvals`, `rewardPoints`, `segments`, `iam` |
+| Platform & config | `sites`, `sessionContext`, `tenantConfig`, `clientConfig`, `media`, `schemas`, `webhooks`, `sequentialIds`, `units`, `countries`, `currencies`, `vendors`, `shoppingLists`, `sepaExport`, `cloudFunctions`, `ai`, `ragIndexer` |
 
 The sections below highlight the most-used services; per-service guides live in
 [`../../docs/`](../../docs).
