@@ -810,6 +810,25 @@ export const config = {
 };
 ```
 
+Also create `examples/next-app-router/app/proxy-check/route.ts`, same rules —
+deleted in Step 10, never committed. Without it the live check only proves the
+`Set-Cookie` half; nothing shows that `emporixSession()` sees the injected value
+in the same render, which is the whole reason for running a real server:
+
+```ts
+// TEMPORARY — verification only, delete after checking. Do not commit.
+// Proves the OTHER half of emporixSiteProxy: that a value written into the
+// forwarded request cookies is visible to `emporixSession()` in this very
+// render. Called with no cookies at all, so a non-null siteCode can only have
+// come from the proxy's request-header injection.
+import { emporixSession } from "@viu/emporix-sdk-next";
+
+export async function GET(): Promise<Response> {
+  const { siteCode, language } = await emporixSession();
+  return Response.json({ siteCode, language });
+}
+```
+
 - [ ] **Step 8: Build and start the example**
 
 `examples/next-app-router/.env.local` must exist — it holds the tenant
@@ -821,44 +840,89 @@ Run:
 pnpm -F @viu/emporix-examples-next-app-router build
 ```
 
-Expected: a successful build. Next will report the proxy in its output.
+Expected: a successful build. Next will report `ƒ Proxy (Middleware)` and the
+`/proxy-check` route in its output — if either is missing, the file is in the
+wrong place.
 
-Then start it in the background on port 3000:
+Then start it in the background on port 3123:
 
 ```bash
-pnpm -F @viu/emporix-examples-next-app-router exec next start
+pnpm -F @viu/emporix-examples-next-app-router exec next start -p 3123
 ```
 
-- [ ] **Step 9: Check the two live behaviours**
+- [ ] **Step 9: Check the four live behaviours**
 
-First request, no cookies:
+**Do not put a trailing slash on the URL.** `/de/` gets a `308 Permanent
+Redirect` to `/de` from Next's trailing-slash normalization, which runs *before*
+the proxy — the request never reaches the function and you will misread a
+correct implementation as broken.
+
+The `/de` route does not exist in this example, so these requests return `404`.
+That is fine and expected: the proxy runs before routing, so the response still
+carries the headers.
+
+1 — first request, no cookies:
 
 ```bash
-curl -sD- -o /dev/null http://localhost:3000/de/ | grep -i "^set-cookie"
+curl -sD- -o /dev/null http://localhost:3123/de | grep -iE "^(HTTP|set-cookie)"
 ```
 
-Expected: two `set-cookie` lines, one `emporix.siteCode=main`, one
-`emporix.language=de`, each with `Path=/` and `Max-Age=31536000`, and
-**without** `Secure` (the request was plain http) and **without** `HttpOnly`.
+Expected: `HTTP/1.1 404 Not Found` and two `set-cookie` lines,
+`emporix.siteCode=main` and `emporix.language=de`, each with `Path=/`,
+`Max-Age=31536000` and `SameSite=lax`, and **without** `Secure` (the request was
+plain http) and **without** `HttpOnly`.
 
-Second request, cookies already correct:
+2 — cookies already correct:
 
 ```bash
-curl -sD- -o /dev/null -b "emporix.siteCode=main; emporix.language=de" http://localhost:3000/de/ | grep -ic "^set-cookie" || echo "no Set-Cookie — no-op guard works"
+curl -sD- -o /dev/null -b "emporix.siteCode=main; emporix.language=de" http://localhost:3123/de | grep -icE "^set-cookie" || echo "no Set-Cookie — no-op guard works"
 ```
 
 Expected: `no Set-Cookie — no-op guard works`.
 
-If the first check shows no `set-cookie` at all, the `matcher` excluded `/de/` —
-check the negative lookahead. If it shows `HttpOnly`, `httpOnly: false` was lost
-in Task 2 and the mutation test in Step 5 of Task 2 did not actually run.
+3 — **the forwarding half**, the one only a real server can show. No cookies at
+all, so a non-null `siteCode` in the response body can only have come from the
+injected request header:
+
+```bash
+curl -s http://localhost:3123/proxy-check
+```
+
+Expected: `{"siteCode":"main","language":null}`. `language` is `null` because
+`proxy-check` is not in `LANGUAGES` — that is the "absent field is left alone"
+path, and it is also the control: if forwarding were broken, `siteCode` would be
+`null` too.
+
+4 — overwrite reaching the render:
+
+```bash
+curl -sD/tmp/hdr -b "emporix.siteCode=other" http://localhost:3123/proxy-check; grep -i "^set-cookie" /tmp/hdr
+```
+
+Expected: body `{"siteCode":"main","language":null}` and one `set-cookie` with
+`emporix.siteCode=main`. The resolver overrode the incoming `other` in both
+halves.
+
+If check 1 shows no `set-cookie` at all, either the URL had a trailing slash
+(see above) or the `matcher` excluded the path. If it shows `HttpOnly`,
+`httpOnly: false` was lost in Task 2 and the mutation test in Step 5 of Task 2
+did not actually run.
 
 Stop the server when done.
 
-- [ ] **Step 10: Delete the temporary proxy and prove the tree is clean**
+- [ ] **Step 10: Delete both temporary files and prove the tree is clean**
+
+`.next/` must go too. It is gitignored, so `git status` will not mention it, but
+Next generates `.next/types/validator.ts` with an import per route — after
+deleting `app/proxy-check/route.ts` that generated file still references it and
+`tsc --noEmit` fails with
+`TS2307: Cannot find module '../../app/proxy-check/route.js'`. The pre-commit
+hook catches this, which is a confusing place to discover it.
 
 ```bash
 rm examples/next-app-router/proxy.ts
+rm -r examples/next-app-router/app/proxy-check
+rm -rf examples/next-app-router/.next
 git status --short
 ```
 
@@ -866,6 +930,14 @@ Expected output lists **only** the intended changes:
 `packages/next/README.md`, `.changeset/react-cookie-names-export.md`,
 `.changeset/next-proxy-site-detection.md`. No `examples/` entry, no
 `*.tsbuildinfo`, no `dist/`.
+
+Then confirm the example typechecks again:
+
+```bash
+pnpm -F @viu/emporix-examples-next-app-router typecheck
+```
+
+Expected: no output, exit 0.
 
 If `examples/next-app-router/proxy.ts` still appears, the delete did not happen
 — it must not reach the commit.
