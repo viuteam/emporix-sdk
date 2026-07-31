@@ -246,7 +246,7 @@ export type RagEmporixNativeToolConfig = {
      */
     prompt: string;
     /**
-     * Type of the entity which is stored in the given collection. Supported predefined types: [PRODUCT] and custom entity types.
+     * Type of the entity which is stored in the given collection. Supported predefined types: [ORDER, PRODUCT] and custom entity types.
      */
     entityType: string;
     /**

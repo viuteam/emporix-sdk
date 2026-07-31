@@ -40,7 +40,7 @@ export type Metadata = {
 };
 
 /**
- * Entity type which should be reindexed. For now, it supports only `PRODUCT` and custom schema types.
+ * Entity type which should be reindexed. It supports `ORDER`, `PRODUCT` and custom schema types.
  */
 export type ReindexEntityType = string;
 

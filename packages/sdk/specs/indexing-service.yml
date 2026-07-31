@@ -524,7 +524,7 @@ components:
 
     ReindexEntityType:
       type: string
-      description: Entity type which should be reindexed. For now, it supports only `PRODUCT` and custom schema types.
+      description: Entity type which should be reindexed. It supports `ORDER`, `PRODUCT` and custom schema types.
 
     ReindexJob:
       type: object
