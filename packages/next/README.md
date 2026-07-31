@@ -31,6 +31,84 @@ visitors. The package cannot detect this for you: `AuthContext` is per call, and
 anonymous and customer tokens both arrive as `Bearer <jwt>`. The boundary is
 explicit because making it implicit is what would introduce the leak.
 
+## Service accounts (`@viu/emporix-sdk-next/service`)
+
+For server-side writes with a dedicated Emporix service account — create a
+product, set a price — with `clientId`, `secret` and only the scopes that account
+was granted.
+
+```ts
+// lib/emporix-service.ts — module scope, NOT inside a handler body
+import { getEmporixServiceClient } from "@viu/emporix-sdk-next/service";
+
+export const service = getEmporixServiceClient({
+  credentials: {
+    productWriter: {
+      clientId: process.env.EMPORIX_PRODUCT_WRITER_ID!,
+      secret: process.env.EMPORIX_PRODUCT_WRITER_SECRET!,
+      scope: "product.product_create",
+    },
+  },
+});
+```
+
+```ts
+// app/api/products/route.ts
+import { auth } from "@viu/emporix-sdk";
+import { service } from "@/lib/emporix-service";
+
+export async function POST(request: Request) {
+  const created = await service.products.create(
+    await request.json(),
+    {},
+    auth.service("productWriter"),
+  );
+  return Response.json(created);
+}
+```
+
+The key in `credentials` is the name you pass to `auth.service(name)`. Works from
+Route Handlers, Server Actions and Server Components.
+
+### Importing this from a Client Component fails the build
+
+That is the point. The entry carries a secret, so its `exports` map resolves to a
+throwing file outside the server graph. A `"use client"` module that imports it
+produces a build error naming `service-is-server-only.js` — the secret cannot
+reach a browser bundle, rather than being documented as something you should
+avoid.
+
+The error arrives at build time, not in your editor: TypeScript does not
+understand the `react-server` condition, so `types` is resolved unconditionally to
+keep `tsc` correct in server files.
+
+### Token caching is the SDK's, and it needs module scope
+
+One cached token per credential set, reused until `expires_in` minus a 60-second
+buffer, behind a single-flight lock so concurrent calls share one token request.
+
+All of that lives on the **client instance**. Call `getEmporixServiceClient`
+inside a handler body and you build a new client per request, fetch a token per
+request, and the cache does nothing. That memoization is why this function exists
+instead of `new EmporixClient`.
+
+### There is no `tagged` option
+
+A service client never receives a `fetch`. Next's fetch cache does not key on the
+`Authorization` header, so a cached privileged GET would be served to other
+visitors. This is not a default you can change — the option does not exist.
+
+There is no `context` option either: `context` belongs to
+`StorefrontCredentials` and is bound at anonymous login, and a service client has
+no storefront credentials.
+
+### An empty secret fails locally
+
+`getEmporixServiceClient` rejects a credential set with an empty `clientId` or
+`secret` and names the set. An unset environment variable yields `""`, which
+Emporix answers with a 401 that reads like a permissions problem — this turns it
+into one clear error, once per process.
+
 ## Server Component
 
 ```tsx
@@ -242,10 +320,12 @@ storage URL. There is no custom loader to install — add the storage host to
 
 ## Subpath exports
 
-`.` (client, session, tags), `./webhook` (verification, route factory) and
-`./proxy` (`emporixSiteProxy`). The split keeps a Route Handler from pulling in
-`next/headers` — and a `proxy.ts` cannot pull it in at all, because `cookies()`
-does not exist in a proxy context.
+`.` (client, session, tags), `./webhook` (verification, route factory),
+`./proxy` (`emporixSiteProxy`) and `./service` (`getEmporixServiceClient`). The
+split keeps a Route Handler from pulling in `next/headers` — and a `proxy.ts`
+cannot pull it in at all, because `cookies()` does not exist in a proxy context.
+`./service` is split for a different reason: it carries a secret, and its export
+condition makes a client-side import a build error.
 
 ## Authors
 
