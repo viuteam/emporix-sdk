@@ -1,5 +1,27 @@
 # @viu/emporix-sdk
 
+## 2.25.0
+
+### Minor Changes
+
+- [#185](https://github.com/viuteam/emporix-sdk/pull/185) [`893d8b1`](https://github.com/viuteam/emporix-sdk/commit/893d8b191f186d7c439b609b295e190aa3ba2ee5) Thanks [@amnael1](https://github.com/amnael1)! - `EmporixConfig.fetch` — replace the global `fetch` used for API requests.
+
+  ```ts
+  const sdk = new EmporixClient({ tenant, credentials, fetch: myFetch });
+  ```
+
+  Useful for tracing, test doubles, custom retry policies, and framework-level
+  caching (`@viu/emporix-sdk-next` uses it to attach Next cache tags).
+
+  Client-level rather than per-request: the 596 `http.request` call sites in
+  `services/` each build their own `RequestOptions` literal, so a per-request
+  `fetchOptions` field would reach none of them.
+
+  Token requests and SSE deliberately keep using the global `fetch`: a cached
+  token response would be a security defect, and caching an event stream is
+  meaningless. Both are therefore structurally uncacheable, not merely uncached by
+  convention.
+
 ## 2.23.0
 
 ### Minor Changes
