@@ -34,6 +34,14 @@ export interface PrefetchEmporixOpts<T, TArgs extends readonly unknown[]> {
   args: TArgs;
   /** Which site discriminators the hook puts in its key. */
   site: SiteFields;
+  /**
+   * Mirrors `useEmporixQuery`'s mode. `"customer"` keys `authKind: "customer"`
+   * regardless of the context kind, matching a customer-gated hook — which keys
+   * `"customer"` / `"anonymous"` rather than `ctx.kind`, so an `auth.raw` token
+   * would otherwise produce a key nothing reads. Default `"read-auth"`, which
+   * keys `auth.kind`.
+   */
+  mode?: "read-auth" | "customer";
   /** Defaults to `auth.anonymous()`. Use `serverAuth(storage)` to mirror the client. */
   auth?: AuthContext;
   /** Must match what the client provider binds; `null` (the default) = unbound. */
@@ -47,18 +55,20 @@ export interface PrefetchEmporixOpts<T, TArgs extends readonly unknown[]> {
  * Writes the same cache entry the hook reads, so client hydration is a cache
  * hit. Create the `EmporixClient` once per server, never per request.
  *
- * `useAvailability` / `useAvailabilities` are NOT supported — their keys predate
- * `emporixKey` and use a different shape. See `docs/react.md`.
+ * Customer-gated hooks (`useOrder`, `useMyOrders`) need `mode: "customer"`.
  */
 export async function prefetchEmporix<T, TArgs extends readonly unknown[]>(
   qc: QueryClient,
   opts: PrefetchEmporixOpts<T, TArgs>,
 ): Promise<void> {
   const ctx = opts.auth ?? auth.anonymous();
+  // Only the KEY is normalized — queryFn still receives the real context, so a
+  // raw token is still the token actually sent.
+  const authKind = opts.mode === "customer" ? "customer" : ctx.kind;
   await qc.prefetchQuery({
     queryKey: emporixKey(opts.resource, opts.args, {
       tenant: opts.client.tenant,
-      authKind: ctx.kind,
+      authKind,
       ...siteMeta(opts.site, opts.siteCode ?? null, opts.language ?? null),
     }),
     queryFn: () => opts.queryFn(ctx),
@@ -133,6 +143,8 @@ export async function prefetchOrder(
     resource: "orders",
     args: [orderId],
     site: "language",
+    // useOrder is customer-gated: it keys "customer", never ctx.kind.
+    mode: "customer",
     auth: authCtx,
     language: opts.language ?? null,
     queryFn: (ctx) =>

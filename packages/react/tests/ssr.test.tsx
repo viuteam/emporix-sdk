@@ -115,4 +115,33 @@ describe("prefetchOrder", () => {
     });
     expect(saas).toBe("saas-xyz");
   });
+
+  it("keys authKind as customer even for auth.raw, matching useOrder", async () => {
+    server.use(
+      http.get("https://api.emporix.io/order-v2/acme/orders/o-3", () =>
+        HttpResponse.json({
+          id: "o-3", orderNumber: "ORD-3", status: "CREATED",
+          currency: "CHF", totalPrice: { amount: 10, currency: "CHF" }, items: [],
+        }),
+      ),
+    );
+    const client = new EmporixClient({
+      tenant: "acme",
+      credentials: { storefront: { clientId: "sf" } },
+      logger: false,
+    });
+    const qc = new QueryClient();
+
+    // An externally-issued token: `kind` is "raw", but useOrder is customer-gated
+    // and keys "customer". Before the fix this wrote authKind: "raw".
+    await prefetchOrder(qc, client, "o-3", auth.raw("external-jwt"));
+
+    const cached = qc.getQueryData([
+      "emporix",
+      "orders",
+      "o-3",
+      { tenant: "acme", authKind: "customer", language: null },
+    ]);
+    expect((cached as { orderNumber?: string } | undefined)?.orderNumber).toBe("ORD-3");
+  });
 });

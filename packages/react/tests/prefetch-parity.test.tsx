@@ -14,6 +14,8 @@ import { useCart } from "../src/hooks/use-cart";
 import { useOrder } from "../src/hooks/use-order";
 import { useMyOrders } from "../src/hooks/use-my-orders";
 import { useSites } from "../src/hooks/use-sites";
+import { useAvailability } from "../src/hooks/use-availability";
+import { useAvailabilities } from "../src/hooks/use-availabilities";
 
 // This suite compares KEYS, not data — every resource request is left hanging.
 // The anonymous-login handler is still needed because the provider's token
@@ -44,6 +46,12 @@ interface Row {
   site: SiteFields;
   /** Customer-gated hooks need a stored token and a customer context. */
   customer?: boolean;
+  /**
+   * Passed through to prefetchEmporix. Customer-gated hooks need "customer";
+   * those rows deliberately use a RAW context, so each is a regression test for
+   * the normalization — without `mode` the server key would say "raw".
+   */
+  mode?: "read-auth" | "customer";
 }
 
 const PARAMS = { pageSize: 24 } as const;
@@ -105,6 +113,7 @@ const ROWS: Row[] = [
     args: ["o1"],
     site: "language",
     customer: true,
+    mode: "customer",
   },
   {
     name: "useMyOrders",
@@ -113,8 +122,23 @@ const ROWS: Row[] = [
     args: ["mine", null, null, 1, null, null],
     site: "full",
     customer: true,
+    mode: "customer",
   },
   { name: "useSites", render: () => useSites(), resource: "sites", args: [], site: "none" },
+  {
+    name: "useAvailability",
+    render: () => useAvailability("p1", "main"),
+    resource: "availability",
+    args: ["p1", "main", false],
+    site: "none",
+  },
+  {
+    name: "useAvailabilities",
+    render: () => useAvailabilities(["p1", "p2"], "main"),
+    resource: "availabilities",
+    args: [["p1", "p2"], "main", false],
+    site: "none",
+  },
 ];
 
 function makeClient(): EmporixClient {
@@ -151,7 +175,14 @@ describe.each(ROWS)("prefetch parity: $name", (row) => {
       .filter((q) => q.queryKey[1] === row.resource)
       .map((q) => q.queryKey);
 
-    const ctx: AuthContext = row.customer ? auth.customer("cust") : auth.anonymous();
+    // Customer-gated rows use a RAW context on purpose: `mode: "customer"` must
+    // normalize it to authKind "customer", which is exactly the bug being fixed.
+    const ctx: AuthContext =
+      row.mode === "customer"
+        ? auth.raw("external-jwt")
+        : row.customer
+          ? auth.customer("cust")
+          : auth.anonymous();
     const serverQc = new QueryClient();
     await prefetchEmporix(serverQc, {
       client,
@@ -159,6 +190,7 @@ describe.each(ROWS)("prefetch parity: $name", (row) => {
       args: row.args,
       site: row.site,
       auth: ctx,
+      ...(row.mode !== undefined ? { mode: row.mode } : {}),
       queryFn: () => Promise.resolve(null),
     });
     const serverKey = serverQc.getQueryCache().getAll()[0]!.queryKey;

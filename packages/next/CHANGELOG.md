@@ -35,3 +35,12 @@
     instead.
 
   Requires `@viu/emporix-sdk` with `EmporixConfig.fetch`. No runtime dependencies.
+
+## 0.1.0
+
+Bootstrap publish, done by hand and therefore without npm provenance.
+
+npm trusted publishing is configured per package and cannot be set up for a
+package that does not exist yet, so the first version had to be published
+manually to create the package. `0.2.0` above is the first release from the
+pipeline, with provenance. There is no functional difference between the two.

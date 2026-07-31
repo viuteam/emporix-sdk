@@ -711,9 +711,20 @@ await prefetchEmporix(qc, {
 | `useOrder` | `orders` | `[orderId]` | `language` |
 | `useMyOrders` | `orders` | `["mine", legalEntityId, status, pageNumber, pageSize, q]` | `full` |
 | `useSites` | `sites` | `[]` | `none` |
+| `useAvailability` | `availability` | `[productId, siteCode, defaultAvailableOnNotFound]` | `none` |
+| `useAvailabilities` | `availabilities` | `[productIds, siteCode, defaultAvailableOnNotFound]` | `none` |
 
 `useOrder` and `useMyOrders` share `resource: "orders"` with different `site`
 values; they don't collide because `useMyOrders` prefixes its args with `"mine"`.
+
+Both are also **customer-gated**: they key `authKind: "customer"` rather than the
+context kind, so a prefetch must pass `mode: "customer"`. Otherwise an
+`auth.raw(jwt)` context writes `authKind: "raw"` and the hook never finds the
+entry. `prefetchOrder` does this for you.
+
+The availability hooks take `siteCode` as an explicit argument rather than from
+the ambient site, which is why it sits in the positional args and their `site` is
+`"none"`.
 
 These rows are asserted against the real hook keys in
 `packages/react/tests/prefetch-parity.test.tsx` — that file is the reference for
@@ -737,14 +748,15 @@ and `prefetchOrder` remain as convenience wrappers.
 - **Cart-merge timing** — log the customer in *before* merging the anonymous
   cart; merge requires the customer token and the preserved `sessionId` (see
   [`auth.md`](./auth.md)).
-- **`useAvailability` / `useAvailabilities` cannot be prefetched** — their keys
-  predate `emporixKey` and use a different shape (a boolean `anon` instead of
-  `authKind`, and no positional args). Call `client.availability.*` directly on
-  the server and pass the result down as a prop.
-- **`prefetchOrder` with `auth.raw(...)`** — `useOrder` is customer-gated and
-  keys `authKind: "customer"`, while `prefetchOrder` keys `authCtx.kind`. With
-  `auth.customer(token)` they agree; with `auth.raw(jwt)` they don't, and you
-  get a silent refetch. Use `auth.customer(...)` for order prefetch.
+- **Customer-gated hooks need `mode: "customer"`** — `useOrder` and `useMyOrders`
+  key `authKind: "customer"` regardless of the context kind. A prefetch that keys
+  `ctx.kind` would write `"raw"` for an `auth.raw(jwt)` context and produce a
+  silent cache miss. `prefetchEmporix` accepts `mode` for this; `prefetchOrder`
+  sets it already.
+- **Availability reads ignore a stored customer token** — `useAvailability` and
+  `useAvailabilities` read anonymously unless you pass `customerToken` explicitly.
+  A token in storage does not change them, by design; the site also comes from the
+  `siteCode` argument, not the ambient site.
 
 See [`examples/next-app-router`](../examples/next-app-router) and
 [`examples/vite-spa`](../examples/vite-spa) for working setups.

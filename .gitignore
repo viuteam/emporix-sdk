@@ -9,6 +9,12 @@ coverage/
 .idea
 .lean-ctx/
 
+# Claude Code: settings.json is shared, settings.local.json is personal
+.claude/settings.local.json
+
+# TypeScript incremental build artifacts
+*.tsbuildinfo
+
 # e2e
 e2e/.env.local
 e2e/playwright-report/
