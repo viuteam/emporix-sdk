@@ -4,15 +4,7 @@ import {
   type EmporixStorage,
   type EmporixStorageKey,
 } from "./index";
-
-const DEFAULT_TOKEN_KEY = "emporix.customerToken";
-const CART_KEY = "emporix.cartId";
-const ANON_KEY = "emporix.anonymousSession";
-const SITE_KEY = "emporix.siteCode";
-const LANGUAGE_KEY = "emporix.language";
-const ACTIVE_LE_KEY = "emporix.activeLegalEntityId";
-const REFRESH_KEY = "emporix.refreshToken";
-const SAAS_KEY = "emporix.saasToken";
+import { STORAGE_KEYS } from "./keys";
 
 /**
  * Internal: build an {@link EmporixStorage} backed by any Web `Storage`
@@ -24,7 +16,7 @@ export function fromWebStorage(
   storage: Storage,
   opts: { key?: string } = {},
 ): EmporixStorage {
-  const tokenKey = opts.key ?? DEFAULT_TOKEN_KEY;
+  const tokenKey = opts.key ?? STORAGE_KEYS.customerToken;
   const tokenListeners = new Set<(t: string | null) => void>();
   const all = createListenerSet<EmporixStorageKey>();
   return {
@@ -39,50 +31,50 @@ export function fromWebStorage(
       tokenListeners.add(l);
       return () => tokenListeners.delete(l);
     },
-    getCartId: () => storage.getItem(CART_KEY),
+    getCartId: () => storage.getItem(STORAGE_KEYS.cartId),
     setCartId: (id) => {
-      if (id === null) storage.removeItem(CART_KEY);
-      else storage.setItem(CART_KEY, id);
+      if (id === null) storage.removeItem(STORAGE_KEYS.cartId);
+      else storage.setItem(STORAGE_KEYS.cartId, id);
       all.notify("cartId");
     },
-    getAnonymousSession: () => parseAnonymousSession(storage.getItem(ANON_KEY)),
+    getAnonymousSession: () => parseAnonymousSession(storage.getItem(STORAGE_KEYS.anonymousSession)),
     setAnonymousSession: (s) => {
-      if (s === null) storage.removeItem(ANON_KEY);
+      if (s === null) storage.removeItem(STORAGE_KEYS.anonymousSession);
       else
         storage.setItem(
-          ANON_KEY,
+          STORAGE_KEYS.anonymousSession,
           JSON.stringify({ refreshToken: s.refreshToken, sessionId: s.sessionId }),
         );
       all.notify("anonymousSession");
     },
-    getSiteCode: () => storage.getItem(SITE_KEY),
+    getSiteCode: () => storage.getItem(STORAGE_KEYS.siteCode),
     setSiteCode: (code) => {
-      if (code === null) storage.removeItem(SITE_KEY);
-      else storage.setItem(SITE_KEY, code);
+      if (code === null) storage.removeItem(STORAGE_KEYS.siteCode);
+      else storage.setItem(STORAGE_KEYS.siteCode, code);
       all.notify("siteCode");
     },
-    getLanguage: () => storage.getItem(LANGUAGE_KEY),
+    getLanguage: () => storage.getItem(STORAGE_KEYS.language),
     setLanguage: (l) => {
-      if (l === null) storage.removeItem(LANGUAGE_KEY);
-      else storage.setItem(LANGUAGE_KEY, l);
+      if (l === null) storage.removeItem(STORAGE_KEYS.language);
+      else storage.setItem(STORAGE_KEYS.language, l);
       all.notify("language");
     },
-    getActiveLegalEntityId: () => storage.getItem(ACTIVE_LE_KEY),
+    getActiveLegalEntityId: () => storage.getItem(STORAGE_KEYS.activeLegalEntityId),
     setActiveLegalEntityId: (id) => {
-      if (id === null) storage.removeItem(ACTIVE_LE_KEY);
-      else storage.setItem(ACTIVE_LE_KEY, id);
+      if (id === null) storage.removeItem(STORAGE_KEYS.activeLegalEntityId);
+      else storage.setItem(STORAGE_KEYS.activeLegalEntityId, id);
       all.notify("activeLegalEntityId");
     },
-    getRefreshToken: () => storage.getItem(REFRESH_KEY),
+    getRefreshToken: () => storage.getItem(STORAGE_KEYS.refreshToken),
     setRefreshToken: (t) => {
-      if (t === null) storage.removeItem(REFRESH_KEY);
-      else storage.setItem(REFRESH_KEY, t);
+      if (t === null) storage.removeItem(STORAGE_KEYS.refreshToken);
+      else storage.setItem(STORAGE_KEYS.refreshToken, t);
       all.notify("refreshToken");
     },
-    getSaasToken: () => storage.getItem(SAAS_KEY),
+    getSaasToken: () => storage.getItem(STORAGE_KEYS.saasToken),
     setSaasToken: (t) => {
-      if (t === null) storage.removeItem(SAAS_KEY);
-      else storage.setItem(SAAS_KEY, t);
+      if (t === null) storage.removeItem(STORAGE_KEYS.saasToken);
+      else storage.setItem(STORAGE_KEYS.saasToken, t);
       all.notify("saasToken");
     },
     subscribeAll: (l) => all.add(l),

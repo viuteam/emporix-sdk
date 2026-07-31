@@ -28,4 +28,4 @@ and silently ignores an imported one, so it has to be written inline in your
 `proxy.ts`. Client-side, the chain needs `createCookieStorage`; with
 `createMemoryStorage` only the server sees the resolved site.
 
-Requires `@viu/emporix-sdk-react` with `COOKIE_NAMES` exported from `./ssr`.
+Requires `@viu/emporix-sdk-react` with `STORAGE_KEYS` exported from `./ssr`.
