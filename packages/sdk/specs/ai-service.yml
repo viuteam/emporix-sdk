@@ -861,7 +861,7 @@ paths:
         '403':
           $ref: '#/components/responses/403_resp_common'
       description: |-
-        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -906,7 +906,7 @@ paths:
       requestBody:
         $ref: '#/components/requestBodies/QParamSearchBody'
       description: |-
-        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -2464,7 +2464,7 @@ components:
           description: The prompt for an agent. It should define when and why this tool is to be called.
         entityType:
           type: string
-          description: "Type of the entity which is stored in the given collection. Supported predefined types: [PRODUCT] and custom entity types."
+          description: "Type of the entity which is stored in the given collection. Supported predefined types: [ORDER, PRODUCT] and custom entity types."
         indexedFields:
           type: array
           description: This field specifies the fields of the given entityType that are used for generating embeddings. The provided values are then concatenated and converted to embeddings.
