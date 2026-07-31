@@ -47,6 +47,11 @@
       "import": "./dist/webhook.js",
       "require": "./dist/webhook.cjs"
     },
+    "./proxy": {
+      "types": "./dist/proxy.d.ts",
+      "import": "./dist/proxy.js",
+      "require": "./dist/proxy.cjs"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

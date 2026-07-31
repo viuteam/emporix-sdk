@@ -170,6 +170,62 @@ const sdk = new EmporixClient({
 });
 ```
 
+## Site and locale detection (`proxy.ts`)
+
+`siteCode` and `language` go into two places that have to agree: the server's
+`getEmporixClient({ context })` and `prefetchEmporix` keys, and the client's
+`SiteContextProvider`. Disagree and every hydration cache hit becomes a miss.
+A `proxy.ts` is the only place to resolve them before the render.
+
+`emporixSiteProxy` owns the cookie mechanics. You own the routing policy:
+
+```ts
+// proxy.ts (project root, or src/proxy.ts)
+import type { NextRequest } from "next/server";
+import { emporixSiteProxy } from "@viu/emporix-sdk-next/proxy";
+
+const LANGUAGES = new Set(["de", "fr", "en"]);
+
+export function proxy(request: NextRequest) {
+  const segment = request.nextUrl.pathname.split("/")[1] ?? "";
+  return emporixSiteProxy(request, {
+    siteCode: "main",
+    ...(LANGUAGES.has(segment) ? { language: segment } : {}),
+  });
+}
+
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|robots.txt).*)"],
+};
+```
+
+Pass a third argument to rewrite instead of passing through —
+`emporixSiteProxy(request, site, "/shoes")` resolves a relative target against
+the request URL. Redirects do not need the function: there is no render to
+inject headers into, and the `Set-Cookie` travels with the redirect.
+
+### Three things that will bite you
+
+**The `matcher` cannot come from this package.** Next requires a statically
+analysable literal — «Dynamic values such as variables will be ignored». An
+imported constant is a variable, so it would be silently dropped and your proxy
+would run on `_next/static` and `public/` too. Write it inline, as above.
+
+**The client needs `createCookieStorage`.** `emporixSiteProxy` writes cookies;
+with `createMemoryStorage` or a localStorage backend the browser half of the
+chain is dead and only the server sees the resolved site.
+
+**A resolved value overwrites the cookie.** If a client-side language switch
+must survive, read `request.cookies` in your resolver and return what is already
+there. Whether the URL or the user's choice wins is your decision, not the
+package's.
+
+### Node runtime only
+
+Next 16 renamed `middleware` to `proxy` and pinned it to the Node runtime.
+`export const runtime = "edge"` in a proxy file throws — «Proxy always runs on
+Node.js runtime».
+
 ## Footgun: `httpOnly` and the browser
 
 An `httpOnly` customer-token cookie cannot be read by the browser-side
@@ -186,8 +242,10 @@ storage URL. There is no custom loader to install — add the storage host to
 
 ## Subpath exports
 
-`.` (client, session, tags) and `./webhook` (verification, route factory). The
-split keeps a Route Handler from pulling in `next/headers`.
+`.` (client, session, tags), `./webhook` (verification, route factory) and
+`./proxy` (`emporixSiteProxy`). The split keeps a Route Handler from pulling in
+`next/headers` — and a `proxy.ts` cannot pull it in at all, because `cookies()`
+does not exist in a proxy context.
 
 ## Authors
 
