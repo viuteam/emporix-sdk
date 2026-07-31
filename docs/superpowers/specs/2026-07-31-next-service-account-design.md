@@ -223,7 +223,9 @@ nicht pro Request.
 
 ## Tests
 
-In `packages/next/tests/service.test.ts`:
+In `packages/next/tests/service.test.ts`, sechzehn Tests in vier Gruppen.
+
+**Instanz und Konfiguration**
 
 | # | Fall | Erwartung |
 |---|---|---|
@@ -231,23 +233,58 @@ In `packages/next/tests/service.test.ts`:
 | 2 | zweimal mit verschiedenen Optionen | verschiedene Instanzen |
 | 3 | `client.config.fetch` | `undefined` — kein Tagging-Fetch |
 | 4 | `credentials.custom` durchgereicht | `client.config.credentials.custom.productWriter.clientId` stimmt |
-| 5 | `scope` durchgereicht | landet im Body des Token-Requests |
-| 6 | Token-Caching | zwei Aufrufe mit `auth.service("x")` → **ein** Token-Request |
-| 7 | unbekannter Set | wirft `Unknown credential set "nope"` |
-| 8 | fehlender Tenant | wirft mit einer Meldung, die `EMPORIX_TENANT` nennt |
-| 9 | `exports`-Map | `./service` hat `react-server` und `default`, und `default` zeigt auf die Guard-Datei |
+| 5 | `host`-Override | landet in der Token-URL, nicht nur in der Config |
 
-Tests 5 und 6 stubben `globalThis.fetch` — Token-Requests nutzen bewusst das
-globale `fetch` und nicht das injizierte, also ist das der richtige Angriffspunkt.
+**Token-Verhalten** — alle über gestubbtes `globalThis.fetch`. Token-Requests
+nutzen bewusst das globale `fetch` und nicht das injizierte, also ist das der
+richtige Angriffspunkt.
 
-Test 9 ist eine strukturelle Assertion auf `package.json`, kein Verhaltenstest.
+| # | Fall | Erwartung |
+|---|---|---|
+| 6 | `scope` durchgereicht | steht im `client_credentials`-Body |
+| 7 | Caching, sequenziell | zwei Aufrufe → **ein** Token-Request |
+| 8 | Caching, parallel | zehn gleichzeitige Aufrufe → **ein** Token-Request (Single-Flight-Lock) |
+| 9 | Ablauf | `expires_in: 1` und Buffer 60 → der zweite Aufruf holt neu |
+| 10 | zwei verschiedene Sets | zwei Token-Requests, je mit der richtigen `client_id` |
+| 11 | unbekannter Set | wirft `Unknown credential set "nope"` |
+
+**Validierung** — neu gegenüber der ersten Fassung, verlangt Code
+
+| # | Fall | Erwartung |
+|---|---|---|
+| 12 | fehlender Tenant | wirft, Meldung nennt `EMPORIX_TENANT` |
+| 13 | `credentials: {}` | wirft, Meldung sagt, dass mindestens ein Set nötig ist |
+| 14 | Set mit leerem `clientId` oder `secret` | wirft und nennt den Set-Namen |
+
+Test 14 ist der wertvollste der drei. Eine nicht gesetzte Env-Variable ergibt
+heute einen leeren String, der als `client_secret` an Emporix geht und dort als
+401 zurückkommt — ein Fehler, der wie ein Rechteproblem aussieht und keines ist.
+Die Prüfung gehört in `getEmporixServiceClient`, weil sie dort einmal pro Prozess
+statt einmal pro Request läuft.
+
+**Die Grenze, soweit ohne Bundler prüfbar**
+
+| # | Fall | Erwartung |
+|---|---|---|
+| 15 | Import der Guard-Datei | rejectet, Meldung nennt `use client` und den Entry-Namen |
+| 16 | `exports`-Map und `files` | `./service` hat `react-server` und `default`, `default` zeigt auf die Guard-Datei, und die steht in `files` |
+
+Test 15 prüft den zweiten Gürtel wirklich — dass die Datei beim Laden wirft und
+mit einer Meldung, die den Weg nach draussen zeigt. Test 16 fängt den Fall, der
+nur beim Publizieren auffällt: fehlt der `files`-Eintrag, ist die Guard-Datei
+nicht im Tarball und die `default`-Condition zeigt ins Leere.
 
 ### Was kein Test deckt
 
-**Ein Unit-Test kann eine Bundler-Condition nicht ausüben.** Der Guard ist durch
-den heute gemessenen Spike belegt, nicht durch die Suite. Der Plan wiederholt
-diese Messung gegen das gebaute Package — temporäre Dateien im Example, ein
-`next build`, danach gelöscht:
+**Ein Unit-Test kann die Bundler-Condition selbst nicht ausüben.** Test 16 prüft
+die Form der Map, Test 15 das Verhalten der Datei — aber ob Turbopack in einem
+`"use client"`-Modul tatsächlich auf `default` auflöst, zeigt nur ein Build.
+
+### Was kein Test deckt
+
+**Ein Unit-Test kann eine Bundler-Condition nicht ausüben.** Der Guard ist durch den heute gemessenen Spike belegt, nicht durch die Suite. Der
+Plan wiederholt diese Messung gegen das gebaute Package — temporäre Dateien im
+Example, ein `next build`, danach gelöscht:
 
 1. Import aus einem Route Handler → Build gelingt, Route antwortet.
 2. Import aus einer `"use client"`-Datei → Build **failt** mit
