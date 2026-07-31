@@ -13,6 +13,7 @@ A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published a
 | `packages/sdk` | Core SDK: HTTP, auth, services (Product, Category, Cart, Checkout, Customer, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups, Orders, SalesOrders, Availability, TenantConfig, ClientConfig, ShoppingList, RagIndexer, SequentialId, Fee, Webhooks, Schema, AI, Tax, Coupon, RewardPoints, Brand, Label, Country, Currency, Shipping, Returns, SepaExport, Indexing, UnitHandling, Catalog, Vendor, PickPack, CustomerAdmin, Approval, IAM, CloudFunctions, Invoice, Quote) | yes (`@viu/emporix-sdk`) |
 | `packages/react` | React-Query bindings: hooks, provider, storage adapters | yes (`@viu/emporix-sdk-react`) |
 | `packages/mixins` | Typed Emporix mixins: runtime accessor (`readMixin`/`writeMixin`), `mixinQuery` filter builder, `emporix-mixins` codegen CLI | yes (`@viu/emporix-mixins`) |
+| `packages/next` | Next.js server bindings: cache tags (`emporixTags`), `getEmporixClient`, `emporixSession`, webhook route | yes (`@viu/emporix-sdk-next`) |
 | `examples/vite-spa` | Reference storefront (Vite + React Router) | no |
 | `examples/next-app-router` | Reference storefront (Next.js App Router) | no |
 | `examples/node-server` | Plain Node consumer (no React) | no |
