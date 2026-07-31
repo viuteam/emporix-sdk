@@ -14,6 +14,8 @@ import { useCart } from "../src/hooks/use-cart";
 import { useOrder } from "../src/hooks/use-order";
 import { useMyOrders } from "../src/hooks/use-my-orders";
 import { useSites } from "../src/hooks/use-sites";
+import { useAvailability } from "../src/hooks/use-availability";
+import { useAvailabilities } from "../src/hooks/use-availabilities";
 
 // This suite compares KEYS, not data — every resource request is left hanging.
 // The anonymous-login handler is still needed because the provider's token
@@ -123,6 +125,20 @@ const ROWS: Row[] = [
     mode: "customer",
   },
   { name: "useSites", render: () => useSites(), resource: "sites", args: [], site: "none" },
+  {
+    name: "useAvailability",
+    render: () => useAvailability("p1", "main"),
+    resource: "availability",
+    args: ["p1", "main", false],
+    site: "none",
+  },
+  {
+    name: "useAvailabilities",
+    render: () => useAvailabilities(["p1", "p2"], "main"),
+    resource: "availabilities",
+    args: [["p1", "p2"], "main", false],
+    site: "none",
+  },
 ];
 
 function makeClient(): EmporixClient {
