@@ -9,6 +9,9 @@ coverage/
 .idea
 .lean-ctx/
 
+# Claude Code: settings.json is shared, settings.local.json is personal
+.claude/settings.local.json
+
 # e2e
 e2e/.env.local
 e2e/playwright-report/
