@@ -32,6 +32,7 @@
   },
   "files": [
     "dist",
+    "service-is-server-only.js",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -51,6 +52,14 @@
       "types": "./dist/proxy.d.ts",
       "import": "./dist/proxy.js",
       "require": "./dist/proxy.cjs"
+    },
+    "./service": {
+      "types": "./dist/service.d.ts",
+      "react-server": {
+        "import": "./dist/service.js",
+        "require": "./dist/service.cjs"
+      },
+      "default": "./service-is-server-only.js"
     },
     "./package.json": "./package.json"
   },
