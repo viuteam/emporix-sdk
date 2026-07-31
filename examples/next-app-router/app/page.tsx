@@ -1,4 +1,5 @@
-import { EmporixClient, auth } from "@viu/emporix-sdk";
+import { auth } from "@viu/emporix-sdk";
+import { emporix } from "./emporix";
 
 // Emporix product `name` is localized — a `{ [locale]: string }` map (or a
 // plain string for some tenants). Render it defensively.
@@ -13,20 +14,10 @@ function displayName(name: unknown, fallback: string): string {
   return fallback;
 }
 
-// Server Component: read the catalog directly with the SDK (one client/server).
-const sdk = new EmporixClient({
-  tenant: process.env.NEXT_PUBLIC_EMPORIX_TENANT ?? "mytenant",
-  credentials: {
-    backend: {
-      clientId: process.env.EMPORIX_BACKEND_CLIENT_ID ?? "",
-      secret: process.env.EMPORIX_BACKEND_CLIENT_SECRET ?? "",
-    },
-    storefront: { clientId: process.env.EMPORIX_STOREFRONT_CLIENT_ID ?? "" },
-  },
-  logger: false,
-});
-
 export default async function Page(): Promise<React.JSX.Element> {
+  // Memoized per process by getEmporixClient — never a client per request.
+  // This GET is tagged `emporix:products` automatically.
+  const sdk = emporix();
   const page = await sdk.products.list({ pageSize: 12 }, auth.anonymous());
   return (
     <main>
