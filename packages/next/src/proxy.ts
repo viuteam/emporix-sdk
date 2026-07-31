@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { COOKIE_NAMES } from "@viu/emporix-sdk-react/ssr";
+import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 
 /**
  * The site and language a proxy resolved for one request.
@@ -13,8 +13,8 @@ export interface EmporixSite {
 }
 
 const ENTRIES = [
-  ["siteCode", COOKIE_NAMES.siteCode],
-  ["language", COOKIE_NAMES.language],
+  ["siteCode", STORAGE_KEYS.siteCode],
+  ["language", STORAGE_KEYS.language],
 ] as const;
 
 /** One year. A site/language choice is a preference, not a session. */
