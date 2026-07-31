@@ -9,12 +9,13 @@ export {
 } from "./storage/server";
 
 /**
- * The eight persisted session keys as cookie names. Exported from the server
+ * The eight persisted session keys — cookie names in the cookie backends, Web
+ * Storage keys in the localStorage/sessionStorage ones. Exported from the server
  * entry (not `./storage`, which carries the `"use client"` banner) so server
- * code — a Next `proxy.ts`, a Route Handler — can name a cookie without
+ * code — a Next `proxy.ts`, a Route Handler — can name a key without
  * duplicating the literal.
  */
-export { COOKIE_NAMES } from "./storage/cookie-core";
+export { STORAGE_KEYS } from "./storage/keys";
 
 /** Site/language discriminators for SSR prefetch keys. MUST mirror what the
  * client's `useReadSite()` will resolve to at hydration time — `null` when the

@@ -3,22 +3,7 @@ import {
   type EmporixStorage,
   type EmporixStorageKey,
 } from "./index";
-
-/**
- * The eight persisted session keys, as cookie names. Single source of truth —
- * both the browser backend (`./cookie`) and the server backend (`./server`)
- * read and write through these.
- */
-export const COOKIE_NAMES = {
-  customerToken: "emporix.customerToken",
-  cartId: "emporix.cartId",
-  anonymousSession: "emporix.anonymousSession",
-  siteCode: "emporix.siteCode",
-  language: "emporix.language",
-  activeLegalEntityId: "emporix.activeLegalEntityId",
-  refreshToken: "emporix.refreshToken",
-  saasToken: "emporix.saasToken",
-} as const;
+import { STORAGE_KEYS } from "./keys";
 
 /** Backend-agnostic cookie accessor. `set` absent means the storage is read-only. */
 export interface CookieIo {
@@ -41,7 +26,7 @@ export function createCookieBackedStorage(
   io: CookieIo,
   opts: { tokenName?: string; notify?: (key: EmporixStorageKey) => void } = {},
 ): EmporixStorage {
-  const tokenName = opts.tokenName ?? COOKIE_NAMES.customerToken;
+  const tokenName = opts.tokenName ?? STORAGE_KEYS.customerToken;
   const notify = opts.notify;
 
   // Read-only mode: warn once per key so a genuine bug surfaces, but a render
@@ -67,33 +52,33 @@ export function createCookieBackedStorage(
     getCustomerToken: () => io.get(tokenName),
     setCustomerToken: (t) => write(tokenName, t, "customerToken"),
 
-    getCartId: () => io.get(COOKIE_NAMES.cartId),
-    setCartId: (id) => write(COOKIE_NAMES.cartId, id, "cartId"),
+    getCartId: () => io.get(STORAGE_KEYS.cartId),
+    setCartId: (id) => write(STORAGE_KEYS.cartId, id, "cartId"),
 
-    getAnonymousSession: () => parseAnonymousSession(io.get(COOKIE_NAMES.anonymousSession)),
+    getAnonymousSession: () => parseAnonymousSession(io.get(STORAGE_KEYS.anonymousSession)),
     setAnonymousSession: (s) =>
       write(
-        COOKIE_NAMES.anonymousSession,
+        STORAGE_KEYS.anonymousSession,
         s === null
           ? null
           : JSON.stringify({ refreshToken: s.refreshToken, sessionId: s.sessionId }),
         "anonymousSession",
       ),
 
-    getSiteCode: () => io.get(COOKIE_NAMES.siteCode),
-    setSiteCode: (code) => write(COOKIE_NAMES.siteCode, code, "siteCode"),
+    getSiteCode: () => io.get(STORAGE_KEYS.siteCode),
+    setSiteCode: (code) => write(STORAGE_KEYS.siteCode, code, "siteCode"),
 
-    getLanguage: () => io.get(COOKIE_NAMES.language),
-    setLanguage: (l) => write(COOKIE_NAMES.language, l, "language"),
+    getLanguage: () => io.get(STORAGE_KEYS.language),
+    setLanguage: (l) => write(STORAGE_KEYS.language, l, "language"),
 
-    getActiveLegalEntityId: () => io.get(COOKIE_NAMES.activeLegalEntityId),
+    getActiveLegalEntityId: () => io.get(STORAGE_KEYS.activeLegalEntityId),
     setActiveLegalEntityId: (id) =>
-      write(COOKIE_NAMES.activeLegalEntityId, id, "activeLegalEntityId"),
+      write(STORAGE_KEYS.activeLegalEntityId, id, "activeLegalEntityId"),
 
-    getRefreshToken: () => io.get(COOKIE_NAMES.refreshToken),
-    setRefreshToken: (t) => write(COOKIE_NAMES.refreshToken, t, "refreshToken"),
+    getRefreshToken: () => io.get(STORAGE_KEYS.refreshToken),
+    setRefreshToken: (t) => write(STORAGE_KEYS.refreshToken, t, "refreshToken"),
 
-    getSaasToken: () => io.get(COOKIE_NAMES.saasToken),
-    setSaasToken: (t) => write(COOKIE_NAMES.saasToken, t, "saasToken"),
+    getSaasToken: () => io.get(STORAGE_KEYS.saasToken),
+    setSaasToken: (t) => write(STORAGE_KEYS.saasToken, t, "saasToken"),
   };
 }
