@@ -2,6 +2,12 @@ import type { QueryClient } from "@tanstack/react-query";
 import { auth, type AuthContext, type EmporixClient } from "@viu/emporix-sdk";
 import { emporixKey } from "./hooks/internal/query-keys";
 
+export {
+  createServerStorage,
+  serverAuth,
+  type ServerCookieJar,
+} from "./storage/server";
+
 /** Site/language discriminators for SSR prefetch keys. MUST mirror what the
  * client's `useReadSite()` will resolve to at hydration time — `null` when the
  * client mounts without a bound site (the default), the actual codes when the
