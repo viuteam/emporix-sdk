@@ -48,6 +48,16 @@ export interface EmporixConfig {
   retry?: { maxAttempts?: number };
   cache?: { expirationBufferSeconds?: number; maxLifetimeSeconds?: number };
   logger?: LoggerConfig;
+  /**
+   * Replaces the global `fetch` for API requests. Receives the same arguments.
+   *
+   * Deliberately NOT used for token requests (`core/auth.ts`) or SSE
+   * (`HttpClient.stream`): a cached token response would be a security defect,
+   * and caching an event stream is meaningless. Those keep the global `fetch`,
+   * which makes them structurally uncacheable rather than uncached by
+   * convention.
+   */
+  fetch?: typeof globalThis.fetch;
 }
 
 /** Fully-resolved configuration with defaults applied. */
@@ -60,6 +70,7 @@ export interface ResolvedConfig {
   retry: { maxAttempts: number };
   cache: { expirationBufferSeconds: number; maxLifetimeSeconds: number };
   logger: LoggerConfig | undefined;
+  fetch: typeof globalThis.fetch | undefined;
 }
 
 /** Validates user config and applies defaults. Throws on invalid tenant/credentials. */
@@ -87,5 +98,6 @@ export function validateConfig(input: EmporixConfig): ResolvedConfig {
       maxLifetimeSeconds: input.cache?.maxLifetimeSeconds ?? 3600,
     },
     logger: input.logger,
+    fetch: input.fetch,
   };
 }
