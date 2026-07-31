@@ -1,0 +1,75 @@
+{
+  "name": "@viu/emporix-sdk-next",
+  "version": "0.1.0",
+  "description": "Next.js server-side bindings for the Emporix SDK: cache tags, session, webhook revalidation",
+  "license": "MIT",
+  "author": {
+    "name": "viu",
+    "url": "https://github.com/viuteam"
+  },
+  "homepage": "https://github.com/viuteam/emporix-sdk/tree/main/packages/next#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/viuteam/emporix-sdk.git",
+    "directory": "packages/next"
+  },
+  "bugs": {
+    "url": "https://github.com/viuteam/emporix-sdk/issues"
+  },
+  "keywords": [
+    "emporix",
+    "ecommerce",
+    "commerce",
+    "nextjs",
+    "rsc",
+    "typescript",
+    "storefront"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run --coverage",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@viu/emporix-sdk": "workspace:^",
+    "@viu/emporix-sdk-react": "workspace:^",
+    "next": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "@viu/emporix-sdk": "workspace:*",
+    "@viu/emporix-sdk-react": "workspace:*",
+    "eslint": "^9.0.0",
+    "next": "^15.5.19",
+    "tsup": "^8.2.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
