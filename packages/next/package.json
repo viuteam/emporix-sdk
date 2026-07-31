@@ -52,6 +52,11 @@
       "import": "./dist/proxy.js",
       "require": "./dist/proxy.cjs"
     },
+    "./service": {
+      "types": "./dist/service.d.ts",
+      "import": "./dist/service.js",
+      "require": "./dist/service.cjs"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
