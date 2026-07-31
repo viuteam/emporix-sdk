@@ -1,7 +1,7 @@
 # Migrating `examples/next-app-router` onto `@viu/emporix-sdk-next` — Design
 
 **Date:** 2026-07-31
-**Packages touched:** `@viu/emporix-sdk-next` (one additive option), `@viu/emporix-examples-next-app-router` (private)
+**Packages touched:** `@viu/emporix-sdk-next` (additive `context` option + Next 16 support), `@viu/emporix-examples-next-app-router` (private)
 **Timing:** must land **before** the release PR [#183](https://github.com/viuteam/emporix-sdk/pull/183) merges
 
 ## Goal
@@ -108,6 +108,96 @@ This also fixes a pre-existing inconsistency: today `app/page.tsx` reads
 `EMPORIX_STOREFRONT_CLIENT_ID` while `app/providers.tsx` reads
 `NEXT_PUBLIC_EMPORIX_STOREFRONT_CLIENT_ID` — two variables for one value.
 
+## Next 16 support — scope added 2026-07-31 after checking npm
+
+`npm view next dist-tags` reports `latest` as **16.2.12**. The package shipped
+with a peer range of `^15.0.0`, which excludes the current stable. Anyone running
+`npm install next` today gets 16.2.12 and hits a peer conflict installing this
+package.
+
+Widening the range alone would have been worse than leaving it, because Next 16
+breaks an API this package calls:
+
+> `revalidateTag` now requires a second argument specifying a `cacheLife`
+> profile. The single-argument form is deprecated and will produce a TypeScript
+> error.
+
+`createEmporixWebhookRoute` calls `revalidateTag(tag)`. Under Next 16 that is a
+compile error, so the package was Next-15-only in fact, not merely in
+declaration.
+
+**Decision: target Next 16 only.** Peer becomes `^16.0.0`. There are no consumers
+— 0.1.0 is unpublished — and the planned storefronts are greenfield, so they
+would start on `latest`. Supporting both majors would need an arity-sniffing
+adapter plus casts to bridge two incompatible signatures, and our eslint forbids
+`any`. That is machinery for a consumer who does not exist.
+
+### The profile argument, and why not `"max"`
+
+Signature: `revalidateTag(tag: string, profile: string | { expire?: number })`.
+
+The docs recommend `"max"` generally, but address this exact case separately:
+
+> For webhooks or third-party services that need immediate expiration, you can
+> pass `{ expire: 0 }` as the second argument. This pattern is necessary when
+> external systems call your Route Handlers and require data to expire
+> immediately.
+
+With `"max"` an Emporix product event only marks the tag stale; visitors keep
+receiving the old response until a visit triggers a background refresh. For a
+price change or a product going out of stock that is the wrong trade-off. So the
+default is `{ expire: 0 }`, exposed as an option:
+
+```ts
+createEmporixWebhookRoute({
+  secret: "…",
+  /** Second argument to `revalidateTag`. Default `{ expire: 0 }` — immediate
+   *  expiry, which is what the Next docs prescribe for webhook-driven
+   *  invalidation. Pass `"max"` for stale-while-revalidate instead. */
+  profile?: string | { expire?: number },
+})
+```
+
+### What Next 16 does NOT break
+
+Verified against the upgrade guide and the `revalidateTag` reference:
+
+- **Fetch-level tags still work** — `fetch(url, { next: { tags: [...] } })` is
+  documented as one of the two ways to assign tags. No `cacheComponents` flag is
+  required. The package's whole tagging architecture holds.
+- Node 20.9+ minimum (this package requires 20.19+), TypeScript 5.1+ (repo is on
+  5.6).
+- `images.remotePatterns` over the deprecated `images.domains` — the README
+  already says `remotePatterns`.
+- `cacheLife` / `cacheTag` lost their `unstable_` prefix; the package uses
+  neither.
+
+Constraint worth recording: a tag "must not exceed 256 characters". The longest
+tag this package emits is `emporix:category-tree:{id}`, far under that for any
+real Emporix id. No guard added.
+
+### Example upgrade to Next 16
+
+The example turns out to be well positioned — checked against the Next 16
+breaking-change list:
+
+| Next 16 change | Example today |
+|---|---|
+| Async request APIs, synchronous access removed | already `await params` and `await cookies()` |
+| Turbopack by default for `dev` and `build` | no custom webpack config, so nothing to opt out of |
+| `next lint` removed | `lint` script is already `echo "(lint skipped for example)"` |
+| Parallel routes need explicit `default.js` | no parallel routes |
+| React 19.2 | already on `react@^19.2.7` |
+| `middleware` → `proxy` | no middleware file |
+
+So the upgrade is a version bump in `package.json`, not a rewrite.
+
+### Consequence for the deferred middleware item
+
+If middleware is ever built, in Next 16 it is `proxy.ts` with an exported
+`proxy` function, and it runs on the Node runtime only — the `edge` runtime is
+not supported in `proxy`. The follow-up note is updated accordingly.
+
 ## Migration map
 
 | File | Today | After |
@@ -186,6 +276,9 @@ hardcoded, never committed, and never printed to the terminal.
 ## Follow-ups not in scope
 
 1. Middleware for site/locale detection — still deferred, still nobody asking.
+   Note for whenever it happens: in Next 16 the file is `proxy.ts` exporting a
+   `proxy` function, `middleware` is deprecated, and `proxy` runs on the Node
+   runtime only — the `edge` runtime is not supported there.
 2. Key normalization in `@viu/emporix-sdk-react` (availability hooks onto
    `emporixKey`, the `prefetchOrder` / `useOrder` `authKind` mismatch). Both
    invalidate consumer caches; bundle with the next react minor.
