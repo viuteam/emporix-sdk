@@ -609,10 +609,21 @@ Append to `packages/next/tests/service.test.ts`:
 describe("the server-only guard", () => {
   it("throws when the guard file is loaded, naming the way out", async () => {
     // The second belt. The first is the resolution failure, which no unit test
-    // can exercise — see the plan's Task 2 verification step.
+    // can exercise — see this task's verification steps.
+    //
+    // Both patterns deliberately avoid the words "server-only": a missing file
+    // produces "Failed to load url ../service-is-server-only.js", which matches
+    // that and would make the assertion vacuous. Verified — the naive
+    // /server-only/ version passed before the file existed.
+    //
+    // The @ts-expect-error lines are required: the guard is untyped JS on
+    // purpose, so `tsc --noEmit` reports TS7016 without them. Vitest does not
+    // typecheck, so this only shows up in `pnpm typecheck`.
+    // @ts-expect-error — untyped guard module
     await expect(import("../service-is-server-only.js")).rejects.toThrow(
-      /server-only/,
+      /carries a client secret/,
     );
+    // @ts-expect-error — untyped guard module
     await expect(import("../service-is-server-only.js")).rejects.toThrow(
       /use client/,
     );
@@ -630,8 +641,9 @@ describe("the server-only guard", () => {
     };
     const service = pkg.default.exports["./service"] as Record<string, unknown>;
     expect(service).toBeDefined();
+    // `types` sits OUTSIDE the conditions — see Step 4 for why.
+    expect(service["types"]).toBe("./dist/service.d.ts");
     expect(service["react-server"]).toMatchObject({
-      types: "./dist/service.d.ts",
       import: "./dist/service.js",
       require: "./dist/service.cjs",
     });
@@ -678,8 +690,8 @@ with:
 
 ```json
     "./service": {
+      "types": "./dist/service.d.ts",
       "react-server": {
-        "types": "./dist/service.d.ts",
         "import": "./dist/service.js",
         "require": "./dist/service.cjs"
       },
@@ -687,8 +699,21 @@ with:
     },
 ```
 
-Condition order matters: `react-server` must come before `default`, because
+Two things about this shape, both learned the hard way:
+
+**Condition order matters.** `react-server` must come before `default`, because
 resolution takes the first match.
+
+**`types` sits OUTSIDE the conditions, and it must.** TypeScript does not
+understand `react-server`. Put `types` inside that block and TS falls through to
+`default`, finds the guard file, and fails with
+`Type error: File '.../service-is-server-only.js' is not a module` — **even in a
+legitimate Route Handler**. Hoisting `types` keeps `tsc` and the editor pointed
+at the real declarations while the bundler still gets the guard.
+
+The cost of hoisting: a `"use client"` import no longer shows a type error in the
+editor. It fails the build instead, which is where the guard actually lives. That
+is the right trade — TS never prevented bundling anyway.
 
 - [ ] **Step 5: Add the guard file to `files`**
 
@@ -731,20 +756,24 @@ was written with `export` statements — it must have none.
 - [ ] **Step 7: Confirm the guard file is actually packed**
 
 `files` entries are easy to get subtly wrong. Verify against a real tarball
-rather than trusting the array:
+rather than trusting the array.
+
+Note: `pnpm pack --pack-destination <dir>` is **ignored** — the tarball lands in
+the current working directory regardless. Do not chase a missing file in the
+destination you asked for.
 
 ```bash
-cd packages/next && pnpm pack --pack-destination /tmp && tar -tzf /tmp/viu-emporix-sdk-next-*.tgz | grep -E "service"
+cd packages/next && pnpm pack && tar -tzf viu-emporix-sdk-next-0.2.0.tgz | grep -i service
 ```
 
 Expected: `package/service-is-server-only.js` appears alongside
 `package/dist/service.js`, `package/dist/service.cjs`,
 `package/dist/service.d.ts` and `package/dist/service.d.cts`.
 
-Then remove the tarball:
+Then remove the tarball — it is untracked and must not reach the commit:
 
 ```bash
-rm /tmp/viu-emporix-sdk-next-*.tgz
+rm packages/next/viu-emporix-sdk-next-0.2.0.tgz
 ```
 
 - [ ] **Step 8: Verify the guard against a real build — the client half**
@@ -789,6 +818,11 @@ Expected: the build **FAILS**, with the error naming
 
 A build that succeeds here means the guard is not working — stop and fix it
 before continuing. Check the condition order in the `exports` block.
+
+**Re-run this step after any change to the `exports` block.** Hoisting `types`
+out of the conditions in Step 4 changes resolution, and the earlier measurement
+no longer applies. It was re-verified and the guard still fires in both layers —
+but that is a fact about this exact shape, not about the mechanism in general.
 
 - [ ] **Step 9: Verify the guard against a real build — the server half**
 
@@ -857,7 +891,8 @@ git status --short
 Expected: only `packages/next/package.json`,
 `packages/next/service-is-server-only.js` and
 `packages/next/tests/service.test.ts`. No `examples/` entry, no `dist/`, no
-`*.tsbuildinfo`, no `.tgz`.
+`*.tsbuildinfo`, and no `.tgz` — `packages/next/*.tgz` is **not** gitignored, so
+a forgotten `pnpm pack` artefact would be staged.
 
 Then:
 
