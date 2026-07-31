@@ -239,24 +239,39 @@ revalidating.
 
 Comparison uses `crypto.timingSafeEqual` on equal-length buffers, never `===`.
 
-### The one genuine unknown, and it is not being guessed
+### Resolved: the signature contract is documented, and it is not what this spec first assumed
 
-The Emporix docs state the signature is *«encoded to `BASE256`»*. **BASE256 is
-not a real encoding.** It is most likely a typo for base64, but hex and raw bytes
-are both plausible readings.
+**Correction, 2026-07-31.** An earlier version of this section called the
+encoding an unknown, because the Webhook Service API reference describes the
+signature as *«encoded to `BASE256`»* — not a real encoding. It then required an
+empirical capture before the verifier could ship.
 
-Implementing signature verification against the wrong encoding produces a
-verifier that rejects everything (loud, harmless) or — if combined with a
-fallback that tries several encodings until one matches — one that is
-substantially weaker than it looks. Neither is acceptable on a security boundary.
+Emporix documents the verification explicitly on
+[HTTP Webhook Strategy — HMAC Configuration](https://developer.emporix.io/ce/system-management/webhooks-user-guide/hmac-configuration),
+with a worked example. Two things follow, and the second reverses an assumption
+this spec made twice:
 
-**Therefore:** the implementation plan contains an empirical step that captures a
-real delivery from the viu tenant and determines the encoding by measurement,
-*before* `verifyEmporixSignature` merges. The `encoding` option exists so the
-finding is expressible, not so callers can guess. If that measurement cannot be
-performed, **Component 3 is dropped from v0.1** and the package ships with
-Components 1 and 2 only. Component 3 is the only part with this dependency;
-Components 1 and 2 do not block on it.
+1. **The encoding is base64.** `BASE256` in the API reference is an error.
+2. **The HMAC is computed over a canonically re-serialized body, not over the
+   raw bytes.** Emporix's example runs the parsed body through
+   `json-stable-stringify`, and the page states why: *«to order all the fields
+   and nested objects alphabetically which allows maintaining the correct
+   order»*. An earlier draft of this spec asserted the opposite — that the raw
+   bytes were required and that re-serializing would break the HMAC. For Emporix
+   the reverse is true: canonicalization is mandatory.
+
+Consequence for the no-runtime-dependencies rule: `json-stable-stringify` is not
+added. A recursive key-sort plus `JSON.stringify` is ~15 lines and produces the
+same output for JSON values (both emit no whitespace and identical escaping).
+
+**Remaining honest limitation.** This follows the vendor's published example but
+has **not** been verified against a live delivery. Emporix's own documentation
+already contained one error on exactly this topic, and their SQS integration
+example uses a plain `JSON.stringify(event.body)` without stable ordering, which
+contradicts the HMAC page. The HMAC page is treated as authoritative because it
+explains its reasoning. The README and PR must state that one real delivery
+should be smoke-tested before production use, and `canonicalize: false` exists as
+an escape hatch if a tenant turns out to sign raw bytes.
 
 `EmporixWebhookEvent` will be typed from the payload observed in that same
 capture, not from an assumed shape.

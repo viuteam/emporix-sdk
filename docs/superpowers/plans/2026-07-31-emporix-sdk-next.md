@@ -1443,9 +1443,27 @@ entry, so no storefront writes the jar adapter or the cookie attributes again."
 
 ## Task 5: Webhook route — CONDITIONAL
 
-**This task starts with a measurement, and the measurement decides whether the task happens at all.**
+**RESOLVED 2026-07-31 — the measurement was answered by documentation, and it reversed an assumption.**
 
-The Emporix docs say the signature is HMAC-SHA256 *«encoded to `BASE256`»*. BASE256 is not a real encoding. Shipping a verifier against a guessed encoding produces either something that rejects every delivery, or — if you add a try-several-encodings fallback — something materially weaker than it appears. Neither is acceptable on a security boundary.
+This task originally opened with an empirical capture, because the Webhook Service API reference calls the encoding `BASE256`, which is not real. Emporix documents the verification explicitly on [HTTP Webhook Strategy — HMAC Configuration](https://developer.emporix.io/ce/system-management/webhooks-user-guide/hmac-configuration) with a worked example:
+
+```js
+const stringify = require('json-stable-stringify');
+const body = stringify(req.body);            // canonical, keys sorted
+const hmac = crypto.createHmac('sha256', secretKey);
+hmac.update(body);
+const computedHmac = hmac.digest('base64');  // base64
+if (computedHmac === req.headers['emporix-event-signature']) { /* valid */ }
+```
+
+Two findings, the second of which reverses what the spec and an earlier draft of this task both asserted:
+
+1. **Encoding is base64.** `BASE256` is an error in the API reference.
+2. **The HMAC covers a canonically re-serialized body, NOT the raw bytes.** Earlier text here said the raw bytes were mandatory and that re-serializing would break the HMAC. The opposite holds: Emporix signs the body with all fields and nested objects ordered alphabetically, so the verifier must parse and canonically re-stringify.
+
+`json-stable-stringify` is **not** added as a dependency — a recursive key-sort plus `JSON.stringify` is ~15 lines and produces identical output for JSON values.
+
+**Remaining honest limitation, which must reach the README and the PR:** this follows the vendor's published example and has **not** been verified against a live delivery. Emporix's docs already contained one error on this exact topic, and their SQS integration example uses a plain `JSON.stringify(event.body)` with no stable ordering, contradicting the HMAC page. The HMAC page is treated as authoritative because it states its reasoning. A `canonicalize: false` escape hatch exists in case a tenant signs raw bytes.
 
 **Files:**
 - Create: `packages/next/src/webhook.ts`
@@ -1473,27 +1491,9 @@ The Emporix docs say the signature is HMAC-SHA256 *«encoded to `BASE256`»*. BA
   }): (req: Request) => Promise<Response>;
   ```
 
-- [ ] **Step 1: Measure the real signature encoding**
+- [ ] **Step 1: Re-read the two findings above before writing any code**
 
-Configure an HTTP webhook on the `viu` tenant pointing at a request inspector you control, with a known `secretKey`. Trigger a `product.updated` event. Capture the raw request body **byte for byte** plus the `emporix-event-signature` and `emporix-event-publish-time` headers.
-
-Then compute, locally, over the exact captured bytes:
-
-```
-HMAC-SHA256(secret, rawBody) → base64
-HMAC-SHA256(secret, rawBody) → hex
-```
-
-and compare each against the captured header. Record which matched, and record whether the header carries a bare value or a prefixed one (`sha256=…`, `v1,…`).
-
-Credentials for this step must come from the environment and must never be committed or printed.
-
-**Decision rule — apply it literally:**
-
-- **A candidate matched** → note it in the commit message and continue at Step 2 with that encoding as the default.
-- **Nothing matched, or the capture cannot be performed** (no tenant admin access, no publicly reachable inspector) → **STOP. Delete this task.** Ship v0.1 with Tasks 1–4, leave the `webhook` entry out of `tsup.config.ts` and `package.json` exports, and record in the PR description that Component 3 is deferred to v0.2 pending the measurement. Tasks 1–4 do not depend on it. **Do not implement a verifier on a guess, and do not add an encoding-fallback loop.**
-
-Also capture the real event body shape here — `EmporixWebhookEvent` is typed from what was observed, not from an assumed schema. If the body nests the entity under a different key than `payload`, use the real key.
+The encoding is `base64` and the signed payload is the **canonicalized** body, not the raw bytes. If you implement raw-byte HMAC you will produce a verifier that rejects every real delivery.
 
 - [ ] **Step 2: Write the failing test**
 

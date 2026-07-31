@@ -4,6 +4,7 @@
 [![@viu/emporix-sdk](https://img.shields.io/npm/v/@viu/emporix-sdk?label=%40viu%2Femporix-sdk)](https://www.npmjs.com/package/@viu/emporix-sdk)
 [![@viu/emporix-sdk-react](https://img.shields.io/npm/v/@viu/emporix-sdk-react?label=%40viu%2Femporix-sdk-react)](https://www.npmjs.com/package/@viu/emporix-sdk-react)
 [![@viu/emporix-mixins](https://img.shields.io/npm/v/@viu/emporix-mixins?label=%40viu%2Femporix-mixins)](https://www.npmjs.com/package/@viu/emporix-mixins)
+[![@viu/emporix-sdk-next](https://img.shields.io/npm/v/@viu/emporix-sdk-next?label=%40viu%2Femporix-sdk-next)](https://www.npmjs.com/package/@viu/emporix-sdk-next)
 [![license](https://img.shields.io/npm/l/@viu/emporix-sdk)](./LICENSE)
 [![node](https://img.shields.io/node/v/@viu/emporix-sdk)](https://nodejs.org)
 
@@ -17,6 +18,7 @@ shipped as a pnpm workspace monorepo.
 | [`@viu/emporix-sdk`](./packages/sdk) | Core, framework-agnostic SDK: auth, HTTP, logging + the full Emporix service surface — **catalog** (Product, Category, Price, Brand, Label, Catalog), **cart & checkout** (Cart, Checkout, Payment, Coupon, Tax, Shipping, Fee), **orders & fulfilment** (Orders, SalesOrders, Quote, Invoice, Returns, PickPack, Availability, Indexing), **customers & B2B** (Customer, CustomerAdmin, Companies, Contacts, Locations, CustomerGroups, Approval, RewardPoints, Segment, IAM), and **platform** (Site, SessionContext, TenantConfig, ClientConfig, Media, Schema, Webhooks, SequentialId, UnitHandling, Country, Currency, Vendor, ShoppingList, SepaExport, CloudFunctions, AI, RagIndexer) |
 | [`@viu/emporix-sdk-react`](./packages/react) | React bindings: provider, hooks, storage adapters, SSR helpers |
 | [`@viu/emporix-mixins`](./packages/mixins) | Generic, tenant-agnostic toolkit to resolve Emporix mixins as typed values and keep them in sync with the Schema Service (runtime accessor + pluggable sources + `emporix-mixins` codegen CLI) |
+| [`@viu/emporix-sdk-next`](./packages/next) | Next.js server bindings: URL-derived cache tags, cookie session for RSC and Server Actions, webhook-driven `revalidateTag` |
 
 Runnable examples live in [`examples/`](./examples): `node-server` (no React),
 `vite-spa` (CSR), `next-app-router` (RSC + Server Actions), and

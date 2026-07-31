@@ -677,6 +677,11 @@ Nitro or a plain Node handler.
 Use `serverAuth(storage)` rather than resolving the context by hand: `authKind`
 is part of every query key, so a mismatch is a silent cache miss.
 
+Next.js apps can skip this wiring entirely — `@viu/emporix-sdk-next` ships
+`emporixSession()` / `emporixSessionMutable()` over `next/headers`, plus a
+memoized client and cache tags. See
+[`../packages/next/README.md`](../packages/next/README.md).
+
 ### Prefetching any read hook
 
 `prefetchEmporix` writes the same cache entry a hook reads. It needs the hook's
