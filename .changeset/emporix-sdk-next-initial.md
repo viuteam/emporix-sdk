@@ -10,6 +10,10 @@ Initial release. Next.js server-side bindings for the Emporix SDK.
   for anything carrying a customer token: Next's fetch cache does not key on the
   `Authorization` header, and the wrapper cannot tell an anonymous from a
   customer request.
+  Accepts `tenant`, `clientId`, `host`, `tagged`, `revalidate` and `context`
+  (`currency` / `siteCode` / `targetLocation` / `language`, bound at anonymous
+  login and required for prefetch-key parity with the client provider). All six
+  are covered by the memoization key.
 - `emporixSession()` / `emporixSessionMutable()` — the Emporix session from
   `next/headers` cookies, read-only for Server Components and read-write with
   `httpOnly`/`secure`/`lax` defaults for Server Actions and Route Handlers.
@@ -23,5 +27,11 @@ Initial release. Next.js server-side bindings for the Emporix SDK.
   against the raw bytes rejects every real delivery. Not yet verified against live
   traffic; smoke-test one delivery, and pass `canonicalize: false` if your tenant
   signs raw bytes.
+
+- **Requires Next 16.** Next 16 made `revalidateTag`'s second `cacheLife`
+  argument mandatory. `createEmporixWebhookRoute` defaults it to `{ expire: 0 }`
+  — immediate expiry, which the Next docs prescribe for webhook-driven
+  invalidation — and exposes `profile` to choose `"max"` (stale-while-revalidate)
+  instead.
 
 Requires `@viu/emporix-sdk` with `EmporixConfig.fetch`. No runtime dependencies.
