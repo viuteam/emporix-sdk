@@ -172,3 +172,46 @@ describe("getEmporixServiceClient — validation", () => {
     ).toThrow(/"writer"/);
   });
 });
+
+describe("the server-only guard", () => {
+  it("throws when the guard file is loaded, naming the way out", async () => {
+    // The second belt. The first is the resolution failure, which no unit test
+    // can exercise — see the plan's Task 2 verification step.
+    //
+    // Both patterns deliberately avoid the words "server-only": a missing file
+    // produces "Failed to load url ../service-is-server-only.js", which matches
+    // that and would make the assertion vacuous.
+    // ts-expect-error: the guard is untyped JS on purpose — giving it a .d.ts
+    // would mean shipping a declaration for a file whose only job is to throw.
+    // If TypeScript ever resolves it, this directive fails and we revisit.
+    // @ts-expect-error — untyped guard module
+    await expect(import("../service-is-server-only.js")).rejects.toThrow(
+      /carries a client secret/,
+    );
+    // @ts-expect-error — untyped guard module
+    await expect(import("../service-is-server-only.js")).rejects.toThrow(/use client/);
+  });
+
+  it("wires the export condition and ships the guard file", async () => {
+    // Catches the failure that is otherwise only visible on publish: without
+    // the files entry the guard is absent from the tarball and the `default`
+    // condition resolves to nothing.
+    const pkg = (await import("../package.json")) as unknown as {
+      default: { exports: Record<string, unknown>; files: string[] };
+    };
+    const service = pkg.default.exports["./service"] as Record<string, unknown>;
+    expect(service).toBeDefined();
+    // `types` sits OUTSIDE the conditions on purpose. TypeScript does not
+    // understand `react-server`, falls through to `default`, and would report
+    // "File 'service-is-server-only.js' is not a module" even in a legitimate
+    // Route Handler. Hoisting types keeps editor and tsc correct; the bundler
+    // still gets the guard, and the build is what enforces it.
+    expect(service["types"]).toBe("./dist/service.d.ts");
+    expect(service["react-server"]).toMatchObject({
+      import: "./dist/service.js",
+      require: "./dist/service.cjs",
+    });
+    expect(service["default"]).toBe("./service-is-server-only.js");
+    expect(pkg.default.files).toContain("service-is-server-only.js");
+  });
+});

@@ -32,6 +32,7 @@
   },
   "files": [
     "dist",
+    "service-is-server-only.js",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -54,8 +55,11 @@
     },
     "./service": {
       "types": "./dist/service.d.ts",
-      "import": "./dist/service.js",
-      "require": "./dist/service.cjs"
+      "react-server": {
+        "import": "./dist/service.js",
+        "require": "./dist/service.cjs"
+      },
+      "default": "./service-is-server-only.js"
     },
     "./package.json": "./package.json"
   },
