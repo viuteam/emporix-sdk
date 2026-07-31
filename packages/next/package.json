@@ -42,6 +42,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./webhook": {
+      "types": "./dist/webhook.d.ts",
+      "import": "./dist/webhook.js",
+      "require": "./dist/webhook.cjs"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
