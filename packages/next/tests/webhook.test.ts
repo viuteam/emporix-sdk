@@ -2,7 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createHmac } from "node:crypto";
 
 const revalidateTag = vi.fn();
-vi.mock("next/cache", () => ({ revalidateTag: (t: string) => revalidateTag(t) }));
+vi.mock("next/cache", () => ({
+  revalidateTag: (tag: string, profile: unknown) => revalidateTag(tag, profile),
+}));
+
+/** Tags only — `mock.calls.flat()` would fold the profile argument in too. */
+const tagsOf = (): string[] => revalidateTag.mock.calls.map((c) => c[0] as string);
 
 const { verifyEmporixSignature, createEmporixWebhookRoute, canonicalJson } = await import(
   "../src/webhook"
@@ -114,7 +119,26 @@ describe("createEmporixWebhookRoute", () => {
     const res = await route(req(PRODUCT_UPDATED));
 
     expect(res.status).toBe(200);
-    expect(revalidateTag.mock.calls.flat()).toEqual(["emporix:product:p1", "emporix:products"]);
+    expect(tagsOf()).toEqual(["emporix:product:p1", "emporix:products"]);
+  });
+
+  it("passes { expire: 0 } as the default profile — immediate expiry for webhooks", async () => {
+    const route = createEmporixWebhookRoute({ secret: SECRET });
+
+    await route(req(PRODUCT_UPDATED));
+
+    expect(revalidateTag.mock.calls[0]?.[1]).toEqual({ expire: 0 });
+  });
+
+  it("honours a custom profile", async () => {
+    const route = createEmporixWebhookRoute({ secret: SECRET, profile: "max" });
+
+    await route(req(PRODUCT_UPDATED));
+
+    expect(revalidateTag.mock.calls.length).toBeGreaterThan(0);
+    for (const call of revalidateTag.mock.calls) {
+      expect(call[1]).toBe("max");
+    }
   });
 
   it("returns 401 and revalidates nothing on a bad signature", async () => {
@@ -198,14 +222,11 @@ describe("createEmporixWebhookRoute", () => {
     const route = createEmporixWebhookRoute({ secret: SECRET });
 
     await route(req(JSON.stringify({ type: "category.updated", payload: { id: "c1" } })));
-    expect(revalidateTag.mock.calls.flat()).toEqual([
-      "emporix:category:c1",
-      "emporix:categories",
-    ]);
+    expect(tagsOf()).toEqual(["emporix:category:c1", "emporix:categories"]);
 
     revalidateTag.mockClear();
     await route(req(JSON.stringify({ type: "price.updated", payload: {} })));
-    expect(revalidateTag.mock.calls.flat()).toEqual(["emporix:prices"]);
+    expect(tagsOf()).toEqual(["emporix:prices"]);
   });
 
   it("falls back to the collection tag when the payload carries no id", async () => {
@@ -213,6 +234,6 @@ describe("createEmporixWebhookRoute", () => {
 
     await route(req(JSON.stringify({ type: "product.deleted", payload: {} })));
 
-    expect(revalidateTag.mock.calls.flat()).toEqual(["emporix:products"]);
+    expect(tagsOf()).toEqual(["emporix:products"]);
   });
 });
