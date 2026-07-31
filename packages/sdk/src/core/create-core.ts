@@ -76,6 +76,9 @@ export function createCore(config: EmporixConfig): EmporixCore {
       timeouts: cfg.timeouts,
       customerRefresh,
       requestContext,
+      // exactOptionalPropertyTypes: `{ fetch: undefined }` is a type error
+      // against `fetch?: typeof globalThis.fetch`, so spread conditionally.
+      ...(cfg.fetch !== undefined ? { fetch: cfg.fetch } : {}),
     }),
   });
 

@@ -45,6 +45,11 @@ export interface HttpClientOptions {
    * `EmporixClient.setStorefrontContext({ language })`.
    */
   requestContext?: { language?: string | undefined };
+  /**
+   * Replaces the global `fetch` for API requests. Not used by token requests
+   * (`core/auth.ts`) or by {@link HttpClient.stream} — see `EmporixConfig.fetch`.
+   */
+  fetch?: typeof globalThis.fetch;
 }
 
 let requestSeq = 0;
@@ -60,9 +65,12 @@ function safeJson(text: string): unknown {
 /** Fetch wrapper: auth resolution, JSON parsing, typed error mapping, logging. */
 export class HttpClient {
   private readonly sleep: (ms: number) => Promise<void>;
+  /** Resolved request fetch. The arrow keeps `globalThis.fetch` correctly bound. */
+  private readonly doFetch: typeof globalThis.fetch;
   constructor(private readonly opts: HttpClientOptions) {
     this.sleep =
       opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+    this.doFetch = opts.fetch ?? ((...args) => globalThis.fetch(...args));
   }
 
   private buildHeaders(
@@ -138,7 +146,7 @@ export class HttpClient {
       let res: Response;
       let text: string;
       try {
-        res = await Promise.race([fetch(url, init), overallBudget]);
+        res = await Promise.race([this.doFetch(url, init), overallBudget]);
         // Headers are in — the connect budget no longer applies; the body
         // read stays bounded by the overall budget timer.
         clearTimeout(connectTimer);
@@ -274,7 +282,7 @@ export class HttpClient {
       init.body = isFormData ? (o.body as FormData) : JSON.stringify(o.body);
     }
     try {
-      return await fetch(url, init);
+      return await this.doFetch(url, init);
     } catch (err) {
       if ((err as Error).name === "AbortError") {
         throw new EmporixTimeoutError(
