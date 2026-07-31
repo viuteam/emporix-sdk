@@ -33,3 +33,28 @@ export function emporixKey<TArgs extends readonly unknown[]>(
   }
   return ["emporix", resource, ...args, meta] as const;
 }
+
+/** Which site discriminators go into the query key's meta object. */
+export type SiteFields = "full" | "language" | "none";
+
+/**
+ * Builds the site portion of a query key's meta object. Shared by
+ * `useEmporixQuery` (client) and `prefetchEmporix` (server) so the two cannot
+ * disagree about which discriminators a resource carries — key parity is
+ * structural, not tested.
+ *
+ * Note `null` is preserved rather than dropped: an unbound site is a distinct
+ * cache identity from a bound one, and {@link emporixKey} only omits a field
+ * when it is `undefined`.
+ */
+export function siteMeta(
+  site: SiteFields,
+  siteCode: string | null,
+  language: string | null,
+): { siteCode?: string | null; language?: string | null } {
+  return site === "full"
+    ? { siteCode, language }
+    : site === "language"
+      ? { language }
+      : {};
+}
