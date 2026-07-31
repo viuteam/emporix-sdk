@@ -1,27 +1,16 @@
 "use server";
 
-import { cookies } from "next/headers";
-import { EmporixClient } from "@viu/emporix-sdk";
-
-const sdk = new EmporixClient({
-  tenant: process.env.NEXT_PUBLIC_EMPORIX_TENANT ?? "mytenant",
-  // login() uses the anonymous (storefront) context — no backend secret needed.
-  credentials: {
-    storefront: { clientId: process.env.EMPORIX_STOREFRONT_CLIENT_ID ?? "" },
-  },
-  logger: false,
-});
+import { emporixSessionMutable } from "@viu/emporix-sdk-next";
+import { emporix } from "./emporix";
 
 /** Logs the customer in and stores the token in an httpOnly cookie. */
 export async function loginAction(formData: FormData): Promise<void> {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
-  const session = await sdk.customers.login({ email, password });
-  // Next 15: `cookies()` is async.
-  (await cookies()).set("emporix.customerToken", session.customerToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: true,
-    path: "/",
-  });
+  // Untagged: anything touching a customer token must not go through the tagged
+  // client. (The login POST is untaggable anyway — this is the habit.)
+  const session = await emporix({ tagged: false }).customers.login({ email, password });
+  // httpOnly, secure, sameSite=lax, path=/ are the defaults.
+  const { storage } = await emporixSessionMutable();
+  storage.setCustomerToken(session.customerToken);
 }

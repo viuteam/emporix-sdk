@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { emporixSession } from "@viu/emporix-sdk-next";
 import type { ReactNode } from "react";
 import { Providers } from "./providers";
 
@@ -9,9 +9,9 @@ export default async function RootLayout({
 }: {
   children: ReactNode;
 }): Promise<React.JSX.Element> {
-  // Next 15: `cookies()` is async.
-  const token = (await cookies()).get("emporix.customerToken")?.value;
-  const providerProps = token !== undefined ? { initialCustomerToken: token } : {};
+  // Read-only session: a Server Component may not write cookies.
+  const { customerToken } = await emporixSession();
+  const providerProps = customerToken !== null ? { initialCustomerToken: customerToken } : {};
   return (
     <html lang="en">
       <body>

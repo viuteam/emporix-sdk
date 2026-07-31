@@ -12,6 +12,10 @@ pnpm add @viu/emporix-sdk-next @viu/emporix-sdk @viu/emporix-sdk-react next
 
 All four are peer dependencies. This package has no runtime dependencies.
 
+Requires **Next 16**. Next 15 is not supported: Next 16 made `revalidateTag`'s
+second `cacheLife` argument mandatory, and bridging both signatures would need a
+runtime shim for no benefit.
+
 ## The one rule
 
 **A customer token never goes through the tagged client.**
@@ -81,6 +85,13 @@ Verifies `emporix-event-signature`, checks `emporix-event-publish-time` against
 the window, then calls `revalidateTag` for each affected tag. 401 on failure,
 revalidating nothing. A throwing `onEvent` returns 500 so Emporix retries.
 
+`revalidateTag`'s second argument defaults to `{ expire: 0 }` — immediate expiry,
+which the Next docs prescribe for webhooks and third-party services calling your
+Route Handlers. Pass `profile: "max"` for stale-while-revalidate instead, which
+keeps serving the old response until a page using the tag is next visited. For a
+price change or a product going out of stock, immediate expiry is usually what you
+want.
+
 ### Two things to know about the signature
 
 **It is computed over a canonically re-serialized body, not the raw bytes.**
@@ -121,8 +132,43 @@ a tag for a product called "bulk".
 
 ## Environment
 
-`EMPORIX_TENANT`, `EMPORIX_STOREFRONT_CLIENT_ID`, optionally `EMPORIX_HOST`.
-All three can be passed to `getEmporixClient` instead.
+`EMPORIX_TENANT`, `EMPORIX_STOREFRONT_CLIENT_ID`, optionally `EMPORIX_HOST` — or
+pass `tenant` / `clientId` / `host` explicitly.
+
+A Next app usually has to pass them explicitly: any value its Client Components
+also read needs the `NEXT_PUBLIC_` prefix, and these server-only names do not
+carry it. See [`examples/next-app-router/app/emporix.ts`](../../examples/next-app-router/app/emporix.ts)
+for the one-file mapping.
+
+```ts
+getEmporixClient({
+  tenant: process.env.NEXT_PUBLIC_EMPORIX_TENANT,
+  clientId: process.env.NEXT_PUBLIC_EMPORIX_STOREFRONT_CLIENT_ID,
+  context: { siteCode: "main", currency: "CHF" },
+});
+```
+
+`context` is bound at anonymous login. It is needed for `prices.matchByContext`,
+and for prefetch-key parity with the client-side `EmporixProvider` — bind the same
+values on both sides or hydration is a cache miss instead of a hit.
+
+### What `getEmporixClient` deliberately cannot do
+
+It only configures **storefront** (anonymous) credentials. There is no option for
+a `backend` / service credential set, because a secret does not belong in a
+memoized factory where it becomes part of a cache key. Server-side work needing a
+`service` AuthContext — `media.*`, for instance — constructs its own client:
+
+```ts
+import { EmporixClient } from "@viu/emporix-sdk";
+import { createTaggingFetch } from "@viu/emporix-sdk-next";
+
+const sdk = new EmporixClient({
+  tenant,
+  credentials: { backend: { clientId, secret } },
+  fetch: createTaggingFetch({ tenant, revalidate: 3600 }),
+});
+```
 
 ## Footgun: `httpOnly` and the browser
 

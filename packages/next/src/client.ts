@@ -58,6 +58,18 @@ export interface GetEmporixClientOptions {
   tagged?: boolean;
   /** Seconds; becomes `next: { revalidate }` on tagged GETs. Default 3600. */
   revalidate?: number;
+  /**
+   * Storefront request context, bound at anonymous login. Needed for
+   * `prices.matchByContext`, and for prefetch-key parity with the client-side
+   * `EmporixProvider` — the provider binds the same values, and a mismatch
+   * turns a hydration cache hit into a miss.
+   */
+  context?: {
+    currency?: string;
+    siteCode?: string;
+    targetLocation?: string;
+    language?: string;
+  };
 }
 
 const clients = new Map<string, EmporixClient>();
@@ -91,13 +103,21 @@ export function getEmporixClient(opts: GetEmporixClientOptions = {}): EmporixCli
   const tagged = opts.tagged ?? true;
   const revalidate = opts.revalidate ?? 3600;
 
-  const key = `${tenant}|${clientId}|${host ?? ""}|${tagged}|${revalidate}`;
+  // JSON.stringify is key-order-dependent, so the same context written with its
+  // fields in a different order yields a second instance. Wasteful, not wrong —
+  // and the context is written once per app, in one place.
+  const key = `${tenant}|${clientId}|${host ?? ""}|${tagged}|${revalidate}|${JSON.stringify(opts.context ?? {})}`;
   const cached = clients.get(key);
   if (cached) return cached;
 
   const client = new EmporixClient({
     tenant,
-    credentials: { storefront: { clientId } },
+    credentials: {
+      storefront: {
+        clientId,
+        ...(opts.context !== undefined ? { context: opts.context } : {}),
+      },
+    },
     logger: false,
     ...(host !== undefined ? { host } : {}),
     ...(tagged ? { fetch: createTaggingFetch({ tenant, revalidate }) } : {}),

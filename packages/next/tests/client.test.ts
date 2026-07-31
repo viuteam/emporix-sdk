@@ -152,6 +152,24 @@ describe("getEmporixClient", () => {
     expect(nextOf(product!.init)?.revalidate).toBe(3600);
   });
 
+  it("keys on context, so two contexts are two clients", () => {
+    const a = getEmporixClient({ context: { siteCode: "main" } });
+    const b = getEmporixClient({ context: { siteCode: "other" } });
+    expect(a).not.toBe(b);
+    // Same context returns the same instance.
+    expect(getEmporixClient({ context: { siteCode: "main" } })).toBe(a);
+    // No context is distinct from any context.
+    expect(getEmporixClient()).not.toBe(a);
+  });
+
+  it("binds the context onto the storefront credentials", () => {
+    const sdk = getEmporixClient({ context: { siteCode: "main", currency: "CHF" } });
+    expect(sdk.config.credentials.storefront?.context).toEqual({
+      siteCode: "main",
+      currency: "CHF",
+    });
+  });
+
   it("the untagged client tags nothing — the customer-token boundary", async () => {
     const { calls } = captureGlobalFetch();
     const sdk = getEmporixClient({ tagged: false });

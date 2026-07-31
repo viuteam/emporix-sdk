@@ -87,6 +87,15 @@ function tagsForEvent(event: EmporixWebhookEvent): string[] {
 }
 
 /**
+ * The second argument to `revalidateTag`, mandatory since Next 16.
+ *
+ * `{ expire: 0 }` expires immediately; the next request to a tagged resource is
+ * a blocking revalidate. `"max"` (or another `cacheLife` profile) instead marks
+ * the tag stale and serves stale content while refreshing in the background.
+ */
+export type RevalidateProfile = string | { expire?: number };
+
+/**
  * A Next Route Handler that verifies an Emporix webhook and invalidates the
  * matching cache tags.
  *
@@ -110,6 +119,13 @@ export function createEmporixWebhookRoute(opts: {
   maxAgeSeconds?: number;
   /** Verify against the raw bytes instead of the canonicalized body. */
   canonicalize?: boolean;
+  /**
+   * Second argument passed to `revalidateTag`. Defaults to `{ expire: 0 }` —
+   * what the Next docs prescribe for webhooks and third-party services that
+   * need immediate expiration. Pass `"max"` for stale-while-revalidate, which
+   * keeps serving the old response until a page using the tag is next visited.
+   */
+  profile?: RevalidateProfile;
 }): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
     const rawBody = await req.text();
@@ -142,8 +158,9 @@ export function createEmporixWebhookRoute(opts: {
       return new Response("unparseable body", { status: 400 });
     }
 
+    const profile: RevalidateProfile = opts.profile ?? { expire: 0 };
     for (const tag of tagsForEvent(event)) {
-      revalidateTag(tag);
+      revalidateTag(tag, profile);
     }
 
     if (opts.onEvent) {
