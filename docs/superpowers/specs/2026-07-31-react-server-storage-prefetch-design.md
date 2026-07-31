@@ -262,13 +262,15 @@ await prefetchEmporix(qc, {
 
 ### Documented table
 
-`docs/react.md` gains a table under *SSR / RSC* covering the ~10 hooks a server
-realistically prefetches:
+`docs/react.md` gains a table under *SSR / RSC* covering the 10 hooks a server
+realistically prefetches, each row listing hook name, `resource`, `args` shape
+and `site`:
 
-`product`, `products`, `product-by-code`, `category`, `categories`,
-`products-in-category`, `cart`, `orders`, `availability`, `sites`
+`useProduct`, `useProducts`, `useProductByCode`, `useCategory`,
+`useCategories`, `useProductsInCategory`, `useCart`, `useOrder`, `useMyOrders`,
+`useSites`
 
-Each row lists the hook name, `resource`, `args` shape and `site`.
+`useAvailability` / `useAvailabilities` are **excluded** — see *Known issues*.
 
 ### Parity test
 
@@ -308,6 +310,35 @@ explicit, since it is the natural place to get it wrong.
 
 ## Known issues (documented, not fixed here)
 
+### `useAvailability` is not prefetchable
+
+Found while verifying the descriptors for the table. `useAvailability`
+(`hooks/use-availability.ts:26-37`) and `useAvailabilities` bypass `emporixKey`
+entirely and hand-build a key of a different shape:
+
+```ts
+["emporix", "availability", { tenant, productId, siteCode, anon, defaultAvailableOnNotFound }]
+```
+
+No `authKind` (a boolean `anon` instead), and no positional `args` — every
+discriminator sits in the meta object. `prefetchEmporix` cannot express this,
+and it also means these two hooks are outside the `emporixKey` convention that
+every other read hook follows. Normalizing them changes their key and therefore
+invalidates cached entries for every consumer, so it belongs in the same
+follow-up PR as the `authKind` fix below, not here. Until then the docs state
+plainly that these two cannot be server-prefetched.
+
+### `resource: "orders"` is shared by two hooks with different `site` values
+
+`useOrder` uses `site: "language"`, `useMyOrders` uses `site: "full"`. They do
+not collide because `useMyOrders` prefixes its args with the literal `"mine"`
+(`args: ["mine", legalEntityId, status, pageNumber, pageSize, qString]`) while
+`useOrder` passes `[orderId]`. This is working as intended, but it is
+surprising enough that both rows must appear in the table with their differing
+`site` value spelled out.
+
+### `prefetchOrder` / `useOrder` `authKind` mismatch
+
 `prefetchOrder` sets `authKind` from `authCtx.kind`, while `useOrder` runs with
 `mode: "customer"` and sets `authKind` to `"customer"` / `"anonymous"`. With
 `auth.customer(token)` the two agree. With `auth.raw(externalJwt)` the prefetch
@@ -343,7 +374,10 @@ One changeset, minor on `@viu/emporix-sdk-react`:
 
 ## Follow-ups (out of scope, tracked here so they are not lost)
 
-1. Fix the `prefetchOrder` / `useOrder` `authKind` mismatch (own PR).
+1. One key-normalization PR, because both items invalidate consumer caches:
+   fix the `prefetchOrder` / `useOrder` `authKind` mismatch, and move
+   `useAvailability` / `useAvailabilities` onto `emporixKey` so they become
+   prefetchable like every other read hook.
 2. Decide on `@viu/emporix-sdk-next` — worth it at two or more Next storefronts,
    otherwise a `docs/nextjs.md` with snippets. Needs the Emporix webhook
    signature scheme checked first (`docs/webhook.md` documents `secretKey` as
