@@ -3,10 +3,7 @@ import { auth, type AuthContext } from "@viu/emporix-sdk";
 import { useEmporix } from "../../provider";
 import { useReadSite } from "./use-read-site";
 import { useCustomerToken } from "./use-storage-snapshot";
-import { emporixKey } from "./query-keys";
-
-/** Which site discriminators go into the query key's meta object. */
-type SiteFields = "full" | "language" | "none";
+import { emporixKey, siteMeta, type SiteFields } from "./query-keys";
 
 interface BaseQuery<T, TArgs extends readonly unknown[]> {
   resource: string;
@@ -57,12 +54,7 @@ export function useEmporixQuery<T, TArgs extends readonly unknown[]>(
   const resolvedCtx: AuthContext =
     cfg.mode === "customer" ? auth.customer(token as string) : readCtx;
 
-  const siteMeta =
-    cfg.site === "full"
-      ? { siteCode, language }
-      : cfg.site === "language"
-        ? { language }
-        : {};
+  const meta = siteMeta(cfg.site, siteCode, language);
 
   const enabled =
     (cfg.enabled ?? true) && (cfg.mode === "customer" ? token !== null : true);
@@ -71,7 +63,7 @@ export function useEmporixQuery<T, TArgs extends readonly unknown[]>(
     queryKey: emporixKey(cfg.resource, cfg.args, {
       tenant: client.tenant,
       authKind,
-      ...siteMeta,
+      ...meta,
     }),
     queryFn: () => cfg.queryFn(resolvedCtx),
     enabled,

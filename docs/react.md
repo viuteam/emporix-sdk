@@ -631,25 +631,115 @@ customer-token `EmporixAuthError`).
 Two patterns:
 
 1. **App Router (RSC)** — call the SDK directly in server components; for client
-   hydration, `prefetchProduct` / `prefetchCart` into a `QueryClient` then
-   dehydrate. Read the customer token from a cookie/header in a server component
-   and pass it as `initialCustomerToken`.
+   hydration, `prefetchEmporix` (or a `prefetchProduct` / `prefetchCart`
+   wrapper) into a `QueryClient` then dehydrate. Read the customer token from a
+   cookie in a server component and pass it as `initialCustomerToken`.
 2. **Pages Router / SPA hydration** — prefetch into a `QueryClient`, dehydrate,
    rehydrate on the client.
 
 Critical rule: `EmporixClient` is created **once per server**, never per
 request. Never put a per-request client in module scope.
 
+Everything below is on the `@viu/emporix-sdk-react/ssr` subpath, which carries
+no `"use client"` directive and is therefore importable from Server Components.
+
+### Server-side session
+
+`createServerStorage` builds an `EmporixStorage` over a cookie jar you supply.
+It is synchronous by design — any `await` (Next's `cookies()`) belongs to you:
+
+```ts
+import { cookies } from "next/headers";
+import { createServerStorage, serverAuth } from "@viu/emporix-sdk-react/ssr";
+
+// Server Component — read-only. Next forbids cookie writes during render.
+const jar = await cookies();
+const storage = createServerStorage({ get: (n) => jar.get(n)?.value ?? null });
+const ctx = serverAuth(storage); // customer if a token is stored, else anonymous
+```
+
+```ts
+// Server Action / Route Handler — read-write.
+const jar = await cookies();
+const storage = createServerStorage({
+  get: (n) => jar.get(n)?.value ?? null,
+  set: (n, v) =>
+    v === null
+      ? jar.delete(n)
+      : jar.set(n, v, { httpOnly: true, sameSite: "lax", secure: true, path: "/" }),
+});
+```
+
+Omitting `set` makes every setter a no-op that warns once per key. There is no
+`next` import in the package — the same jar shape works for Remix, SvelteKit,
+Nitro or a plain Node handler.
+
+Use `serverAuth(storage)` rather than resolving the context by hand: `authKind`
+is part of every query key, so a mismatch is a silent cache miss.
+
+### Prefetching any read hook
+
+`prefetchEmporix` writes the same cache entry a hook reads. It needs the hook's
+three key ingredients — `resource`, `args` and `site`:
+
+```ts
+await prefetchEmporix(qc, {
+  client: sdk,
+  resource: "products-in-category",
+  args: [categoryId, { pageSize: 24 }],
+  site: "full",
+  auth: ctx,
+  siteCode: storage.getSiteCode(),
+  queryFn: (c) => sdk.categories.productsIn(categoryId, { pageSize: 24 }, c),
+});
+```
+
+| Hook | `resource` | `args` | `site` |
+| --- | --- | --- | --- |
+| `useProduct` | `product` | `[productId]` | `full` |
+| `useProducts` | `products` | `[params]` | `full` |
+| `useProductByCode` | `product-by-code` | `[code]` | `full` |
+| `useCategory` | `category` | `[categoryId]` | `full` |
+| `useCategories` | `categories` | `[params]` | `full` |
+| `useProductsInCategory` | `products-in-category` | `[categoryId, params]` | `full` |
+| `useCart` | `cart` | `[cartId, activeCompanyId ?? null]` | `full` |
+| `useOrder` | `orders` | `[orderId]` | `language` |
+| `useMyOrders` | `orders` | `["mine", legalEntityId, status, pageNumber, pageSize, q]` | `full` |
+| `useSites` | `sites` | `[]` | `none` |
+
+`useOrder` and `useMyOrders` share `resource: "orders"` with different `site`
+values; they don't collide because `useMyOrders` prefixes its args with `"mine"`.
+
+These rows are asserted against the real hook keys in
+`packages/react/tests/prefetch-parity.test.tsx` — that file is the reference for
+the further read queries not tabulated here. `prefetchProduct`, `prefetchCart`
+and `prefetchOrder` remain as convenience wrappers.
+
 ### Common pitfalls
 
 - **Per-request client** — recreating `EmporixClient` per request defeats token
-  caching and leaks state. One per server.
+  caching and leaks state. One per server. `createServerStorage` is the
+  opposite: it is per request, because the cookie jar is.
+- **`httpOnly` breaks the client side** — if a Server Action writes
+  `emporix.customerToken` with `httpOnly: true`, the browser-side
+  `createCookieStorage` cannot read it and the provider mounts unauthenticated.
+  That is the security win, and the footgun. The supported pattern is the
+  existing one below: the server reads the cookie and passes
+  `initialCustomerToken`.
 - **Token hydration** — the server reads the cookie and passes
   `initialCustomerToken`; the client provider seeds storage from it so the first
   render is authenticated (no flash of logged-out UI).
 - **Cart-merge timing** — log the customer in *before* merging the anonymous
   cart; merge requires the customer token and the preserved `sessionId` (see
   [`auth.md`](./auth.md)).
+- **`useAvailability` / `useAvailabilities` cannot be prefetched** — their keys
+  predate `emporixKey` and use a different shape (a boolean `anon` instead of
+  `authKind`, and no positional args). Call `client.availability.*` directly on
+  the server and pass the result down as a prop.
+- **`prefetchOrder` with `auth.raw(...)`** — `useOrder` is customer-gated and
+  keys `authKind: "customer"`, while `prefetchOrder` keys `authCtx.kind`. With
+  `auth.customer(token)` they agree; with `auth.raw(jwt)` they don't, and you
+  get a silent refetch. Use `auth.customer(...)` for order prefetch.
 
 See [`examples/next-app-router`](../examples/next-app-router) and
 [`examples/vite-spa`](../examples/vite-spa) for working setups.

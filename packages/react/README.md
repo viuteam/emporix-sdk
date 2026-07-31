@@ -94,8 +94,12 @@ call (default: `customer` if a token is stored, else `anonymous`).
 
 ## Errors & SSR
 
-`<EmporixErrorBoundary>` and `useEmporixErrorHandler` for error coordination;
-`prefetchProduct` / `prefetchCart` / `prefetchOrder` for server-side hydration. See
+`<EmporixErrorBoundary>` and `useEmporixErrorHandler` for error coordination.
+For servers (RSC, Server Actions, Remix/SvelteKit loaders): `createServerStorage`
++ `serverAuth` resolve the session from an injected cookie jar, and
+`prefetchEmporix` prefills the cache for any read hook (`prefetchProduct` /
+`prefetchCart` / `prefetchOrder` are convenience wrappers). All from
+`@viu/emporix-sdk-react/ssr`, which carries no `"use client"` directive. See
 [`../../docs/react.md`](../../docs/react.md).
 
 ## Analytics & tracking
