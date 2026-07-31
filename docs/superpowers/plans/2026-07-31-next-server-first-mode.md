@@ -75,8 +75,9 @@ provider that never makes a network call.
 | `packages/next/tsup.config.ts` | **modify** — split into two configs: server entries, and one client entry with the `"use client"` banner. |
 | `packages/next/scripts/check-dist.mjs` | **create** — asserts the client entry carries the banner and the server entries do not. |
 | `packages/next/package.json` | **modify** — entries, `exports`, `files`, `check:dist` script. |
-| `packages/next/README.md` | **modify** (Task 5) |
-| `.changeset/next-server-first-mode.md` | **create** (Task 5) |
+| `examples/next-server-first/**` | **create** (Task 5) — the acceptance harness: six pages, one of which renders `document.cookie` so the security claim is visible rather than asserted |
+| `packages/next/README.md` | **modify** (Task 6) |
+| `.changeset/next-server-first-mode.md` | **create** (Task 6) |
 
 Split by responsibility, not layer: the cookie policy is its own file because
 four other files depend on it and F-04 in the review was precisely about that
@@ -1936,7 +1937,631 @@ banner."
 
 ---
 
-## Task 5: Docs, changeset, PR
+## Task 5: A Next demo that exercises the basics end to end
+
+**Files:**
+- Create: `examples/next-server-first/package.json`
+- Create: `examples/next-server-first/next.config.mjs`
+- Create: `examples/next-server-first/tsconfig.json`
+- Create: `examples/next-server-first/.env.example`
+- Create: `examples/next-server-first/proxy.ts`
+- Create: `examples/next-server-first/app/layout.tsx`
+- Create: `examples/next-server-first/app/emporix.ts`
+- Create: `examples/next-server-first/app/page.tsx`
+- Create: `examples/next-server-first/app/actions/auth.ts`
+- Create: `examples/next-server-first/app/actions/cart.ts`
+- Create: `examples/next-server-first/app/login/page.tsx`
+- Create: `examples/next-server-first/app/cart/page.tsx`
+- Create: `examples/next-server-first/app/api/emporix/[...path]/route.ts`
+- Create: `examples/next-server-first/app/typeahead.tsx`
+- Create: `examples/next-server-first/app/debug/page.tsx`
+- Create: `examples/next-server-first/README.md`
+
+**Interfaces:**
+- Consumes: everything from Tasks 1-4.
+- Produces: nothing the package depends on. This is the acceptance harness.
+
+**Why a new example and not a route group.** `examples/next-app-router/app/layout.tsx:18`
+mounts `<Providers>` — a Client Component holding an `EmporixClient` — in the
+**root** layout. A Next route group nests inside the root layout, so every
+server-first route would still be wrapped by a client-side Emporix client, which
+is exactly what this mode removes. `examples/*` is a pnpm workspace glob and
+`@viu/emporix-examples-*` is in the changesets `ignore` list, so a new example
+needs **zero** config changes.
+
+**Scope: the basics, not `storefront-demo`'s 17 routes.** Six pages, each present
+because it exercises one building block that no unit test can:
+
+| Page / file | Exercises |
+|---|---|
+| `app/page.tsx` | catalog read via the **memoized tagged** client — the split below |
+| `proxy.ts` | `emporixTokenProxy` on every request |
+| `app/login/page.tsx` + `actions/auth.ts` | `emporixLogin` / `emporixLogout`, httpOnly cookies |
+| `app/cart/page.tsx` + `actions/cart.ts` | `withEmporixSession*`, guest cart survival, the session binding |
+| `app/api/emporix/[...path]/route.ts` + `app/typeahead.tsx` | the catalog proxy and `createProxyTokenProvider` |
+| `app/debug/page.tsx` | renders `document.cookie` so "no token in the browser" is **visible**, not asserted |
+
+### The catalog/cart split, and why it matters
+
+Catalog reads use `getEmporixClient()` — the memoized, tagged client with a
+process-wide anonymous token. Cart reads and writes use `withEmporixSession*`.
+
+Getting this backwards is not a style mistake, it costs an Emporix call per
+render: `withEmporixSession` in a Server Component gets a **read-only** jar, so
+the anonymous store's `write` no-ops, so the SDK cannot persist the session it
+just obtained, so the next render logs in anonymously again. Catalog pages must
+therefore not use `withEmporixSession`.
+
+### A limitation this example is expected to expose
+
+There is a case the plan does not solve and the example is the way to find out
+whether it bites: **a guest cart READ in a Server Component.** The read-only jar
+cannot persist a rotated anonymous session. If Emporix invalidates the old
+anonymous refresh token when it is used, the second such read fails.
+
+Step 8 below tests exactly that. Two outcomes:
+
+- **It works** (Emporix tolerates refresh-token reuse for anonymous sessions):
+  record the observation in the example README and move on.
+- **It fails:** `/cart` must not be a Server Component for guests. Two fixes, in
+  preference order — make the cart page fetch through a Server Action (which may
+  write), or extend `emporixTokenProxy` to keep a short-lived anonymous access
+  token in the cookie so read-only paths need no refresh at all. Do **not** paper
+  over it; stop and raise it.
+
+- [ ] **Step 1: Scaffold the package**
+
+Create `examples/next-server-first/package.json`:
+
+```json
+{
+  "name": "@viu/emporix-examples-next-server-first",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "echo \"(lint skipped for example)\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@viu/emporix-sdk": "workspace:*",
+    "@viu/emporix-sdk-next": "workspace:*",
+    "next": "^16.2.12",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.6.0"
+  }
+}
+```
+
+Note the dependency list: **no `@viu/emporix-sdk-react`, no
+`@tanstack/react-query`**. That absence is part of the demonstration.
+
+Create `examples/next-server-first/next.config.mjs`:
+
+```js
+/** @type {import('next').NextConfig} */
+export default {};
+```
+
+Create `examples/next-server-first/tsconfig.json`:
+
+```json
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "jsx": "preserve",
+    "noEmit": true,
+    "allowJs": true,
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": { "@/*": ["./*"] }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+```
+
+Create `examples/next-server-first/.env.example`:
+
+```
+# Server-only. None of these are NEXT_PUBLIC_ — that is the point.
+EMPORIX_TENANT=your-tenant
+EMPORIX_STOREFRONT_CLIENT_ID=your-storefront-client-id
+```
+
+Then install:
+
+```bash
+pnpm install
+```
+
+Expected: pnpm reports the new project. `pnpm -r --filter "./examples/*" typecheck`
+will fail until the files below exist — that is expected at this step.
+
+- [ ] **Step 2: The proxy and the shared options**
+
+Create `examples/next-server-first/proxy.ts`:
+
+```ts
+import type { NextRequest } from "next/server";
+import { emporixTokenProxy } from "@viu/emporix-sdk-next/bff";
+import { SITE } from "./app/emporix";
+
+export async function proxy(request: NextRequest) {
+  return emporixTokenProxy(request, { site: SITE });
+}
+
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|robots.txt).*)"],
+};
+```
+
+Create `examples/next-server-first/app/emporix.ts`:
+
+```ts
+import type { WithEmporixSessionOptions } from "@viu/emporix-sdk-next/bff";
+
+/** Site and language the proxy pins for every request. */
+export const SITE = { siteCode: "main" } as const;
+
+/**
+ * The context every server-side client binds. One place, so the catalog client
+ * and the session helper cannot drift — the same reason app/emporix.ts exists in
+ * the other example.
+ */
+export const EMPORIX: WithEmporixSessionOptions = {
+  context: { siteCode: "main", currency: "CHF" },
+};
+```
+
+- [ ] **Step 3: Layout and the catalog page**
+
+Create `examples/next-server-first/app/layout.tsx`:
+
+```tsx
+import type { ReactNode } from "react";
+
+export const metadata = { title: "Emporix SDK — server-first example" };
+
+/**
+ * No provider, no client-side EmporixClient, no storage. That absence is the
+ * whole demonstration: the browser has nothing to hold a token in.
+ */
+export default function RootLayout({ children }: { children: ReactNode }): React.JSX.Element {
+  return (
+    <html lang="en">
+      <body>
+        <nav>
+          <a href="/">Catalog</a> · <a href="/cart">Cart</a> ·{" "}
+          <a href="/login">Login</a> · <a href="/debug">Debug</a>
+        </nav>
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+Create `examples/next-server-first/app/page.tsx`:
+
+```tsx
+import { getEmporixClient } from "@viu/emporix-sdk-next";
+import { EMPORIX } from "./emporix";
+import { Typeahead } from "./typeahead";
+
+/**
+ * Catalog reads use the MEMOIZED, TAGGED client — not withEmporixSession.
+ * withEmporixSession in a Server Component gets a read-only cookie jar, so the
+ * anonymous session it obtains cannot be persisted and the next render logs in
+ * again. Catalog data needs no stable session, so the process-wide token is both
+ * correct and cheaper.
+ */
+export default async function Home(): Promise<React.JSX.Element> {
+  const client = getEmporixClient({ context: EMPORIX.context });
+  const products = await client.products.list({ pageSize: 12 });
+  return (
+    <main>
+      <h1>Catalog</h1>
+      <Typeahead />
+      <ul>
+        {products.map((p) => (
+          <li key={p.id}>
+            {typeof p.name === "string" ? p.name : Object.values(p.name ?? {})[0]} — {p.code}
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+```
+
+If `client.products.list` does not accept `{ pageSize }` in the installed SDK
+version, call it with no argument — the point is a server-rendered list, not
+pagination.
+
+- [ ] **Step 4: Auth actions and the login page**
+
+Create `examples/next-server-first/app/actions/auth.ts`:
+
+```ts
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { emporixLogin, emporixLogout } from "@viu/emporix-sdk-next/bff";
+import { EMPORIX } from "../emporix";
+
+export async function login(formData: FormData): Promise<void> {
+  await emporixLogin(
+    {
+      email: String(formData.get("email")),
+      password: String(formData.get("password")),
+    },
+    EMPORIX,
+  );
+  revalidatePath("/", "layout");
+}
+
+export async function logout(): Promise<void> {
+  await emporixLogout(EMPORIX);
+  revalidatePath("/", "layout");
+}
+```
+
+Create `examples/next-server-first/app/login/page.tsx`:
+
+```tsx
+import { emporixSession } from "@viu/emporix-sdk-next";
+import { login, logout } from "../actions/auth";
+
+export default async function LoginPage(): Promise<React.JSX.Element> {
+  const { customerToken } = await emporixSession();
+  if (customerToken !== null) {
+    return (
+      <main>
+        <h1>Logged in</h1>
+        <p>The token is in an httpOnly cookie. This page read it on the server.</p>
+        <form action={logout}>
+          <button type="submit">Log out</button>
+        </form>
+      </main>
+    );
+  }
+  return (
+    <main>
+      <h1>Login</h1>
+      <form action={login}>
+        <input name="email" type="email" placeholder="email" required />
+        <input name="password" type="password" placeholder="password" required />
+        <button type="submit">Log in</button>
+      </form>
+    </main>
+  );
+}
+```
+
+- [ ] **Step 5: Cart actions and the cart page**
+
+Create `examples/next-server-first/app/actions/cart.ts`:
+
+```ts
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { withEmporixSessionMutable } from "@viu/emporix-sdk-next/bff";
+import { cookies } from "next/headers";
+import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
+import { EMPORIX } from "../emporix";
+
+/**
+ * Creates the cart on first use and remembers its id in an httpOnly cookie.
+ * `carts.create` returns `CartCreated` with `.cartId` — not `.id`, which is what
+ * `carts.getCurrent` returns. The two shapes are not interchangeable.
+ */
+export async function addToCart(itemYrn: string, quantity: number): Promise<void> {
+  await withEmporixSessionMutable(async (client, ctx) => {
+    const jar = await cookies();
+    let cartId = jar.get(STORAGE_KEYS.cartId)?.value ?? null;
+    if (cartId === null) {
+      const created = await client.carts.create({ currency: "CHF" }, ctx);
+      cartId = created.cartId;
+      jar.set(STORAGE_KEYS.cartId, cartId, {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+      });
+    }
+    await client.carts.addItem(cartId, { itemYrn, quantity }, ctx);
+  }, EMPORIX);
+  revalidatePath("/cart");
+}
+```
+
+Create `examples/next-server-first/app/cart/page.tsx`:
+
+```tsx
+import { cookies } from "next/headers";
+import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
+import { withEmporixSession } from "@viu/emporix-sdk-next/bff";
+import { EMPORIX } from "../emporix";
+import { addToCart } from "../actions/cart";
+
+/**
+ * A guest cart READ in a Server Component. This is the case the plan flags as
+ * unproven: the read-only jar cannot persist a rotated anonymous session. If
+ * Emporix invalidates the old anonymous refresh token on use, the second load of
+ * this page fails — see the plan's Task 5 Step 8.
+ */
+export default async function CartPage(): Promise<React.JSX.Element> {
+  const cartId = (await cookies()).get(STORAGE_KEYS.cartId)?.value ?? null;
+  const cart =
+    cartId === null
+      ? null
+      : await withEmporixSession((client, ctx) => client.carts.get(cartId, ctx), EMPORIX);
+
+  async function add(formData: FormData): Promise<void> {
+    "use server";
+    await addToCart(String(formData.get("itemYrn")), 1);
+  }
+
+  return (
+    <main>
+      <h1>Cart</h1>
+      <p>{cart === null ? "No cart yet." : `${cart.items?.length ?? 0} item(s)`}</p>
+      <form action={add}>
+        <input name="itemYrn" placeholder="itemYrn" required />
+        <button type="submit">Add</button>
+      </form>
+    </main>
+  );
+}
+```
+
+- [ ] **Step 6: The catalog proxy route and the typeahead**
+
+Create `examples/next-server-first/app/api/emporix/[...path]/route.ts`:
+
+```ts
+import { createEmporixCatalogRoute } from "@viu/emporix-sdk-next/bff";
+
+export const GET = createEmporixCatalogRoute();
+```
+
+Create `examples/next-server-first/app/typeahead.tsx`:
+
+```tsx
+"use client";
+
+import { useState } from "react";
+import { EmporixClient } from "@viu/emporix-sdk";
+import {
+  createProxyFetch,
+  createProxyTokenProvider,
+} from "@viu/emporix-sdk-next/catalog-client";
+
+/**
+ * A client-side catalog read with NO token. The token provider makes no network
+ * call at all; the rewriting fetch sends the request to /api/emporix, which
+ * substitutes the server's real anonymous token.
+ */
+const client = new EmporixClient({
+  tenant: process.env.NEXT_PUBLIC_EMPORIX_TENANT ?? "viu",
+  credentials: { storefront: { clientId: "proxied" } },
+  tokenProvider: createProxyTokenProvider(),
+  fetch: createProxyFetch({ base: "/api/emporix" }),
+  logger: false,
+});
+
+export function Typeahead(): React.JSX.Element {
+  const [names, setNames] = useState<string[]>([]);
+  return (
+    <div>
+      <input
+        placeholder="search (client-side, no token)"
+        onChange={(e) => {
+          const q = e.target.value;
+          if (q.length < 2) return setNames([]);
+          void client.products
+            .list()
+            .then((ps) =>
+              setNames(
+                ps
+                  .map((p) => (typeof p.name === "string" ? p.name : (Object.values(p.name ?? {})[0] ?? "")))
+                  .filter((n) => n.toLowerCase().includes(q.toLowerCase()))
+                  .slice(0, 5),
+              ),
+            )
+            .catch(() => setNames([]));
+        }}
+      />
+      <ul>
+        {names.map((n) => (
+          <li key={n}>{n}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+The `NEXT_PUBLIC_EMPORIX_TENANT` is the one public value — a tenant name is not a
+secret, and the proxy route validates it server-side anyway.
+
+- [ ] **Step 7: The debug page that makes the claim visible**
+
+Create `examples/next-server-first/app/debug/page.tsx`:
+
+```tsx
+"use client";
+
+import { useEffect, useState } from "react";
+
+/**
+ * Renders what the browser can actually see. If any Emporix token appears here,
+ * the mode has failed — and it fails visibly rather than silently.
+ */
+export default function DebugPage(): React.JSX.Element {
+  const [cookies, setCookies] = useState<string[]>([]);
+  useEffect(() => {
+    setCookies(document.cookie.split("; ").filter((c) => c.length > 0));
+  }, []);
+  const suspicious = cookies.filter((c) =>
+    /customerToken|refreshToken|saasToken|anonymousSession|cartId/.test(c),
+  );
+  return (
+    <main>
+      <h1>What the browser can read</h1>
+      <p>
+        Expected: only <code>emporix.siteCode</code> and <code>emporix.language</code>.
+      </p>
+      <ul>
+        {cookies.length === 0 ? <li>(nothing)</li> : cookies.map((c) => <li key={c}>{c}</li>)}
+      </ul>
+      <p style={{ fontWeight: 700, color: suspicious.length > 0 ? "crimson" : "green" }}>
+        {suspicious.length > 0
+          ? `FAIL — ${suspicious.length} secret cookie(s) readable from JavaScript`
+          : "PASS — no secret is readable from JavaScript"}
+      </p>
+    </main>
+  );
+}
+```
+
+- [ ] **Step 8: Build, run and verify the six behaviours**
+
+`examples/next-server-first/.env.local` must exist with the tenant credentials.
+Never print its contents.
+
+```bash
+pnpm -r --filter "./packages/*" build
+pnpm -F @viu/emporix-examples-next-server-first build
+```
+
+Expected: a successful build listing `ƒ Proxy (Middleware)`, `ƒ /`, `ƒ /cart`,
+`ƒ /login`, `ƒ /debug` and `ƒ /api/emporix/[...path]`.
+
+```bash
+pnpm -F @viu/emporix-examples-next-server-first exec next start -p 3222
+```
+
+Then, in order:
+
+**1 — catalog renders server-side.**
+`curl -s http://localhost:3222/ | grep -c "<li>"` → expect a non-zero count.
+
+**2 — no secret cookie is set for a plain visit.**
+`curl -sD- -o /dev/null http://localhost:3222/ | grep -i "^set-cookie"` → expect
+only `emporix.siteCode`, and **no** `customerToken`/`refreshToken`/`cartId`.
+
+**3 — the catalog proxy allows a product read.**
+`curl -s -o /dev/null -w "%{http_code}\n" -H "sec-fetch-site: same-origin" http://localhost:3222/api/emporix/product/<tenant>/products`
+→ expect `200`.
+
+**4 — the catalog proxy refuses a cart read.**
+`curl -s -o /dev/null -w "%{http_code}\n" -H "sec-fetch-site: same-origin" http://localhost:3222/api/emporix/cart/<tenant>/carts`
+→ expect `403`. This is the allowlist working against a real request.
+
+**5 — the guest cart survives, and the READ works twice.** In a browser, open
+`/cart`, add a valid `itemYrn`, then **reload the page twice**. Expect the item
+count to persist both times.
+
+A failure on the *second* reload is the limitation this task exists to find —
+the read-only jar could not persist the rotated anonymous session. Stop and raise
+it; do not work around it silently.
+
+**6 — the debug page reads no secret.** Open `/debug`. Expect the green
+`PASS — no secret is readable from JavaScript`, with only `emporix.siteCode`
+listed.
+
+Stop the server when done.
+
+- [ ] **Step 9: Write the example README**
+
+Create `examples/next-server-first/README.md`:
+
+````markdown
+# Server-first example
+
+Demonstrates `@viu/emporix-sdk-next`'s server-first mode: **no Emporix token in
+the browser**, not even an anonymous one.
+
+Note the dependencies in `package.json`: no `@viu/emporix-sdk-react`, no
+`@tanstack/react-query`. The browser has nothing to hold a token in.
+
+## Run it
+
+```bash
+cp .env.example .env.local   # then fill in your tenant and storefront client id
+pnpm -F @viu/emporix-examples-next-server-first dev
+```
+
+## What each page proves
+
+| Page | Proves |
+|---|---|
+| `/` | catalog rendered on the server with the memoized tagged client |
+| `/login` | `emporixLogin` / `emporixLogout` via Server Actions, session in httpOnly cookies |
+| `/cart` | `withEmporixSession*`, a guest cart bound to a server-managed anonymous session |
+| `/debug` | **what the browser can actually read** — turns green only when no secret is reachable from JavaScript |
+| typeahead on `/` | a client-side catalog read with no token, through `/api/emporix` |
+
+## The catalog/cart split
+
+Catalog reads use `getEmporixClient()`. Cart reads and writes use
+`withEmporixSession*`. Do not swap them: `withEmporixSession` in a Server
+Component gets a read-only cookie jar, so it cannot persist the anonymous session
+it just obtained, and every render logs in anonymously again.
+
+## `/debug` is the point
+
+A green `PASS` on `/debug` is the only direct evidence that the mode works. Unit
+tests can assert that the token provider makes no network call; only the browser
+can show that no secret cookie is readable.
+````
+
+- [ ] **Step 10: Typecheck, gate and commit**
+
+```bash
+pnpm typecheck && pnpm -r test
+```
+
+Expected: all green. The example adds no unit tests, so `packages/next` stays at
+145.
+
+```bash
+rm -rf examples/next-server-first/.next
+git status --short
+```
+
+Expected: only the new files under `examples/next-server-first/`, plus
+`pnpm-lock.yaml`. No `.next`, no `*.tsbuildinfo`.
+
+```bash
+git add examples/next-server-first pnpm-lock.yaml
+git commit -m "feat(examples): add a server-first next demo" -m "Six pages, each present because it exercises something no unit test can: the
+catalog/cart client split, login and logout through Server Actions, a guest cart
+bound to a server-managed anonymous session, the catalog proxy's allowlist
+against a real request, and a client-side catalog read with no token.
+
+The dependency list is part of the demonstration — no @viu/emporix-sdk-react and
+no react-query, so the browser has nothing to hold a token in.
+
+/debug renders document.cookie and turns green only when no secret is reachable
+from JavaScript. Unit tests can assert that the proxy token provider makes no
+network call; only a browser can show that nothing leaked into a readable cookie."
+```
+
+---
+
+## Task 6: Docs, changeset, PR
 
 **Files:**
 - Modify: `packages/next/README.md`
@@ -2155,8 +2780,10 @@ checkout runs server-side. `secure` is derived from the forwarded protocol rathe
 than hard-coded, and the cookies have bounded lifetimes — 8 h for the access
 token, 30 d for the refresh token.
 
-**The cost:** a typical B2C storefront writes about 19 Server Actions, two lines
-each, and gives up React Query for customer data in favour of `useOptimistic`.
+**The cost:** measured against `examples/storefront-demo` (17 routes, 41 hooks), a
+complete storefront writes about **25 Server Actions**, two lines each — a
+narrower B2C flow without account self-service lands nearer 19. And you give up
+React Query for customer data in favour of `useOptimistic`.
 ````
 
 - [ ] **Step 4: Verify the changeset is picked up**
@@ -2172,8 +2799,8 @@ Expected: `@viu/emporix-sdk-next` listed for a minor bump.
 ```bash
 git add packages/next/README.md .changeset/next-server-first-mode.md
 git commit -m "docs(repo): document the server-first mode" -m "The two helpers, the three auth functions, rotation in the proxy, the catalog
-proxy, and the honest cost: about 19 Server Actions and no React Query for
-customer data."
+proxy, and the honest cost: about 25 Server Actions for a complete storefront and
+no React Query for customer data."
 git push origin feat/next-bff-mode
 ```
 
@@ -2226,6 +2853,13 @@ public/private boundary a proxy needs. No second allowlist was written.
 `createProxyTokenProvider` makes **no network call**: everything else in this
 mode is structure, that is the measurement behind "no token in the browser".
 
+Plus `examples/next-server-first`, a six-page demo run against `next start`:
+catalog rendered server-side, no secret cookie on a plain visit, the catalog
+proxy answering `200` for a product URL and `403` for a cart URL, a guest cart
+surviving reloads, and a `/debug` page that renders `document.cookie` and turns
+green only when no secret is reachable from JavaScript. Two of those six can only
+be answered by a real runtime.
+
 Six guards passed first try and were mutation-tested: swapping the guest client
 for the memoized one fails exactly the shared-session test; injecting a `fetch`
 fails exactly the untagged test; dropping the read-only check fails exactly the
@@ -2235,11 +2869,22 @@ catalog allowlist fails exactly the four 403 tests.
 
 ## The cost, stated plainly
 
-A typical B2C storefront writes about 19 Server Actions, two lines each, and
-gives up React Query for customer data in favour of `useOptimistic`. That is a
-change in how a storefront is built, not just an API addition.
+Measured against `examples/storefront-demo` — 17 routes, 41 distinct hooks — a
+complete storefront writes about **25 Server Actions**, two lines each. A
+narrower B2C flow without account self-service lands nearer 19. You also give up
+React Query for customer data in favour of `useOptimistic`. That is a change in
+how a storefront is built, not just an API addition.
 
 F-01 stays open for the SPA path, where it is structurally unfixable.
+
+## One requirement knowingly left unproven
+
+Whether a guest cart **read** in a Server Component works twice in a row. The
+read-only cookie jar cannot persist a rotated anonymous session, so if Emporix
+invalidates the old anonymous refresh token on use, the second load fails. The
+example's check 5 tests exactly that, and the plan names both outcomes and the
+two fixes rather than assuming a pass. If it fails, `/cart` becomes a Server
+Action fetch or the proxy starts caching a short-lived anonymous access token.
 
 Spec: `docs/superpowers/specs/2026-07-31-next-server-first-mode-design.md`
 Plan: `docs/superpowers/plans/2026-07-31-next-server-first-mode.md`
@@ -2286,20 +2931,28 @@ re-triggering.
 | First client entry with banner + `check:dist` | Task 4 Steps 6-8, 10 |
 | No change to react or the SDK | Global Constraints; no task touches either |
 | No new dependency | Global Constraints |
-| README + changeset | Task 5 |
-| The 19-Server-Actions cost stated | Task 5 README and changeset |
+| README + changeset | Task 6 |
+| The Server-Actions cost stated | Task 6 README and changeset |
+| End-to-end verification against a running server | Task 5, six live checks |
 
-Gap found and accepted: the spec's non-goal "no example migration" means nothing
-in this plan exercises the mode end-to-end against a running server, unlike the
-proxy and service cycles. The mode's own guard is covered by `check:dist` and
-the pack check, but a real `next start` run needs an example that does not exist
-yet. Recorded as follow-up 1 rather than silently skipped.
+The spec's non-goal "no example migration" is **superseded**: Task 5 adds
+`examples/next-server-first`, so the mode is exercised end to end against a
+running server the way the proxy and service cycles were. Six live checks, of
+which two can only be answered by a real runtime — the catalog proxy's 403
+against an actual cart URL, and whether a guest cart read survives a second
+reload.
 
-`examples/storefront-demo` does **not** close this gap. It is a Vite +
+`examples/storefront-demo` could not have filled that role. It is a Vite +
 React Router SPA (`react-router-dom`, no Next), so it cannot exercise
 `emporixTokenProxy`, `withEmporixSession` or the catalog route — none of them
-exist outside a Next runtime. What it does provide is the acceptance checklist:
-17 routes and 41 distinct hooks, measured rather than estimated.
+exist outside a Next runtime. What it does provide is the acceptance checklist
+for a *complete* storefront: 17 routes and 41 distinct hooks, measured rather
+than estimated. Task 5 deliberately covers the basics instead.
+
+One requirement is knowingly unproven rather than covered: whether a guest cart
+**read** in a Server Component works twice in a row. The read-only cookie jar
+cannot persist a rotated anonymous session. Task 5 Step 8 check 5 tests it, and
+the task states both outcomes and the two fixes rather than assuming it passes.
 
 **2. Placeholder scan**
 
@@ -2323,20 +2976,15 @@ Test-count arithmetic, derived: 95 baseline + 13 + 16 + 9 + 12 = **145**.
 
 ## Follow-ups
 
-1. **An example for the server-first mode — its own project, not a step here.**
-   `examples/storefront-demo` is the acceptance checklist: a complete storefront
-   on the SPA path with 17 routes (`/`, `/search`, `/category/:id`,
-   `/product/:idOrCode`, `/cart`, `/checkout`, `/account` plus profile,
-   addresses, orders, order detail, returns, rewards, lists, `/reset-password`)
-   and 41 distinct SDK-React hooks. Porting that list to a Next server-first
-   example is a rewrite of 17 routes, which is precisely the "different way of
-   building a storefront" cost the spec names — now quantified rather than
-   asserted.
-
-   Until it exists, the mode's end-to-end behaviour is covered by unit tests,
-   `check:dist` and the pack check only. `storefront-demo` itself cannot help:
-   it is Vite + React Router, so it has no server to run the proxy, the session
-   helper or the catalog route on.
+1. **A full server-first storefront, beyond the basics.** Task 5 covers six
+   pages. `examples/storefront-demo` is the checklist for a complete one: 17
+   routes (`/`, `/search`, `/category/:id`, `/product/:idOrCode`, `/cart`,
+   `/checkout`, `/account` plus profile, addresses, orders, order detail,
+   returns, rewards, lists, `/reset-password`) and 41 distinct SDK-React hooks.
+   Porting that list is a rewrite of 17 routes — precisely the "different way of
+   building a storefront" cost the spec names, now quantified rather than
+   asserted. Its own project, and only worth doing once a real storefront needs
+   it.
 2. **`maxAge` values are the package's choice, not a product decision yet.** 8 h
    for the access token, 30 d for the refresh token. Both overridable is not yet
    implemented — currently they are constants in `BFF_MAX_AGE`.
