@@ -8,6 +8,14 @@ export {
   type ServerCookieJar,
 } from "./storage/server";
 
+/**
+ * The eight persisted session keys as cookie names. Exported from the server
+ * entry (not `./storage`, which carries the `"use client"` banner) so server
+ * code — a Next `proxy.ts`, a Route Handler — can name a cookie without
+ * duplicating the literal.
+ */
+export { COOKIE_NAMES } from "./storage/cookie-core";
+
 /** Site/language discriminators for SSR prefetch keys. MUST mirror what the
  * client's `useReadSite()` will resolve to at hydration time — `null` when the
  * client mounts without a bound site (the default), the actual codes when the
