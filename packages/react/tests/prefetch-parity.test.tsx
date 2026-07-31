@@ -44,6 +44,12 @@ interface Row {
   site: SiteFields;
   /** Customer-gated hooks need a stored token and a customer context. */
   customer?: boolean;
+  /**
+   * Passed through to prefetchEmporix. Customer-gated hooks need "customer";
+   * those rows deliberately use a RAW context, so each is a regression test for
+   * the normalization — without `mode` the server key would say "raw".
+   */
+  mode?: "read-auth" | "customer";
 }
 
 const PARAMS = { pageSize: 24 } as const;
@@ -105,6 +111,7 @@ const ROWS: Row[] = [
     args: ["o1"],
     site: "language",
     customer: true,
+    mode: "customer",
   },
   {
     name: "useMyOrders",
@@ -113,6 +120,7 @@ const ROWS: Row[] = [
     args: ["mine", null, null, 1, null, null],
     site: "full",
     customer: true,
+    mode: "customer",
   },
   { name: "useSites", render: () => useSites(), resource: "sites", args: [], site: "none" },
 ];
@@ -151,7 +159,14 @@ describe.each(ROWS)("prefetch parity: $name", (row) => {
       .filter((q) => q.queryKey[1] === row.resource)
       .map((q) => q.queryKey);
 
-    const ctx: AuthContext = row.customer ? auth.customer("cust") : auth.anonymous();
+    // Customer-gated rows use a RAW context on purpose: `mode: "customer"` must
+    // normalize it to authKind "customer", which is exactly the bug being fixed.
+    const ctx: AuthContext =
+      row.mode === "customer"
+        ? auth.raw("external-jwt")
+        : row.customer
+          ? auth.customer("cust")
+          : auth.anonymous();
     const serverQc = new QueryClient();
     await prefetchEmporix(serverQc, {
       client,
@@ -159,6 +174,7 @@ describe.each(ROWS)("prefetch parity: $name", (row) => {
       args: row.args,
       site: row.site,
       auth: ctx,
+      ...(row.mode !== undefined ? { mode: row.mode } : {}),
       queryFn: () => Promise.resolve(null),
     });
     const serverKey = serverQc.getQueryCache().getAll()[0]!.queryKey;
