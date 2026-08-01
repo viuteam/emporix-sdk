@@ -33,6 +33,7 @@
   "files": [
     "dist",
     "service-is-server-only.js",
+    "bff-is-server-only.js",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -61,10 +62,24 @@
       },
       "default": "./service-is-server-only.js"
     },
+    "./bff": {
+      "types": "./dist/bff.d.ts",
+      "react-server": {
+        "import": "./dist/bff.js",
+        "require": "./dist/bff.cjs"
+      },
+      "default": "./bff-is-server-only.js"
+    },
+    "./catalog-client": {
+      "types": "./dist/catalog-client.d.ts",
+      "import": "./dist/catalog-client.js",
+      "require": "./dist/catalog-client.cjs"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "rm -rf dist && tsup",
+    "check:dist": "node scripts/check-dist.mjs",
     "test": "vitest run --coverage",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
