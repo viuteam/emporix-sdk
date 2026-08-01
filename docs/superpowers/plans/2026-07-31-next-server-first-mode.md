@@ -331,7 +331,7 @@ pnpm -F @viu/emporix-sdk-next exec vitest run tests/bff-session.test.ts
 ```
 
 Expected: the file fails to collect with `Failed to load url ../src/bff-session`.
-All 13 fail. If you see `withEmporixSession is not a function`, the file exists
+All 12 fail. If you see `withEmporixSession is not a function`, the file exists
 but the export name is wrong.
 
 - [ ] **Step 3: Write the cookie policy**
@@ -576,7 +576,7 @@ export async function withEmporixSessionMutable<T>(
 pnpm -F @viu/emporix-sdk-next exec vitest run tests/bff-session.test.ts
 ```
 
-Expected: `Tests 13 passed (13)`.
+Expected: `Tests 12 passed (12)`.
 
 If the seeded-session test fails because no token call happened, check that
 `attachAnonymousStore` is called **before** `fn` runs — the bootstrap happens
@@ -1911,8 +1911,8 @@ gateway.
 pnpm typecheck && pnpm lint && pnpm -r test
 ```
 
-Expected: all green, `packages/next` at **145** tests. Derivation: 95 baseline
-+ 13 (Task 1) + 16 (Task 2) + 9 (Task 3) + 12 (Task 4) = 145. If the number
+Expected: all green, `packages/next` at **144** tests. Derivation: 95 baseline
++ 12 (Task 1) + 16 (Task 2) + 9 (Task 3) + 12 (Task 4) = 144. If the number
 differs, find out why rather than adjusting the expectation.
 
 ```bash
@@ -2534,7 +2534,7 @@ pnpm typecheck && pnpm -r test
 ```
 
 Expected: all green. The example adds no unit tests, so `packages/next` stays at
-145.
+144.
 
 ```bash
 rm -rf examples/next-server-first/.next
@@ -2849,7 +2849,7 @@ public/private boundary a proxy needs. No second allowlist was written.
 
 ## Verification
 
-`packages/next` goes 95 → 145 tests. The single most important one asserts that
+`packages/next` goes 95 → 144 tests. The single most important one asserts that
 `createProxyTokenProvider` makes **no network call**: everything else in this
 mode is structure, that is the measurement behind "no token in the browser".
 
@@ -2972,7 +2972,7 @@ match `packages/react/src/storage/keys.ts`. The guard filename
 `bff-is-server-only.js` is identical in the `exports` map, `files`, the created
 file and the pack check.
 
-Test-count arithmetic, derived: 95 baseline + 13 + 16 + 9 + 12 = **145**.
+Test-count arithmetic, derived: 95 baseline + 12 + 16 + 9 + 12 = **144**.
 
 ## Follow-ups
 
