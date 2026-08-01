@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/bff";
-import { EMPORIX } from "../emporix";
+import { EMPORIX, SITE } from "../emporix";
 
 /** The matched-price fields the cart needs. Read loosely — the generated type is wider. */
 interface MatchedPrice {
@@ -21,8 +21,9 @@ interface MatchedPrice {
  * every context. A product without one cannot be added, which is a real
  * condition rather than an error to swallow.
  *
- * `carts.create` returns `CartCreated` with `.cartId` — not `.id`, which is what
- * `carts.getCurrent` returns. The two shapes are not interchangeable.
+ * The cart itself comes from `carts.getCurrent({ create: true })`, which returns
+ * a `Cart` with `.id`. `carts.create` would return `CartCreated` with `.cartId`
+ * — different shape, and it 409s for a customer who already has an open cart.
  */
 export async function addToCart(productId: string): Promise<void> {
   await withEmporixSessionMutable(async (client, ctx) => {
@@ -42,8 +43,12 @@ export async function addToCart(productId: string): Promise<void> {
     const jar = await cookies();
     let cartId = jar.get(STORAGE_KEYS.cartId)?.value ?? null;
     if (cartId === null) {
-      const created = await client.carts.create({ currency: match.currency }, ctx);
-      cartId = created.cartId;
+      // `getCurrent({ create: true })`, not `create`: a customer may hold only
+      // one open cart, and a blind create answers 409 when they already have
+      // one — which is exactly what happens after a checkout closed the last.
+      const cart = await client.carts.getCurrent(ctx, { siteCode: SITE.siteCode, create: true });
+      cartId = cart?.id ?? null;
+      if (cartId === null) throw new Error("Emporix returned no cart");
       jar.set(STORAGE_KEYS.cartId, cartId, { httpOnly: true, sameSite: "lax", path: "/" });
     }
 

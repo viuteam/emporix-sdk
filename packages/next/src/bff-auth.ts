@@ -63,9 +63,51 @@ export async function emporixLogin(
 
   const jar = await bffCookieJar();
   persistSession(jar, session);
+  // Must run AFTER persistSession: it resolves through the customer token this
+  // just wrote, and BEFORE the anonymous session is dropped.
+  await onboardCart(jar, opts);
   // The guest session is dead weight once a customer token exists — the auth
   // layer always prefers the customer token.
   jar.delete(STORAGE_KEYS.anonymousSession);
+}
+
+/**
+ * Adopts the customer's cart and folds the guest cart into it.
+ *
+ * Without this a customer whose cart cookie is absent — after a checkout closed
+ * the previous cart, or after the cookie expired — falls through to
+ * `carts.create`, and Emporix answers **409 Conflict**: a customer may hold only
+ * one open cart. `getCurrent({ create: true })` returns the existing one or
+ * makes the first.
+ *
+ * Mirrors `onboardCustomerCart` in `@viu/emporix-sdk-react`, which is what gives
+ * the SPA mode the same behaviour. Skipped without a `siteCode`, because
+ * `getCurrent` requires one.
+ *
+ * Best-effort by design: a login must not fail because a cart is in a bad state.
+ */
+async function onboardCart(
+  jar: BffCookieJar,
+  opts: WithEmporixSessionOptions,
+): Promise<void> {
+  const siteCode = opts.context?.siteCode;
+  if (siteCode === undefined) return;
+  try {
+    await withEmporixSessionMutable(async (client, ctx) => {
+      const cart = await client.carts.getCurrent(ctx, { siteCode, create: true });
+      const customerCartId = cart?.id;
+      if (customerCartId === undefined) return;
+      const guestCartId = jar.get(STORAGE_KEYS.cartId);
+      if (guestCartId !== null && guestCartId !== customerCartId) {
+        // The path id is the CUSTOMER cart (the target); the body lists the
+        // anonymous carts merged into it. Easy to invert.
+        await client.carts.merge(customerCartId, [guestCartId], ctx);
+      }
+      jar.set(STORAGE_KEYS.cartId, customerCartId, BFF_MAX_AGE.cartId);
+    }, opts);
+  } catch {
+    // Ignore — the customer is logged in either way.
+  }
 }
 
 /**

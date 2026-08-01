@@ -232,8 +232,15 @@ hat keinen Preis mehr. Beide kommen als `EmporixError` mit brauchbarem Text.
 - **Kein Quote-Checkout** (`placeOrderFromQuote`).
 - **Keine Adressverwaltung** — gespeicherte Adressen werden gelesen und zur
   Auswahl gestellt, nicht angelegt oder geändert.
-- **Keine Änderung an `packages/next`.** Der Checkout braucht nichts, was der
-  Modus nicht schon hat.
+- ~~**Keine Änderung an `packages/next`.**~~ **Widerlegt am 2026-08-01.** Der
+  erste eingeloggte Live-Lauf lief in ein `409 Conflict` bei
+  `POST /cart/viu/carts`: ein Kunde darf nur einen offenen Cart haben, und nach
+  dem Gast-Checkout war das Cookie leer, also versuchte `addToCart` blind ein
+  `create`. Zugleich fehlte der Cart-Merge beim Login, den das React-Package in
+  `onboardCustomerCart` längst macht. Beides ist **dieselbe Lücke**: dem
+  Server-First-Modus fehlte das Gegenstück zum React-Onboarding.
+  `emporixLogin` bekommt es — nicht das Example, weil sonst jeder Consumer den
+  Fehler selbst wiederholt.
 
 ## Tests
 

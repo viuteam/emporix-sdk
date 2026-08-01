@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { pickFee, resolveZone, type CheckoutInput } from "@viu/emporix-sdk";
+import { EmporixError, pickFee, resolveZone, type CheckoutInput } from "@viu/emporix-sdk";
 import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/bff";
 import { CONTEXT, EMPORIX, SITE } from "../emporix";
 
@@ -16,6 +16,21 @@ function label(name: string | Record<string, string> | undefined, fallback: stri
   if (typeof name === "string") return name;
   if (name) return Object.values(name)[0] ?? fallback;
   return fallback;
+}
+
+/**
+ * An error message worth reading.
+ *
+ * `EmporixError.message` is only the status line; the reason lives in `.body`.
+ * Dropping it turns «400» into a guessing game — which is exactly what happened
+ * while building this page.
+ */
+function describe(e: unknown): string {
+  if (e instanceof EmporixError) {
+    const detail = typeof e.body === "string" ? e.body : JSON.stringify(e.body);
+    return `${e.message} — ${detail}`;
+  }
+  return e instanceof Error ? e.message : String(e);
 }
 
 /**
@@ -40,13 +55,16 @@ export async function submitCheckout(formData: FormData): Promise<void> {
   let orderId: string | undefined;
   try {
     const result = await withEmporixSessionMutable(async (client, ctx) => {
-      const [cart, zones] = await Promise.all([
+      const [cart, zones, customerId] = await Promise.all([
         client.carts.get(cartId, ctx),
         client.shipping.listZones(
           SITE.siteCode,
           { expand: "methods,fees", activeMethods: "true" },
           ctx,
         ),
+        // Emporix REQUIRES `customer.id` for a logged-in checkout and REJECTS it
+        // for a guest — 400 either way if you get it backwards.
+        loggedIn ? client.customers.me(ctx).then((c) => c.id) : Promise.resolve(undefined),
       ]);
       const total = cart.totalPrice?.amount ?? 0;
 
@@ -81,6 +99,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
       const input: CheckoutInput = {
         cartId,
         customer: {
+          ...(customerId !== undefined ? { id: customerId } : {}),
           email: field(formData, "email"),
           firstName,
           lastName,
@@ -109,7 +128,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
   } catch (e) {
     // `redirect()` works by throwing. Every success redirect therefore lives
     // OUTSIDE this try — catching one's own redirect would swallow it.
-    redirect(`/checkout?error=${encodeURIComponent(e instanceof Error ? e.message : String(e))}`);
+    redirect(`/checkout?error=${encodeURIComponent(describe(e))}`);
   }
 
   // Emporix CLOSES the cart on a successful checkout. Keeping the id would

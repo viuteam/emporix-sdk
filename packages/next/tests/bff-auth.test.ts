@@ -22,13 +22,38 @@ const { emporixLogin, emporixLogout, emporixRefresh, assertSameOrigin } = await 
 );
 const { __resetEmporixClients } = await import("../src/client");
 
-function stubFetch(): { urls: string[] } {
+interface Call {
+  url: string;
+  method: string;
+  body: string;
+}
+
+function stubFetch(opts: { cartStatus?: number } = {}): { urls: string[]; calls: Call[] } {
   const urls: string[] = [];
+  const calls: Call[] = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       urls.push(url);
+      calls.push({ url, method: init?.method ?? "GET", body: String(init?.body ?? "") });
+
+      if (url.includes("/cart/")) {
+        const status = opts.cartStatus ?? 200;
+        if (status !== 200) {
+          return new Response(JSON.stringify({ message: "cart trouble" }), {
+            status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        // `getCurrent` returns a Cart with `.id`; `create` would return
+        // `CartCreated` with `.cartId`. The onboarding reads `.id`.
+        return new Response(JSON.stringify({ id: "cust-cart" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       // `sessionId` is camelCase while the rest is snake_case — Emporix's own
       // shape, mirrored by the SDK at core/auth.ts:372.
       const body = url.includes("/customerlogin/auth/anonymous/")
@@ -47,8 +72,11 @@ function stubFetch(): { urls: string[] } {
       });
     }),
   );
-  return { urls };
+  return { urls, calls };
 }
+
+/** Every login that should onboard a cart needs a site context. */
+const SITED = { context: { siteCode: "main" } };
 
 beforeEach(() => {
   bag.clear();
@@ -112,6 +140,56 @@ describe("emporixLogin", () => {
     });
     await emporixLogin({ email: "a@b.test", password: "pw" });
     expect(bag.get("emporix.anonymousSession")).toBeUndefined();
+  });
+});
+
+describe("emporixLogin cart onboarding", () => {
+  // Found live: after a checkout closed the previous cart, the next addToCart
+  // called `carts.create` and Emporix answered 409 — a customer may hold only
+  // one open cart. Onboarding adopts the existing one instead.
+  it("adopts the customer's cart and stores its id", async () => {
+    stubFetch();
+    await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
+    expect(bag.get("emporix.cartId")?.value).toBe("cust-cart");
+  });
+
+  it("stores the cart id httpOnly, like every other bff cookie", async () => {
+    stubFetch();
+    await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
+    expect(bag.get("emporix.cartId")?.opts).toMatchObject({ httpOnly: true });
+  });
+
+  it("merges the guest cart into the customer cart", async () => {
+    const f = stubFetch();
+    bag.set("emporix.cartId", { name: "emporix.cartId", value: "guest-cart" });
+    await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
+    const merge = f.calls.find((c) => c.url.includes("/merge"));
+    // The path id is the CUSTOMER cart; the body lists the anonymous ones.
+    expect(merge?.url).toContain("cust-cart");
+    expect(merge?.body).toContain("guest-cart");
+    expect(bag.get("emporix.cartId")?.value).toBe("cust-cart");
+  });
+
+  it("does not merge a cart into itself", async () => {
+    const f = stubFetch();
+    bag.set("emporix.cartId", { name: "emporix.cartId", value: "cust-cart" });
+    await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
+    expect(f.calls.some((c) => c.url.includes("/merge"))).toBe(false);
+  });
+
+  it("logs in anyway when the cart call fails", async () => {
+    // A cart in a bad state must not cost the customer their session.
+    stubFetch({ cartStatus: 500 });
+    await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
+    expect(bag.get("emporix.customerToken")?.value).toBe("cust-tok");
+    expect(bag.get("emporix.cartId")).toBeUndefined();
+  });
+
+  it("skips cart onboarding without a siteCode", async () => {
+    // `getCurrent` requires one; guessing a site would be worse than skipping.
+    const f = stubFetch();
+    await emporixLogin({ email: "a@b.test", password: "pw" });
+    expect(f.calls.some((c) => c.url.includes("/cart/"))).toBe(false);
   });
 });
 
