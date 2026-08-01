@@ -26,8 +26,35 @@ pnpm -F @viu/emporix-examples-next-server-first dev
 | `/` | catalog rendered on the server with the memoized tagged client |
 | `/login` | `emporixLogin` / `emporixLogout` via Server Actions, session in httpOnly cookies |
 | `/cart` | `withEmporixSession*`, a guest cart bound to a server-managed anonymous session |
+| `/checkout` | four reads in one session, and a `saasToken` that authorizes an order without ever reaching the browser |
 | `/debug` | **what the browser can actually read** — green only when no secret is reachable from JavaScript |
 | typeahead on `/` | a client-side catalog read with no token, through `/api/emporix` |
+
+## Checkout
+
+`/checkout` reads the cart, the payment modes, the shipping zones and — for a
+logged-in customer — the saved addresses in **one** `withEmporixSession` with
+four parallel calls, then posts a native form to a Server Action. No client
+state: in this mode there is no client to hold any.
+
+The point: the Server Action reads the `saasToken` from an httpOnly cookie and
+passes it to Emporix as a header. The browser never sees it. In the SPA mode the
+same token has to be readable by JavaScript, because the checkout runs there.
+
+Two details worth knowing before you read the code:
+
+- **One session, not four.** Each `withEmporixSession` call builds its own guest
+  client with its own token provider. Four calls would redeem the same anonymous
+  refresh token four times in parallel.
+- **The Server Action is the authority on shipping.** The page resolves the zone
+  for the configured country, but a customer can type a different one. The action
+  re-runs `resolveZone`/`pickFee` against what was actually submitted and uses
+  that, not the radio that was clicked. The radio list can therefore go stale if
+  you change the country — a deliberate limit for a demo with a fixed CH context.
+
+With no configured payment mode the order goes out with the `custom` provider,
+which Emporix documents as creating the order in the `IN_CHECKOUT` status — a
+real order waiting for payment, not a paid one. The done page says exactly that.
 
 ## The catalog/cart split
 
