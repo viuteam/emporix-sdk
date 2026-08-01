@@ -57,6 +57,13 @@ Measured on 2026-08-01 with `next start`:
 | guest cart: add, then read **three times** | all `200`, item present each time |
 | cookie flags after the guest flow | `emporix.cartId` and `emporix.anonymousSession` **httpOnly**, only `emporix.siteCode` readable |
 
+Also driven through a real browser: Add to cart from the catalog, `/cart` showing
+the item, and `/debug` **green** while the cart cookies exist — they are httpOnly,
+so JavaScript cannot see them. The typeahead's request was
+`GET /api/emporix/product/viu/products` carrying `Authorization: Bearer proxied`,
+the placeholder; the route discarded it and substituted the server's real
+anonymous token, and 5 matching products rendered.
+
 ### One open question, answered
 
 A guest cart read in a Server Component gets a read-only cookie jar, so it cannot
