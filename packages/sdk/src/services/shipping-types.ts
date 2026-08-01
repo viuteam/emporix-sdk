@@ -18,6 +18,7 @@ import type {
   QuotePayload,
   QuoteResponse,
   QuoteSlot,
+  Fee as GenFee,
   MinimumFee as GenMinimumFee,
   ResourceCreatedResponse,
   ActualDeliveryWindow,
@@ -64,6 +65,14 @@ export type QuoteInput = QuotePayload;
 export type QuoteResult = QuoteResponse;
 /** Body for `quoteSlot`. */
 export type QuoteSlotInput = QuoteSlot;
+/**
+ * A shipping fee: a cost plus the order value it applies from.
+ *
+ * Named `ShippingFee`, not `Fee` — the Fee service already owns that name at
+ * the package root, and the prefix matches `ShippingMethod` / `ShippingGroup`
+ * in this file.
+ */
+export type ShippingFee = GenFee;
 /** `quoteMinimum` / `quoteSlot` result. */
 export type MinimumFee = GenMinimumFee;
 

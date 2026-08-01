@@ -44,7 +44,7 @@ zusammenbaut, den `saasToken` aus dem httpOnly-Cookie zieht und
 ### Task C1: `resolveZone` und `pickFee` in die SDK
 
 **Files:**
-- Modify: `packages/sdk/src/services/shipping-types.ts` (Re-Export von `Fee`)
+- Modify: `packages/sdk/src/services/shipping-types.ts` (Re-Export von `ShippingFee`)
 - Modify: `packages/sdk/src/services/shipping.ts` (die zwei Funktionen)
 - Test: `packages/sdk/tests/shipping-helpers.test.ts` (neu)
 
@@ -52,8 +52,8 @@ zusammenbaut, den `saasToken` aus dem httpOnly-Cookie zieht und
 - Consumes: nichts.
 - Produces:
   - `resolveZone(zones: ZoneList | undefined, country: string): Zone | undefined`
-  - `pickFee(fees: Fee[] | undefined, cartTotal: number): Fee | undefined`
-  - `Fee` als öffentlicher Typ aus `@viu/emporix-sdk`
+  - `pickFee(fees: ShippingFee[] | undefined, cartTotal: number): ShippingFee | undefined`
+  - `ShippingFee` als öffentlicher Typ aus `@viu/emporix-sdk`
 
 - [ ] **Step 1: Den Testfile schreiben**
 
@@ -61,11 +61,12 @@ Erstelle `packages/sdk/tests/shipping-helpers.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { pickFee, resolveZone, type Fee, type Zone } from "../src/index";
+import { pickFee, resolveZone, type ShippingFee, type Zone } from "../src/index";
 
 /**
  * Fixtures against the generated shapes: `Zone.id`, `Zone.name` and
- * `Zone.shipTo` are all required, as are `Fee.cost` and `Fee.minOrderValue`.
+ * `Zone.shipTo` are all required, as are `ShippingFee.cost` and
+ * `ShippingFee.minOrderValue`.
  */
 function zone(id: string, countries: string[], isDefault = false): Zone {
   return {
@@ -76,7 +77,7 @@ function zone(id: string, countries: string[], isDefault = false): Zone {
   };
 }
 
-function fee(minOrderValue: number, cost: number): Fee {
+function fee(minOrderValue: number, cost: number): ShippingFee {
   return {
     cost: { currency: "CHF", amount: cost },
     minOrderValue: { currency: "CHF", amount: minOrderValue },
@@ -105,7 +106,10 @@ describe("resolveZone", () => {
   });
 
   it("matches case-insensitively in both directions", () => {
-    const zones = [zone("ch", ["ch"])];
+    // The non-matching zone comes FIRST on purpose. With a single zone the
+    // `?? zones[0]` fallback returns that same zone, so the assertion would
+    // pass even with the case normalization removed — a vacuous test.
+    const zones = [zone("eu", ["DE"]), zone("ch", ["ch"])];
     expect(resolveZone(zones, "  Ch ")?.id).toBe("ch");
   });
 });
@@ -133,7 +137,7 @@ describe("pickFee", () => {
     // demo guards with `?.amount ?? 0`. This spec has been wrong before — the
     // mixed `sessionId` / `access_token` casing proved it — so the defensive
     // branch stays, and this test stops anyone deleting it as dead code.
-    const fees = [{ cost: { currency: "CHF", amount: 7 } } as unknown as Fee, fee(100, 0)];
+    const fees = [{ cost: { currency: "CHF", amount: 7 } } as unknown as ShippingFee, fee(100, 0)];
     expect(pickFee(fees, 5)?.cost.amount).toBe(7);
   });
 
@@ -150,34 +154,37 @@ describe("pickFee", () => {
 pnpm -F @viu/emporix-sdk test -- shipping-helpers
 ```
 
-Erwartung: Fehler beim Import — `resolveZone`, `pickFee` und `Fee` gibt es noch
-nicht in `../src/index`.
+Erwartung: Fehler beim Import — `resolveZone`, `pickFee` und `ShippingFee` gibt
+es noch nicht in `../src/index`. Gemessene Baseline vorher: 837 SDK-Tests.
 
-- [ ] **Step 3: `Fee` re-exportieren**
+- [ ] **Step 3: `ShippingFee` re-exportieren**
 
-In `packages/sdk/src/services/shipping-types.ts` den Import-Block um `Fee`
-ergänzen (er importiert die generierten Typen mit `Gen`-Präfix, wo der Name
-kollidiert — `Fee` kollidiert nicht) und darunter re-exportieren. Direkt neben
-`MinimumFee`, weil beide Gebühren sind:
+In `packages/sdk/src/services/shipping-types.ts` den Import-Block um `Fee as
+GenFee` ergänzen und darunter re-exportieren, direkt neben `MinimumFee`:
 
 ```ts
-/** A shipping fee: a cost plus the order value it applies from. */
-export type Fee = GenFee;
+/**
+ * A shipping fee: a cost plus the order value it applies from.
+ *
+ * Named `ShippingFee`, not `Fee` — the Fee service already owns that name at
+ * the package root, and the prefix matches `ShippingMethod` / `ShippingGroup`
+ * in this file.
+ */
+export type ShippingFee = GenFee;
 ```
 
-Im Import-Block oben in derselben Datei, bei den anderen generierten Typen:
-
-```ts
-  Fee as GenFee,
-```
+**Nicht `Fee` nennen.** Der Fee-Service exportiert diesen Namen schon aus
+`./fee`; `tsc` meldet sonst TS2308 in `src/index.ts`. Die Tests laufen trotzdem
+grün durch — Typen sind zur Laufzeit weg — also fällt das erst im Typecheck
+auf.
 
 - [ ] **Step 4: Die zwei Funktionen ergänzen**
 
 In `packages/sdk/src/services/shipping.ts`, **oberhalb** der
 `ShippingService`-Klasse (sie sind pure und gehören nicht in die Klasse).
-`Fee` muss im bestehenden `import type { ... } from "./shipping-types"`-Block
-ergänzt und im `export type { ... }`-Block mit re-exportiert werden, damit
-`@viu/emporix-sdk` ihn nach aussen gibt:
+`ShippingFee` muss im bestehenden `import type { ... } from
+"./shipping-types"`-Block ergänzt und im `export type { ... }`-Block mit
+re-exportiert werden, damit `@viu/emporix-sdk` ihn nach aussen gibt:
 
 ```ts
 /**
@@ -203,7 +210,7 @@ export function resolveZone(zones: ZoneList | undefined, country: string): Zone 
  * `<=`, not `<`: a total that exactly meets a free-shipping threshold gets free
  * shipping.
  */
-export function pickFee(fees: Fee[] | undefined, cartTotal: number): Fee | undefined {
+export function pickFee(fees: ShippingFee[] | undefined, cartTotal: number): ShippingFee | undefined {
   if (!fees || fees.length === 0) return undefined;
   const eligible = fees
     .filter((f) => (f.minOrderValue?.amount ?? 0) <= cartTotal)
@@ -215,7 +222,7 @@ export function pickFee(fees: Fee[] | undefined, cartTotal: number): Fee | undef
 - [ ] **Step 5: Den Export bestätigen**
 
 `packages/sdk/src/index.ts:254` ist `export * from "./shipping"` — gemessen, kein
-namentlicher Block. Die zwei Funktionen und `Fee` sind damit automatisch
+namentlicher Block. Die zwei Funktionen und `ShippingFee` sind damit automatisch
 öffentlich, sobald sie in `shipping.ts` exportiert sind. Nur bestätigen:
 
 ```bash
@@ -295,14 +302,22 @@ import type { ZoneList, ShippingMethod } from "@viu/emporix-sdk";
 durch:
 
 ```ts
-import { pickFee, resolveZone, type Fee, type ShippingMethod, type Zone, type ZoneList } from "@viu/emporix-sdk";
+import {
+  pickFee,
+  resolveZone,
+  type ShippingFee,
+  type ShippingMethod,
+  type Zone,
+  type ZoneList,
+} from "@viu/emporix-sdk";
 ```
 
 Dann ersatzlos löschen:
 
 - `type ShippingZone = ZoneList[number];` — das **ist** `Zone`, weil
   `Zones = Array<Zone>`.
-- `type Fee = ShippingMethod["fees"][number];`
+- `type Fee = ShippingMethod["fees"][number];` — heisst in der SDK
+  `ShippingFee`; die lokalen Verwendungen mit umbenennen.
 - die ganze Funktion `resolveZone` (Zeilen 20-27)
 - die ganze Funktion `pickFee` (Zeilen 29-36)
 

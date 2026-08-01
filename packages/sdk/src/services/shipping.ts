@@ -15,6 +15,7 @@ import type {
   QuoteInput,
   QuoteResult,
   QuoteSlotInput,
+  ShippingFee,
   MinimumFee,
   ResourceCreated,
   DeliveryWindowList,
@@ -45,6 +46,7 @@ export type {
   QuoteInput,
   QuoteResult,
   QuoteSlotInput,
+  ShippingFee,
   MinimumFee,
   ResourceCreated,
   DeliveryWindow,
@@ -62,6 +64,41 @@ export type {
 } from "./shipping-types";
 
 const SERVICE: AuthContext = { kind: "service" };
+
+/**
+ * The zone whose `shipTo` covers `country`, else the default zone, else the first.
+ *
+ * Pure — no client, no request. Pair it with `listZones(site, { expand:
+ * "methods,fees" })` to turn a zone list into the one zone a checkout should
+ * offer.
+ *
+ * The `?? []` guards a field the generated schema marks required. Emporix'
+ * schema has been wrong about optionality before, and a storefront that throws
+ * on an unexpected shape is worse than one that finds no zone.
+ */
+export function resolveZone(zones: ZoneList | undefined, country: string): Zone | undefined {
+  if (!zones || zones.length === 0) return undefined;
+  const c = country.trim().toUpperCase();
+  const byCountry = c
+    ? zones.find((z) => (z.shipTo ?? []).some((s) => s.country?.toUpperCase() === c))
+    : undefined;
+  return byCountry ?? zones.find((z) => z.default) ?? zones[0];
+}
+
+/**
+ * The applicable fee: the highest `minOrderValue` at or below `cartTotal`, else
+ * the first fee.
+ *
+ * `<=`, not `<`: a total that exactly meets a free-shipping threshold gets free
+ * shipping.
+ */
+export function pickFee(fees: ShippingFee[] | undefined, cartTotal: number): ShippingFee | undefined {
+  if (!fees || fees.length === 0) return undefined;
+  const eligible = fees
+    .filter((f) => (f.minOrderValue?.amount ?? 0) <= cartTotal)
+    .sort((a, b) => (b.minOrderValue?.amount ?? 0) - (a.minOrderValue?.amount ?? 0));
+  return eligible[0] ?? fees[0];
+}
 
 /**
  * Emporix Shipping Service (`/shipping/{tenant}/…`), Phase 1 — config: sites,

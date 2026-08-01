@@ -86,7 +86,10 @@ export function resolveZone(zones: ZoneList | undefined, country: string): Zone 
 
 /** The applicable fee: the highest `minOrderValue` at or below the cart total,
  *  else the first fee. */
-export function pickFee(fees: Fee[] | undefined, cartTotal: number): Fee | undefined;
+export function pickFee(
+  fees: ShippingFee[] | undefined,
+  cartTotal: number,
+): ShippingFee | undefined;
 ```
 
 Die Implementierung wird **wörtlich** aus `ShippingSelector.tsx` übernommen. Die
@@ -103,8 +106,11 @@ Zwei Typ-Details, gemessen:
 - `Fee` existiert generiert
   ([shipping/types.gen.ts:315](../../../packages/sdk/src/generated/shipping/types.gen.ts#L315)),
   ist aber **nicht** re-exportiert — `shipping-types.ts` exportiert nur
-  `MinimumFee`. Die Extraktion muss `Fee` mit re-exportieren, sonst zeigt eine
-  öffentliche Signatur auf einen nicht-öffentlichen Typ.
+  `MinimumFee`. Die Extraktion muss ihn mit re-exportieren, sonst zeigt eine
+  öffentliche Signatur auf einen nicht-öffentlichen Typ. **Nicht als `Fee`:**
+  der Fee-Service besetzt diesen Namen am Package-Root schon, `tsc` meldet
+  TS2308. Der Alias heisst `ShippingFee` — dieselbe Präfix-Konvention wie
+  `ShippingMethod` und `ShippingGroup` in derselben Datei.
 
 `SelectedShipping` bleibt im Demo. Es ist die Form, die *dessen* React-State
 braucht; der Server-First-Checkout baut die `shipping`-Nutzlast direkt.
