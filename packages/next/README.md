@@ -31,6 +31,146 @@ visitors. The package cannot detect this for you: `AuthContext` is per call, and
 anonymous and customer tokens both arrive as `Bearer <jwt>`. The boundary is
 explicit because making it implicit is what would introduce the leak.
 
+## Server-first mode: no token in the browser
+
+Every Emporix call needs a bearer token where the call originates. So "no token
+in the browser" means one thing only: **the browser makes no Emporix calls.**
+Server Components read, Server Actions write, and a narrow proxy serves the
+public catalog.
+
+`@viu/emporix-sdk-react` is unaffected — if you want a SPA, use it as before.
+
+See [`../../examples/next-server-first`](../../examples/next-server-first) for a
+running demo.
+
+### One helper covers every customer and cart call
+
+```ts
+// app/actions/cart.ts
+"use server";
+import { withEmporixSessionMutable } from "@viu/emporix-sdk-next/bff";
+
+export async function addToCart(cartId: string, item: CartItemRequest) {
+  return withEmporixSessionMutable((client, ctx) =>
+    client.carts.addItem(cartId, item, ctx),
+  );
+}
+```
+
+Use `withEmporixSession` in Server Components and `withEmporixSessionMutable` in
+Server Actions and Route Handlers. The read-only variant no-ops cookie writes,
+because Next forbids writing during a render.
+
+The helper branches on the session so you do not have to: a customer token in the
+cookie gives you the memoized untagged client plus `auth.customer`; no token
+gives you a **per-request** client with a per-guest anonymous session plus
+`auth.anonymous`. That branch is not cosmetic — Emporix maps the anonymous
+token's `session-id` onto the cart when the cart is created, so two guests
+sharing a client would share a cart.
+
+Neither path can be tagged: `withEmporixSession*` never passes a `fetch`.
+
+**Catalog reads do not belong here.** They need no stable session, and a
+read-only jar cannot persist the anonymous session the SDK just obtained, so
+every render would log in again. Use `getEmporixClient()` for those.
+
+### Login, logout, refresh
+
+```ts
+// app/actions/auth.ts
+"use server";
+import { emporixLogin, emporixLogout } from "@viu/emporix-sdk-next/bff";
+
+export async function login(formData: FormData) {
+  await emporixLogin({
+    email: String(formData.get("email")),
+    password: String(formData.get("password")),
+  });
+}
+export async function logout() {
+  await emporixLogout();
+}
+```
+
+`emporixLogin` returns `void` on purpose: there is no token for a Server Action
+to serialize into a response body.
+
+### Token rotation belongs in the proxy
+
+```ts
+// proxy.ts
+import type { NextRequest } from "next/server";
+import { emporixTokenProxy } from "@viu/emporix-sdk-next/bff";
+
+export async function proxy(request: NextRequest) {
+  return emporixTokenProxy(request, { site: { siteCode: "main" } });
+}
+
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|robots.txt).*)"],
+};
+```
+
+A Server Component cannot write a cookie, so it cannot rotate a token — and an
+unpersisted rotation is worthless. The proxy can do both and runs before every
+render. It delegates site and language to `emporixSiteProxy`, so one proxy
+function is enough.
+
+### Client-side catalog reads, still without a token
+
+```ts
+// app/api/emporix/[...path]/route.ts
+import { createEmporixCatalogRoute } from "@viu/emporix-sdk-next/bff";
+export const GET = createEmporixCatalogRoute();
+```
+
+```ts
+import {
+  createProxyFetch,
+  createProxyTokenProvider,
+} from "@viu/emporix-sdk-next/catalog-client";
+
+const client = new EmporixClient({
+  tenant,
+  credentials: { storefront: { clientId: "proxied" } },
+  tokenProvider: createProxyTokenProvider(),
+  fetch: createProxyFetch({ base: "/api/emporix" }),
+});
+```
+
+`createProxyTokenProvider` makes **no network call**. That is what keeps the
+browser token-free: the SDK's default provider fetches an anonymous token over
+the global `fetch`, which a rewriting `fetch` cannot intercept, so the answer is
+not to request one.
+
+The route's allowlist is `emporixTagsForUrl` — a URL is proxyable exactly when it
+yields cache tags. Cart, order, customer and token endpoints yield none and get a
+403. Proxying catalog reads is a net win: Next caches each response once for all
+visitors instead of every browser fetching it.
+
+### CSRF
+
+`assertSameOrigin(request)` is exported for your own Route Handlers. It rejects
+`Sec-Fetch-Site: cross-site`, and rejects a request carrying neither
+`Sec-Fetch-Site` nor `Origin` — accepting those would make omitting the header
+the bypass. Server Actions already get Next's own origin check; plain Route
+Handlers do not.
+
+### What this costs you
+
+Measured against `examples/storefront-demo`, a complete storefront with 17 routes
+and 41 hooks: about **25 Server Actions**, two lines each. A narrower B2C flow
+lands nearer 19. You also give up React Query for customer data in favour of
+`useOptimistic`.
+
+### Importing `/bff` from a Client Component fails the build
+
+The entry reads session cookies and handles refresh tokens, so its `exports` map
+resolves to a throwing file outside the server graph. The error arrives at build
+time, not in your editor: TypeScript does not understand the `react-server`
+condition, so `types` resolves unconditionally to keep `tsc` correct in server
+files.
+
 ## Service accounts (`@viu/emporix-sdk-next/service`)
 
 For server-side writes with a dedicated Emporix service account — create a
@@ -321,11 +461,15 @@ storage URL. There is no custom loader to install — add the storage host to
 ## Subpath exports
 
 `.` (client, session, tags), `./webhook` (verification, route factory),
-`./proxy` (`emporixSiteProxy`) and `./service` (`getEmporixServiceClient`). The
-split keeps a Route Handler from pulling in `next/headers` — and a `proxy.ts`
+`./proxy` (`emporixSiteProxy`), `./service` (`getEmporixServiceClient`),
+`./bff` (server-first mode) and `./catalog-client` (the browser half of the
+catalog proxy).
+
+The split keeps a Route Handler from pulling in `next/headers` — and a `proxy.ts`
 cannot pull it in at all, because `cookies()` does not exist in a proxy context.
-`./service` is split for a different reason: it carries a secret, and its export
-condition makes a client-side import a build error.
+`./service` and `./bff` carry secrets, and their export conditions make a
+client-side import a build error. `./catalog-client` is the one entry that ships
+`"use client"`.
 
 ## Authors
 
