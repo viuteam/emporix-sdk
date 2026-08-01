@@ -1,0 +1,120 @@
+import { cookies } from "next/headers";
+import { pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
+import { STORAGE_KEYS, withEmporixSession } from "@viu/emporix-sdk-next/bff";
+import { CONTEXT, EMPORIX, SITE } from "../emporix";
+import { submitCheckout } from "../actions/checkout";
+
+/** `LocalizedValue` is `string | Record<string, string>`. Pick something showable. */
+function label(name: string | Record<string, string> | undefined, fallback: string): string {
+  if (typeof name === "string") return name;
+  if (name) return Object.values(name)[0] ?? fallback;
+  return fallback;
+}
+
+export default async function CheckoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}): Promise<React.JSX.Element> {
+  const { error } = await searchParams;
+  const cartId = (await cookies()).get(STORAGE_KEYS.cartId)?.value ?? null;
+  if (cartId === null) {
+    return (
+      <main>
+        <h1>Checkout</h1>
+        <p>
+          No cart yet. Add something from the <a href="/">catalog</a>.
+        </p>
+      </main>
+    );
+  }
+
+  // ONE session, four parallel calls. Four separate withEmporixSession calls
+  // would build four guest clients and redeem the same anonymous refresh token
+  // four times over — see bff-session.ts, newGuestClient.
+  const { cart, modes, zones, addresses } = await withEmporixSession(async (c, ctx) => {
+    const [cart, modes, zones, addresses] = await Promise.all([
+      c.carts.get(cartId, ctx),
+      c.payments.listPaymentModes(ctx),
+      c.shipping.listZones(SITE.siteCode, { expand: "methods,fees", activeMethods: "true" }, ctx),
+      // A guest throws EmporixAuthError locally, an expired token 401s. Both
+      // mean "no saved addresses", and neither deserves a second code path.
+      c.customers.addresses.list(ctx).catch(() => [] as Address[]),
+    ]);
+    return { cart, modes, zones, addresses };
+  }, EMPORIX);
+
+  const total = cart.totalPrice?.amount ?? 0;
+  // ponytail: the zone is resolved for the configured country only. Typing a
+  // different country leaves this radio list stale — the action re-resolves and
+  // wins. Upgrade path: a separate GET form for the country, or a client island.
+  const zone = resolveZone(zones, CONTEXT.targetLocation);
+  const methods = zone?.methods ?? [];
+  const saved = addresses.find((a) => a.isDefault) ?? addresses[0];
+
+  return (
+    <main>
+      <h1>Checkout</h1>
+      {error ? <p role="alert">Error: {error}</p> : null}
+      <p>
+        {cart.items?.length ?? 0} item(s), total {total} {cart.totalPrice?.currency ?? ""}
+      </p>
+
+      <form action={submitCheckout}>
+        <fieldset>
+          <legend>Contact</legend>
+          <input name="email" type="email" placeholder="email" required />
+          <input name="firstName" placeholder="first name" required />
+          <input name="lastName" placeholder="last name" required />
+        </fieldset>
+
+        <fieldset>
+          <legend>Address{saved ? " (prefilled from your account)" : ""}</legend>
+          <input name="street" placeholder="street" required defaultValue={saved?.street ?? ""} />
+          <input name="streetNumber" placeholder="no." defaultValue={saved?.streetNumber ?? ""} />
+          <input name="zipCode" placeholder="zip" required defaultValue={saved?.zipCode ?? ""} />
+          <input name="city" placeholder="city" required defaultValue={saved?.city ?? ""} />
+          <input
+            name="country"
+            placeholder="country"
+            required
+            defaultValue={saved?.country ?? CONTEXT.targetLocation}
+          />
+        </fieldset>
+
+        <fieldset>
+          <legend>Shipping</legend>
+          {methods.length === 0 ? (
+            <p>No configured method for {CONTEXT.targetLocation} — free shipping applies.</p>
+          ) : (
+            methods.map((m, i) => (
+              <label key={m.id}>
+                <input type="radio" name="methodId" value={m.id} defaultChecked={i === 0} />
+                {label(m.name, m.id)} — {pickFee(m.fees, total)?.cost.amount ?? 0}
+              </label>
+            ))
+          )}
+        </fieldset>
+
+        <fieldset>
+          <legend>Payment</legend>
+          {modes.length === 0 ? (
+            <p>
+              No configured payment mode — the order goes out with the <code>custom</code> provider
+              and lands in <code>IN_CHECKOUT</code>.
+            </p>
+          ) : (
+            modes.map((m, i) => (
+              <label key={m.id ?? i}>
+                <input type="radio" name="modeId" value={m.id ?? ""} defaultChecked={i === 0} />
+                {m.code ?? m.id ?? "mode"}
+              </label>
+            ))
+          )}
+        </fieldset>
+
+        <button type="submit">Place order</button>
+      </form>
+    </main>
+  );
+}

@@ -33,6 +33,7 @@ export default async function CartPage(): Promise<React.JSX.Element> {
               </li>
             ))}
           </ul>
+          <a href="/checkout">Checkout</a>
         </>
       )}
     </main>
