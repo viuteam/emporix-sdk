@@ -125,22 +125,34 @@ eigenes Changeset für `@viu/emporix-sdk` (minor).
 
 ## Die Seite
 
-Eine Server Component `app/checkout/page.tsx` mit vier parallelen Reads:
+Eine Server Component `app/checkout/page.tsx` mit vier parallelen Reads in
+**einer** Session:
 
 ```ts
-const [cart, modes, zones, addresses] = await Promise.all([
-  withEmporixSession((c, ctx) => c.carts.get(cartId, ctx), EMPORIX),
-  withEmporixSession((c, ctx) => c.payments.listPaymentModes(ctx), EMPORIX),
-  withEmporixSession((c, ctx) => c.shipping.listZones("main", { expand: "methods,fees", activeMethods: "true" }, ctx), EMPORIX),
-  savedAddresses(),
-]);
+const { cart, modes, zones, addresses } = await withEmporixSession(async (c, ctx) => {
+  const [cart, modes, zones, addresses] = await Promise.all([
+    c.carts.get(cartId, ctx),
+    c.payments.listPaymentModes(ctx),
+    c.shipping.listZones(SITE.siteCode, { expand: "methods,fees", activeMethods: "true" }, ctx),
+    c.customers.addresses.list(ctx).catch(() => [] as Address[]),
+  ]);
+  return { cart, modes, zones, addresses };
+}, EMPORIX);
 ```
 
-`savedAddresses()` kapselt den kundengebundenen Read und liefert `[]` im
-Fehlerfall. Ein `try/catch` statt einer Fallunterscheidung, weil es zwei Wege
-zum selben Ergebnis gibt: der Gast läuft in den lokalen `EmporixAuthError`, der
-abgelaufene Token in einen echten 401. Eine Prüfung auf «Cookie vorhanden»
-fängt nur den ersten.
+**Ein `withEmporixSession`, nicht vier.** Für einen Gast baut jeder Aufruf einen
+eigenen `EmporixClient` mit eigenem Token-Provider
+([bff-session.ts:100](../../../packages/next/src/bff-session.ts#L100)) — vier
+Aufrufe wären vier Token-Roundtrips, die parallel dieselbe anonyme Refresh-Token
+einlösen. Emporix toleriert diese Wiederverwendung zwar (im Server-First-Zyklus
+mit drei aufeinanderfolgenden Reads gemessen), aber sich darauf zu stützen wäre
+unnötig: ein Client, eine Session, vier parallele HTTP-Calls ist zugleich
+sparsamer und weniger Code.
+
+Der Adress-Read hängt sein `.catch(() => [])` direkt an. Kein `try/catch` und
+keine Prüfung auf «Cookie vorhanden», weil zwei verschiedene Wege zum selben
+Ergebnis führen: der Gast läuft in den lokalen `EmporixAuthError`, der
+abgelaufene Token in einen echten 401. Eine Cookie-Prüfung fängt nur den ersten.
 
 Ein Formular, eine Server Action. **Kein Client-State**: Adresse, Zahlungsart und
 Versandart sind native Formularfelder. In diesem Modus gibt es keinen Client, der

@@ -117,7 +117,7 @@ export function Checkout() {
     };
     try {
       const r = await placeOrder.mutateAsync({
-        input: input as never,
+        input,
         // Customer checkout must carry the saasToken; guest doesn't need it.
         ...(isAuthenticated && saasToken ? { saasToken } : {}),
       });
