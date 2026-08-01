@@ -1,6 +1,7 @@
 import type { NextRequest, NextResponse } from "next/server";
 import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 import { emporixRefresh } from "./bff-auth";
+import { BFF_EXPIRES_AT } from "./bff-cookies";
 import { emporixSiteProxy, type EmporixSite } from "./proxy";
 
 export interface EmporixTokenProxyOptions {
@@ -13,21 +14,16 @@ export interface EmporixTokenProxyOptions {
 }
 
 /**
- * Reads the `exp` claim without verifying the signature — Emporix verifies it,
- * and a proxy that re-verified would need the signing key for no benefit.
- * Returns `null` for anything unparseable, which the caller treats as expired.
+ * The stored absolute expiry, epoch seconds, or `null` when absent or unusable.
+ *
+ * The Emporix customer access token is **opaque** — only the `saasToken` is a
+ * JWT — so there is no `exp` claim to read off it. `emporixLogin` and
+ * `emporixRefresh` persist the lifetime Emporix returns instead.
  */
-function expiresAt(token: string): number | null {
-  const segment = token.split(".")[1];
-  if (segment === undefined) return null;
-  try {
-    const claims = JSON.parse(Buffer.from(segment, "base64url").toString("utf8")) as {
-      exp?: unknown;
-    };
-    return typeof claims.exp === "number" ? claims.exp : null;
-  } catch {
-    return null;
-  }
+function storedExpiry(raw: string | undefined): number | null {
+  if (raw === undefined) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /**
@@ -56,8 +52,12 @@ export async function emporixTokenProxy(
 ): Promise<NextResponse> {
   const token = request.cookies.get(STORAGE_KEYS.customerToken)?.value;
   if (token !== undefined) {
-    const exp = expiresAt(token);
+    const exp = storedExpiry(request.cookies.get(BFF_EXPIRES_AT)?.value);
     const skew = opts.skewSeconds ?? 120;
+    // A missing expiry refreshes ONCE and then self-heals, because the refresh
+    // writes the cookie. Refreshing on every request instead — which is what
+    // parsing a non-existent `exp` claim did — hammers Emporix and rotates the
+    // access token on every page view.
     const stale = exp === null || exp - Math.floor(Date.now() / 1000) <= skew;
     if (stale) {
       const fresh = await emporixRefresh();

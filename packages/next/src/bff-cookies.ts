@@ -14,6 +14,25 @@ export const BFF_MAX_AGE = {
   activeLegalEntityId: 30 * 24 * 60 * 60,
 } as const;
 
+/**
+ * Absolute expiry of the customer access token, epoch seconds.
+ *
+ * Deliberately **not** in `STORAGE_KEYS`: those eight are the session state the
+ * browser backends share. This is bookkeeping for the server-first proxy alone,
+ * so it lives at this layer.
+ *
+ * It exists because the Emporix customer access token is **opaque**, not a JWT —
+ * only the `saasToken` is one. Reading an `exp` claim off it is impossible, so
+ * the lifetime Emporix returns as `expires_in` is stored instead.
+ */
+export const BFF_EXPIRES_AT = "emporix.customerTokenExpiresAt";
+
+/**
+ * Fallback lifetime when Emporix omits `expires_in`. Deliberately short: too
+ * long means a dead token reaches a Server Component, which cannot recover.
+ */
+export const BFF_FALLBACK_LIFETIME = 15 * 60;
+
 /** A narrow cookie surface so the attribute policy lives in exactly one place. */
 export interface BffCookieJar {
   get(name: string): string | null;

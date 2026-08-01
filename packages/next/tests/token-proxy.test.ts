@@ -3,13 +3,18 @@ import { NextRequest } from "next/server";
 
 const SITE = "emporix.siteCode";
 const TOKEN = "emporix.customerToken";
+const EXPIRES = "emporix.customerTokenExpiresAt";
 
-/** A JWT with only the exp claim — the signature is never verified. */
-function jwt(expSecondsFromNow: number): string {
-  const payload = Buffer.from(
-    JSON.stringify({ exp: Math.floor(Date.now() / 1000) + expSecondsFromNow }),
-  ).toString("base64url");
-  return `header.${payload}.signature`;
+/**
+ * The Emporix customer access token is OPAQUE — not a JWT. An earlier version of
+ * these tests built a synthetic JWT and read its `exp`, which passed while the
+ * implementation refreshed on every real request. The expiry now comes from a
+ * cookie written at login/refresh time, so the tests use one too.
+ */
+const OPAQUE = "R1BGrWLCWd2FgILsGizHi7iSe613";
+
+function expiresIn(seconds: number): string {
+  return String(Math.floor(Date.now() / 1000) + seconds);
 }
 
 const refreshCalls: number[] = [];
@@ -34,19 +39,30 @@ afterEach(() => {
 });
 
 describe("emporixTokenProxy", () => {
-  it("refreshes when the access token is inside the skew window", async () => {
+  it("refreshes when the stored expiry is inside the skew window", async () => {
     const request = new NextRequest("https://shop.test/", {
-      headers: { cookie: `${TOKEN}=${jwt(30)}` },
+      headers: { cookie: `${TOKEN}=${OPAQUE}; ${EXPIRES}=${expiresIn(30)}` },
     });
     await emporixTokenProxy(request);
     expect(refreshCalls).toHaveLength(1);
   });
 
   it("leaves a comfortably fresh token alone", async () => {
+    // The regression that mattered: with an opaque token and a valid expiry,
+    // nothing should happen. The old implementation refreshed here every time.
     const request = new NextRequest("https://shop.test/", {
-      headers: { cookie: `${TOKEN}=${jwt(3600)}` },
+      headers: { cookie: `${TOKEN}=${OPAQUE}; ${EXPIRES}=${expiresIn(3600)}` },
     });
     await emporixTokenProxy(request);
+    expect(refreshCalls).toHaveLength(0);
+  });
+
+  it("does not refresh a fresh token across repeated requests", async () => {
+    // Ten page views must not produce ten refreshes.
+    const cookie = `${TOKEN}=${OPAQUE}; ${EXPIRES}=${expiresIn(3600)}`;
+    for (let i = 0; i < 10; i += 1) {
+      await emporixTokenProxy(new NextRequest("https://shop.test/", { headers: { cookie } }));
+    }
     expect(refreshCalls).toHaveLength(0);
   });
 
@@ -56,10 +72,19 @@ describe("emporixTokenProxy", () => {
     expect(refreshCalls).toHaveLength(0);
   });
 
-  it("treats a malformed token as expired and refreshes", async () => {
-    // Fail safe: the cost of being wrong is one unnecessary refresh.
+  it("refreshes once when the expiry cookie is missing, then self-heals", async () => {
+    // A token without a stored expiry cannot be judged, so refresh — which
+    // writes the expiry, so the next request has one.
     const request = new NextRequest("https://shop.test/", {
-      headers: { cookie: `${TOKEN}=not-a-jwt` },
+      headers: { cookie: `${TOKEN}=${OPAQUE}` },
+    });
+    await emporixTokenProxy(request);
+    expect(refreshCalls).toHaveLength(1);
+  });
+
+  it("treats an unparseable expiry as missing", async () => {
+    const request = new NextRequest("https://shop.test/", {
+      headers: { cookie: `${TOKEN}=${OPAQUE}; ${EXPIRES}=not-a-number` },
     });
     await emporixTokenProxy(request);
     expect(refreshCalls).toHaveLength(1);
@@ -67,7 +92,7 @@ describe("emporixTokenProxy", () => {
 
   it("honours a custom skew window", async () => {
     const request = new NextRequest("https://shop.test/", {
-      headers: { cookie: `${TOKEN}=${jwt(300)}` },
+      headers: { cookie: `${TOKEN}=${OPAQUE}; ${EXPIRES}=${expiresIn(300)}` },
     });
     await emporixTokenProxy(request, { skewSeconds: 600 });
     expect(refreshCalls).toHaveLength(1);
@@ -75,7 +100,7 @@ describe("emporixTokenProxy", () => {
 
   it("injects the refreshed token into the forwarded request cookies", async () => {
     const request = new NextRequest("https://shop.test/", {
-      headers: { cookie: `${TOKEN}=${jwt(30)}` },
+      headers: { cookie: `${TOKEN}=${OPAQUE}; ${EXPIRES}=${expiresIn(30)}` },
     });
     await emporixTokenProxy(request);
     expect(request.headers.get("cookie")).toContain(`${TOKEN}=fresh-token`);
