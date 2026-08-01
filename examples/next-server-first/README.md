@@ -86,6 +86,18 @@ Measured on 2026-08-01 with `next start`:
 | guest checkout, end to end | order **EON1225** created |
 | `/cart` after the checkout | «No cart yet» — the cart cookie was cleared |
 | `/debug` after the checkout | **PASS**, only `emporix.siteCode` readable |
+| logged-in checkout, end to end | order **EON1226** created |
+| saved address on `/checkout` | prefilled from the account |
+| `/debug` after the logged-in checkout | **PASS** — a `saasToken` authorized the order and JavaScript never saw it |
+| cart merge on login | guest cart `6a6ded65…` folded into customer cart `6a6dec53…`, both items present |
+
+The merge check is worth spelling out, because the obvious version of it proves
+nothing. Seeing the guest's item after logging in is **not** evidence: the cookie
+could still point at the guest cart, which a customer token can read. The
+decisive observation is the **id**. Guest cart `6a6ded65a13cfa5608e34060` held
+one product, the customer's open cart `6a6dec535dd5944e2482e27c` held another;
+after login `/cart` showed the **customer** id with **both**. That is why the
+page prints the cart id at all.
 
 The checkout run also answered two configuration questions about the tenant:
 `listPaymentModes` returns **empty**, so the `custom` provider path is the one
@@ -108,13 +120,11 @@ refresh-token reuse**. That is tenant behaviour, not a guarantee: if it ever
 changes, the fix is to fetch the cart through a Server Action, or to have the
 proxy keep a short-lived anonymous access token in the cookie.
 
-### Not exercised live
+### The login leg
 
-The customer login leg. The unit suite covers it — all three token cookies
-httpOnly, no token in the response body, logout clearing everything — but the
-live run did not include it: driving a Next Server Action with a password through
-`curl` fought Next's FormData encoding, and typing a password into a browser form
-is not something the assistant that wrote this does.
+Exercised live on 2026-08-01, with a human typing the password — entering
+credentials into a form is not something the assistant that wrote this does.
+Everything on either side of that keystroke was driven automatically.
 
 Run it yourself: put the test account in `.env.local`
 (`EMPORIX_TEST_CUSTOMER_EMAIL` / `_PASSWORD`), log in at `/login`, then open

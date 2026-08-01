@@ -25,7 +25,13 @@ export default async function CartPage(): Promise<React.JSX.Element> {
         </p>
       ) : (
         <>
-          <p>{cart.items?.length ?? 0} item(s)</p>
+          {/* The id is httpOnly, so only the server can show it. Visible here
+              because watching it change across a login is the only way to see
+              that cart onboarding actually swapped the guest cart for the
+              customer's — the items alone do not tell you. */}
+          <p>
+            Cart <code>{cartId}</code> — {cart.items?.length ?? 0} item(s)
+          </p>
           <ul>
             {(cart.items ?? []).map((i, idx) => (
               <li key={i.id ?? idx}>
