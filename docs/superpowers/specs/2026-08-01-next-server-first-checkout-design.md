@@ -286,9 +286,9 @@ Hand am Passwortfeld.
    anhängen — grösserer PR, aber kohärent — oder auf den Merge warten und einen
    eigenen Branch von `main` ziehen. Nicht stacken: ein PR mit Feature-Branch als
    Basis bekommt seine `quality`-Checks nie.
-2. **Ob der `viu`-Tenant konfigurierte Payment-Modes hat.** Wenn
-   `listPaymentModes` leer zurückkommt, greift der `custom`-Pfad — was laut Spec
-   funktioniert und die Bestellung in `IN_CHECKOUT` anlegt. Beides ist ein
-   gültiges Ergebnis; welches eintritt, zeigt der Live-Lauf.
-3. **Ob Versandzonen für `CH` konfiguriert sind.** Andernfalls greift der
-   Free-Shipping-Fallback. Ebenfalls gültig, ebenfalls erst live sichtbar.
+2. ~~**Ob der `viu`-Tenant konfigurierte Payment-Modes hat.**~~ **Beantwortet
+   2026-08-01:** `listPaymentModes` kommt **leer** zurück. Der `custom`-Pfad ist
+   also der, der hier tatsächlich läuft — Bestellung `EON1225` live angelegt.
+3. ~~**Ob Versandzonen für `CH` konfiguriert sind.**~~ **Beantwortet
+   2026-08-01:** ja, eine Zone mit genau einer Methode «Free Shipping» zu 0. Der
+   `resolveZone`-Pfad greift, nicht der Fallback.

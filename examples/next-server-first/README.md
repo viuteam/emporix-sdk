@@ -83,6 +83,14 @@ Measured on 2026-08-01 with `next start`:
 | catalog proxy, cart / customer / cross-site | `403` each |
 | guest cart: add, then read **three times** | all `200`, item present each time |
 | cookie flags after the guest flow | `emporix.cartId` and `emporix.anonymousSession` **httpOnly**, only `emporix.siteCode` readable |
+| guest checkout, end to end | order **EON1225** created |
+| `/cart` after the checkout | «No cart yet» — the cart cookie was cleared |
+| `/debug` after the checkout | **PASS**, only `emporix.siteCode` readable |
+
+The checkout run also answered two configuration questions about the tenant:
+`listPaymentModes` returns **empty**, so the `custom` provider path is the one
+that actually runs here; and a shipping zone for `CH` **is** configured, with a
+single «Free Shipping» method at cost 0.
 
 Also driven through a real browser: Add to cart from the catalog, `/cart` showing
 the item, and `/debug` **green** while the cart cookies exist — they are httpOnly,
