@@ -21,7 +21,8 @@ zusammenbaut, den `saasToken` aus dem httpOnly-Cookie zieht und
 
 - **Branch:** `feat/next-bff-mode`. Diese Arbeit hängt an **PR #195** an. Nicht
   stacken, keinen neuen Branch ziehen.
-- **Push:** über HTTPS mit gh-Token. SSH ist hier tot.
+- **Push:** `git push origin feat/next-bff-mode` über SSH. Der gh-Token wird für
+  Git-Operationen über HTTPS abgelehnt — nur die API-Nutzung von `gh` geht.
 - **Commitlint:** Scope aus `repo, release, sdk, react, core, customer, product,
   category, cart, checkout, payment, price, media, segment, availability, auth,
   http, logger, deps, docs, examples`. Es gibt **keinen** `next`-Scope — für
