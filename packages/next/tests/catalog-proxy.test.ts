@@ -166,4 +166,35 @@ describe("createProxyFetch", () => {
     await f("https://api.emporix.io/product/viu/products?pageSize=5");
     expect(seen[0]).toBe("/api/emporix/product/viu/products?pageSize=5");
   });
+
+  it("does NOT rewrite a lookalike host", async () => {
+    // `startsWith("https://api.emporix.io")` matches this too — CodeQL caught
+    // that as js/incomplete-url-substring-sanitization. Origins are compared
+    // after parsing, so a different host is passed through untouched.
+    const seen: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        seen.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+        return new Response("{}", { status: 200 });
+      }),
+    );
+    const f = createProxyFetch({ base: "/api/emporix" });
+    await f("https://api.emporix.io.evil.test/product/viu/products");
+    expect(seen[0]).toBe("https://api.emporix.io.evil.test/product/viu/products");
+  });
+
+  it("passes a relative URL through untouched", async () => {
+    const seen: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        seen.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+        return new Response("{}", { status: 200 });
+      }),
+    );
+    const f = createProxyFetch({ base: "/api/emporix" });
+    await f("/some/local/path");
+    expect(seen[0]).toBe("/some/local/path");
+  });
 });

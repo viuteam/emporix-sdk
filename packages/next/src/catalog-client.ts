@@ -37,10 +37,20 @@ export function createProxyTokenProvider(): TokenProvider {
  */
 export function createProxyFetch(opts: { base?: string } = {}): typeof globalThis.fetch {
   const base = opts.base ?? "/api/emporix";
-  const host = process.env.NEXT_PUBLIC_EMPORIX_HOST ?? DEFAULT_HOST;
+  // Compare parsed origins, never a string prefix: `startsWith(host)` also
+  // matches `https://api.emporix.io.evil.com`, which is a different host.
+  // CodeQL flags exactly this as js/incomplete-url-substring-sanitization.
+  const hostOrigin = new URL(process.env.NEXT_PUBLIC_EMPORIX_HOST ?? DEFAULT_HOST).origin;
   return (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    if (!url.startsWith(host)) return globalThis.fetch(input, init);
-    return globalThis.fetch(`${base}${url.slice(host.length)}`, init);
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      // Relative or unparseable — not an Emporix URL, pass it through.
+      return globalThis.fetch(input, init);
+    }
+    if (parsed.origin !== hostOrigin) return globalThis.fetch(input, init);
+    return globalThis.fetch(`${base}${parsed.pathname}${parsed.search}`, init);
   };
 }
