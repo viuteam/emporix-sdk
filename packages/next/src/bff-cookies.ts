@@ -26,8 +26,13 @@ export interface BffCookieJar {
 /**
  * `Secure` is derived, not hard-coded. Hard `true` silently drops the cookie on
  * a plain-http staging host, which is fail-closed and miserable to diagnose.
- * Behind a TLS-terminating proxy the forwarded header is the only signal
- * available inside a Server Action; without it, production is assumed secure.
+ *
+ * Next guarantees the signal: `base-server.js` does
+ * `req.headers['x-forwarded-proto'] ??= isHttps ? 'https' : 'http'`, so the
+ * header is always present inside a request — `http` on a plain-http origin,
+ * `https` behind a TLS-terminating proxy that sets it. The `NODE_ENV` branch
+ * below is therefore unreachable in a Next request today; it stays as the safe
+ * answer if that ever stops being true.
  */
 async function isSecure(): Promise<boolean> {
   const proto = (await headers()).get("x-forwarded-proto");
