@@ -889,7 +889,7 @@ describe("assertSameOrigin", () => {
 pnpm -F @viu/emporix-sdk-next exec vitest run tests/bff-auth.test.ts
 ```
 
-Expected: collection fails with `Failed to load url ../src/bff-auth`; all 16 fail.
+Expected: collection fails with `Failed to load url ../src/bff-auth`; all 15 fail.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -1036,7 +1036,7 @@ export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promi
 pnpm -F @viu/emporix-sdk-next exec vitest run tests/bff-auth.test.ts
 ```
 
-Expected: `Tests 16 passed (16)`.
+Expected: `Tests 15 passed (15)`.
 
 If the login-ordering test fails, check that the anonymous token is fetched
 **inside** the `withEmporixSessionMutable` callback, before `customers.login`.
@@ -1911,8 +1911,8 @@ gateway.
 pnpm typecheck && pnpm lint && pnpm -r test
 ```
 
-Expected: all green, `packages/next` at **144** tests. Derivation: 95 baseline
-+ 12 (Task 1) + 16 (Task 2) + 9 (Task 3) + 12 (Task 4) = 144. If the number
+Expected: all green, `packages/next` at **143** tests. Derivation: 95 baseline
++ 12 (Task 1) + 15 (Task 2) + 9 (Task 3) + 12 (Task 4) = 143. If the number
 differs, find out why rather than adjusting the expectation.
 
 ```bash
@@ -2534,7 +2534,7 @@ pnpm typecheck && pnpm -r test
 ```
 
 Expected: all green. The example adds no unit tests, so `packages/next` stays at
-144.
+143.
 
 ```bash
 rm -rf examples/next-server-first/.next
@@ -2849,7 +2849,7 @@ public/private boundary a proxy needs. No second allowlist was written.
 
 ## Verification
 
-`packages/next` goes 95 → 144 tests. The single most important one asserts that
+`packages/next` goes 95 → 143 tests. The single most important one asserts that
 `createProxyTokenProvider` makes **no network call**: everything else in this
 mode is structure, that is the measurement behind "no token in the browser".
 
@@ -2972,7 +2972,7 @@ match `packages/react/src/storage/keys.ts`. The guard filename
 `bff-is-server-only.js` is identical in the `exports` map, `files`, the created
 file and the pack check.
 
-Test-count arithmetic, derived: 95 baseline + 12 + 16 + 9 + 12 = **144**.
+Test-count arithmetic, derived: 95 baseline + 12 + 15 + 9 + 12 = **143**.
 
 ## Follow-ups
 
