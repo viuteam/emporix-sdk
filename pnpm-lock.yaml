@@ -73,6 +73,40 @@ importers:
         specifier: ^5.6.0
         version: 5.9.3
 
+  examples/next-server-first:
+    dependencies:
+      '@viu/emporix-sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@viu/emporix-sdk-next':
+        specifier: workspace:*
+        version: link:../../packages/next
+      '@viu/emporix-sdk-react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      next:
+        specifier: ^16.2.12
+        version: 16.2.12(@playwright/test@1.60.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.4
+      '@types/react':
+        specifier: ^19.2.0
+        version: 19.2.16
+      '@types/react-dom':
+        specifier: ^19.2.0
+        version: 19.2.3(@types/react@19.2.16)
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
   examples/node-server:
     dependencies:
       '@viu/emporix-sdk':
