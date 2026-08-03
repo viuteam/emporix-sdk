@@ -12,6 +12,11 @@ browser has nothing to hold a token in.
 peer of `@viu/emporix-sdk-next`. **No react hook or storage adapter is imported
 by any file here.**
 
+Two diagrams of the session machinery live in the package README —
+[how a request finds its client and its storage backend](../../packages/next/README.md#how-the-session-is-managed),
+and [the ordering trap inside login](../../packages/next/README.md#the-ordering-trap-in-login).
+Read them before the code if you want the shape first.
+
 ## Run it
 
 ```bash
@@ -40,9 +45,15 @@ EMPORIX_WEBHOOK_SECRET=<the HMAC secret from the Emporix webhook subscription>
 ```
 
 Only needed if you point a subscription at `POST /api/emporix/webhook`. Without it
-that one route throws on first request — deliberately, because a route that
-silently `401`s every delivery is the most expensive way to hide a missing
-variable. Every other page runs fine. See «The webhook» below.
+that one route throws on the first **delivery** — deliberately, because a route
+that silently `401`s every delivery is the most expensive way to hide a missing
+variable. Every other page runs fine, and so does `next build`.
+
+That last clause was false for a day: the check started out at module scope, and
+`next build` evaluates route modules while collecting page data, so it failed the
+whole build with «Failed to collect page data for /api/emporix/webhook» for anyone
+who had not set the variable. Found by `pnpm -r build`, not by CI — the examples'
+`next build` is not in the library CI gate.
 
 ### Or keep the session server-side entirely
 
@@ -292,7 +303,8 @@ by choice: Next 16 runs middleware in `proxy.ts`, which is Node-runtime and has 
 which means it renders once, unauthenticated, before deciding. This never does.
 
 The `?next=` it writes is where the demo grows a trust boundary, so `safeNext` is
-**the one thing in these examples with unit tests**. `//evil.com` starts with a
+**one of the two things in these examples with unit tests** — the other is
+`stripHtml`, and both are boundaries rather than features. `//evil.com` starts with a
 slash and is still an absolute URL — the browser reads it as protocol-relative —
 which is exactly what a naive `startsWith("/")` check waves through.
 

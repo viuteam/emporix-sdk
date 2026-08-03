@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx src/main.ts",
+    "start": "tsx --env-file=.env src/main.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit",
     "test": "echo \"(no tests for example)\" && exit 0",
