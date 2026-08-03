@@ -369,6 +369,65 @@ Beyond this page: `/checkout` now prefills the contact fields from
 shopper was retyping their own name into a form the server could fill, which was
 noticed while checking the address round trip.
 
+## Order history, reorder and cancel
+
+`orderVM` and `orderItems` read **both** shapes Emporix returns: the list shape
+(`items`, `totalPrice: { amount, currency }`, top-level `orderNumber`) and the
+get-by-id shape (`entries`, `totalPrice: <number>` with a sibling `currency`,
+`orderNumber` under `mixins.generalAttributes`). The list page hits the first, the
+detail page the second, and neither has to know. That is the whole reason
+`examples/shared` exists.
+
+**Verified 2026-08-03:**
+
+| Check | Result |
+|---|---|
+| `/account/orders` | ten orders with number, status, date, item count and total — including **EON1226** from the earlier checkout test |
+| `?page=2` | different orders, links back to page 1, no «Next» on the last page |
+| detail page | line names come off the **order** line, unlike a cart line |
+| Reorder | cart count 4 → **5**, and «Self-Service Password Reset (SSPR)» — EON1226's line — appears in `/cart` |
+| Cancel | `403 insufficient_permissions` — «Customers are not allowed to change order status from IN_CHECKOUT to DECLINED» |
+| an unknown order id | 404, not 500 |
+
+**Reorder resolves prices fresh** rather than copying the order's price row.
+`@viu/emporix-sdk-react`'s `useReorder` copies the ordered price and notes in a
+comment that a stale `priceId` may be rejected at checkout. Resolving avoids that
+entirely — and what the shopper pays is today's price, which is the only one the
+cart accepts. A product that has lost its price is skipped, and if none is left the
+action says so.
+
+**The cancel success path cannot be exercised on this tenant.** All ten orders are
+`IN_CHECKOUT`, and a customer is not allowed that transition. The button stays
+because storefront-demo has the same one, and the message it produces is a decent
+demonstration of `describeError` on its own — a shopper reads why, not «Request
+failed».
+
+Two casts the plan for this work suggested, both unnecessary:
+`carts.addItemsBatch(cartId, items, ctx)` takes a **bare array**, not `{ items }`,
+and typechecks without `as never`. `useReorder` carries that cast; it is worth
+trying without before copying it over.
+
+## What this demo deliberately does NOT have
+
+Not gaps — decisions, each with a reason:
+
+- **`/account/returns`, `/account/rewards`, `/account/lists`.** The same
+  CRUD-through-a-Server-Action shape as `addresses`, a fourth time. It teaches
+  nothing new and would have to be dragged along by every SDK change.
+- **`/reset-password`.** Needs a real email round trip. What cannot be verified is
+  not claimed here.
+- **B2B.** `storefront-demo` has none either — grep finds one telemetry event name
+  that nothing fires and a `companyName` field on an address form.
+- **Optimistic updates.** There is no client state to be optimistic with. That is
+  the documented price of this mode, not an omission.
+
+Three more things are in the code but **cannot fire on the `viu` tenant**, and are
+marked as such where they live: the subcategory nav (hierarchy lives in category
+trees, not assignments), the variant picker (300 products swept, all
+`productType: BASIC`), and a successful order cancellation (every order is
+`IN_CHECKOUT`, which customers may not transition). They stay for tenants that do
+use those features.
+
 ## The catalog/cart split
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use
