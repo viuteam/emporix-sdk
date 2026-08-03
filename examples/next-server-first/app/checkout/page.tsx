@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
-import { STORAGE_KEYS, withEmporixSession } from "@viu/emporix-sdk-next/session";
+import { STORAGE_KEYS, sessionCookieJar, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { CONTEXT, EMPORIX, SITE } from "../emporix";
 import { submitCheckout } from "../actions/checkout";
 
@@ -17,7 +16,7 @@ export default async function CheckoutPage({
   searchParams: Promise<{ error?: string }>;
 }): Promise<React.JSX.Element> {
   const { error } = await searchParams;
-  const cartId = (await cookies()).get(STORAGE_KEYS.cartId)?.value ?? null;
+  const cartId = (await sessionCookieJar({ readOnly: true })).get(STORAGE_KEYS.cartId);
   if (cartId === null) {
     return (
       <main>

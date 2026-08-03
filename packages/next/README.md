@@ -210,6 +210,25 @@ else validates them.
 Turning it on invalidates every running session. There is no plaintext
 fallback, on purpose.
 
+### Read session cookies through `sessionCookieJar`, never `cookies()`
+
+```ts
+// wrong once EMPORIX_COOKIE_SECRET is set — hands back the ciphertext
+const cartId = (await cookies()).get(STORAGE_KEYS.cartId)?.value ?? null;
+
+// right — applies the __Host- prefix and the codec
+const jar = await sessionCookieJar({ readOnly: true }); // omit in a Server Action
+const cartId = jar.get(STORAGE_KEYS.cartId);
+```
+
+This is the one footgun the feature introduces, and it fails quietly: without a
+secret both forms work, so raw `cookies()` reads survive review and only break
+when someone turns encryption on. `examples/next-server-first` had all four of
+its reads written the wrong way and was fixed for exactly this reason.
+
+`sessionCookieJar({ readOnly: true })` in Server Components — writes no-op
+there, because Next forbids a cookie write during render.
+
 ## Service accounts (`@viu/emporix-sdk-next/service`)
 
 For server-side writes with a dedicated Emporix service account — create a

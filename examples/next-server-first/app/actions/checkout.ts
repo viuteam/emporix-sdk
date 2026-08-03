@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { EmporixError, pickFee, resolveZone, type CheckoutInput } from "@viu/emporix-sdk";
-import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
+import {
+  STORAGE_KEYS,
+  sessionCookieJar,
+  withEmporixSessionMutable,
+} from "@viu/emporix-sdk-next/session";
 import { CONTEXT, EMPORIX, SITE } from "../emporix";
 
 function field(form: FormData, name: string): string {
@@ -41,11 +44,11 @@ function describe(e: unknown): string {
  * be readable by JavaScript, because the checkout runs in the browser.
  */
 export async function submitCheckout(formData: FormData): Promise<void> {
-  const jar = await cookies();
-  const cartId = jar.get(STORAGE_KEYS.cartId)?.value ?? null;
+  const jar = await sessionCookieJar();
+  const cartId = jar.get(STORAGE_KEYS.cartId);
   if (cartId === null) redirect("/checkout?error=No+cart");
-  const saasToken = jar.get(STORAGE_KEYS.saasToken)?.value ?? null;
-  const loggedIn = jar.get(STORAGE_KEYS.customerToken)?.value !== undefined;
+  const saasToken = jar.get(STORAGE_KEYS.saasToken);
+  const loggedIn = jar.get(STORAGE_KEYS.customerToken) !== null;
 
   const country = field(formData, "country") || CONTEXT.targetLocation;
   const firstName = field(formData, "firstName");

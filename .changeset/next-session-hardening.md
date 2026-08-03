@@ -35,3 +35,11 @@ rate-limit and log. It does **not** prevent session hijacking.
 plaintext fallback: with a 30-day refresh cookie it would have to stay open for
 30 days, and integrity protection for `cartId` and `activeLegalEntityId` would
 be worthless for that whole window.
+
+**Read session cookies through `sessionCookieJar`, not `cookies()`.** This is the
+one footgun the feature introduces, and it fails quietly: with no secret set both
+forms work, so a raw `cookies().get(STORAGE_KEYS.cartId)` passes review and only
+breaks when someone enables encryption — at which point it returns the ciphertext
+and hands Emporix a cart id it has never seen. Use
+`sessionCookieJar({ readOnly: true })` in Server Components and
+`sessionCookieJar()` in Server Actions.
