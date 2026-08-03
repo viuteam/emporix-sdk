@@ -39,7 +39,7 @@ export async function login(formData: FormData): Promise<void> {
   if (cartIdBefore !== (await readCartId())) {
     await withEmporixSessionMutable(async (client, ctx, jar) => {
       const cartId = jar.get(STORAGE_KEYS.cartId);
-      if (cartId !== null) setCart(jar, await client.carts.get(cartId, ctx));
+      if (cartId !== null) setCart(jar, cartId, await client.carts.get(cartId, ctx));
     }, EMPORIX);
   }
   revalidatePath("/", "layout");

@@ -9,7 +9,7 @@ import {
   withEmporixSessionMutable,
 } from "@viu/emporix-sdk-next/session";
 import { CONTEXT, EMPORIX, SITE, STORE_OPT } from "../emporix";
-import { setCart } from "../lib/cart-session";
+import { clearCart } from "../lib/cart-session";
 import { describeError } from "../lib/describe-error";
 
 function field(form: FormData, name: string): string {
@@ -119,7 +119,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
       // setCart clears the shell's count too — deleting only the id would leave
       // a badge pointing at a cart that no longer exists. On the wrapper's jar,
       // so it is part of the one flush rather than a write nobody persists.
-      setCart(sessionJar, null);
+      clearCart(sessionJar);
       return placed;
     }, EMPORIX);
     orderId = result.orderId;

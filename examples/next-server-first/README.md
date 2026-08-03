@@ -226,6 +226,43 @@ pages on 2026-08-03: every one is `productType: BASIC`, and
 branch is what a tenant with variants needs — but it is unexercised here, the same
 as the subcategory nav above.
 
+## The cart, mutated through Server Actions
+
+Four actions — quantity, remove, apply coupon, remove coupon — sharing one frame
+that finds the cart, mutates it, pulls the count forward and revalidates. They
+**return** their error rather than throwing it, so a rejected coupon is a message
+in the form and not a Next error page. `ActionForm` is the single client component
+that displays it.
+
+**Verified 2026-08-03:**
+
+| Check | Result |
+|---|---|
+| line label | «Just-in-Time Access (JIT)», not the id — the cart GET returns an **empty** `product`, so names come from a separate `searchByIds` |
+| quantity 1 → 3 | line and total both **CHF 3.00**, count stays at one line |
+| quantity 0 with the browser's `min` in place | **no request at all** — the browser blocked the submit |
+| quantity 0 with `min` removed from the DOM | «Quantity must be 1 or more.», action returned in **0ms**, no Emporix call |
+| empty coupon | «Enter a coupon code.», and it sits next to the quantity error — each `ActionForm` holds its own state |
+| coupon `GIBTESNICHT` | `404 — {"message":"Coupon with code GIBTESNICHT not found."}` — the whole Emporix body, which is what `describeError` is for |
+| remove | line gone, count **0**, «Your bag is empty», total «—», badge without a number |
+
+Row three and four are the same input twice, and they are both worth having:
+`<input min>` is a hint to the browser, not a guarantee to the server. Bypassing it
+took removing the attribute from the DOM, which is exactly what a client that is
+not this browser would do.
+
+**A bug this check caught.** The mutations answer with a cart, so the first version
+handed that answer straight to `setCart` to save a GET. Those answers carry **no
+`id`** — and `setCart` read the id off the object, treating «no id» as «clear the
+cart». A quantity change therefore deleted `emporix.cartId` out of the session and
+the shopper lost their cart.
+
+The fix is in the signature, not the caller: `setCart(jar, cartId, cart)` takes the
+id as its own argument, and clearing is a separate `clearCart(jar)`. A partial
+answer can now only make the count wrong, never lose the cart. The count itself
+comes from a re-read, because `items` on those answers is just as unverified as
+`id` was.
+
 ## The catalog/cart split
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use

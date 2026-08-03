@@ -10,6 +10,12 @@ const COUNT = "demo.cartCount";
 /**
  * The ONLY place that writes the cart id.
  *
+ * The id is a **separate argument** on purpose. It used to be read off the cart
+ * object, with «no id» meaning «clear» — and that cost a cart: Emporix's cart
+ * mutations answer with a cart that carries **no `id`**, so a quantity change
+ * wiped `emporix.cartId` out of the session. Measured on 2026-08-03. With the id
+ * passed in, a partial answer can only make the count wrong, never lose the cart.
+ *
  * The count sits next to it in the session so the shell can show a badge without
  * an Emporix call. The alternative would be a `withEmporixSession` per page view,
  * and the guest path deliberately builds a NEW client per call — a shared guest
@@ -22,16 +28,17 @@ const COUNT = "demo.cartCount";
  */
 export function setCart(
   jar: SessionCookieJar,
-  cart: { id?: string; items?: unknown[] } | null,
+  cartId: string,
+  cart: { items?: unknown[] } | undefined,
 ): void {
-  const id = cart?.id;
-  if (cart === null || id === undefined) {
-    jar.delete(STORAGE_KEYS.cartId);
-    jar.delete(COUNT);
-    return;
-  }
-  jar.set(STORAGE_KEYS.cartId, id, SESSION_MAX_AGE.cartId);
-  jar.set(COUNT, String(cart.items?.length ?? 0), SESSION_MAX_AGE.cartId);
+  jar.set(STORAGE_KEYS.cartId, cartId, SESSION_MAX_AGE.cartId);
+  jar.set(COUNT, String(cart?.items?.length ?? 0), SESSION_MAX_AGE.cartId);
+}
+
+/** Clearing is its own function, and that separation is a bug fix. */
+export function clearCart(jar: SessionCookieJar): void {
+  jar.delete(STORAGE_KEYS.cartId);
+  jar.delete(COUNT);
 }
 
 /** Line count for the shell badge. Zero Emporix calls. */
