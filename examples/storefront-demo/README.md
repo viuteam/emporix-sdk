@@ -5,8 +5,12 @@ A complete, self-contained storefront built on `@viu/emporix-sdk` +
 You enter a **tenant** and a **public storefront client id** at runtime and the
 app drives every common (non-B2B) commerce flow against that real tenant.
 
-It doubles as a reference: each screen is a worked example of the hooks, and
-`src/lib/adapters.ts` is the single place that reads SDK/response field shapes.
+It doubles as a reference: each screen is a worked example of the hooks, and the
+SDK/response field reads live in exactly one place — but that place is no longer
+this demo. They moved to [`examples/shared`](../shared) so this demo and
+`next-server-first` cannot drift apart. `src/lib/adapters.ts` is now a re-export of
+that package plus the two helpers that need a browser (`sanitizeHtml`,
+`productDescription`). Follow the re-export, not the filename.
 
 > ## ⚠️ This places **real orders**
 > The demo talks to a **real Emporix tenant**. Checkout creates a **real
@@ -90,7 +94,9 @@ in the footer to reset. You can prefill the setup screen with
   links straight to it) but won't appear in the history list until finalized.
   The demo's "custom" payment provider is a stub, so its orders stay pending.
 - **Two order shapes.** The list and the single-order GET return different
-  shapes; `src/lib/adapters.ts` (`orderVM`/`orderItems`) reads both.
+  shapes; `orderVM`/`orderItems` read both. They live in
+  [`examples/shared/src/adapters.ts`](../shared/src/adapters.ts), not in this
+  demo — `src/lib/adapters.ts` only re-exports them.
 - **Prices need currency + country.** Without both in the session context the
   price-match returns nothing and products show no price.
 
@@ -101,8 +107,10 @@ src/
   config/      runtime tenant/client-id gate (SetupScreen, ConfigGate)
   app/         provider wiring, shell, header/footer, toasts, telemetry HUD
   catalog/     product card/grid, gallery, variant picker, category nav
+  checkout/    address/shipping/payment form parts
   account/     auth, profile, addresses, orders, returns, rewards, lists
+  components/  ui/ primitives — Button, Field, Tag, Spinner, EmptyState
   pages/       routed screens (Home, Search, Category, Product, Cart, Checkout, account/*)
-  lib/         adapters (SDK field reads), price/format helpers
+  lib/         re-export of examples/shared, plus usePrices / useProductNames
   styles/      Editorial-Luxe design tokens + global stylesheet
 ```
