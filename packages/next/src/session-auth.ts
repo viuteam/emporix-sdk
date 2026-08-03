@@ -73,6 +73,7 @@ export async function emporixLogin(
   // The guest session is dead weight once a customer token exists — the auth
   // layer always prefers the customer token.
   jar.delete(STORAGE_KEYS.anonymousSession);
+  await jar.flush();
 }
 
 /**
@@ -157,6 +158,9 @@ export async function emporixRefresh(
     // The ceiling. Refusing here rather than letting the refresh succeed is
     // the whole control: the idle window slides, this does not.
     clearSession(jar);
+    // clearSession empties the record; destroy also drops the store entry and
+    // the sid cookie. Both are needed — destroy is a no-op in cookie mode.
+    await jar.destroy();
     return null;
   }
   const refreshToken = jar.get(STORAGE_KEYS.refreshToken);
@@ -175,6 +179,7 @@ export async function emporixRefresh(
   );
 
   persistSession(jar, session);
+  await jar.flush();
   return session.customerToken;
 }
 
@@ -234,4 +239,5 @@ export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promi
     }
   }
   clearSession(jar);
+  await jar.destroy();
 }

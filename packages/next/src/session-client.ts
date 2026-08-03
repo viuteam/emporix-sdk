@@ -7,6 +7,7 @@ import {
 import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 import { getEmporixClient } from "./client";
 import { SESSION_MAX_AGE, sessionCookieJar, type SessionCookieJar } from "./session-cookies";
+import type { EmporixSessionStore } from "./session-store";
 
 export interface WithEmporixSessionOptions {
   /** Default: `process.env.EMPORIX_TENANT`. */
@@ -15,6 +16,14 @@ export interface WithEmporixSessionOptions {
   clientId?: string;
   /** Default: `process.env.EMPORIX_HOST`, else the SDK default. */
   host?: string;
+  /**
+   * Keeps session values server-side instead of in cookies. Without it they
+   * live in cookies, which still works — see the README.
+   *
+   * Must be passed to `emporixTokenProxy` and `emporixSession` as well. Forget
+   * it in one place and that place silently falls back to cookie mode.
+   */
+  store?: EmporixSessionStore;
   /** Bound at anonymous login. Must match what the rest of the app binds. */
   context?: {
     currency?: string;
@@ -90,16 +99,25 @@ async function run<T>(
   opts: WithEmporixSessionOptions,
   readOnly: boolean,
 ): Promise<T> {
-  const jar = await sessionCookieJar({ readOnly });
+  const jar = await sessionCookieJar({
+    readOnly,
+    ...(opts.store !== undefined ? { store: opts.store } : {}),
+  });
   const customerToken = jar.get(STORAGE_KEYS.customerToken);
   if (customerToken !== null) {
     // Customer path: the memoized client is correct, the token is per call.
     const client = getEmporixClient({ ...opts, tagged: false });
-    return fn(client, auth.customer(customerToken));
+    const result = await fn(client, auth.customer(customerToken));
+    // Store mode needs one write at the end; in cookie mode `set` already wrote
+    // through and this is a no-op. The read-only variant never flushes.
+    if (!readOnly) await jar.flush();
+    return result;
   }
   const client = newGuestClient(opts);
   client.tokenProvider.attachAnonymousStore?.(anonymousStore(jar));
-  return fn(client, auth.anonymous());
+  const result = await fn(client, auth.anonymous());
+  if (!readOnly) await jar.flush();
+  return result;
 }
 
 /**
