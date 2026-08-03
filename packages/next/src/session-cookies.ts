@@ -29,6 +29,18 @@ export const SESSION_MAX_AGE = {
 export const SESSION_EXPIRES_AT = "emporix.customerTokenExpiresAt";
 
 /**
+ * Epoch seconds at which this session began. Not refreshed — that is the point.
+ *
+ * The idle window slides: `persistSession` rewrites the refresh cookie on every
+ * refresh, so 30 days means 30 days of INACTIVITY and an actively used session
+ * never expires. This is the ceiling that does not move.
+ */
+export const SESSION_STARTED_AT = "emporix.sessionStartedAt";
+
+/** How long a session may live regardless of activity. */
+export const SESSION_ABSOLUTE_MAX = 90 * 24 * 60 * 60;
+
+/**
  * Fallback lifetime when Emporix omits `expires_in`. Deliberately short: too
  * long means a dead token reaches a Server Component, which cannot recover.
  */

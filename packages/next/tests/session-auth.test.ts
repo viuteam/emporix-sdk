@@ -287,3 +287,60 @@ describe("assertSameOrigin", () => {
     expect(() => assertSameOrigin(bad)).toThrow();
   });
 });
+
+describe("the absolute session ceiling", () => {
+  it("stamps the start at login", async () => {
+    stubFetch();
+    await emporixLogin({ email: "a@b.test", password: "pw" });
+    const started = Number(bag.get("emporix.sessionStartedAt")?.value);
+    expect(Math.abs(started - Math.floor(Date.now() / 1000))).toBeLessThan(5);
+  });
+
+  it("refreshes normally below the ceiling", async () => {
+    stubFetch();
+    const young = Math.floor(Date.now() / 1000) - 60;
+    bag.set("emporix.sessionStartedAt", {
+      name: "emporix.sessionStartedAt",
+      value: String(young),
+    });
+    bag.set("emporix.refreshToken", { name: "emporix.refreshToken", value: "old-refresh" });
+    expect(await emporixRefresh()).toBe("cust-tok");
+  });
+
+  it("refuses and clears once the ceiling is passed", async () => {
+    stubFetch();
+    const ancient = Math.floor(Date.now() / 1000) - 91 * 24 * 60 * 60;
+    bag.set("emporix.sessionStartedAt", {
+      name: "emporix.sessionStartedAt",
+      value: String(ancient),
+    });
+    bag.set("emporix.refreshToken", { name: "emporix.refreshToken", value: "old-refresh" });
+    bag.set("emporix.customerToken", { name: "emporix.customerToken", value: "cust-tok" });
+    expect(await emporixRefresh()).toBeNull();
+    expect(bag.get("emporix.refreshToken")).toBeUndefined();
+    expect(bag.get("emporix.customerToken")).toBeUndefined();
+  });
+
+  it("does not slide the ceiling across repeated refreshes", async () => {
+    // The whole point. If persistSession rewrote this the way it rewrites the
+    // refresh cookie, the ceiling would slide with the window it is capping.
+    stubFetch();
+    const started = Math.floor(Date.now() / 1000) - 1000;
+    bag.set("emporix.sessionStartedAt", {
+      name: "emporix.sessionStartedAt",
+      value: String(started),
+    });
+    bag.set("emporix.refreshToken", { name: "emporix.refreshToken", value: "old-refresh" });
+    for (let i = 0; i < 10; i += 1) await emporixRefresh();
+    expect(Number(bag.get("emporix.sessionStartedAt")?.value)).toBe(started);
+  });
+
+  it("adopts a session that predates the stamp", async () => {
+    // A session from before this shipped carries no stamp. Logging those
+    // customers out on deploy would be a worse trade than one more cycle.
+    stubFetch();
+    bag.set("emporix.refreshToken", { name: "emporix.refreshToken", value: "old-refresh" });
+    expect(await emporixRefresh()).toBe("cust-tok");
+    expect(bag.get("emporix.sessionStartedAt")).toBeDefined();
+  });
+});
