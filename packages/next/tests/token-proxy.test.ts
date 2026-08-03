@@ -127,3 +127,49 @@ describe("emporixTokenProxy", () => {
     expect(response.headers.get("x-middleware-rewrite")).toBe("https://shop.test/shoes");
   });
 });
+
+describe("store mode", () => {
+  it("reads the token from the store, not the cookie", async () => {
+    // Decisive because the cookie holds no token at all — only a sid. A refresh
+    // therefore proves the record was read.
+    const records = new Map([["sid-1", { [TOKEN]: OPAQUE, [EXPIRES]: expiresIn(30) }]]);
+    const store = {
+      read: async (id: string) => records.get(id) ?? null,
+      write: async () => {},
+      destroy: async () => {},
+    };
+    const request = new NextRequest("https://shop.test/", {
+      headers: { cookie: "__Host-emporix.sid=sid-1" },
+    });
+    await emporixTokenProxy(request, { store });
+    expect(refreshCalls).toHaveLength(1);
+  });
+
+  it("does not refresh a fresh token held in the store", async () => {
+    const records = new Map([["sid-1", { [TOKEN]: OPAQUE, [EXPIRES]: expiresIn(3600) }]]);
+    const store = {
+      read: async (id: string) => records.get(id) ?? null,
+      write: async () => {},
+      destroy: async () => {},
+    };
+    const request = new NextRequest("https://shop.test/", {
+      headers: { cookie: "__Host-emporix.sid=sid-1" },
+    });
+    await emporixTokenProxy(request, { store });
+    expect(refreshCalls).toHaveLength(0);
+  });
+
+  it("injects no cookie in store mode — the record is the source", async () => {
+    const records = new Map([["sid-1", { [TOKEN]: OPAQUE, [EXPIRES]: expiresIn(30) }]]);
+    const store = {
+      read: async (id: string) => records.get(id) ?? null,
+      write: async () => {},
+      destroy: async () => {},
+    };
+    const request = new NextRequest("https://shop.test/", {
+      headers: { cookie: "__Host-emporix.sid=sid-1" },
+    });
+    await emporixTokenProxy(request, { store });
+    expect(request.headers.get("cookie")).not.toContain("fresh-token");
+  });
+});

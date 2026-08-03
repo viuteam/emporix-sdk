@@ -229,6 +229,83 @@ its reads written the wrong way and was fixed for exactly this reason.
 `sessionCookieJar({ readOnly: true })` in Server Components — writes no-op
 there, because Next forbids a cookie write during render.
 
+## Server-side sessions
+
+Pass a `store` and the session values leave the browser entirely. What is left in
+the cookie jar is one opaque id.
+
+```ts
+import type { EmporixSessionStore } from "@viu/emporix-sdk-next/session";
+
+const store: EmporixSessionStore = {
+  read: async (id) => /* the record, or null */,
+  write: async (id, record, ttlSeconds) => /* replace it */,
+  destroy: async (id) => /* remove it */,
+};
+```
+
+Three methods. The package ships **no** implementation, which is what keeps it at
+zero runtime dependencies — copy the Redis one from
+`examples/next-server-first/app/session-store.ts`.
+
+### Pass it to all three readers
+
+```ts
+const EMPORIX = { context: CONTEXT, store };
+
+await withEmporixSession(fn, EMPORIX);              // pages
+await emporixTokenProxy(request, { site, store });  // proxy.ts
+await emporixSession({ store });                    // session values
+```
+
+Forget it in one place and that place silently falls back to cookie mode. There
+is no error, because cookie mode is a legitimate configuration.
+
+### Take the jar the callback hands you
+
+```ts
+await withEmporixSessionMutable(async (client, ctx, jar) => {
+  const cartId = jar.get(STORAGE_KEYS.cartId);
+  jar.set(STORAGE_KEYS.cartId, id, SESSION_MAX_AGE.cartId);
+});
+```
+
+Building your own with `sessionCookieJar()` inside the callback gives you a
+**second** jar for the same request: it mints its own session id, clobbers the
+`sid` cookie, and needs its own `flush()`. In cookie mode the mistake is
+invisible, because `set` writes through immediately. That is how it was found.
+
+### What stays in the cookie
+
+| Cookie | Store mode |
+|---|---|
+| `emporix.sid` | 32 random bytes, httpOnly, `__Host-` |
+| `emporix.siteCode`, `emporix.language` | still cookies — browser-readable on purpose |
+| everything else | in the store |
+
+### Lifetimes
+
+Time-remaining rather than a fixed window, so a key dies exactly when its session
+does:
+
+| Session | TTL |
+|---|---|
+| Customer | `SESSION_ABSOLUTE_MAX` minus time already spent |
+| Guest | `SESSION_GUEST_MAX` (7 days), sliding |
+
+Guests get the shorter window because in store mode **every visitor costs a key**.
+With bot traffic that is a real operational line item.
+
+### What revocation means here
+
+The store makes it possible to delete one session, and `emporixLogout` does.
+**There is no admin API.** An operator knows the customer, not the `sid`;
+revoking every session of one customer needs a `customerId → sid[]` index, which
+your store can build from the record — it contains the customer id.
+
+`EMPORIX_COOKIE_SECRET` is **not applied** in store mode. Sealing a random id
+buys nothing; the id already means nothing without the store.
+
 ## Service accounts (`@viu/emporix-sdk-next/service`)
 
 For server-side writes with a dedicated Emporix service account — create a

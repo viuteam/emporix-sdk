@@ -1,8 +1,9 @@
 import { emporixSession } from "@viu/emporix-sdk-next";
+import { STORE_OPT } from "../emporix";
 import { login, logout } from "../actions/auth";
 
 export default async function LoginPage(): Promise<React.JSX.Element> {
-  const { customerToken } = await emporixSession();
+  const { customerToken } = await emporixSession(STORE_OPT);
   if (customerToken !== null) {
     return (
       <main>

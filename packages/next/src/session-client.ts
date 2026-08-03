@@ -7,6 +7,7 @@ import {
 import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 import { getEmporixClient } from "./client";
 import { SESSION_MAX_AGE, sessionCookieJar, type SessionCookieJar } from "./session-cookies";
+import type { EmporixSessionStore } from "./session-store";
 
 export interface WithEmporixSessionOptions {
   /** Default: `process.env.EMPORIX_TENANT`. */
@@ -15,6 +16,14 @@ export interface WithEmporixSessionOptions {
   clientId?: string;
   /** Default: `process.env.EMPORIX_HOST`, else the SDK default. */
   host?: string;
+  /**
+   * Keeps session values server-side instead of in cookies. Without it they
+   * live in cookies, which still works — see the README.
+   *
+   * Must be passed to `emporixTokenProxy` and `emporixSession` as well. Forget
+   * it in one place and that place silently falls back to cookie mode.
+   */
+  store?: EmporixSessionStore;
   /** Bound at anonymous login. Must match what the rest of the app binds. */
   context?: {
     currency?: string;
@@ -86,20 +95,29 @@ function newGuestClient(opts: WithEmporixSessionOptions): EmporixClient {
 }
 
 async function run<T>(
-  fn: (client: EmporixClient, ctx: AuthContext) => Promise<T>,
+  fn: (client: EmporixClient, ctx: AuthContext, jar: SessionCookieJar) => Promise<T>,
   opts: WithEmporixSessionOptions,
   readOnly: boolean,
 ): Promise<T> {
-  const jar = await sessionCookieJar({ readOnly });
+  const jar = await sessionCookieJar({
+    readOnly,
+    ...(opts.store !== undefined ? { store: opts.store } : {}),
+  });
   const customerToken = jar.get(STORAGE_KEYS.customerToken);
   if (customerToken !== null) {
     // Customer path: the memoized client is correct, the token is per call.
     const client = getEmporixClient({ ...opts, tagged: false });
-    return fn(client, auth.customer(customerToken));
+    const result = await fn(client, auth.customer(customerToken), jar);
+    // Store mode needs one write at the end; in cookie mode `set` already wrote
+    // through and this is a no-op. The read-only variant never flushes.
+    if (!readOnly) await jar.flush();
+    return result;
   }
   const client = newGuestClient(opts);
   client.tokenProvider.attachAnonymousStore?.(anonymousStore(jar));
-  return fn(client, auth.anonymous());
+  const result = await fn(client, auth.anonymous(), jar);
+  if (!readOnly) await jar.flush();
+  return result;
 }
 
 /**
@@ -125,7 +143,7 @@ async function run<T>(
  * ```
  */
 export async function withEmporixSession<T>(
-  fn: (client: EmporixClient, ctx: AuthContext) => Promise<T>,
+  fn: (client: EmporixClient, ctx: AuthContext, jar: SessionCookieJar) => Promise<T>,
   opts: WithEmporixSessionOptions = {},
 ): Promise<T> {
   return run(fn, opts, true);
@@ -138,18 +156,25 @@ export async function withEmporixSession<T>(
  * session, so a guest keeps the same Emporix `sessionId` and therefore the same
  * cart.
  *
+ * The third argument is the session jar, and it matters in store mode: build
+ * your own with `sessionCookieJar()` and you get a SECOND jar for the same
+ * request, which mints its own session id and needs its own flush. Take this one
+ * and there is exactly one record, flushed once, here.
+ *
  * @example
  * ```ts
  * "use server";
- * export async function addToCart(cartId: string, item: CartItemInput) {
- *   return withEmporixSessionMutable((client, ctx) =>
- *     client.carts.addItem(cartId, item, ctx),
- *   );
+ * export async function addToCart(productId: string) {
+ *   return withEmporixSessionMutable(async (client, ctx, jar) => {
+ *     const cartId = jar.get(STORAGE_KEYS.cartId);
+ *     …
+ *     jar.set(STORAGE_KEYS.cartId, id, SESSION_MAX_AGE.cartId);
+ *   });
  * }
  * ```
  */
 export async function withEmporixSessionMutable<T>(
-  fn: (client: EmporixClient, ctx: AuthContext) => Promise<T>,
+  fn: (client: EmporixClient, ctx: AuthContext, jar: SessionCookieJar) => Promise<T>,
   opts: WithEmporixSessionOptions = {},
 ): Promise<T> {
   return run(fn, opts, false);

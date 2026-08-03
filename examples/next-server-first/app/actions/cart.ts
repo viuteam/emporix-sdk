@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import {
   SESSION_MAX_AGE,
   STORAGE_KEYS,
-  sessionCookieJar,
   withEmporixSessionMutable,
 } from "@viu/emporix-sdk-next/session";
 import { EMPORIX, SITE } from "../emporix";
@@ -30,7 +29,7 @@ interface MatchedPrice {
  * — different shape, and it 409s for a customer who already has an open cart.
  */
 export async function addToCart(productId: string): Promise<void> {
-  await withEmporixSessionMutable(async (client, ctx) => {
+  await withEmporixSessionMutable(async (client, ctx, jar) => {
     const matches = await client.prices.matchByContext(
       { items: [{ itemId: { itemType: "PRODUCT", id: productId }, quantity: { quantity: 1 } }] },
       ctx,
@@ -44,7 +43,8 @@ export async function addToCart(productId: string): Promise<void> {
       );
     }
 
-    const jar = await sessionCookieJar();
+    // The jar the wrapper hands over, not one of our own: a second jar mints a
+    // second session id and needs its own flush.
     let cartId = jar.get(STORAGE_KEYS.cartId);
     if (cartId === null) {
       // `getCurrent({ create: true })`, not `create`: a customer may hold only

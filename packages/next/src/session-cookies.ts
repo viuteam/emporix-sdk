@@ -1,5 +1,12 @@
 import { cookies, headers } from "next/headers";
 import { cookieName, readCookie, sealCookie } from "./cookie-name";
+import {
+  isPublicSessionKey,
+  newSessionId,
+  recordTtl,
+  SESSION_SID,
+  type EmporixSessionStore,
+} from "./session-store";
 
 /**
  * Cookie lifetimes for the server-first mode. Values are the package's
@@ -53,6 +60,16 @@ export interface SessionCookieJar {
   set(name: string, value: string, maxAgeSeconds: number): void;
   /** No-op when the jar is read-only. */
   delete(name: string): void;
+  /**
+   * Persists a store-backed session. A no-op in cookie mode, where `set` has
+   * already written through.
+   *
+   * Must be awaited by every mutating entry point. The read-only variant never
+   * needs it, which halves the places that could forget.
+   */
+  flush(): Promise<void>;
+  /** Drops the whole session, store record included. */
+  destroy(): Promise<void>;
 }
 
 /**
@@ -81,26 +98,93 @@ async function isSecure(): Promise<boolean> {
  * server-first mode is that the browser never reads a token.
  */
 export async function sessionCookieJar(
-  opts: { readOnly?: boolean } = {},
+  opts: { readOnly?: boolean; store?: EmporixSessionStore } = {},
 ): Promise<SessionCookieJar> {
   const jar = await cookies();
   const readOnly = opts.readOnly ?? false;
   const secure = await isSecure();
+  const store = opts.store;
+
+  const cookieGet = (name: string): string | null =>
+    readCookie(name, (wire) => jar.get(wire)?.value);
+  const cookieSet = (name: string, value: string, maxAgeSeconds: number): void => {
+    jar.set(cookieName(name, secure), sealCookie(name, value), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure,
+      path: "/",
+      maxAge: maxAgeSeconds,
+    });
+  };
+
+  if (store === undefined) {
+    return {
+      get: cookieGet,
+      set: (name, value, maxAgeSeconds) => {
+        if (readOnly) return;
+        cookieSet(name, value, maxAgeSeconds);
+      },
+      delete: (name) => {
+        if (readOnly) return;
+        jar.delete(cookieName(name, secure));
+      },
+      flush: async () => {},
+      destroy: async () => {},
+    };
+  }
+
+  // Store mode: hydrate once, mutate in memory, flush once. This is what lets a
+  // synchronous jar sit on top of an async store — and `AnonymousSessionStore`
+  // (sdk core/auth.ts:42) leaves no choice, it is declared synchronous and is
+  // called mid-refresh.
+  const sid = cookieGet(SESSION_SID);
+  let record: Record<string, string> = {};
+  if (sid !== null) {
+    try {
+      record = (await store.read(sid)) ?? {};
+    } catch {
+      // A store outage degrades to «logged out», not to a 500 on every page.
+      record = {};
+    }
+  }
+  let dirty = false;
+
   return {
-    get: (name) => readCookie(name, (wire) => jar.get(wire)?.value),
+    get: (name) => (isPublicSessionKey(name) ? cookieGet(name) : (record[name] ?? null)),
     set: (name, value, maxAgeSeconds) => {
       if (readOnly) return;
-      jar.set(cookieName(name, secure), sealCookie(name, value), {
-        httpOnly: true,
-        sameSite: "lax",
-        secure,
-        path: "/",
-        maxAge: maxAgeSeconds,
-      });
+      if (isPublicSessionKey(name)) {
+        cookieSet(name, value, maxAgeSeconds);
+        return;
+      }
+      record[name] = value;
+      dirty = true;
     },
     delete: (name) => {
       if (readOnly) return;
-      jar.delete(cookieName(name, secure));
+      if (isPublicSessionKey(name)) {
+        jar.delete(cookieName(name, secure));
+        return;
+      }
+      if (record[name] !== undefined) {
+        delete record[name];
+        dirty = true;
+      }
+    },
+    flush: async () => {
+      if (readOnly || !dirty) return;
+      const id = sid ?? newSessionId();
+      const ttl = recordTtl(record);
+      await store.write(id, record, ttl);
+      cookieSet(SESSION_SID, id, ttl);
+      dirty = false;
+    },
+    destroy: async () => {
+      if (readOnly) return;
+      if (sid !== null) await store.destroy(sid);
+      jar.delete(cookieName(SESSION_SID, secure));
+      record = {};
+      dirty = false;
     },
   };
 }

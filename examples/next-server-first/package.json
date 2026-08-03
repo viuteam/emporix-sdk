@@ -15,7 +15,8 @@
     "@viu/emporix-sdk-react": "workspace:*",
     "next": "^16.2.12",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "redis": "^6.2.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

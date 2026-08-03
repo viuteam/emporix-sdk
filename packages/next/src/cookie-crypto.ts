@@ -11,7 +11,10 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
  * against Emporix, only replayed against this app. It does NOT prevent session
  * hijacking — whoever holds the cookie is in either way.
  */
-const PREFIX = "v1.";
+/** Marks a sealed value. Exported so a reader can recognise one even with no
+ *  key configured — a `v1.` value is never usable plaintext. */
+export const SEAL_MARKER = "v1.";
+const PREFIX = SEAL_MARKER;
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const KEY_BYTES = 32;
