@@ -33,6 +33,29 @@ Setting or changing it logs every existing session out — including any cart yo
 had open. That is the intended behaviour, not a bug: removing a key is the
 mass-logout lever.
 
+### Or keep the session server-side entirely
+
+```
+EMPORIX_SESSION_REDIS_URL=redis://127.0.0.1:6379
+```
+
+With this set the browser holds one opaque `emporix.sid` and nothing else; the
+values live in Redis. Unset it and the example runs on cookies again, no code
+change — both modes stay reachable.
+
+The adapter is `app/session-store.ts`, about forty lines against `redis`. It
+lives here rather than in the package, which is what keeps
+`@viu/emporix-sdk-next` at zero runtime dependencies. Copy it.
+
+Inspect what is actually stored:
+
+```bash
+node -e "const {createClient}=require('redis');(async()=>{const c=createClient({url:'redis://127.0.0.1:6379'});await c.connect();for(const k of await c.keys('emporix:session:*'))console.log(k,await c.ttl(k),await c.get(k));await c.quit();})()"
+```
+
+Delete a key and that one session is gone — the thing encrypted cookies cannot
+do.
+
 **Verified 2026-08-03** against the `viu` tenant, over http on a fresh cookie jar:
 
 | Check | Result |
@@ -119,6 +142,21 @@ Measured on 2026-08-01 with `next start`:
 | saved address on `/checkout` | prefilled from the account |
 | `/debug` after the logged-in checkout | **PASS** — a `saasToken` authorized the order and JavaScript never saw it |
 | cart merge on login | guest cart `6a6ded65…` folded into customer cart `6a6dec53…`, both items present |
+
+### Server-side sessions, verified 2026-08-03 against Redis in Podman
+
+| Check | Result |
+|---|---|
+| cookie mode with the store code present | unchanged — the regression check |
+| guest cart in store mode | created and read back |
+| keys in Redis | exactly **one** per visitor |
+| TTL | **7.0 days** for a guest |
+| browser cookie jar | only `emporix.sid` and `emporix.siteCode` |
+| deleting the key | «No cart yet» — **one** session revoked |
+| `/debug` | **PASS** |
+
+The revocation row is the point of the whole feature. Encrypted cookies cannot do
+it: the ciphertext stays valid until it expires, no matter what you want.
 
 The merge check is worth spelling out, because the obvious version of it proves
 nothing. Seeing the guest's item after logging in is **not** evidence: the cookie
