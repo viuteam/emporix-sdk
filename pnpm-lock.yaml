@@ -75,6 +75,9 @@ importers:
 
   examples/next-server-first:
     dependencies:
+      '@viu/emporix-examples-shared':
+        specifier: workspace:*
+        version: link:../shared
       '@viu/emporix-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk

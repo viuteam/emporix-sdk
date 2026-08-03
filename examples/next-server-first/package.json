@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@viu/emporix-examples-shared": "workspace:*",
     "@viu/emporix-sdk": "workspace:*",
     "@viu/emporix-sdk-next": "workspace:*",
     "@viu/emporix-sdk-react": "workspace:*",

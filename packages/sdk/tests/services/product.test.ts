@@ -333,7 +333,7 @@ describe("ProductService.searchByCodes", () => {
 });
 
 describe("ProductService.searchByName", () => {
-  it("builds a name:(~…) filter and escapes regex metacharacters", async () => {
+  function captureQ(): { get: () => string | null } {
     let seen: URLSearchParams | null = null;
     server.use(
       http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
@@ -341,10 +341,50 @@ describe("ProductService.searchByName", () => {
         return HttpResponse.json([{ id: "p1" }]);
       }),
     );
+    return { get: () => (seen as URLSearchParams | null)?.get("q") ?? null };
+  }
+
+  it("builds a name:(~…) filter and escapes regex metacharacters", async () => {
+    const q = captureQ();
     await svc().searchByName("in time");
-    expect((seen as URLSearchParams | null)?.get("q")).toBe("name:(~in time)");
+    expect(q.get()).toBe("name:(~in time)");
+    await svc().searchByName("a.b*c");
+    expect(q.get()).toBe("name:(~a\\.b\\*c)");
+  });
+
+  it("REMOVES ( ) and \" instead of escaping them", async () => {
+    // Emporix parses the filter's own structure before the regex, so an escaped
+    // paren is still an unbalanced paren to it: `name:(~a \()` comes back as 400
+    // «Missing closing parenthesis in value». Measured against a live tenant on
+    // 2026-08-03 — of every regex metacharacter only ( ) and " break this way.
+    // A search box that 400s on an opening bracket is not a search box.
+    const q = captureQ();
     await svc().searchByName("a.b*(c)");
-    expect((seen as URLSearchParams | null)?.get("q")).toBe("name:(~a\\.b\\*\\(c\\))");
+    expect(q.get()).toBe("name:(~a\\.b\\* c)");
+    await svc().searchByName('Access "x"');
+    expect(q.get()).toBe("name:(~Access x)");
+  });
+
+  it("collapses the whitespace a removed bracket leaves behind", async () => {
+    // Two spaces in the regex are two LITERAL spaces and would match nothing —
+    // so removing a bracket must not silently break the search it was meant to fix.
+    const q = captureQ();
+    await svc().searchByName("Access (JIT)");
+    expect(q.get()).toBe("name:(~Access JIT)");
+  });
+
+  it("returns an empty page without a request when nothing is left to search for", async () => {
+    // `name:(~)` is a 400. A query of only brackets leaves exactly that.
+    let called = false;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", () => {
+        called = true;
+        return HttpResponse.json([{ id: "p1" }]);
+      }),
+    );
+    const page = await svc().searchByName("((", { pageSize: 7 });
+    expect(called).toBe(false);
+    expect(page).toEqual({ items: [], pageNumber: 1, pageSize: 7, hasNextPage: false });
   });
 });
 
