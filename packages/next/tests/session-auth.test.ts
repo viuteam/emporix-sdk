@@ -201,18 +201,15 @@ describe("emporixLogin cart onboarding", () => {
   });
 
   it("KEEPS the guest cart when the merge is refused", async () => {
-    // Pins a behaviour that reads like a bug and is not one. A customer token
-    // cannot see an anonymous cart, so the merge answers 404 «Cart with code …
-    // not found» whenever it is reached — measured against the `viu` tenant on
-    // 2026-08-03. That 404 escapes to the onboarding's outer catch and the id
-    // write below it never happens, so the session stays on the guest cart.
+    // The merge normally succeeds — verified live on 2026-08-03, a guest product
+    // landed in the customer's cart. This covers the failure branch: if a merge
+    // ever is refused, the shopper must stay on the cart their items are in
+    // rather than be moved onto one they are not.
     //
-    // Catching the 404 and writing the customer cart id anyway was tried and
-    // reverted the same day: `getCurrent({ create: true })` answered with a
-    // brand-new EMPTY cart, so the shopper landed on «0 item(s)» with the
-    // guest's product gone. Staying on the guest cart keeps their items.
+    // Catching the failure and writing the customer cart id anyway was tried and
+    // reverted the same day: it put the shopper on «0 item(s)».
     //
-    // If this test starts failing, someone has «fixed» that again. Read the
+    // If this test starts failing, someone has added that catch back. Read the
     // comment in `onboardCart` before changing it.
     const f = stubFetch({ mergeStatus: 404 });
     bag.set("emporix.cartId", { name: "emporix.cartId", value: "guest-cart" });
@@ -397,14 +394,19 @@ describe("the absolute session ceiling", () => {
 function fakeStore(): SessionStore & {
   records: Map<string, Record<string, string>>;
   destroyed: string[];
+  /** Every write in order — the order is what some of these tests are about. */
+  writes: Array<Record<string, string>>;
 } {
   const records = new Map<string, Record<string, string>>();
   const destroyed: string[] = [];
+  const writes: Array<Record<string, string>> = [];
   return {
     records,
     destroyed,
+    writes,
     read: async (id) => records.get(id) ?? null,
     write: async (id, record) => {
+      writes.push({ ...record });
       records.set(id, { ...record });
     },
     destroy: async (id) => {
@@ -477,6 +479,42 @@ describe("the three auth functions in store mode", () => {
 
     expect(store.records.get(sid)?.["emporix.refreshToken"]).toBe("cust-refresh");
     expect(bag.get("emporix.refreshToken")).toBeUndefined();
+  });
+
+  it("emporixLogin onboards the cart as the CUSTOMER, not as a guest", async () => {
+    // The store-mode bug this pins, measured on 2026-08-03 with instrumentation
+    // inside `onboardCart`:
+    //
+    //   authKind=anonymous  getCurrent=<a NEW empty cart>  customerIdOnCart=(none)
+    //   merge FAILED: cart.merge requires a { kind: 'customer' } AuthContext
+    //
+    // `onboardCart` builds its own jar and branches on whether a customer token is
+    // stored. In cookie mode `persistSession` writes through, so it sees one. In
+    // store mode it only touches the in-memory record, so without a flush first
+    // that second jar reads a store with no token and runs as a GUEST — and then
+    // `getCurrent` creates a fresh anonymous cart while the merge never leaves the
+    // SDK. A guest who logged in landed on an empty cart.
+    //
+    // Asserted on the store's WRITE ORDER rather than on the request list. The
+    // request list cannot tell the two apart here — the stub answers a merge
+    // whichever auth reached it — but the mechanism is precisely «is the customer
+    // token in the store before the onboarding builds its jar?». That is a
+    // write that must land BEFORE the final one.
+    const store = fakeStore();
+    const sid = "sid-onboarding";
+    store.records.set(sid, { "emporix.cartId": "guest-cart" });
+    bag.set(SESSION_SID, { name: SESSION_SID, value: sid });
+    stubFetch();
+
+    await emporixLogin({ email: "a@b.test", password: "pw" }, { store, ...SITED });
+
+    const withToken = store.writes
+      .map((r, i) => ("emporix.customerToken" in r ? i : -1))
+      .filter((i) => i >= 0);
+    // At least two: the flush before the onboarding, and the final one. Only one
+    // means the token first reached the store after the onboarding had already run.
+    expect(withToken.length).toBeGreaterThanOrEqual(2);
+    expect(withToken[0]).toBeLessThan(store.writes.length - 1);
   });
 
   it("emporixLogout destroys the record", async () => {

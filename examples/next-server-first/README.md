@@ -146,11 +146,11 @@ not known to work.
 The one place the count could still go stale is a login that swaps the cart, because
 `emporixLogin` writes the cart id inside the package and therefore outside
 `setCart`. `app/actions/auth.ts` re-reads the cart in that case — and only in that
-case, comparing the id before and after. The swap does happen: logging in without
-a guest cart lands on a freshly created customer cart. It does **not** happen when
-a guest cart exists, because the onboarding aborts on the merge 404 before writing
-anything — see «Why the merge row never reproduced» below. Guarding rather than
-re-reading unconditionally keeps a cart GET off every login.
+case, comparing the id before and after. The swap is the normal outcome, not an
+edge case: a guest who logs in moves onto the customer's cart. Verified live —
+after a login the count went from **1 to 4**, which only the re-read can produce.
+Guarding rather than re-reading unconditionally keeps a cart GET off the logins
+where nothing moved.
 
 | Check | Result |
 |---|---|
@@ -245,67 +245,60 @@ cookie jar, httpOnly included, and it asserts the token is absent from it.
 The revocation row is the point of the whole feature. Encrypted cookies cannot do
 it: the ciphertext stays valid until it expires, no matter what you want.
 
-### Why the merge row never reproduced — root cause found 2026-08-03
+### The guest-to-customer merge, and a store-mode bug that broke it
 
-Three logins that day all left the cart id pointing at the **guest** cart, with
-the customer's own cart invisible. Chasing it down went through two wrong
-explanations before the measurement:
+The merge works. Verified on 2026-08-03: a guest cart holding one product, a
+customer already holding `6a6dec53…` with three, and after logging in `/cart`
+showed **4 item(s)** under the customer's id, the guest's product among them.
 
-1. «`getCurrent` returns the session's cart, so there is nothing to merge.» Wrong
-   — a probe run inside the app showed `getCurrent` answering with
-   `id=6a6dec53… customerId=15416067 items=2`, the customer's own cart.
-2. «A customer token cannot search its own carts, so the owned cart cannot be
-   found.» Wrong — `POST /carts/search` with `q: "status:OPEN"` returned **200**,
-   exactly one hit, exactly the caller's `customerId`. The vendored spec allows
-   `CustomerAccessToken` on that operation.
-
-The actual cause, from the same probe:
+Getting there took four wrong explanations, so the mechanism is worth writing
+down. Instrumentation inside `onboardCart` printed this **before** the fix, in
+store mode:
 
 ```
-merge THREW: POST /cart/viu/carts/6a6dec53…/merge → 404
-  body={"code":404,"status":"Not Found","message":"Cart with code 6a708337… not found."}
+[onboardCart] authKind= anonymous  getCurrent= <a NEW empty cart>
+              customerIdOnCart= (none)  itemsOnCart= 0
+              merge FAILED: cart.merge requires a { kind: 'customer' } AuthContext
 ```
 
-**A customer token cannot see an anonymous cart**, so the merge fails whenever it
-is reached. The 404 escapes to the onboarding's best-effort `catch`, the id write
-below it never runs, and the session stays on the guest cart.
+and this after:
 
-### That looks like a bug and is the only outcome that keeps the shopper's items
+```
+[onboardCart] authKind= customer   getCurrent= 6a6dec53…
+              customerIdOnCart= 15416067  itemsOnCart= 3
+              merge OK -> 6a6dec53…
+```
 
-Catching the 404 and writing the customer cart id anyway was tried, measured and
-**reverted the same day**. With a guest cart holding one product,
-`getCurrent(ctx, { siteCode, create: true })` answered with a **brand-new empty
-cart**, so `/cart` showed `0 item(s)`: the guest's product gone, and the
-customer's older cart not adopted either. Aborting instead leaves the shopper on
-the cart they just filled.
+**The cause was a flush order, and it only ever affected store mode.**
+`onboardCart` calls `withEmporixSessionMutable`, which builds its **own** jar and
+branches on whether a customer token is stored. In cookie mode `persistSession`
+writes through, so that jar sees the token and runs as the customer. In store
+mode it only touched the in-memory record, so the second jar read a store with no
+token yet and ran as a **guest** — and then `getCurrent` created a fresh anonymous
+cart instead of finding the customer's, while the merge never even left the SDK:
+`requireCustomerAuth` rejected the anonymous context locally. A guest who logged
+in landed on an empty cart.
 
-| After login, guest cart held 1 product | Cart shown |
-|---|---|
-| merge 404 aborts the onboarding (**current**) | the guest cart, **1 item** |
-| merge 404 caught, id written anyway (reverted) | a new cart, **0 items** |
+`emporixLogin` now flushes before onboarding. A unit test asserts it on the
+store's **write order** — the customer token must reach the store before the last
+write — because the request list cannot tell the two paths apart.
 
-So the guest-to-customer merge — the standard behaviour every shop wants — **does
-not work in this mode**, and the accident is what saves it. Making it work needs
-an answer to «which token may fold an anonymous cart into a customer's?»: the
-customer token demonstrably may not.
+What this cost in wrong turns, kept as a warning about which observations are
+worth trusting:
 
-`@viu/emporix-sdk-react`'s `onboardCustomerCart` has the same shape and calls the
-same `getCurrent` through its `bootstrapCart`, so `storefront-demo` deserves the
-same scepticism: seeing the item after login does not distinguish «merged» from
-«still on the guest cart».
+- «`getCurrent` returns the session's cart, so nothing needs merging» — wrong, it
+  returns the customer's.
+- «A customer token cannot search its own carts» — wrong, `POST /carts/search`
+  with `q: "status:OPEN"` returns 200, scoped to the caller.
+- «The merge 404s because a customer token cannot see an anonymous cart» — that
+  404 came from a throwaway probe page using customer auth against a cart the
+  anonymous session owned. Not the failure in `onboardCart`.
+- «The anonymous session drifts across read-only renders» — wrong, `sessionId` and
+  `refreshToken` were byte-identical after two.
 
-A unit test pins the current behaviour so nobody «fixes» it back:
-`KEEPS the guest cart when the merge is refused`.
-
-Two smaller findings from the same session:
-
-- A customer can hold **two** open carts — `GET /cart/viu/carts/…` returned 200
-  for both. `onboardCart`'s own comment says «a customer may hold only one open
-  cart»; that is not what the tenant enforces. Whether a third via `carts.create`
-  would still answer 409 was not tested.
-- The 2026-08-01 row below claims a successful merge. Given that the merge answers
-  404 whenever it runs, that row is most likely the no-merge path read as a merge.
-  Left standing rather than deleted, because it was written from an observation.
+One finding stands unrelated to the fix: a customer can hold **two** open carts —
+`GET /cart/viu/carts/…` returned 200 for both. `onboardCart`'s own comment says «a
+customer may hold only one open cart»; that is not what the tenant enforces.
 
 The merge check is worth spelling out, because the obvious version of it proves
 nothing. Seeing the guest's item after logging in is **not** evidence: the cookie

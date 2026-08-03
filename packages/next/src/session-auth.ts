@@ -72,6 +72,23 @@ export async function emporixLogin(
   persistSession(jar, session);
   // The ceiling starts here and is never rewritten — see SESSION_STARTED_AT.
   jar.set(SESSION_STARTED_AT, String(Math.floor(Date.now() / 1000)), SESSION_ABSOLUTE_MAX);
+  // Flush BEFORE onboarding, and this is not an optimisation.
+  //
+  // `onboardCart` calls `withEmporixSessionMutable`, which builds its OWN jar and
+  // branches on whether a customer token is stored. In cookie mode `persistSession`
+  // above wrote through, so that jar sees the token and takes the customer path.
+  // In store mode it only touched the in-memory record — so without this flush the
+  // second jar reads a store that has no customer token yet and runs as a GUEST.
+  //
+  // Measured on 2026-08-03 with instrumentation inside `onboardCart`:
+  //   authKind=anonymous  getCurrent=<a NEW empty cart>  customerIdOnCart=(none)
+  //   merge FAILED: cart.merge requires a { kind: 'customer' } AuthContext
+  //
+  // Two consequences, both shopper-visible: `getCurrent` created a fresh anonymous
+  // cart instead of finding the customer's, and the merge never reached Emporix —
+  // the SDK's own `requireCustomerAuth` rejected it. So a guest who logged in
+  // landed on an empty cart, in store mode only.
+  await jar.flush();
   // Must run AFTER persistSession: it resolves through the customer token this
   // just wrote, and BEFORE the anonymous session is dropped.
   await onboardCart(jar, opts);
@@ -110,25 +127,11 @@ async function onboardCart(
       const guestCartId = jar.get(STORAGE_KEYS.cartId);
 
       if (guestCartId !== null && guestCartId !== customerCartId) {
-        // NO try/catch here, and that is deliberate — it was tried, measured and
-        // reverted on 2026-08-03.
-        //
-        // The merge fails whenever it is reached: a customer token cannot see an
-        // anonymous cart, so Emporix answers 404 «Cart with code … not found».
-        // Letting that 404 escape means the `jar.set` below never runs and the
-        // session keeps pointing at the guest cart — which reads like a bug, and
-        // is what «catching it here» was meant to fix.
-        //
-        // It is not a bug, it is the only outcome that keeps the shopper's items.
-        // Catching the 404 and writing the id anyway was measured live: with a
-        // guest cart holding one product, `getCurrent({ create: true })` answered
-        // with a brand-new EMPTY cart, so the shopper landed on `0 item(s)` — the
-        // guest's product gone, and the customer's older cart not adopted either.
-        // Aborting instead leaves them on the cart they just filled.
-        //
-        // The real fix is making the merge succeed, which needs an answer to
-        // «which token may fold an anonymous cart into a customer's?». Until
-        // then, failing loudly into the outer catch is the better trade.
+        // NO try/catch here, deliberately. A merge that fails must abort before
+        // the `jar.set` below, so the session keeps pointing at the guest cart
+        // rather than moving the shopper onto a cart their items are not in.
+        // Catching it and writing the id anyway was tried on 2026-08-03 and
+        // reverted the same day: it put the shopper on `0 item(s)`.
         //
         // The path id is the CUSTOMER cart (the target); the body lists the
         // anonymous carts merged into it. Easy to invert.
