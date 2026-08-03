@@ -86,10 +86,18 @@ export function productName(p: Product): string {
  * than pulling in a sanitizer dependency for one demo line.
  *
  * Was the private no-DOM fallback of `sanitizeHtml` before this package existed.
+ *
+ * `[^<>]`, not `[^>]`, and that one character is a fixed ReDoS. With `[^>]` a
+ * string of `<` with no closing `>` makes the engine rescan the whole tail from
+ * every `<`, which is quadratic: 20k/40k/80k `<` took 145/556/2198 ms, while this
+ * version stays at 0.2 ms. Excluding `<` from the class means an unclosed tag
+ * cannot swallow the rest of the input. Output on well-formed markup is identical;
+ * `<a<b>` now yields one tag instead of one malformed one, which is also the more
+ * defensible reading.
  */
 export function stripHtml(s: string): string {
   return s
-    .replace(/<[^>]*>/g, " ")
+    .replace(/<[^<>]*>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/\s+/g, " ")
     .trim();
