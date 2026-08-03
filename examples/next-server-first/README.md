@@ -263,15 +263,30 @@ merge THREW: POST /cart/viu/carts/6a6dec53…/merge → 404
   body={"code":404,"status":"Not Found","message":"Cart with code 6a708337… not found."}
 ```
 
-**A customer token cannot see an anonymous cart.** The merge therefore fails every
-time a guest cart is involved — not occasionally, always — and this code path has
-never merged anything. The 404 escaped to the onboarding's best-effort `catch` and
-took the id write with it, so the session stayed on the guest cart.
+**A customer token cannot see an anonymous cart**, so the merge fails whenever it
+is attempted. The 404 escaped to the onboarding's best-effort `catch` and took the
+id write with it, leaving the session on the guest cart.
+
+### But the merge is almost never attempted, and that is why both demos look fine
+
+In the ordinary guest→login flow the customer **inherits the guest's session**.
+`getCurrent` then answers with that very cart, the stored id and the returned id
+match, and the merge is skipped. The cart survives untouched — no merge involved.
+
+`@viu/emporix-sdk-react`'s `onboardCustomerCart` does exactly the same thing (its
+`bootstrapCart` calls the same `getCurrent(ctx, { siteCode, create: true })`), so
+`storefront-demo` behaves identically: carts survive login there too, without ever
+merging.
+
+The merge is reached only when the two ids differ — when the customer already holds
+**another** open cart. Reachable in four steps: log out with items in the cart,
+return as a guest, add something, log in. That is the state these runs
+manufactured, and it is where the 404 appears.
 
 Fixed by giving the merge its own `catch`: the adoption happens either way, and a
-logged-in customer now sees the cart they own. The guest cart's items stay behind,
-which is the honest state of things until someone answers which token may fold an
-anonymous cart into a customer's.
+logged-in customer sees the cart they own. In that divergent case the guest cart's
+items stay behind — the honest state of things until someone answers which token
+may fold an anonymous cart into a customer's.
 
 Two smaller findings from the same session, neither fixed here:
 
@@ -279,10 +294,9 @@ Two smaller findings from the same session, neither fixed here:
   for both. `onboardCart`'s own comment says «a customer may hold only one open
   cart»; that is not what the tenant enforces. Whether a third via `carts.create`
   would still answer 409 was not tested.
-- The 2026-08-01 row below claims a successful merge. Given that the merge cannot
-  succeed in this path, that row is most likely a misreading of two
-  customer-visible carts. It is left standing rather than deleted, because it was
-  written from an observation.
+- The 2026-08-01 row below claims a successful merge. It may well have been the
+  no-merge path above, read as a merge. Left standing rather than deleted, because
+  it was written from an observation.
 
 The merge check is worth spelling out, because the obvious version of it proves
 nothing. Seeing the guest's item after logging in is **not** evidence: the cookie
