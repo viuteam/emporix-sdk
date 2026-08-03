@@ -200,20 +200,29 @@ describe("emporixLogin cart onboarding", () => {
     expect(f.calls.some((c) => c.url.includes("/merge"))).toBe(false);
   });
 
-  it("adopts the customer's cart even when the merge is refused", async () => {
-    // The bug, measured against the `viu` tenant on 2026-08-03: a customer token
+  it("KEEPS the guest cart when the merge is refused", async () => {
+    // Pins a behaviour that reads like a bug and is not one. A customer token
     // cannot see an anonymous cart, so the merge answers 404 «Cart with code …
-    // not found» — always, not occasionally. With the id written after the merge,
-    // as it was until then, that 404 took the write with it: the session kept
-    // pointing at the guest cart, so a logged-in customer saw a cart they do not
-    // own while their own one stayed invisible. The outer catch hid the reason.
+    // not found» whenever it is reached — measured against the `viu` tenant on
+    // 2026-08-03. That 404 escapes to the onboarding's outer catch and the id
+    // write below it never happens, so the session stays on the guest cart.
+    //
+    // Catching the 404 and writing the customer cart id anyway was tried and
+    // reverted the same day: `getCurrent({ create: true })` answered with a
+    // brand-new EMPTY cart, so the shopper landed on «0 item(s)» with the
+    // guest's product gone. Staying on the guest cart keeps their items.
+    //
+    // If this test starts failing, someone has «fixed» that again. Read the
+    // comment in `onboardCart` before changing it.
     const f = stubFetch({ mergeStatus: 404 });
     bag.set("emporix.cartId", { name: "emporix.cartId", value: "guest-cart" });
 
     await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
 
     expect(f.calls.some((c) => c.url.includes("/merge"))).toBe(true);
-    expect(bag.get("emporix.cartId")?.value).toBe("cust-cart");
+    expect(bag.get("emporix.cartId")?.value).toBe("guest-cart");
+    // And the login itself must survive it.
+    expect(bag.get("emporix.customerToken")?.value).toBe("cust-tok");
   });
 
   it("logs in anyway when the cart call fails", async () => {

@@ -110,34 +110,29 @@ async function onboardCart(
       const guestCartId = jar.get(STORAGE_KEYS.cartId);
 
       if (guestCartId !== null && guestCartId !== customerCartId) {
-        try {
-          // The path id is the CUSTOMER cart (the target); the body lists the
-          // anonymous carts merged into it. Easy to invert.
-          await client.carts.merge(customerCartId, [guestCartId], ctx);
-        } catch {
-          // Its own catch, and this is the load-bearing part of the fix.
-          //
-          // Note how rarely we get here: in the ordinary guest→login flow the
-          // customer inherits the guest's session, `getCurrent` answers with that
-          // same cart, the two ids match and the merge is skipped entirely. The
-          // cart survives without anything being merged. That is why both demos
-          // look fine.
-          //
-          // The merge is attempted only when the ids differ — when the customer
-          // already holds another open cart. And then it fails: a customer token
-          // cannot see an anonymous cart, so Emporix answers 404 «Cart with code
-          // … not found». Measured against the `viu` tenant on 2026-08-03.
-          //
-          // Until this catch existed, that 404 escaped to the outer one and took
-          // the `jar.set` below with it. The session then kept pointing at the
-          // guest cart, so a logged-in customer was shown a cart they do not own
-          // while their own stayed invisible — and nothing said why.
-          //
-          // The guest cart's items stay behind in that case. A real loss, but
-          // smaller than showing the wrong cart, and closing it needs an answer
-          // to «which token may fold an anonymous cart into a customer's?» — the
-          // customer token demonstrably may not.
-        }
+        // NO try/catch here, and that is deliberate — it was tried, measured and
+        // reverted on 2026-08-03.
+        //
+        // The merge fails whenever it is reached: a customer token cannot see an
+        // anonymous cart, so Emporix answers 404 «Cart with code … not found».
+        // Letting that 404 escape means the `jar.set` below never runs and the
+        // session keeps pointing at the guest cart — which reads like a bug, and
+        // is what «catching it here» was meant to fix.
+        //
+        // It is not a bug, it is the only outcome that keeps the shopper's items.
+        // Catching the 404 and writing the id anyway was measured live: with a
+        // guest cart holding one product, `getCurrent({ create: true })` answered
+        // with a brand-new EMPTY cart, so the shopper landed on `0 item(s)` — the
+        // guest's product gone, and the customer's older cart not adopted either.
+        // Aborting instead leaves them on the cart they just filled.
+        //
+        // The real fix is making the merge succeed, which needs an answer to
+        // «which token may fold an anonymous cart into a customer's?». Until
+        // then, failing loudly into the outer catch is the better trade.
+        //
+        // The path id is the CUSTOMER cart (the target); the body lists the
+        // anonymous carts merged into it. Easy to invert.
+        await client.carts.merge(customerCartId, [guestCartId], ctx);
       }
       jar.set(STORAGE_KEYS.cartId, customerCartId, SESSION_MAX_AGE.cartId);
     }, opts);

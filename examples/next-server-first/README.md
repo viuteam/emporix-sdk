@@ -146,8 +146,11 @@ not known to work.
 The one place the count could still go stale is a login that swaps the cart, because
 `emporixLogin` writes the cart id inside the package and therefore outside
 `setCart`. `app/actions/auth.ts` re-reads the cart in that case — and only in that
-case, comparing the id before and after. An unconditional re-read would spend a
-cart GET on every login for a swap that this tenant does not perform.
+case, comparing the id before and after. The swap does happen: logging in without
+a guest cart lands on a freshly created customer cart. It does **not** happen when
+a guest cart exists, because the onboarding aborts on the merge 404 before writing
+anything — see «Why the merge row never reproduced» below. Guarding rather than
+re-reading unconditionally keeps a cart GET off every login.
 
 | Check | Result |
 |---|---|
@@ -264,39 +267,45 @@ merge THREW: POST /cart/viu/carts/6a6dec53…/merge → 404
 ```
 
 **A customer token cannot see an anonymous cart**, so the merge fails whenever it
-is attempted. The 404 escaped to the onboarding's best-effort `catch` and took the
-id write with it, leaving the session on the guest cart.
+is reached. The 404 escapes to the onboarding's best-effort `catch`, the id write
+below it never runs, and the session stays on the guest cart.
 
-### But the merge is almost never attempted, and that is why both demos look fine
+### That looks like a bug and is the only outcome that keeps the shopper's items
 
-In the ordinary guest→login flow the customer **inherits the guest's session**.
-`getCurrent` then answers with that very cart, the stored id and the returned id
-match, and the merge is skipped. The cart survives untouched — no merge involved.
+Catching the 404 and writing the customer cart id anyway was tried, measured and
+**reverted the same day**. With a guest cart holding one product,
+`getCurrent(ctx, { siteCode, create: true })` answered with a **brand-new empty
+cart**, so `/cart` showed `0 item(s)`: the guest's product gone, and the
+customer's older cart not adopted either. Aborting instead leaves the shopper on
+the cart they just filled.
 
-`@viu/emporix-sdk-react`'s `onboardCustomerCart` does exactly the same thing (its
-`bootstrapCart` calls the same `getCurrent(ctx, { siteCode, create: true })`), so
-`storefront-demo` behaves identically: carts survive login there too, without ever
-merging.
+| After login, guest cart held 1 product | Cart shown |
+|---|---|
+| merge 404 aborts the onboarding (**current**) | the guest cart, **1 item** |
+| merge 404 caught, id written anyway (reverted) | a new cart, **0 items** |
 
-The merge is reached only when the two ids differ — when the customer already holds
-**another** open cart. Reachable in four steps: log out with items in the cart,
-return as a guest, add something, log in. That is the state these runs
-manufactured, and it is where the 404 appears.
+So the guest-to-customer merge — the standard behaviour every shop wants — **does
+not work in this mode**, and the accident is what saves it. Making it work needs
+an answer to «which token may fold an anonymous cart into a customer's?»: the
+customer token demonstrably may not.
 
-Fixed by giving the merge its own `catch`: the adoption happens either way, and a
-logged-in customer sees the cart they own. In that divergent case the guest cart's
-items stay behind — the honest state of things until someone answers which token
-may fold an anonymous cart into a customer's.
+`@viu/emporix-sdk-react`'s `onboardCustomerCart` has the same shape and calls the
+same `getCurrent` through its `bootstrapCart`, so `storefront-demo` deserves the
+same scepticism: seeing the item after login does not distinguish «merged» from
+«still on the guest cart».
 
-Two smaller findings from the same session, neither fixed here:
+A unit test pins the current behaviour so nobody «fixes» it back:
+`KEEPS the guest cart when the merge is refused`.
+
+Two smaller findings from the same session:
 
 - A customer can hold **two** open carts — `GET /cart/viu/carts/…` returned 200
   for both. `onboardCart`'s own comment says «a customer may hold only one open
   cart»; that is not what the tenant enforces. Whether a third via `carts.create`
   would still answer 409 was not tested.
-- The 2026-08-01 row below claims a successful merge. It may well have been the
-  no-merge path above, read as a merge. Left standing rather than deleted, because
-  it was written from an observation.
+- The 2026-08-01 row below claims a successful merge. Given that the merge answers
+  404 whenever it runs, that row is most likely the no-merge path read as a merge.
+  Left standing rather than deleted, because it was written from an observation.
 
 The merge check is worth spelling out, because the obvious version of it proves
 nothing. Seeing the guest's item after logging in is **not** evidence: the cookie
