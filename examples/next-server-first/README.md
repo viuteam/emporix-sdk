@@ -297,6 +297,39 @@ Found by an empty line in the rendered page, then checked against
 `storefront-demo/src/account/ProfileForm.tsx`, which reads the same four fields
 against the real tenant.
 
+## Profile and password
+
+Two forms, no client state. `defaultValue` rather than `value`: the inputs are
+uncontrolled, the browser owns what is typed and the server owns what is stored.
+storefront-demo keeps the same fields in `useState` and syncs them, which is why
+its form has to think about stale state after a save and this one does not.
+
+**Verified 2026-08-03:**
+
+| Check | Result |
+|---|---|
+| the four fields | prefilled from `customers.me` |
+| phone set, then reloaded | new value stored and shown |
+| phone **cleared**, then reloaded | empty — clearing works, see below |
+| empty last name | «First and last name are required.», action returned in **0ms** |
+| new password under 8 characters | rejected in **0ms**, no Emporix call |
+| wrong current password | `401 — "Access denied. Entered credentials are incorrect."`, nothing changed |
+
+The password was deliberately never changed successfully: the test account's
+password lives in `.env.local`, and a successful change would leave that file
+stale. The two failure paths are what can be checked without breaking the next
+person's login.
+
+**A design error found while tidying up.** The first version left empty fields out
+of the update, reasoning that an empty string would clear a value nobody touched.
+That is right for a partial patch and wrong for this form, which always submits all
+four fields — «empty» here means the shopper cleared it, and a mistyped phone
+number could never be removed. All four now go out as submitted.
+
+Field names are measured, not guessed: `contactEmail` and `contactPhone` (not
+`email`), and `currentPassword` (not `oldPassword`). Both read off
+`storefront-demo/src/account/`, where the calls run against the real tenant.
+
 ## The catalog/cart split
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use
