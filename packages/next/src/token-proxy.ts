@@ -2,6 +2,7 @@ import type { NextRequest, NextResponse } from "next/server";
 import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 import { emporixRefresh } from "./session-auth";
 import { SESSION_EXPIRES_AT } from "./session-cookies";
+import { cookieName, readCookie, sealCookie } from "./cookie-name";
 import { emporixSiteProxy, type EmporixSite } from "./proxy";
 
 export interface EmporixTokenProxyOptions {
@@ -50,9 +51,15 @@ export async function emporixTokenProxy(
   request: NextRequest,
   opts: EmporixTokenProxyOptions = {},
 ): Promise<NextResponse> {
-  const token = request.cookies.get(STORAGE_KEYS.customerToken)?.value;
-  if (token !== undefined) {
-    const exp = storedExpiry(request.cookies.get(SESSION_EXPIRES_AT)?.value);
+  // This runs in a proxy, where `cookies()` does not exist — so it reads
+  // `request.cookies` directly and has to repeat the name and codec rules
+  // rather than going through the jar. Same derivation emporixSiteProxy uses.
+  const secure = request.nextUrl.protocol === "https:";
+  const tokenCookie = cookieName(STORAGE_KEYS.customerToken, secure);
+  const read = (wire: string): string | undefined => request.cookies.get(wire)?.value;
+  const token = readCookie(STORAGE_KEYS.customerToken, read);
+  if (token !== null) {
+    const exp = storedExpiry(readCookie(SESSION_EXPIRES_AT, read) ?? undefined);
     const skew = opts.skewSeconds ?? 120;
     // A missing expiry refreshes ONCE and then self-heals, because the refresh
     // writes the cookie. Refreshing on every request instead — which is what
@@ -64,7 +71,7 @@ export async function emporixTokenProxy(
       if (fresh !== null) {
         // Make the fresh token visible to THIS render, not just the next one.
         // emporixRefresh already persisted it through the cookie jar.
-        request.cookies.set(STORAGE_KEYS.customerToken, fresh);
+        request.cookies.set(tokenCookie, sealCookie(STORAGE_KEYS.customerToken, fresh));
       }
     }
   }

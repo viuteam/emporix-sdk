@@ -71,7 +71,8 @@ describe("emporixSessionMutable", () => {
 
     s.storage.setCustomerToken("t1");
 
-    const written = bag.get("emporix.customerToken");
+    // secure defaults to true here, so the name carries the __Host- prefix.
+    const written = bag.get("__Host-emporix.customerToken");
     expect(written?.value).toBe("t1");
     expect(written?.opts).toMatchObject({
       httpOnly: true,
@@ -98,12 +99,12 @@ describe("emporixSessionMutable", () => {
   });
 
   it("deletes the cookie on a null write", async () => {
-    jar.set("emporix.cartId", "c1");
+    jar.set("__Host-emporix.cartId", "c1");
     const s = await emporixSessionMutable();
 
     s.storage.setCartId(null);
 
-    expect(bag.has("emporix.cartId")).toBe(false);
+    expect(bag.has("__Host-emporix.cartId")).toBe(false);
   });
 
   it("round-trips every key the session exposes", async () => {

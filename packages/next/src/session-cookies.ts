@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { cookieName, readCookie, sealCookie } from "./cookie-name";
 
 /**
  * Cookie lifetimes for the server-first mode. Values are the package's
@@ -74,10 +75,10 @@ export async function sessionCookieJar(
   const readOnly = opts.readOnly ?? false;
   const secure = await isSecure();
   return {
-    get: (name) => jar.get(name)?.value ?? null,
+    get: (name) => readCookie(name, (wire) => jar.get(wire)?.value),
     set: (name, value, maxAgeSeconds) => {
       if (readOnly) return;
-      jar.set(name, value, {
+      jar.set(cookieName(name, secure), sealCookie(name, value), {
         httpOnly: true,
         sameSite: "lax",
         secure,
@@ -87,7 +88,7 @@ export async function sessionCookieJar(
     },
     delete: (name) => {
       if (readOnly) return;
-      jar.delete(name);
+      jar.delete(cookieName(name, secure));
     },
   };
 }

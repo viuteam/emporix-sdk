@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import type { AuthContext } from "@viu/emporix-sdk";
+import { cookieName, readCookie, sealCookie } from "./cookie-name";
 import {
   createServerStorage,
   serverAuth,
@@ -49,7 +50,9 @@ function build(storage: EmporixStorage): EmporixServerSession {
  */
 export async function emporixSession(): Promise<EmporixServerSession> {
   const jar = await cookies();
-  const io: ServerCookieJar = { get: (name) => jar.get(name)?.value ?? null };
+  const io: ServerCookieJar = {
+    get: (name) => readCookie(name, (wire) => jar.get(wire)?.value),
+  };
   return build(createServerStorage(io));
 }
 
@@ -80,10 +83,12 @@ export async function emporixSessionMutable(
     path: "/",
   };
   const io: ServerCookieJar = {
-    get: (name) => jar.get(name)?.value ?? null,
+    get: (name) => readCookie(name, (wire) => jar.get(wire)?.value),
+    // Writes need the single right name; `attrs.secure` is what this variant
+    // actually puts on the cookie, so the name must follow it.
     set: (name, value) => {
-      if (value === null) jar.delete(name);
-      else jar.set(name, value, attrs);
+      if (value === null) jar.delete(cookieName(name, attrs.secure));
+      else jar.set(cookieName(name, attrs.secure), sealCookie(name, value), attrs);
     },
   };
   return build(createServerStorage(io));
