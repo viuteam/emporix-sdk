@@ -20,12 +20,18 @@ shipped as a pnpm workspace monorepo.
 | [`@viu/emporix-mixins`](./packages/mixins) | Generic, tenant-agnostic toolkit to resolve Emporix mixins as typed values and keep them in sync with the Schema Service (runtime accessor + pluggable sources + `emporix-mixins` codegen CLI) |
 | [`@viu/emporix-sdk-next`](./packages/next) | Next.js server bindings: URL-derived cache tags, cookie session for RSC and Server Actions, webhook-driven `revalidateTag` |
 
-Runnable examples live in [`examples/`](./examples): `node-server` (no React),
-`vite-spa` (CSR), `next-app-router` (RSC + Server Actions), and
-[`storefront-demo`](./examples/storefront-demo) — a complete storefront
-(catalog → checkout → account self-service) configured with a tenant + public
-client id at runtime (**places real orders**). Example packages are private and
-never published.
+Five runnable examples live in [`examples/`](./examples) — see its
+[README](./examples/README.md) for which one answers which question:
+
+| Example | Shows |
+|---|---|
+| [`node-server`](./examples/node-server) | the SDK with no React at all |
+| [`vite-spa`](./examples/vite-spa) | the smallest React integration (CSR) |
+| [`storefront-demo`](./examples/storefront-demo) | a complete storefront, catalog → checkout → account (**places real orders**) |
+| [`next-app-router`](./examples/next-app-router) | Next 16 with client-side hooks |
+| [`next-server-first`](./examples/next-server-first) | Next 16 with **no Emporix token in the browser** |
+
+Example packages are private and never published.
 
 ## Install
 

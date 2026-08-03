@@ -1,90 +1,39 @@
-import { cookies } from "next/headers";
-import type { AuthContext } from "@viu/emporix-sdk";
-import {
-  createServerStorage,
-  serverAuth,
-  type ServerCookieJar,
-} from "@viu/emporix-sdk-react/ssr";
-import type { EmporixStorage } from "@viu/emporix-sdk-react";
-
-/** The Emporix session as it exists on the server for one request. */
-export interface EmporixServerSession {
-  /** Session state backed by the request's cookies. */
-  storage: EmporixStorage;
-  /** `auth.customer(token)` when a token is stored, else `auth.anonymous()`. */
-  auth: AuthContext;
-  customerToken: string | null;
-  cartId: string | null;
-  siteCode: string | null;
-  language: string | null;
-  legalEntityId: string | null;
-}
-
-function build(storage: EmporixStorage): EmporixServerSession {
-  return {
-    storage,
-    auth: serverAuth(storage),
-    customerToken: storage.getCustomerToken(),
-    cartId: storage.getCartId(),
-    siteCode: storage.getSiteCode(),
-    language: storage.getLanguage(),
-    legalEntityId: storage.getActiveLegalEntityId(),
-  };
-}
+/**
+ * Everything that binds an Emporix session to a request, server-side.
+ *
+ * Guarded by the `react-server` export condition: importing this from a Client
+ * Component resolves to a file that throws. That is the whole point — the
+ * session lives in httpOnly cookies and the browser must never reach it.
+ *
+ * The two families read as a pair, and belong together for that reason:
+ *
+ * - `emporixSession()` / `emporixSessionMutable()` — the session **values** for
+ *   this request.
+ * - `withEmporixSession()` / `withEmporixSessionMutable()` — run a callback
+ *   **with** the session bound to a client and an `AuthContext`.
+ *
+ * Both `emporixSession` exports stay available from the package root as well,
+ * where they shipped in 0.3.0.
+ */
+export {
+  emporixSession,
+  emporixSessionMutable,
+  type EmporixServerSession,
+} from "./server-session";
 
 /**
- * The Emporix session for the current request, **read-only**.
- *
- * Use this in Server Components. Next forbids cookie writes during a render, so
- * the storage's setters no-op and warn once per key rather than throwing inside
- * a render.
- *
- * ```ts
- * const { auth, siteCode } = await emporixSession();
- * const product = await getEmporixClient().products.get(id, undefined, auth);
- * ```
- *
- * Note: pass a customer `auth` only to `getEmporixClient({ tagged: false })` —
- * see {@link createTaggingFetch}.
+ * Re-exported so a server-first storefront never has to import
+ * `@viu/emporix-sdk-react` just to name a cookie. The constant lives in the
+ * react package because the browser backends share it; a Next app in this mode
+ * writes no client-side storage at all and should not reach into it.
  */
-export async function emporixSession(): Promise<EmporixServerSession> {
-  const jar = await cookies();
-  const io: ServerCookieJar = { get: (name) => jar.get(name)?.value ?? null };
-  return build(createServerStorage(io));
-}
-
-/**
- * The Emporix session for the current request, **read-write**. Valid only in
- * Server Actions and Route Handlers — Next throws if a Server Component writes
- * a cookie during render.
- *
- * Defaults are `httpOnly: true, sameSite: "lax", secure: true, path: "/"`.
- *
- * Caveat worth knowing before you use it for the customer token: an `httpOnly`
- * cookie cannot be read by the browser-side `createCookieStorage`, so the React
- * provider will mount unauthenticated. The supported pattern stays reading the
- * cookie on the server and passing `initialCustomerToken` into the provider.
- */
-export async function emporixSessionMutable(
-  opts: {
-    sameSite?: "lax" | "strict" | "none";
-    secure?: boolean;
-    httpOnly?: boolean;
-  } = {},
-): Promise<EmporixServerSession> {
-  const jar = await cookies();
-  const attrs = {
-    httpOnly: opts.httpOnly ?? true,
-    sameSite: opts.sameSite ?? ("lax" as const),
-    secure: opts.secure ?? true,
-    path: "/",
-  };
-  const io: ServerCookieJar = {
-    get: (name) => jar.get(name)?.value ?? null,
-    set: (name, value) => {
-      if (value === null) jar.delete(name);
-      else jar.set(name, value, attrs);
-    },
-  };
-  return build(createServerStorage(io));
-}
+export { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
+export { SESSION_MAX_AGE, sessionCookieJar, type SessionCookieJar } from "./session-cookies";
+export {
+  withEmporixSession,
+  withEmporixSessionMutable,
+  type WithEmporixSessionOptions,
+} from "./session-client";
+export { emporixLogin, emporixLogout, emporixRefresh, assertSameOrigin } from "./session-auth";
+export { emporixTokenProxy, type EmporixTokenProxyOptions } from "./token-proxy";
+export { createEmporixPublicRoute } from "./public-route";

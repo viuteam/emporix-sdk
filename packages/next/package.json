@@ -33,6 +33,7 @@
   "files": [
     "dist",
     "service-is-server-only.js",
+    "session-is-server-only.js",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -61,10 +62,24 @@
       },
       "default": "./service-is-server-only.js"
     },
+    "./session": {
+      "types": "./dist/session.d.ts",
+      "react-server": {
+        "import": "./dist/session.js",
+        "require": "./dist/session.cjs"
+      },
+      "default": "./session-is-server-only.js"
+    },
+    "./public-client": {
+      "types": "./dist/public-client.d.ts",
+      "import": "./dist/public-client.js",
+      "require": "./dist/public-client.cjs"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "rm -rf dist && tsup",
+    "check:dist": "node scripts/check-dist.mjs",
     "test": "vitest run --coverage",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"

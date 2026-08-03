@@ -1,12 +1,9 @@
 import { useEffect, useMemo } from "react";
 import { useShippingZones } from "@viu/emporix-sdk-react";
-import type { ZoneList, ShippingMethod } from "@viu/emporix-sdk";
+import { pickFee, resolveZone, type ShippingMethod, type Zone } from "@viu/emporix-sdk";
 import { Spinner } from "../components/ui/Spinner";
 import { pickText } from "../lib/adapters";
 import { money } from "../lib/format";
-
-type ShippingZone = ZoneList[number];
-type Fee = ShippingMethod["fees"][number];
 
 /** The chosen delivery option, shaped for the checkout `shipping` payload. */
 export type SelectedShipping = {
@@ -17,28 +14,9 @@ export type SelectedShipping = {
   shippingTaxCode?: string;
 };
 
-/** The zone whose `shipTo` covers `country`, else the default zone, else first. */
-export function resolveZone(zones: ZoneList | undefined, country: string): ShippingZone | undefined {
-  if (!zones || zones.length === 0) return undefined;
-  const c = country.trim().toUpperCase();
-  const byCountry = c
-    ? zones.find((z) => (z.shipTo ?? []).some((s) => s.country?.toUpperCase() === c))
-    : undefined;
-  return byCountry ?? zones.find((z) => z.default) ?? zones[0];
-}
-
-/** The applicable fee: highest `minOrderValue` ≤ cart total, else the first fee. */
-export function pickFee(fees: Fee[] | undefined, cartTotal: number): Fee | undefined {
-  if (!fees || fees.length === 0) return undefined;
-  const eligible = fees
-    .filter((f) => (f.minOrderValue?.amount ?? 0) <= cartTotal)
-    .sort((a, b) => (b.minOrderValue?.amount ?? 0) - (a.minOrderValue?.amount ?? 0));
-  return eligible[0] ?? fees[0];
-}
-
 function toSelected(
   method: ShippingMethod,
-  zone: ShippingZone,
+  zone: Zone,
   cartTotal: number | undefined,
 ): SelectedShipping | null {
   const fee = pickFee(method.fees, cartTotal ?? 0);

@@ -133,6 +133,7 @@ For BLOB file-replacement use `{ kind: "blob", file, body }` (or the
 
 ## Out of scope
 
-- Browser-side uploads — would require a BFF / token-exchange step.
+- Browser-side uploads — need a server-side token-exchange step. In Next, see
+  `@viu/emporix-sdk-next/session`.
 - Bulk operations — Emporix Media has no batch endpoint (unlike
   `cart.itemsBatch`). Loops over `create` / `update` are the only path.

@@ -8,4 +8,4 @@ export {
   emporixSession,
   emporixSessionMutable,
   type EmporixServerSession,
-} from "./session";
+} from "./server-session";

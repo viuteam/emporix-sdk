@@ -13,12 +13,18 @@ A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published a
 | `packages/sdk` | Core SDK: HTTP, auth, services (Product, Category, Cart, Checkout, Customer, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups, Orders, SalesOrders, Availability, TenantConfig, ClientConfig, ShoppingList, RagIndexer, SequentialId, Fee, Webhooks, Schema, AI, Tax, Coupon, RewardPoints, Brand, Label, Country, Currency, Shipping, Returns, SepaExport, Indexing, UnitHandling, Catalog, Vendor, PickPack, CustomerAdmin, Approval, IAM, CloudFunctions, Invoice, Quote) | yes (`@viu/emporix-sdk`) |
 | `packages/react` | React-Query bindings: hooks, provider, storage adapters | yes (`@viu/emporix-sdk-react`) |
 | `packages/mixins` | Typed Emporix mixins: runtime accessor (`readMixin`/`writeMixin`), `mixinQuery` filter builder, `emporix-mixins` codegen CLI | yes (`@viu/emporix-mixins`) |
-| `packages/next` | Next.js server bindings: cache tags (`emporixTags`), `getEmporixClient`, `emporixSession`, webhook route | yes (`@viu/emporix-sdk-next`) |
-| `examples/vite-spa` | Reference storefront (Vite + React Router) | no |
-| `examples/next-app-router` | Reference storefront (Next.js App Router) | no |
+| `packages/next` | Next.js server bindings: cache tags (`emporixTags`), `getEmporixClient`, the `/session` server-first entry (`withEmporixSession`, `emporixLogin`, `emporixTokenProxy`), the `/service` service-account entry, `emporixSiteProxy`, webhook route | yes (`@viu/emporix-sdk-next`) |
 | `examples/node-server` | Plain Node consumer (no React) | no |
+| `examples/vite-spa` | Smallest React integration (Vite); **the e2e suite boots this one** | no |
+| `examples/storefront-demo` | Complete reference storefront, 17 routes (Vite) | no |
+| `examples/next-app-router` | Next 16 with client-side hooks | no |
+| `examples/next-server-first` | Next 16, no token in the browser | no |
 | `e2e/` | Playwright end-to-end suite against the `viu` tenant | no |
 | `docs/` | Public docs (`auth.md`, `react.md`, `pagination.md`, `e2e.md`, ...) + design docs under `docs/superpowers/{specs,plans}/` | n/a |
+
+Which example answers which question: `examples/README.md`. Read it before
+picking one to copy from — the two Next examples differ by an architectural
+decision, not by style.
 
 ## Commands you'll use constantly
 

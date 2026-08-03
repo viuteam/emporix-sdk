@@ -12,9 +12,11 @@ commerce events, attachments, and agent export/import.
 > route handlers / server actions, or other trusted backends.
 >
 > **Storefront chat?** A browser chat using the per-user
-> `ai.agentexecution_manage_own` scope would need a **BFF / token-proxy** that
-> holds the service credentials and brokers each `chat` call. That proxy is out
-> of scope for this SDK; there is no React binding for the AI Service.
+> `ai.agentexecution_manage_own` scope needs a **token-proxy** that holds the
+> service credentials and brokers each `chat` call. For Next there is now a
+> starting point: `@viu/emporix-sdk-next/service` for the credentials and
+> `createEmporixPublicRoute` in `/session` as the shape to copy. There is still
+> no React binding for the AI Service.
 >
 > The **model is server-fixed** per tenant — there is no `model` parameter.
 
