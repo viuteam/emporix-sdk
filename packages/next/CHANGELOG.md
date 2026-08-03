@@ -1,5 +1,53 @@
 # @viu/emporix-sdk-next
 
+## 0.4.1
+
+### Patch Changes
+
+- [#199](https://github.com/viuteam/emporix-sdk/pull/199) [`86c841a`](https://github.com/viuteam/emporix-sdk/commit/86c841a914ccf7d55f868df9802425d7cbf57a78) Thanks [@amnael1](https://github.com/amnael1)! - Fixes the guest-to-customer cart merge in **store mode**. A shopper who filled a
+  cart as a guest and then logged in landed on an empty cart; their items stayed on
+  the guest cart, unreachable.
+
+  `emporixLogin`'s cart onboarding calls `withEmporixSessionMutable`, which builds
+  its **own** jar and branches on whether a customer token is stored. In cookie mode
+  `persistSession` writes through, so that jar sees the token and runs as the
+  customer. In store mode it only touched the in-memory record — so the second jar
+  read a store with no token yet and ran as a **guest**.
+
+  Two consequences followed from that one branch:
+  `carts.getCurrent(ctx, { create: true })` created a fresh anonymous cart instead of
+  returning the customer's, and the merge never reached Emporix at all — the SDK's
+  own `requireCustomerAuth` rejected the anonymous context locally.
+
+  `emporixLogin` now flushes before onboarding. Measured against a live tenant on
+  2026-08-03: a guest cart with one product, a customer already holding three, and
+  after login the cart showed **4 items** under the customer's id.
+
+  Cookie mode was never affected. A test asserts the fix on the store's **write
+  order** — the customer token has to reach the store before the final write —
+  because the request list cannot distinguish the two paths.
+
+- [#199](https://github.com/viuteam/emporix-sdk/pull/199) [`e60227d`](https://github.com/viuteam/emporix-sdk/commit/e60227debc2684f9687100701b14957341769503) Thanks [@amnael1](https://github.com/amnael1)! - Fixes store mode for logged-in customers. `emporixLogin`, `emporixRefresh` and
+  `emporixLogout` built their cookie jar without the `store` option, so in store
+  mode they silently ran on cookies however the caller was configured.
+
+  The effect was not a leak but a break: login wrote `customerToken`,
+  `refreshToken` and `saasToken` into real browser cookies, while
+  `emporixSession({ store })` read the store record — which had none of them — and
+  reported the visitor as anonymous. Logged in, and every reader said logged out.
+
+  `emporixLogout` hit the cookie-mode `destroy()` no-op, so the store record
+  survived the logout. The 0.4.0 notes claimed it destroyed the record. It did not.
+
+  Guest mode was never affected: it runs through `withEmporixSessionMutable`, which
+  threads the option correctly. That is also why the feature verified clean — every
+  store-mode check was a guest flow.
+
+  Five tests cover it, each failing before the fix. One of them asserts that
+  `emporixLogin` leaves **exactly one** session record: it builds two jars for one
+  request, and that only works because the first flush sets the sid cookie before
+  the second jar hydrates.
+
 ## 0.4.0
 
 ### Minor Changes
