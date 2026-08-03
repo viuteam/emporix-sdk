@@ -205,3 +205,33 @@ describe("lifetimes", () => {
     expect(entry?.ttl).toBeLessThanOrEqual(80 * 24 * 60 * 60);
   });
 });
+
+describe("all three readers see the store", () => {
+  it("emporixSession reads the session out of the store", async () => {
+    const store = fakeStore();
+    const seed = await sessionCookieJar({ store });
+    seed.set("emporix.customerToken", "tok-1", 3600);
+    seed.set("emporix.cartId", "cart-1", 3600);
+    await seed.flush();
+
+    const { emporixSession } = await import("../src/server-session");
+    const session = await emporixSession({ store });
+    expect(session.customerToken).toBe("tok-1");
+    expect(session.cartId).toBe("cart-1");
+  });
+
+  it("withEmporixSession resolves a customer context from the store", async () => {
+    const store = fakeStore();
+    const seed = await sessionCookieJar({ store });
+    seed.set("emporix.customerToken", "tok-1", 3600);
+    await seed.flush();
+
+    process.env.EMPORIX_TENANT = "viu";
+    process.env.EMPORIX_STOREFRONT_CLIENT_ID = "sf";
+    const { withEmporixSession } = await import("../src/session-client");
+    const ctx = await withEmporixSession(async (_c, c) => c, { store });
+    expect(ctx).toEqual({ kind: "customer", token: "tok-1" });
+    delete process.env.EMPORIX_TENANT;
+    delete process.env.EMPORIX_STOREFRONT_CLIENT_ID;
+  });
+});

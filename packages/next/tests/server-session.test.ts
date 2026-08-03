@@ -18,7 +18,14 @@ const jar = {
   },
 };
 
-vi.mock("next/headers", () => ({ cookies: () => Promise.resolve(jar) }));
+// `headers` is needed because emporixSession now goes through sessionCookieJar,
+// which derives `secure` — and therefore the __Host- prefix — from
+// x-forwarded-proto. Absent, the jar treats the request as plain http.
+const headerBag = new Map<string, string>();
+vi.mock("next/headers", () => ({
+  cookies: () => Promise.resolve(jar),
+  headers: () => Promise.resolve({ get: (k: string) => headerBag.get(k) ?? null }),
+}));
 
 // Imported after the mock is registered.
 const { emporixSession, emporixSessionMutable } = await import("../src/session");

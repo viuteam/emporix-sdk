@@ -3,6 +3,7 @@ import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 import { emporixRefresh } from "./session-auth";
 import { SESSION_EXPIRES_AT } from "./session-cookies";
 import { cookieName, readCookie, sealCookie } from "./cookie-name";
+import { SESSION_SID, type EmporixSessionStore } from "./session-store";
 import { emporixSiteProxy, type EmporixSite } from "./proxy";
 
 export interface EmporixTokenProxyOptions {
@@ -12,6 +13,12 @@ export interface EmporixTokenProxyOptions {
   rewriteTo?: string | URL;
   /** Refresh when the access token expires within this many seconds. Default 120. */
   skewSeconds?: number;
+  /**
+   * The session store, when one is configured. Without it the proxy reads the
+   * token from cookies — which in store mode would find only a sid and would
+   * never refresh anything.
+   */
+  store?: EmporixSessionStore;
 }
 
 /**
@@ -57,9 +64,24 @@ export async function emporixTokenProxy(
   const secure = request.nextUrl.protocol === "https:";
   const tokenCookie = cookieName(STORAGE_KEYS.customerToken, secure);
   const read = (wire: string): string | undefined => request.cookies.get(wire)?.value;
-  const token = readCookie(STORAGE_KEYS.customerToken, read);
+
+  // In store mode the cookies hold nothing but a sid, so the token has to come
+  // from the record. The jar is unavailable here — `cookies()` does not exist in
+  // a proxy — so this reads the store directly.
+  let token: string | null;
+  let expiryRaw: string | null;
+  if (opts.store !== undefined) {
+    const sid = readCookie(SESSION_SID, read);
+    const record = sid === null ? null : await opts.store.read(sid).catch(() => null);
+    token = record?.[STORAGE_KEYS.customerToken] ?? null;
+    expiryRaw = record?.[SESSION_EXPIRES_AT] ?? null;
+  } else {
+    token = readCookie(STORAGE_KEYS.customerToken, read);
+    expiryRaw = readCookie(SESSION_EXPIRES_AT, read);
+  }
+
   if (token !== null) {
-    const exp = storedExpiry(readCookie(SESSION_EXPIRES_AT, read) ?? undefined);
+    const exp = storedExpiry(expiryRaw ?? undefined);
     const skew = opts.skewSeconds ?? 120;
     // A missing expiry refreshes ONCE and then self-heals, because the refresh
     // writes the cookie. Refreshing on every request instead — which is what
@@ -67,10 +89,13 @@ export async function emporixTokenProxy(
     // access token on every page view.
     const stale = exp === null || exp - Math.floor(Date.now() / 1000) <= skew;
     if (stale) {
-      const fresh = await emporixRefresh();
-      if (fresh !== null) {
-        // Make the fresh token visible to THIS render, not just the next one.
-        // emporixRefresh already persisted it through the cookie jar.
+      const fresh = await emporixRefresh(
+        opts.store !== undefined ? { store: opts.store } : {},
+      );
+      if (fresh !== null && opts.store === undefined) {
+        // Cookie mode only: make the fresh token visible to THIS render, not
+        // just the next one. In store mode emporixRefresh already wrote the
+        // record and the render reads the record — there is nothing to inject.
         request.cookies.set(tokenCookie, sealCookie(STORAGE_KEYS.customerToken, fresh));
       }
     }

@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import type { AuthContext } from "@viu/emporix-sdk";
 import { cookieName, readCookie, sealCookie } from "./cookie-name";
+import { SESSION_MAX_AGE, sessionCookieJar } from "./session-cookies";
+import type { EmporixSessionStore } from "./session-store";
 import {
   createServerStorage,
   serverAuth,
@@ -19,6 +21,11 @@ export interface EmporixServerSession {
   siteCode: string | null;
   language: string | null;
   legalEntityId: string | null;
+  /**
+   * Persists a store-backed session. A no-op in cookie mode, where the storage
+   * setters already wrote through.
+   */
+  flush(): Promise<void>;
 }
 
 function build(storage: EmporixStorage): EmporixServerSession {
@@ -30,6 +37,7 @@ function build(storage: EmporixStorage): EmporixServerSession {
     siteCode: storage.getSiteCode(),
     language: storage.getLanguage(),
     legalEntityId: storage.getActiveLegalEntityId(),
+    flush: async () => {},
   };
 }
 
@@ -48,11 +56,17 @@ function build(storage: EmporixStorage): EmporixServerSession {
  * Note: pass a customer `auth` only to `getEmporixClient({ tagged: false })` —
  * see {@link createTaggingFetch}.
  */
-export async function emporixSession(): Promise<EmporixServerSession> {
-  const jar = await cookies();
-  const io: ServerCookieJar = {
-    get: (name) => readCookie(name, (wire) => jar.get(wire)?.value),
-  };
+export async function emporixSession(
+  opts: { store?: EmporixSessionStore } = {},
+): Promise<EmporixServerSession> {
+  // Goes through the session jar rather than cookies() directly: the jar knows
+  // the __Host- prefix, the codec, and — with a store — that the values are not
+  // in the browser at all.
+  const sessionJar = await sessionCookieJar({
+    readOnly: true,
+    ...(opts.store !== undefined ? { store: opts.store } : {}),
+  });
+  const io: ServerCookieJar = { get: (name) => sessionJar.get(name) };
   return build(createServerStorage(io));
 }
 
@@ -73,8 +87,27 @@ export async function emporixSessionMutable(
     sameSite?: "lax" | "strict" | "none";
     secure?: boolean;
     httpOnly?: boolean;
+    store?: EmporixSessionStore;
   } = {},
 ): Promise<EmporixServerSession> {
+  if (opts.store !== undefined) {
+    // Store mode ignores the attribute overrides: there is exactly one cookie
+    // left, the sid, and its attributes are the package's business. The
+    // overrides stay a cookie-mode feature rather than being widened into the
+    // jar for one caller.
+    const sessionJar = await sessionCookieJar({ store: opts.store });
+    const io: ServerCookieJar = {
+      get: (name) => sessionJar.get(name),
+      set: (name, value) => {
+        if (value === null) sessionJar.delete(name);
+        else sessionJar.set(name, value, SESSION_MAX_AGE.customerToken);
+      },
+    };
+    // `createServerStorage` writes synchronously, so the store write has to
+    // happen after the caller is done. Handing back a `flush` is the honest
+    // shape — a silent write-behind would lie about when state lands.
+    return { ...build(createServerStorage(io)), flush: () => sessionJar.flush() };
+  }
   const jar = await cookies();
   const attrs = {
     httpOnly: opts.httpOnly ?? true,

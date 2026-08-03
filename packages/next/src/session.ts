@@ -30,6 +30,11 @@ export {
 export { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 export { SESSION_MAX_AGE, sessionCookieJar, type SessionCookieJar } from "./session-cookies";
 export {
+  SESSION_GUEST_MAX,
+  SESSION_SID,
+  type EmporixSessionStore,
+} from "./session-store";
+export {
   withEmporixSession,
   withEmporixSessionMutable,
   type WithEmporixSessionOptions,
