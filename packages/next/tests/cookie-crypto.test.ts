@@ -78,3 +78,21 @@ describe("cookie encryption", () => {
     expect(cookieEncryptionEnabled()).toBe(false);
   });
 });
+
+describe("turning encryption off", () => {
+  it("treats a sealed value as unreadable when no secret is configured", async () => {
+    // The mirror of «rejects a plaintext value»: without this, dropping the
+    // secret hands the ciphertext straight through as if it were the value.
+    // Found live — Emporix answered 404 for a cart called «v1.0EnVJ4…».
+    const { openCookie } = await import("../src/cookie-name");
+    process.env.EMPORIX_COOKIE_SECRET = key();
+    const sealed = encryptCookie("emporix.cartId", "cart-1");
+    delete process.env.EMPORIX_COOKIE_SECRET;
+    expect(openCookie("emporix.cartId", sealed)).toBeNull();
+  });
+
+  it("still passes a genuine plaintext value through", async () => {
+    const { openCookie } = await import("../src/cookie-name");
+    expect(openCookie("emporix.cartId", "cart-1")).toBe("cart-1");
+  });
+});

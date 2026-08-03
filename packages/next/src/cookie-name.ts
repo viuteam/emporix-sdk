@@ -1,4 +1,9 @@
-import { cookieEncryptionEnabled, decryptCookie, encryptCookie } from "./cookie-crypto";
+import {
+  cookieEncryptionEnabled,
+  decryptCookie,
+  encryptCookie,
+  SEAL_MARKER,
+} from "./cookie-crypto";
 
 /**
  * The wire name of a session cookie.
@@ -36,7 +41,13 @@ export function sealCookie(name: string, value: string): string {
  */
 export function openCookie(name: string, raw: string | undefined): string | null {
   if (raw === undefined) return null;
-  if (!cookieEncryptionEnabled()) return raw;
+  if (!cookieEncryptionEnabled()) {
+    // Turning encryption OFF is the mirror of turning it on, and it was
+    // missing: a sealed value with no key configured is unreadable, not
+    // plaintext. Returning it handed a ciphertext to whatever expected a cart
+    // id — found live, as a 404 from Emporix for cart «v1.0EnVJ4…».
+    return raw.startsWith(SEAL_MARKER) ? null : raw;
+  }
   try {
     return decryptCookie(name, raw);
   } catch {

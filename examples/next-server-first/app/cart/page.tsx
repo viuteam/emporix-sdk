@@ -1,5 +1,5 @@
 import { STORAGE_KEYS, sessionCookieJar, withEmporixSession } from "@viu/emporix-sdk-next/session";
-import { EMPORIX } from "../emporix";
+import { EMPORIX, STORE_OPT } from "../emporix";
 
 /**
  * A guest cart READ in a Server Component.
@@ -12,7 +12,7 @@ export default async function CartPage(): Promise<React.JSX.Element> {
   // sessionCookieJar, not cookies(): it applies the __Host- prefix and the
   // codec. Reading raw would hand back ciphertext once EMPORIX_COOKIE_SECRET is
   // set — a cart id that Emporix has never heard of.
-  const jar = await sessionCookieJar({ readOnly: true });
+  const jar = await sessionCookieJar({ readOnly: true, ...STORE_OPT });
   const cartId = jar.get(STORAGE_KEYS.cartId);
   const cart =
     cartId === null

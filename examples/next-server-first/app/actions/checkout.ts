@@ -8,7 +8,7 @@ import {
   sessionCookieJar,
   withEmporixSessionMutable,
 } from "@viu/emporix-sdk-next/session";
-import { CONTEXT, EMPORIX, SITE } from "../emporix";
+import { CONTEXT, EMPORIX, SITE, STORE_OPT } from "../emporix";
 
 function field(form: FormData, name: string): string {
   return String(form.get(name) ?? "").trim();
@@ -44,7 +44,9 @@ function describe(e: unknown): string {
  * be readable by JavaScript, because the checkout runs in the browser.
  */
 export async function submitCheckout(formData: FormData): Promise<void> {
-  const jar = await sessionCookieJar();
+  // Read-only here: this jar only answers the early-exit question. The writes
+  // happen on the jar the wrapper hands over, which it also flushes.
+  const jar = await sessionCookieJar({ readOnly: true, ...STORE_OPT });
   const cartId = jar.get(STORAGE_KEYS.cartId);
   if (cartId === null) redirect("/checkout?error=No+cart");
   const saasToken = jar.get(STORAGE_KEYS.saasToken);
@@ -57,7 +59,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
 
   let orderId: string | undefined;
   try {
-    const result = await withEmporixSessionMutable(async (client, ctx) => {
+    const result = await withEmporixSessionMutable(async (client, ctx, sessionJar) => {
       const [cart, zones, customerId] = await Promise.all([
         client.carts.get(cartId, ctx),
         client.shipping.listZones(
@@ -122,10 +124,15 @@ export async function submitCheckout(formData: FormData): Promise<void> {
           : [{ provider: "custom", amount: total }],
       };
 
-      return client.checkout.placeOrder(input, ctx, {
+      const placed = await client.checkout.placeOrder(input, ctx, {
         ...(loggedIn && saasToken !== null ? { saasToken } : {}),
         siteCode: SITE.siteCode,
       });
+      // Emporix CLOSES the cart on a successful checkout. Dropping the id on the
+      // wrapper's jar means it is part of the one flush, rather than a write
+      // nobody persists in store mode.
+      sessionJar.delete(STORAGE_KEYS.cartId);
+      return placed;
     }, EMPORIX);
     orderId = result.orderId;
   } catch (e) {
@@ -134,9 +141,6 @@ export async function submitCheckout(formData: FormData): Promise<void> {
     redirect(`/checkout?error=${encodeURIComponent(describe(e))}`);
   }
 
-  // Emporix CLOSES the cart on a successful checkout. Keeping the id would
-  // point the cart page at a dead resource.
-  jar.delete(STORAGE_KEYS.cartId);
   revalidatePath("/cart");
   redirect(`/checkout/done?orderId=${encodeURIComponent(orderId ?? "")}`);
 }

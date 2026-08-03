@@ -235,3 +235,26 @@ describe("all three readers see the store", () => {
     delete process.env.EMPORIX_STOREFRONT_CLIENT_ID;
   });
 });
+
+describe("one jar per request", () => {
+  it("hands the callback the jar it flushes", async () => {
+    // Found live: the example built its OWN jar inside the callback, set a value
+    // on it, and never flushed — in cookie mode `set` wrote through, in store
+    // mode the value vanished. A second jar also mints a second session id and
+    // clobbers the sid cookie. The callback gets the real one so neither
+    // happens.
+    const store = fakeStore();
+    process.env.EMPORIX_TENANT = "viu";
+    process.env.EMPORIX_STOREFRONT_CLIENT_ID = "sf";
+    const { withEmporixSessionMutable } = await import("../src/session-client");
+    await withEmporixSessionMutable(async (_client, _ctx, jar) => {
+      jar.set("emporix.cartId", "cart-42", 3600);
+    }, { store });
+    delete process.env.EMPORIX_TENANT;
+    delete process.env.EMPORIX_STOREFRONT_CLIENT_ID;
+
+    expect(store.records.size).toBe(1);
+    const [entry] = [...store.records.values()];
+    expect(entry?.record["emporix.cartId"]).toBe("cart-42");
+  });
+});
