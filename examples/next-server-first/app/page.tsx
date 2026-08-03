@@ -26,6 +26,11 @@ export default async function Home(): Promise<React.JSX.Element> {
         Adding needs a price — Emporix requires a <code>priceId</code> on internal
         cart items, so a product without one shows no button.
       </p>
+      <p>
+        <a href={`/category/${PRICED_CATEGORY}`} className="u-underline">
+          Browse the category with pagination →
+        </a>
+      </p>
       <Typeahead />
       <ProductGrid products={page.items} priceOf={priceOf} />
     </main>

@@ -163,6 +163,36 @@ What this does **not** prove: that the re-read corrects a stale **non-zero**
 count. That needs the merge path to fire with a differing item count, and on this
 tenant it does not fire at all — see the section below.
 
+## Pagination is a URL here, not a «Load more» button
+
+`/category/[id]` reads `?page=N`. storefront-demo uses
+`useProductsInCategoryInfinite` and appends pages to a list, which needs client
+state to hold the accumulation — there is none in this mode, so this **pages**
+instead. A real behavioural difference, and the trade is not one-sided: page 3 is
+a URL that can be linked, bookmarked and crawled, which an accumulating list
+cannot.
+
+**Verified 2026-08-03** with `PAGE_SIZE` temporarily at 5, against a category
+holding 11 products:
+
+| URL | Products | Page links rendered |
+|---|---|---|
+| `?page=1` | 5 | `2` — no Previous |
+| `?page=2` | 5 | `1` and `3` |
+| `?page=3` | 1 | `2` — **no Next**, `hasNextPage` is false on the last page |
+| `?page=4` | 0 | none, «Nothing on page 4 · Back to page 1» |
+| `?page=0`, `?page=abc`, `?page=-5` | 5 | page 1 — the bound holds |
+
+The `?page=4` row is a fix that came out of the check: it first said «No products
+in this category», which is a lie about a category holding eleven. A page number
+in a URL is exactly the kind of thing that goes stale in a bookmark.
+
+**The subcategory nav never renders on this tenant.** `categories.subcategories`
+reads category-to-category *assignments*, and `viu` keeps its hierarchy in
+category trees — all of the first 40 categories answered with an empty list.
+storefront-demo's equivalent nav is dead here for the same reason; it calls the
+same function. Kept in both, because other tenants do use assignments.
+
 ## The catalog/cart split
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use
