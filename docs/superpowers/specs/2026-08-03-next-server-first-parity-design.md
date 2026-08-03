@@ -385,6 +385,18 @@ Ausführen verifiziert.
 PR 0 ist kein Teil der Paritätsarbeit und läuft allein, damit die Korrektur des
 Changesets nicht in einer Feature-PR untergeht.
 
+**Nachtrag vom 2026-08-03, beim Planen entstanden:** aus PR 1 wurden **zwei**.
+Der Sprach- und Site-Umschalter, hier in Muster 1 als Nebenklausel geführt, stellt
+den Emporix-Kontext **jeder** Leserstelle von einer Modulkonstante auf die Session
+um und löscht dabei `CONTEXT` und `EMPORIX` aus `app/emporix.ts`. Er muss deshalb
+**zuletzt** laufen, nach PR 5, sonst bricht er jede Seite, die danach noch
+entsteht. Es sind also sieben PRs; der Plan führt ihn als Task 6.1.
+
+Dazu kam eine Messung, die vor der Umsetzung fällig ist: hat der `viu`-Tenant nur
+**eine** Site, demonstriert ein Site-Umschalter nichts und ist nicht
+verifizierbar. Dann bleibt nur der Sprach-Umschalter — nach derselben Regel, die
+`/reset-password` ausschliesst.
+
 ## Risiken
 
 **Die CSS-Kopplung ist bewusst in Kauf genommen.** Die zwei CSS-Dateien werden
