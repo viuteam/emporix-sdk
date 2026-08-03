@@ -104,8 +104,14 @@ export function getEmporixClient(opts: GetEmporixClientOptions = {}): EmporixCli
   const revalidate = opts.revalidate ?? 3600;
 
   // JSON.stringify is key-order-dependent, so the same context written with its
-  // fields in a different order yields a second instance. Wasteful, not wrong —
-  // and the context is written once per app, in one place.
+  // fields in a different order yields a second instance. Wasteful, not wrong.
+  //
+  // The map grows with the number of DISTINCT contexts, not with requests. An app
+  // that derives the context per request — a visitor's language or site choice,
+  // as `examples/next-server-first` does — therefore holds one client per
+  // combination that actually occurs. Bounded by the configuration, not by
+  // traffic, and no state crosses between visitors: the context is part of the
+  // key, so two languages cannot share an instance.
   const key = `${tenant}|${clientId}|${host ?? ""}|${tagged}|${revalidate}|${JSON.stringify(opts.context ?? {})}`;
   const cached = clients.get(key);
   if (cached) return cached;

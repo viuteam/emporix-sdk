@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { useProduct } from "@viu/emporix-sdk-react";
 import { productName, productDescription, productImages } from "../lib/adapters";
 import { usePrices } from "../lib/usePrices";
-import { money } from "../lib/format";
+import { money } from "@viu/emporix-examples-shared";
 import { ProductGallery } from "../catalog/ProductGallery";
 import { VariantPicker } from "../catalog/VariantPicker";
 import { AddToCartBar } from "../catalog/AddToCartBar";

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useMyReturns } from "@viu/emporix-sdk-react";
-import { money, dateFmt } from "../../lib/format";
+import { money, dateFmt } from "@viu/emporix-examples-shared";
 import { Loading } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { RequireAuth } from "./RequireAuth";

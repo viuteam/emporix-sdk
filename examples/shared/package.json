@@ -1,0 +1,20 @@
+{
+  "name": "@viu/emporix-examples-shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no tests — examples are verified by typecheck, build and running them\"",
+    "lint": "echo \"no lint — examples are verified by typecheck, build and running them\""
+  },
+  "dependencies": {
+    "@viu/emporix-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

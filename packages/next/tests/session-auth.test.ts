@@ -21,6 +21,8 @@ const { emporixLogin, emporixLogout, emporixRefresh, assertSameOrigin } = await 
   "../src/session-auth"
 );
 const { __resetEmporixClients } = await import("../src/client");
+const { SESSION_SID } = await import("../src/session-store");
+type SessionStore = import("../src/session-store").EmporixSessionStore;
 
 interface Call {
   url: string;
@@ -28,7 +30,16 @@ interface Call {
   body: string;
 }
 
-function stubFetch(opts: { cartStatus?: number } = {}): { urls: string[]; calls: Call[] } {
+function stubFetch(
+  opts: {
+    cartStatus?: number;
+    /**
+     * Status for the merge call only. Live it is **404** whenever a guest cart is
+     * involved: a customer token cannot see an anonymous cart.
+     */
+    mergeStatus?: number;
+  } = {},
+): { urls: string[]; calls: Call[] } {
   const urls: string[] = [];
   const calls: Call[] = [];
   vi.stubGlobal(
@@ -37,6 +48,18 @@ function stubFetch(opts: { cartStatus?: number } = {}): { urls: string[]; calls:
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       urls.push(url);
       calls.push({ url, method: init?.method ?? "GET", body: String(init?.body ?? "") });
+
+      // Before the generic /cart/ branch, so a merge can fail on its own while
+      // `getCurrent` still answers.
+      if (url.includes("/merge") && opts.mergeStatus !== undefined) {
+        return new Response(
+          JSON.stringify({
+            code: opts.mergeStatus,
+            message: "Cart with code guest-cart not found.",
+          }),
+          { status: opts.mergeStatus, headers: { "Content-Type": "application/json" } },
+        );
+      }
 
       if (url.includes("/cart/")) {
         const status = opts.cartStatus ?? 200;
@@ -175,6 +198,28 @@ describe("emporixLogin cart onboarding", () => {
     bag.set("emporix.cartId", { name: "emporix.cartId", value: "cust-cart" });
     await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
     expect(f.calls.some((c) => c.url.includes("/merge"))).toBe(false);
+  });
+
+  it("KEEPS the guest cart when the merge is refused", async () => {
+    // The merge normally succeeds — verified live on 2026-08-03, a guest product
+    // landed in the customer's cart. This covers the failure branch: if a merge
+    // ever is refused, the shopper must stay on the cart their items are in
+    // rather than be moved onto one they are not.
+    //
+    // Catching the failure and writing the customer cart id anyway was tried and
+    // reverted the same day: it put the shopper on «0 item(s)».
+    //
+    // If this test starts failing, someone has added that catch back. Read the
+    // comment in `onboardCart` before changing it.
+    const f = stubFetch({ mergeStatus: 404 });
+    bag.set("emporix.cartId", { name: "emporix.cartId", value: "guest-cart" });
+
+    await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
+
+    expect(f.calls.some((c) => c.url.includes("/merge"))).toBe(true);
+    expect(bag.get("emporix.cartId")?.value).toBe("guest-cart");
+    // And the login itself must survive it.
+    expect(bag.get("emporix.customerToken")?.value).toBe("cust-tok");
   });
 
   it("logs in anyway when the cart call fails", async () => {
@@ -342,5 +387,149 @@ describe("the absolute session ceiling", () => {
     bag.set("emporix.refreshToken", { name: "emporix.refreshToken", value: "old-refresh" });
     expect(await emporixRefresh()).toBe("cust-tok");
     expect(bag.get("emporix.sessionStartedAt")).toBeDefined();
+  });
+});
+
+/** A store that records what it was asked to do — that is the evidence here. */
+function fakeStore(): SessionStore & {
+  records: Map<string, Record<string, string>>;
+  destroyed: string[];
+  /** Every write in order — the order is what some of these tests are about. */
+  writes: Array<Record<string, string>>;
+} {
+  const records = new Map<string, Record<string, string>>();
+  const destroyed: string[] = [];
+  const writes: Array<Record<string, string>> = [];
+  return {
+    records,
+    destroyed,
+    writes,
+    read: async (id) => records.get(id) ?? null,
+    write: async (id, record) => {
+      writes.push({ ...record });
+      records.set(id, { ...record });
+    },
+    destroy: async (id) => {
+      destroyed.push(id);
+      records.delete(id);
+    },
+  };
+}
+
+/** Reads the single session record, or throws with a message worth reading. */
+function onlyRecord(store: ReturnType<typeof fakeStore>): Record<string, string> {
+  const all = [...store.records.values()];
+  if (all.length !== 1) throw new Error(`expected exactly one record, got ${all.length}`);
+  return all[0] as Record<string, string>;
+}
+
+describe("the three auth functions in store mode", () => {
+  // All three built their jar with `sessionCookieJar()` — no options — so they
+  // silently ran in cookie mode however the caller was configured. Guest flows
+  // were fine because they go through `withEmporixSessionMutable`, which threads
+  // the option; the customer path was not, and shipped that way in 0.4.0.
+
+  it("emporixLogin keeps the customer token out of the browser", async () => {
+    stubFetch();
+    const store = fakeStore();
+    await emporixLogin({ email: "a@b.test", password: "pw" }, { store, ...SITED });
+
+    // Two-sided on purpose. Asserting only the absence would pass if login wrote
+    // nothing at all; asserting only the record would pass while a copy also sat
+    // in a cookie.
+    expect(bag.get("emporix.customerToken")).toBeUndefined();
+    expect(onlyRecord(store)["emporix.customerToken"]).toBe("cust-tok");
+  });
+
+  it("emporixLogin keeps the saasToken out of the browser", async () => {
+    // The saasToken is the one that authorizes an order. Its JWT payload never
+    // reaching the browser is the headline claim of store mode.
+    stubFetch();
+    const store = fakeStore();
+    await emporixLogin({ email: "a@b.test", password: "pw" }, { store, ...SITED });
+
+    expect(bag.get("emporix.saasToken")).toBeUndefined();
+    expect(onlyRecord(store)["emporix.saasToken"]).toBe("saas-tok");
+  });
+
+  it("emporixLogin leaves exactly ONE session record", async () => {
+    // emporixLogin builds two jars: the one inside withEmporixSessionMutable and
+    // its own. Two jars for one request is what the store spec warns about — a
+    // second jar mints a second session id. It works here only because the first
+    // flush sets the sid cookie BEFORE the second jar hydrates. This test is what
+    // notices if that ordering ever changes.
+    stubFetch();
+    const store = fakeStore();
+    await emporixLogin({ email: "a@b.test", password: "pw" }, { store, ...SITED });
+
+    expect(store.records.size).toBe(1);
+    // And the guest half of the session is in the same record as the customer
+    // half — proof the second jar hydrated the first one's write.
+    expect(onlyRecord(store)["emporix.sessionStartedAt"]).toBeDefined();
+  });
+
+  it("emporixRefresh rotates the token inside the record", async () => {
+    stubFetch();
+    const store = fakeStore();
+    const sid = "sid-under-test";
+    store.records.set(sid, { "emporix.refreshToken": "old-refresh" });
+    bag.set(SESSION_SID, { name: SESSION_SID, value: sid });
+
+    expect(await emporixRefresh({ store })).toBe("cust-tok");
+
+    expect(store.records.get(sid)?.["emporix.refreshToken"]).toBe("cust-refresh");
+    expect(bag.get("emporix.refreshToken")).toBeUndefined();
+  });
+
+  it("emporixLogin onboards the cart as the CUSTOMER, not as a guest", async () => {
+    // The store-mode bug this pins, measured on 2026-08-03 with instrumentation
+    // inside `onboardCart`:
+    //
+    //   authKind=anonymous  getCurrent=<a NEW empty cart>  customerIdOnCart=(none)
+    //   merge FAILED: cart.merge requires a { kind: 'customer' } AuthContext
+    //
+    // `onboardCart` builds its own jar and branches on whether a customer token is
+    // stored. In cookie mode `persistSession` writes through, so it sees one. In
+    // store mode it only touches the in-memory record, so without a flush first
+    // that second jar reads a store with no token and runs as a GUEST — and then
+    // `getCurrent` creates a fresh anonymous cart while the merge never leaves the
+    // SDK. A guest who logged in landed on an empty cart.
+    //
+    // Asserted on the store's WRITE ORDER rather than on the request list. The
+    // request list cannot tell the two apart here — the stub answers a merge
+    // whichever auth reached it — but the mechanism is precisely «is the customer
+    // token in the store before the onboarding builds its jar?». That is a
+    // write that must land BEFORE the final one.
+    const store = fakeStore();
+    const sid = "sid-onboarding";
+    store.records.set(sid, { "emporix.cartId": "guest-cart" });
+    bag.set(SESSION_SID, { name: SESSION_SID, value: sid });
+    stubFetch();
+
+    await emporixLogin({ email: "a@b.test", password: "pw" }, { store, ...SITED });
+
+    const withToken = store.writes
+      .map((r, i) => ("emporix.customerToken" in r ? i : -1))
+      .filter((i) => i >= 0);
+    // At least two: the flush before the onboarding, and the final one. Only one
+    // means the token first reached the store after the onboarding had already run.
+    expect(withToken.length).toBeGreaterThanOrEqual(2);
+    expect(withToken[0]).toBeLessThan(store.writes.length - 1);
+  });
+
+  it("emporixLogout destroys the record", async () => {
+    // The 0.4.0 notes claimed this already worked. It did not: destroy() was the
+    // cookie-mode no-op, so the record outlived the logout — and revoking a
+    // single session is the entire reason the store exists.
+    stubFetch();
+    const store = fakeStore();
+    const sid = "sid-to-destroy";
+    store.records.set(sid, { "emporix.customerToken": "cust-tok" });
+    bag.set(SESSION_SID, { name: SESSION_SID, value: sid });
+
+    await emporixLogout({ store });
+
+    expect(store.destroyed).toEqual([sid]);
+    expect(store.records.has(sid)).toBe(false);
   });
 });

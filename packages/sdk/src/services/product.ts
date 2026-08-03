@@ -164,13 +164,39 @@ export class ProductService {
    * so a bare term (e.g. "in time") 400s with "No value for key …". This builds
    * a `name:(~<term>)` regex filter (regex metacharacters escaped) and delegates
    * to {@link search}.
+   *
+   * Safe for text a shopper typed: `( ) "` are **removed** rather than escaped,
+   * because Emporix parses the filter's own structure before it looks at the
+   * regex. `name:(~a \()` is rejected with «Missing closing parenthesis in value»
+   * even though the paren is escaped, so a search box would 400 on an opening
+   * bracket. Measured against a live tenant on 2026-08-03: of every regex
+   * metacharacter only those three break; the rest survive escaping.
+   *
+   * A query consisting solely of those characters leaves nothing to search for and
+   * returns an empty page without a request — `name:(~)` is a 400.
    */
   async searchByName(
     query: string,
     params: { pageNumber?: number; pageSize?: number } = {},
     auth: AuthContext = ANON,
   ): Promise<PaginatedItems<Product>> {
-    const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Replaced by a space rather than dropped, so «Access(JIT)» does not become
+    // one run-together word — and then collapsed, because a leftover double space
+    // is two LITERAL spaces in the regex and would match nothing.
+    const term = query
+      .replace(/[()"]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (term === "") {
+      // Defaults mirror `search`, so the shape matches a real answer.
+      return {
+        items: [],
+        pageNumber: params.pageNumber ?? 1,
+        pageSize: params.pageSize ?? 50,
+        hasNextPage: false,
+      };
+    }
+    const escaped = term.replace(/[.*+?^${}|[\]\\]/g, "\\$&");
     return this.search(`name:(~${escaped})`, params, auth);
   }
 

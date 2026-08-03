@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  SESSION_MAX_AGE,
-  STORAGE_KEYS,
-  withEmporixSessionMutable,
-} from "@viu/emporix-sdk-next/session";
-import { EMPORIX, SITE } from "../emporix";
+import type { AuthContext, EmporixClient } from "@viu/emporix-sdk";
+import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
+import { setCart } from "../lib/cart-session";
+import { describeError } from "../lib/describe-error";
+import type { ActionState } from "../components/action-form";
+import { SITE } from "../emporix";
+import { emporixOptions } from "../lib/site-context";
 
 /** The matched-price fields the cart needs. Read loosely — the generated type is wider. */
 interface MatchedPrice {
@@ -53,7 +54,8 @@ export async function addToCart(productId: string): Promise<void> {
       const cart = await client.carts.getCurrent(ctx, { siteCode: SITE.siteCode, create: true });
       cartId = cart?.id ?? null;
       if (cartId === null) throw new Error("Emporix returned no cart");
-      jar.set(STORAGE_KEYS.cartId, cartId, SESSION_MAX_AGE.cartId);
+      // setCart, not jar.set: it writes the shell's line count alongside the id.
+      setCart(jar, cartId, cart ?? undefined);
     }
 
     await client.carts.addItem(
@@ -70,7 +72,71 @@ export async function addToCart(productId: string): Promise<void> {
       },
       ctx,
     );
-  }, EMPORIX);
+
+    // `addItem` returns nothing useful, so read the cart back for the count.
+    // One extra GET per add, which is what buys a shell that costs zero calls on
+    // every OTHER page view.
+    setCart(jar, cartId, await client.carts.get(cartId, ctx));
+  }, await emporixOptions());
   revalidatePath("/cart");
   revalidatePath("/");
+}
+
+/**
+ * The shared frame for every cart mutation: find the cart, mutate it, pull the
+ * count forward, revalidate — and return the error instead of throwing it.
+ *
+ * One frame rather than four copies, because the count and the two
+ * `revalidatePath` calls are exactly the kind of thing that drifts when repeated.
+ */
+async function mutateCart(
+  fn: (client: EmporixClient, ctx: AuthContext, cartId: string) => Promise<unknown>,
+): Promise<ActionState> {
+  try {
+    await withEmporixSessionMutable(async (client, ctx, jar) => {
+      const cartId = jar.get(STORAGE_KEYS.cartId);
+      if (cartId === null) throw new Error("No cart to change.");
+      await fn(client, ctx, cartId);
+      // Re-read rather than trusting what the mutation answered. Those answers
+      // carry no `id` — the earlier version passed one straight to setCart and a
+      // quantity change deleted the cart out of the session. Their `items` is
+      // just as unverified, so this pays one GET per mutation for a count that
+      // is actually right.
+      setCart(jar, cartId, await client.carts.get(cartId, ctx));
+    }, await emporixOptions());
+  } catch (e) {
+    return { error: describeError(e) };
+  }
+  revalidatePath("/cart");
+  revalidatePath("/");
+  return { error: null };
+}
+
+export async function setQuantity(_state: ActionState, form: FormData): Promise<ActionState> {
+  const itemId = String(form.get("itemId"));
+  const quantity = Number(form.get("quantity"));
+  // Checked here, not just by the input's `min`: the number arrives from a form
+  // and `<input min>` is a hint to the browser, not a guarantee to the server.
+  if (!Number.isInteger(quantity) || quantity < 1) return { error: "Quantity must be 1 or more." };
+  return mutateCart((client, ctx, cartId) =>
+    // `partial: true` sends the quantity alone. Without it the PUT replaces the
+    // whole line and Emporix wants `itemYrn` and the price row back with it.
+    client.carts.updateItem(cartId, itemId, { quantity }, ctx, { partial: true }),
+  );
+}
+
+export async function removeLine(_state: ActionState, form: FormData): Promise<ActionState> {
+  const itemId = String(form.get("itemId"));
+  return mutateCart((client, ctx, cartId) => client.carts.removeItem(cartId, itemId, ctx));
+}
+
+export async function applyCoupon(_state: ActionState, form: FormData): Promise<ActionState> {
+  const code = String(form.get("code")).trim();
+  if (code === "") return { error: "Enter a coupon code." };
+  return mutateCart((client, ctx, cartId) => client.carts.applyCoupon(cartId, code, ctx));
+}
+
+export async function removeCoupon(_state: ActionState, form: FormData): Promise<ActionState> {
+  const code = String(form.get("code"));
+  return mutateCart((client, ctx, cartId) => client.carts.removeCoupon(cartId, code, ctx));
 }

@@ -1,7 +1,9 @@
 import { pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
+import { pickText } from "@viu/emporix-examples-shared";
 import { STORAGE_KEYS, sessionCookieJar, withEmporixSession } from "@viu/emporix-sdk-next/session";
-import { CONTEXT, EMPORIX, SITE, STORE_OPT } from "../emporix";
+import { SITE, STORE_OPT } from "../emporix";
 import { submitCheckout } from "../actions/checkout";
+import { siteContext, emporixOptions } from "../lib/site-context";
 
 /** `LocalizedValue` is `string | Record<string, string>`. Pick something showable. */
 function label(name: string | Record<string, string> | undefined, fallback: string): string {
@@ -16,6 +18,9 @@ export default async function CheckoutPage({
   searchParams: Promise<{ error?: string }>;
 }): Promise<React.JSX.Element> {
   const { error } = await searchParams;
+  // The shipping country comes from the session context now, not a module
+  // constant — same source the Emporix calls below bind.
+  const { targetLocation } = await siteContext();
   const cartId = (await sessionCookieJar({ readOnly: true, ...STORE_OPT })).get(
     STORAGE_KEYS.cartId,
   );
@@ -30,26 +35,30 @@ export default async function CheckoutPage({
     );
   }
 
-  // ONE session, four parallel calls. Four separate withEmporixSession calls
-  // would build four guest clients and redeem the same anonymous refresh token
-  // four times over — see session-client.ts, newGuestClient.
-  const { cart, modes, zones, addresses } = await withEmporixSession(async (c, ctx) => {
-    const [cart, modes, zones, addresses] = await Promise.all([
+  // ONE session, five parallel calls. Five separate withEmporixSession calls
+  // would build five guest clients and redeem the same anonymous refresh token
+  // five times over — see session-client.ts, newGuestClient.
+  const { cart, modes, zones, addresses, me } = await withEmporixSession(async (c, ctx) => {
+    const [cart, modes, zones, addresses, me] = await Promise.all([
       c.carts.get(cartId, ctx),
       c.payments.listPaymentModes(ctx),
       c.shipping.listZones(SITE.siteCode, { expand: "methods,fees", activeMethods: "true" }, ctx),
       // A guest throws EmporixAuthError locally, an expired token 401s. Both
       // mean "no saved addresses", and neither deserves a second code path.
       c.customers.addresses.list(ctx).catch(() => [] as Address[]),
+      // Same story for the profile: a guest has none, and then the contact
+      // fields simply start empty. Added because a logged-in shopper was
+      // retyping their own name into a form the server could fill.
+      c.customers.me(ctx).catch(() => undefined),
     ]);
-    return { cart, modes, zones, addresses };
-  }, EMPORIX);
+    return { cart, modes, zones, addresses, me };
+  }, await emporixOptions());
 
   const total = cart.totalPrice?.amount ?? 0;
   // ponytail: the zone is resolved for the configured country only. Typing a
   // different country leaves this radio list stale — the action re-resolves and
   // wins. Upgrade path: a separate GET form for the country, or a client island.
-  const zone = resolveZone(zones, CONTEXT.targetLocation);
+  const zone = resolveZone(zones, targetLocation);
   const methods = zone?.methods ?? [];
   const saved = addresses.find((a) => a.isDefault) ?? addresses[0];
 
@@ -64,9 +73,25 @@ export default async function CheckoutPage({
       <form action={submitCheckout}>
         <fieldset>
           <legend>Contact</legend>
-          <input name="email" type="email" placeholder="email" required />
-          <input name="firstName" placeholder="first name" required />
-          <input name="lastName" placeholder="last name" required />
+          <input
+            name="email"
+            type="email"
+            placeholder="email"
+            required
+            defaultValue={pickText(me?.contactEmail, "")}
+          />
+          <input
+            name="firstName"
+            placeholder="first name"
+            required
+            defaultValue={pickText(me?.firstName, "")}
+          />
+          <input
+            name="lastName"
+            placeholder="last name"
+            required
+            defaultValue={pickText(me?.lastName, "")}
+          />
         </fieldset>
 
         <fieldset>
@@ -79,14 +104,14 @@ export default async function CheckoutPage({
             name="country"
             placeholder="country"
             required
-            defaultValue={saved?.country ?? CONTEXT.targetLocation}
+            defaultValue={saved?.country ?? targetLocation}
           />
         </fieldset>
 
         <fieldset>
           <legend>Shipping</legend>
           {methods.length === 0 ? (
-            <p>No configured method for {CONTEXT.targetLocation} — free shipping applies.</p>
+            <p>No configured method for {targetLocation} — free shipping applies.</p>
           ) : (
             methods.map((m, i) => (
               <label key={m.id}>

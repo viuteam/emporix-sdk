@@ -63,10 +63,32 @@ export async function emporixLogin(
     opts,
   );
 
-  const jar = await sessionCookieJar();
+  // `opts.store` matters here, not just in `withEmporixSessionMutable`. Without
+  // it this jar is a cookie jar however the caller was configured, so store mode
+  // wrote the tokens into the browser while every reader looked in the store and
+  // found nothing. Spread conditionally: exactOptionalPropertyTypes rejects
+  // `{ store: undefined }`.
+  const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
   persistSession(jar, session);
   // The ceiling starts here and is never rewritten — see SESSION_STARTED_AT.
   jar.set(SESSION_STARTED_AT, String(Math.floor(Date.now() / 1000)), SESSION_ABSOLUTE_MAX);
+  // Flush BEFORE onboarding, and this is not an optimisation.
+  //
+  // `onboardCart` calls `withEmporixSessionMutable`, which builds its OWN jar and
+  // branches on whether a customer token is stored. In cookie mode `persistSession`
+  // above wrote through, so that jar sees the token and takes the customer path.
+  // In store mode it only touched the in-memory record — so without this flush the
+  // second jar reads a store that has no customer token yet and runs as a GUEST.
+  //
+  // Measured on 2026-08-03 with instrumentation inside `onboardCart`:
+  //   authKind=anonymous  getCurrent=<a NEW empty cart>  customerIdOnCart=(none)
+  //   merge FAILED: cart.merge requires a { kind: 'customer' } AuthContext
+  //
+  // Two consequences, both shopper-visible: `getCurrent` created a fresh anonymous
+  // cart instead of finding the customer's, and the merge never reached Emporix —
+  // the SDK's own `requireCustomerAuth` rejected it. So a guest who logged in
+  // landed on an empty cart, in store mode only.
+  await jar.flush();
   // Must run AFTER persistSession: it resolves through the customer token this
   // just wrote, and BEFORE the anonymous session is dropped.
   await onboardCart(jar, opts);
@@ -103,7 +125,14 @@ async function onboardCart(
       const customerCartId = cart?.id;
       if (customerCartId === undefined) return;
       const guestCartId = jar.get(STORAGE_KEYS.cartId);
+
       if (guestCartId !== null && guestCartId !== customerCartId) {
+        // NO try/catch here, deliberately. A merge that fails must abort before
+        // the `jar.set` below, so the session keeps pointing at the guest cart
+        // rather than moving the shopper onto a cart their items are not in.
+        // Catching it and writing the id anyway was tried on 2026-08-03 and
+        // reverted the same day: it put the shopper on `0 item(s)`.
+        //
         // The path id is the CUSTOMER cart (the target); the body lists the
         // anonymous carts merged into it. Easy to invert.
         await client.carts.merge(customerCartId, [guestCartId], ctx);
@@ -148,7 +177,12 @@ function persistSession(jar: SessionCookieJar, session: CustomerSession): void {
 export async function emporixRefresh(
   opts: WithEmporixSessionOptions = {},
 ): Promise<string | null> {
-  const jar = await sessionCookieJar();
+  // `opts.store` matters here, not just in `withEmporixSessionMutable`. Without
+  // it this jar is a cookie jar however the caller was configured, so store mode
+  // wrote the tokens into the browser while every reader looked in the store and
+  // found nothing. Spread conditionally: exactOptionalPropertyTypes rejects
+  // `{ store: undefined }`.
+  const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
   const startedAt = stampedAt(jar.get(SESSION_STARTED_AT));
   if (startedAt === null) {
     // A session from before this shipped carries no stamp. Adopt it rather
@@ -226,7 +260,12 @@ function stampedAt(raw: string | null): number | null {
  * failed invalidation.
  */
 export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promise<void> {
-  const jar = await sessionCookieJar();
+  // `opts.store` matters here, not just in `withEmporixSessionMutable`. Without
+  // it this jar is a cookie jar however the caller was configured, so store mode
+  // wrote the tokens into the browser while every reader looked in the store and
+  // found nothing. Spread conditionally: exactOptionalPropertyTypes rejects
+  // `{ store: undefined }`.
+  const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
   const token = jar.get(STORAGE_KEYS.customerToken);
   if (token !== null) {
     try {

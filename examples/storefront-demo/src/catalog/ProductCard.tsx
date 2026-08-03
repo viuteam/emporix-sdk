@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import type { ProductCardVM, PriceVM } from "../lib/adapters";
-import { money } from "../lib/format";
+import { money } from "@viu/emporix-examples-shared";
 
 export function ProductCard({
   vm,

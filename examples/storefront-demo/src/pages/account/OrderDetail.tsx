@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useOrder, useReorder, useCancelOrder } from "@viu/emporix-sdk-react";
 import { orderVM, orderItems } from "../../lib/adapters";
-import { money, dateFmt } from "../../lib/format";
+import { money, dateFmt } from "@viu/emporix-examples-shared";
 import { ReturnForm } from "../../account/ReturnForm";
 import { Button } from "../../components/ui/Button";
 import { Loading } from "../../components/ui/Spinner";

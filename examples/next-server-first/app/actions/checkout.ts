@@ -2,13 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { EmporixError, pickFee, resolveZone, type CheckoutInput } from "@viu/emporix-sdk";
+import { pickFee, resolveZone, type CheckoutInput } from "@viu/emporix-sdk";
 import {
   STORAGE_KEYS,
   sessionCookieJar,
   withEmporixSessionMutable,
 } from "@viu/emporix-sdk-next/session";
-import { CONTEXT, EMPORIX, SITE, STORE_OPT } from "../emporix";
+import { SITE, STORE_OPT } from "../emporix";
+import { clearCart } from "../lib/cart-session";
+import { describeError } from "../lib/describe-error";
+import { siteContext, emporixOptions } from "../lib/site-context";
 
 function field(form: FormData, name: string): string {
   return String(form.get(name) ?? "").trim();
@@ -19,21 +22,6 @@ function label(name: string | Record<string, string> | undefined, fallback: stri
   if (typeof name === "string") return name;
   if (name) return Object.values(name)[0] ?? fallback;
   return fallback;
-}
-
-/**
- * An error message worth reading.
- *
- * `EmporixError.message` is only the status line; the reason lives in `.body`.
- * Dropping it turns «400» into a guessing game — which is exactly what happened
- * while building this page.
- */
-function describe(e: unknown): string {
-  if (e instanceof EmporixError) {
-    const detail = typeof e.body === "string" ? e.body : JSON.stringify(e.body);
-    return `${e.message} — ${detail}`;
-  }
-  return e instanceof Error ? e.message : String(e);
 }
 
 /**
@@ -52,7 +40,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
   const saasToken = jar.get(STORAGE_KEYS.saasToken);
   const loggedIn = jar.get(STORAGE_KEYS.customerToken) !== null;
 
-  const country = field(formData, "country") || CONTEXT.targetLocation;
+  const country = field(formData, "country") || (await siteContext()).targetLocation;
   const firstName = field(formData, "firstName");
   const lastName = field(formData, "lastName");
   const modeId = field(formData, "modeId");
@@ -128,17 +116,18 @@ export async function submitCheckout(formData: FormData): Promise<void> {
         ...(loggedIn && saasToken !== null ? { saasToken } : {}),
         siteCode: SITE.siteCode,
       });
-      // Emporix CLOSES the cart on a successful checkout. Dropping the id on the
-      // wrapper's jar means it is part of the one flush, rather than a write
-      // nobody persists in store mode.
-      sessionJar.delete(STORAGE_KEYS.cartId);
+      // Emporix CLOSES the cart on a successful checkout. Dropping it through
+      // setCart clears the shell's count too — deleting only the id would leave
+      // a badge pointing at a cart that no longer exists. On the wrapper's jar,
+      // so it is part of the one flush rather than a write nobody persists.
+      clearCart(sessionJar);
       return placed;
-    }, EMPORIX);
+    }, await emporixOptions());
     orderId = result.orderId;
   } catch (e) {
     // `redirect()` works by throwing. Every success redirect therefore lives
     // OUTSIDE this try — catching one's own redirect would swallow it.
-    redirect(`/checkout?error=${encodeURIComponent(describe(e))}`);
+    redirect(`/checkout?error=${encodeURIComponent(describeError(e))}`);
   }
 
   revalidatePath("/cart");
