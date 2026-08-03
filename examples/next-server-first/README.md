@@ -193,6 +193,39 @@ category trees — all of the first 40 categories answered with an empty list.
 storefront-demo's equivalent nav is dead here for the same reason; it calls the
 same function. Kept in both, because other tenants do use assignments.
 
+## The product page keeps its state in the URL
+
+`/product/[id]` takes the variant choice as `?variant=<childId>`, so a picked
+variant is shareable and survives a reload. storefront-demo's `VariantPicker`
+holds it in a hook instead.
+
+**Verified 2026-08-03:**
+
+| Check | Result |
+|---|---|
+| a priced product | name, price, description, «Add to cart» |
+| «Add to cart» from here | cart created, count 1 — the id posted is the **selected** one |
+| `?variant=bogus` and `?variant=` | 200, falls back to the parent |
+| an unknown product id | **404**, not 500 |
+
+The last row is a fix that came out of the check. `products.get` throws
+`EmporixNotFoundError` and nothing caught it, so a stale link produced a server
+error page. A product URL outlives the product — it sits in bookmarks, in search
+indexes and in other people's links — so `notFound()` is the ordinary case here,
+not the exotic one.
+
+**Descriptions are plain text here**, where storefront-demo renders markup. Its
+`sanitizeHtml` needs `DOMParser`, which Node does not have; a server-rendered
+consumer would silently fall through to tag-stripping while believing it had a
+sanitizer. So this demo calls `stripHtml` from `examples/shared` and is honest
+about it. Adding a Node-capable sanitizer would be a dependency for one demo line.
+
+**The variant nav never renders on this tenant.** Swept 300 products across five
+pages on 2026-08-03: every one is `productType: BASIC`, and
+`listVariantChildren` answered empty for all of them. Kept anyway, because the
+branch is what a tenant with variants needs — but it is unexercised here, the same
+as the subcategory nav above.
+
 ## The catalog/cart split
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use
