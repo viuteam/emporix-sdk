@@ -1,9 +1,10 @@
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { pickText } from "@viu/emporix-examples-shared";
-import { EMPORIX } from "../../emporix";
+
 import { requireCustomer } from "../../lib/require-customer";
 import { ActionForm } from "../../components/action-form";
 import { changePassword, updateProfile } from "../../actions/account";
+import { emporixOptions } from "../../lib/site-context";
 
 /**
  * Two forms, no client state.
@@ -15,7 +16,7 @@ import { changePassword, updateProfile } from "../../actions/account";
  */
 export default async function ProfilePage(): Promise<React.JSX.Element> {
   await requireCustomer("/account/profile");
-  const customer = await withEmporixSession((client, ctx) => client.customers.me(ctx), EMPORIX);
+  const customer = await withEmporixSession((client, ctx) => client.customers.me(ctx), await emporixOptions());
   const c = customer as {
     firstName?: unknown;
     lastName?: unknown;

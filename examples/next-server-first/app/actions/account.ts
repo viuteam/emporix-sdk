@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import type { AuthContext, EmporixClient } from "@viu/emporix-sdk";
 import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
-import { EMPORIX, SITE } from "../emporix";
+import { SITE } from "../emporix";
 import { describeError } from "../lib/describe-error";
 import type { ActionState } from "../components/action-form";
 import { missingField, readAddress } from "../lib/address-fields";
 import { orderItems, priceForProduct, productYrn } from "@viu/emporix-examples-shared";
 import { setCart } from "../lib/cart-session";
+import { emporixOptions } from "../lib/site-context";
 
 /**
  * Profile fields, measured rather than guessed: `firstName`, `lastName`,
@@ -32,7 +33,7 @@ export async function updateProfile(_state: ActionState, form: FormData): Promis
       // that shows every field it owns.
       (client, ctx) =>
         client.customers.update({ firstName, lastName, contactEmail, contactPhone }, ctx),
-      EMPORIX,
+      await emporixOptions(),
     );
   } catch (e) {
     return { error: describeError(e) };
@@ -56,7 +57,7 @@ export async function changePassword(_state: ActionState, form: FormData): Promi
   try {
     await withEmporixSessionMutable(
       (client, ctx) => client.customers.changePassword({ currentPassword, newPassword }, ctx),
-      EMPORIX,
+      await emporixOptions(),
     );
   } catch (e) {
     return { error: describeError(e) };
@@ -70,7 +71,7 @@ async function mutateAddresses(
   fn: (client: EmporixClient, ctx: AuthContext) => Promise<unknown>,
 ): Promise<ActionState> {
   try {
-    await withEmporixSessionMutable((client, ctx) => fn(client, ctx), EMPORIX);
+    await withEmporixSessionMutable((client, ctx) => fn(client, ctx), await emporixOptions());
   } catch (e) {
     return { error: describeError(e) };
   }
@@ -112,7 +113,7 @@ export async function cancelOrder(_state: ActionState, form: FormData): Promise<
     await withEmporixSessionMutable(async (client, ctx, jar) => {
       const saasToken = jar.get(STORAGE_KEYS.saasToken);
       await client.orders.cancel(orderId, ctx, saasToken !== null ? { saasToken } : {});
-    }, EMPORIX);
+    }, await emporixOptions());
   } catch (e) {
     return { error: describeError(e) };
   }
@@ -178,7 +179,7 @@ export async function reorder(_state: ActionState, form: FormData): Promise<Acti
       // A bare array, not `{ items }` — `addItemsBatch` sends the body as given.
       await client.carts.addItemsBatch(cartId, items, ctx);
       setCart(jar, cartId, await client.carts.get(cartId, ctx));
-    }, EMPORIX);
+    }, await emporixOptions());
   } catch (e) {
     return { error: describeError(e) };
   }

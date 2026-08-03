@@ -1,8 +1,9 @@
 import { pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
 import { pickText } from "@viu/emporix-examples-shared";
 import { STORAGE_KEYS, sessionCookieJar, withEmporixSession } from "@viu/emporix-sdk-next/session";
-import { CONTEXT, EMPORIX, SITE, STORE_OPT } from "../emporix";
+import { SITE, STORE_OPT } from "../emporix";
 import { submitCheckout } from "../actions/checkout";
+import { siteContext, emporixOptions } from "../lib/site-context";
 
 /** `LocalizedValue` is `string | Record<string, string>`. Pick something showable. */
 function label(name: string | Record<string, string> | undefined, fallback: string): string {
@@ -17,6 +18,9 @@ export default async function CheckoutPage({
   searchParams: Promise<{ error?: string }>;
 }): Promise<React.JSX.Element> {
   const { error } = await searchParams;
+  // The shipping country comes from the session context now, not a module
+  // constant — same source the Emporix calls below bind.
+  const { targetLocation } = await siteContext();
   const cartId = (await sessionCookieJar({ readOnly: true, ...STORE_OPT })).get(
     STORAGE_KEYS.cartId,
   );
@@ -48,13 +52,13 @@ export default async function CheckoutPage({
       c.customers.me(ctx).catch(() => undefined),
     ]);
     return { cart, modes, zones, addresses, me };
-  }, EMPORIX);
+  }, await emporixOptions());
 
   const total = cart.totalPrice?.amount ?? 0;
   // ponytail: the zone is resolved for the configured country only. Typing a
   // different country leaves this radio list stale — the action re-resolves and
   // wins. Upgrade path: a separate GET form for the country, or a client island.
-  const zone = resolveZone(zones, CONTEXT.targetLocation);
+  const zone = resolveZone(zones, targetLocation);
   const methods = zone?.methods ?? [];
   const saved = addresses.find((a) => a.isDefault) ?? addresses[0];
 
@@ -100,14 +104,14 @@ export default async function CheckoutPage({
             name="country"
             placeholder="country"
             required
-            defaultValue={saved?.country ?? CONTEXT.targetLocation}
+            defaultValue={saved?.country ?? targetLocation}
           />
         </fieldset>
 
         <fieldset>
           <legend>Shipping</legend>
           {methods.length === 0 ? (
-            <p>No configured method for {CONTEXT.targetLocation} — free shipping applies.</p>
+            <p>No configured method for {targetLocation} — free shipping applies.</p>
           ) : (
             methods.map((m, i) => (
               <label key={m.id}>

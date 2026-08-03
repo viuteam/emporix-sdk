@@ -2,10 +2,11 @@ import { notFound } from "next/navigation";
 import { EmporixNotFoundError } from "@viu/emporix-sdk";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { money, orderItems, orderVM } from "@viu/emporix-examples-shared";
-import { EMPORIX } from "../../../emporix";
+
 import { requireCustomer } from "../../../lib/require-customer";
 import { ActionForm } from "../../../components/action-form";
 import { cancelOrder, reorder } from "../../../actions/account";
+import { emporixOptions } from "../../../lib/site-context";
 
 /**
  * One order, with the two things a shopper does with one.
@@ -24,7 +25,7 @@ export default async function OrderDetailPage({
 
   let order: unknown;
   try {
-    order = await withEmporixSession((client, ctx) => client.orders.get(id, ctx), EMPORIX);
+    order = await withEmporixSession((client, ctx) => client.orders.get(id, ctx), await emporixOptions());
   } catch (e) {
     // An order id in a URL outlives nothing, but a wrong one is still a 404 rather
     // than a server error — same reasoning as the product page.

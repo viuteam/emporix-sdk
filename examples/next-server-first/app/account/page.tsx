@@ -1,7 +1,8 @@
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { pickText } from "@viu/emporix-examples-shared";
-import { EMPORIX } from "../emporix";
+
 import { requireCustomer } from "../lib/require-customer";
+import { emporixOptions } from "../lib/site-context";
 
 /**
  * The account overview, and the first page behind the gate.
@@ -13,7 +14,7 @@ import { requireCustomer } from "../lib/require-customer";
  */
 export default async function AccountPage(): Promise<React.JSX.Element> {
   await requireCustomer("/account");
-  const customer = await withEmporixSession((client, ctx) => client.customers.me(ctx), EMPORIX);
+  const customer = await withEmporixSession((client, ctx) => client.customers.me(ctx), await emporixOptions());
   // `contactEmail`, not `email` — the latter is empty on this shape. Checked
   // against `storefront-demo/src/account/ProfileForm.tsx`, which reads the same
   // four fields against the real tenant.

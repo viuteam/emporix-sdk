@@ -2,6 +2,7 @@ import { emporixSession, sessionCookieJar } from "@viu/emporix-sdk-next/session"
 import { STORE_OPT } from "../emporix";
 import { cartCount } from "../lib/cart-session";
 import { logout } from "../actions/auth";
+import { LanguageSwitcher } from "./language-switcher";
 
 /**
  * A Server Component that makes **zero** Emporix calls.
@@ -44,6 +45,7 @@ export async function Header(): Promise<React.JSX.Element> {
           className="cluster"
           style={{ gap: "var(--s-4)", marginLeft: "auto", fontSize: "var(--step--1)" }}
         >
+          <LanguageSwitcher />
           <a href="/cart" className="u-underline">
             Cart{count > 0 ? ` (${count})` : ""}
           </a>

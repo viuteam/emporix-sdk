@@ -1,7 +1,8 @@
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { money, orderVM } from "@viu/emporix-examples-shared";
-import { EMPORIX } from "../../emporix";
+
 import { requireCustomer } from "../../lib/require-customer";
+import { emporixOptions } from "../../lib/site-context";
 
 const PAGE_SIZE = 10;
 
@@ -23,7 +24,7 @@ export default async function OrdersPage({
   const page = Math.max(1, Number((await searchParams).page) || 1);
   const result = await withEmporixSession(
     (client, ctx) => client.orders.listMine(ctx, { pageNumber: page, pageSize: PAGE_SIZE }),
-    EMPORIX,
+    await emporixOptions(),
   );
 
   return (

@@ -8,9 +8,10 @@ import {
   sessionCookieJar,
   withEmporixSessionMutable,
 } from "@viu/emporix-sdk-next/session";
-import { CONTEXT, EMPORIX, SITE, STORE_OPT } from "../emporix";
+import { SITE, STORE_OPT } from "../emporix";
 import { clearCart } from "../lib/cart-session";
 import { describeError } from "../lib/describe-error";
+import { siteContext, emporixOptions } from "../lib/site-context";
 
 function field(form: FormData, name: string): string {
   return String(form.get(name) ?? "").trim();
@@ -39,7 +40,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
   const saasToken = jar.get(STORAGE_KEYS.saasToken);
   const loggedIn = jar.get(STORAGE_KEYS.customerToken) !== null;
 
-  const country = field(formData, "country") || CONTEXT.targetLocation;
+  const country = field(formData, "country") || (await siteContext()).targetLocation;
   const firstName = field(formData, "firstName");
   const lastName = field(formData, "lastName");
   const modeId = field(formData, "modeId");
@@ -121,7 +122,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
       // so it is part of the one flush rather than a write nobody persists.
       clearCart(sessionJar);
       return placed;
-    }, EMPORIX);
+    }, await emporixOptions());
     orderId = result.orderId;
   } catch (e) {
     // `redirect()` works by throwing. Every success redirect therefore lives

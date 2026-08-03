@@ -6,7 +6,8 @@ import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/s
 import { setCart } from "../lib/cart-session";
 import { describeError } from "../lib/describe-error";
 import type { ActionState } from "../components/action-form";
-import { EMPORIX, SITE } from "../emporix";
+import { SITE } from "../emporix";
+import { emporixOptions } from "../lib/site-context";
 
 /** The matched-price fields the cart needs. Read loosely — the generated type is wider. */
 interface MatchedPrice {
@@ -76,7 +77,7 @@ export async function addToCart(productId: string): Promise<void> {
     // One extra GET per add, which is what buys a shell that costs zero calls on
     // every OTHER page view.
     setCart(jar, cartId, await client.carts.get(cartId, ctx));
-  }, EMPORIX);
+  }, await emporixOptions());
   revalidatePath("/cart");
   revalidatePath("/");
 }
@@ -102,7 +103,7 @@ async function mutateCart(
       // just as unverified, so this pays one GET per mutation for a count that
       // is actually right.
       setCart(jar, cartId, await client.carts.get(cartId, ctx));
-    }, EMPORIX);
+    }, await emporixOptions());
   } catch (e) {
     return { error: describeError(e) };
   }

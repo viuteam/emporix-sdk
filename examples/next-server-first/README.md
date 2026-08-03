@@ -137,6 +137,8 @@ reads on `/cart`» to «every page view», plus a token round-trip per page.
 
 The count therefore sits next to the cart id in the session, written by exactly
 one function (`app/lib/cart-session.ts`). The header reads it and calls nothing.
+The language switcher added later holds to the same rule: its list is a literal,
+not a `sites.get`.
 
 This is a denormalization with a known ceiling: **write the cart id anywhere but
 `setCart` and the badge drifts.** Four call sites go through it — add to cart,
@@ -487,6 +489,69 @@ this verification run did not make.
 `logging: { fetches: { fullUrl: true } }` in `next.config.mjs` looks like the
 obvious instrument and prints **nothing** under Turbopack in Next 16.2.12. Do not
 spend time on it; use the cache directory.
+
+## The language switch, and why the context stopped being a constant
+
+`app/emporix.ts` used to export `CONTEXT` and `EMPORIX` — a module constant every
+reader bound. A visitor's language cannot live there: a module constant is shared
+by every visitor of the process, so «my language» would be «the last person's
+language». Both are gone, replaced by `lib/site-context.ts`:
+
+```ts
+const client = getEmporixClient({ context: await siteContext() }); // catalog
+await withEmporixSession(fn, await emporixOptions());              // session
+```
+
+Fifteen call sites moved. `CONTEXT` and `EMPORIX` were deleted rather than
+deprecated, so nothing can quietly fall back to the shared value.
+
+**The memoized client is still safe.** `getEmporixClient` keys its map on the
+context, so two languages get two instances and no state crosses between
+visitors. The map grows with the number of distinct contexts — bounded by the
+configuration, not by traffic. The comment in `client.ts` claimed the context is
+«written once per app, in one place»; this demo breaks that assumption, and the
+comment now says what actually holds.
+
+The switcher is `components/language-switcher.tsx`: one `ActionForm` per language,
+so it works without JavaScript. It adds **no** Emporix call to the header — the
+list is a literal, and the invariant above is worth more than a self-configuring
+dropdown. It does add one cookie read per render (three in store mode, next to the
+two the header already does).
+
+`LANGUAGES` lives in `lib/site-context.ts` and not next to `switchLanguage`,
+because a `"use server"` file may only export async functions — an exported array
+there fails the build with «can only export async functions, found object».
+
+### Verified 2026-08-03 against the `viu` tenant, in store mode
+
+The tenant has **one** site (`main`, default, CHF) declaring **two** languages
+(`en`, `de`, default `de`), so this is a language switcher and not a site
+switcher: a site dropdown with one entry demonstrates nothing, and the proxy
+pins `main` on every request anyway.
+
+| Check | Result |
+|---|---|
+| no choice made | `Just-in-Time Access (JIT)` |
+| click «de» | marker moves to `de ●`, title becomes `Just-in-Time Zugriff (JIT)` — no navigation |
+| full page load of `/search?q=Zugriff` | marker holds, cards German, and the **search itself** matched a German term |
+| cart badge across the switch | stayed at 5 — a language-only change does not re-mint the anonymous token |
+| `/debug` | still **PASS** |
+
+What «no choice made» actually means, because it is not what the site config
+suggests: with no `Accept-Language`, Emporix returns the **whole** localized map
+(`{"de": "…", "en": "…"}`) and does **not** apply the site's `defaultLanguage`.
+The English title then comes from the demo's own `LOCALE_ORDER`, which starts with
+`en`. Set a language and Emporix sends a plain string instead. So the switch does
+not merely change which key the client picks — it changes what Emporix sends,
+which is exactly why it belongs on the server in this mode.
+
+**One inconsistency, measured and left in:** the typeahead reads through
+`/api/emporix`, and that route does not forward the language — a request with
+`emporix.language=de` still comes back with the full map, so the dropdown shows
+English while the page around it is German. It is not a two-line fix: the tagged
+fetch cache does not key on headers, so a language-aware proxy would serve one
+visitor's language to the next until the language becomes part of the cache key.
+Naming the cause beats a fix that poisons a shared cache.
 
 ## What this demo deliberately does NOT have
 

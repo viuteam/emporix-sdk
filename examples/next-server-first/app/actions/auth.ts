@@ -9,9 +9,10 @@ import {
   sessionCookieJar,
   withEmporixSessionMutable,
 } from "@viu/emporix-sdk-next/session";
-import { EMPORIX, STORE_OPT } from "../emporix";
+import { STORE_OPT } from "../emporix";
 import { setCart } from "../lib/cart-session";
 import { safeNext } from "../lib/safe-next";
+import { emporixOptions } from "../lib/site-context";
 
 /** Read-only, so it costs a jar hydrate and no Emporix call. */
 async function readCartId(): Promise<string | null> {
@@ -26,7 +27,7 @@ export async function login(formData: FormData): Promise<void> {
       email: String(formData.get("email")),
       password: String(formData.get("password")),
     },
-    EMPORIX,
+    await emporixOptions(),
   );
   // Only when the onboarding actually swapped the cart. emporixLogin writes the
   // cart id itself, inside the package and therefore outside setCart, so a swap
@@ -42,7 +43,7 @@ export async function login(formData: FormData): Promise<void> {
     await withEmporixSessionMutable(async (client, ctx, jar) => {
       const cartId = jar.get(STORAGE_KEYS.cartId);
       if (cartId !== null) setCart(jar, cartId, await client.carts.get(cartId, ctx));
-    }, EMPORIX);
+    }, await emporixOptions());
   }
   revalidatePath("/", "layout");
   // safeNext again, not just when the field was rendered: the value arrives in a
@@ -51,6 +52,6 @@ export async function login(formData: FormData): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
-  await emporixLogout(EMPORIX);
+  await emporixLogout(await emporixOptions());
   revalidatePath("/", "layout");
 }

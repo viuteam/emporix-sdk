@@ -1,8 +1,9 @@
 import { getEmporixClient } from "@viu/emporix-sdk-next";
-import { CONTEXT, PRICED_CATEGORY } from "./emporix";
+import { PRICED_CATEGORY } from "./emporix";
 import { Typeahead } from "./typeahead";
 import { ProductGrid } from "./components/product-grid";
 import { pricesFor } from "./lib/prices";
+import { siteContext } from "./lib/site-context";
 
 /**
  * Catalog reads use the MEMOIZED, TAGGED client — not withEmporixSession.
@@ -12,7 +13,7 @@ import { pricesFor } from "./lib/prices";
  * both correct and cheaper.
  */
 export default async function Home(): Promise<React.JSX.Element> {
-  const client = getEmporixClient({ context: CONTEXT });
+  const client = getEmporixClient({ context: await siteContext() });
   const page = await client.categories.productsIn(PRICED_CATEGORY, { pageSize: 12 }, undefined);
   const priceOf = await pricesFor(client, undefined, page.items);
 

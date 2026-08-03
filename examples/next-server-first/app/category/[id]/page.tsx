@@ -1,8 +1,9 @@
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { catId, catLabel } from "@viu/emporix-examples-shared";
-import { CONTEXT } from "../../emporix";
+
 import { ProductGrid } from "../../components/product-grid";
 import { pricesFor } from "../../lib/prices";
+import { siteContext } from "../../lib/site-context";
 
 const PAGE_SIZE = 24;
 
@@ -30,7 +31,7 @@ export default async function CategoryPage({
   // the bound is drawn even though no framework is doing it.
   const page = Math.max(1, Number((await searchParams).page) || 1);
 
-  const client = getEmporixClient({ context: CONTEXT });
+  const client = getEmporixClient({ context: await siteContext() });
   const [category, subs, products] = await Promise.all([
     client.categories.get(id, undefined),
     client.categories.subcategories(id, { pageSize: 50 }, undefined),

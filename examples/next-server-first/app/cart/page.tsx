@@ -1,9 +1,10 @@
 import { STORAGE_KEYS, sessionCookieJar, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { cartCoupons, cartLines, cartTotal, money } from "@viu/emporix-examples-shared";
-import { EMPORIX, STORE_OPT } from "../emporix";
+import { STORE_OPT } from "../emporix";
 import { ActionForm } from "../components/action-form";
 import { namesFor } from "../lib/product-names";
 import { applyCoupon, removeCoupon, removeLine, setQuantity } from "../actions/cart";
+import { emporixOptions } from "../lib/site-context";
 
 /**
  * The cart, read in a Server Component and mutated through Server Actions.
@@ -49,7 +50,7 @@ export default async function CartPage(): Promise<React.JSX.Element> {
         l.map((x) => x.productId),
       ),
     };
-  }, EMPORIX);
+  }, await emporixOptions());
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>

@@ -1,9 +1,10 @@
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
-import { EMPORIX } from "../../emporix";
+
 import { requireCustomer } from "../../lib/require-customer";
 import { ActionForm } from "../../components/action-form";
 import { ADDRESS_FIELDS } from "../../lib/address-fields";
 import { addAddress, deleteAddress, updateAddress } from "../../actions/account";
+import { emporixOptions } from "../../lib/site-context";
 
 /**
  * Address CRUD through Server Actions — the pattern the returns, rewards and
@@ -17,7 +18,7 @@ export default async function AddressesPage(): Promise<React.JSX.Element> {
   await requireCustomer("/account/addresses");
   const addresses = await withEmporixSession(
     (client, ctx) => client.customers.addresses.list(ctx),
-    EMPORIX,
+    await emporixOptions(),
   );
 
   return (

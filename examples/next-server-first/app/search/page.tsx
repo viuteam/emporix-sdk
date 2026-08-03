@@ -1,7 +1,8 @@
 import { getEmporixClient } from "@viu/emporix-sdk-next";
-import { CONTEXT } from "../emporix";
+
 import { ProductGrid } from "../components/product-grid";
 import { pricesFor } from "../lib/prices";
+import { siteContext } from "../lib/site-context";
 
 /**
  * Search without a line of client-side state.
@@ -20,7 +21,7 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string }>;
 }): Promise<React.JSX.Element> {
   const q = ((await searchParams).q ?? "").trim();
-  const client = getEmporixClient({ context: CONTEXT });
+  const client = getEmporixClient({ context: await siteContext() });
 
   // `searchByName` builds the Emporix `name:(~…)` filter and escapes the regex
   // metacharacters, so no quoting is needed here.

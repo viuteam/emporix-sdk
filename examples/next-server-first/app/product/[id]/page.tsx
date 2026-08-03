@@ -9,9 +9,10 @@ import {
   productName,
   stripHtml,
 } from "@viu/emporix-examples-shared";
-import { CONTEXT } from "../../emporix";
+
 import { pricesFor } from "../../lib/prices";
 import { addToCart } from "../../actions/cart";
+import { siteContext } from "../../lib/site-context";
 
 /**
  * A product page whose whole state lives in the URL.
@@ -29,7 +30,7 @@ export default async function ProductPage({
 }): Promise<React.JSX.Element> {
   const { id } = await params;
   const chosen = (await searchParams).variant;
-  const client = getEmporixClient({ context: CONTEXT });
+  const client = getEmporixClient({ context: await siteContext() });
 
   // An unknown id must be a 404, not a 500. A product URL outlives the product:
   // it sits in bookmarks, in search indexes and in other people's links, so this
