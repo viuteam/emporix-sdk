@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { EmporixError, pickFee, resolveZone, type CheckoutInput } from "@viu/emporix-sdk";
+import { pickFee, resolveZone, type CheckoutInput } from "@viu/emporix-sdk";
 import {
   STORAGE_KEYS,
   sessionCookieJar,
@@ -10,6 +10,7 @@ import {
 } from "@viu/emporix-sdk-next/session";
 import { CONTEXT, EMPORIX, SITE, STORE_OPT } from "../emporix";
 import { setCart } from "../lib/cart-session";
+import { describeError } from "../lib/describe-error";
 
 function field(form: FormData, name: string): string {
   return String(form.get(name) ?? "").trim();
@@ -20,21 +21,6 @@ function label(name: string | Record<string, string> | undefined, fallback: stri
   if (typeof name === "string") return name;
   if (name) return Object.values(name)[0] ?? fallback;
   return fallback;
-}
-
-/**
- * An error message worth reading.
- *
- * `EmporixError.message` is only the status line; the reason lives in `.body`.
- * Dropping it turns «400» into a guessing game — which is exactly what happened
- * while building this page.
- */
-function describe(e: unknown): string {
-  if (e instanceof EmporixError) {
-    const detail = typeof e.body === "string" ? e.body : JSON.stringify(e.body);
-    return `${e.message} — ${detail}`;
-  }
-  return e instanceof Error ? e.message : String(e);
 }
 
 /**
@@ -140,7 +126,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
   } catch (e) {
     // `redirect()` works by throwing. Every success redirect therefore lives
     // OUTSIDE this try — catching one's own redirect would swallow it.
-    redirect(`/checkout?error=${encodeURIComponent(describe(e))}`);
+    redirect(`/checkout?error=${encodeURIComponent(describeError(e))}`);
   }
 
   revalidatePath("/cart");
