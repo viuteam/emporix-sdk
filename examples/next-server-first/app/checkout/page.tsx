@@ -1,4 +1,5 @@
 import { pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
+import { pickText } from "@viu/emporix-examples-shared";
 import { STORAGE_KEYS, sessionCookieJar, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { CONTEXT, EMPORIX, SITE, STORE_OPT } from "../emporix";
 import { submitCheckout } from "../actions/checkout";
@@ -30,19 +31,23 @@ export default async function CheckoutPage({
     );
   }
 
-  // ONE session, four parallel calls. Four separate withEmporixSession calls
-  // would build four guest clients and redeem the same anonymous refresh token
-  // four times over — see session-client.ts, newGuestClient.
-  const { cart, modes, zones, addresses } = await withEmporixSession(async (c, ctx) => {
-    const [cart, modes, zones, addresses] = await Promise.all([
+  // ONE session, five parallel calls. Five separate withEmporixSession calls
+  // would build five guest clients and redeem the same anonymous refresh token
+  // five times over — see session-client.ts, newGuestClient.
+  const { cart, modes, zones, addresses, me } = await withEmporixSession(async (c, ctx) => {
+    const [cart, modes, zones, addresses, me] = await Promise.all([
       c.carts.get(cartId, ctx),
       c.payments.listPaymentModes(ctx),
       c.shipping.listZones(SITE.siteCode, { expand: "methods,fees", activeMethods: "true" }, ctx),
       // A guest throws EmporixAuthError locally, an expired token 401s. Both
       // mean "no saved addresses", and neither deserves a second code path.
       c.customers.addresses.list(ctx).catch(() => [] as Address[]),
+      // Same story for the profile: a guest has none, and then the contact
+      // fields simply start empty. Added because a logged-in shopper was
+      // retyping their own name into a form the server could fill.
+      c.customers.me(ctx).catch(() => undefined),
     ]);
-    return { cart, modes, zones, addresses };
+    return { cart, modes, zones, addresses, me };
   }, EMPORIX);
 
   const total = cart.totalPrice?.amount ?? 0;
@@ -64,9 +69,25 @@ export default async function CheckoutPage({
       <form action={submitCheckout}>
         <fieldset>
           <legend>Contact</legend>
-          <input name="email" type="email" placeholder="email" required />
-          <input name="firstName" placeholder="first name" required />
-          <input name="lastName" placeholder="last name" required />
+          <input
+            name="email"
+            type="email"
+            placeholder="email"
+            required
+            defaultValue={pickText(me?.contactEmail, "")}
+          />
+          <input
+            name="firstName"
+            placeholder="first name"
+            required
+            defaultValue={pickText(me?.firstName, "")}
+          />
+          <input
+            name="lastName"
+            placeholder="last name"
+            required
+            defaultValue={pickText(me?.lastName, "")}
+          />
         </fieldset>
 
         <fieldset>

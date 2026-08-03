@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { AuthContext, EmporixClient } from "@viu/emporix-sdk";
 import { withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
 import { EMPORIX } from "../emporix";
 import { describeError } from "../lib/describe-error";
 import type { ActionState } from "../components/action-form";
+import { missingField, readAddress } from "../lib/address-fields";
 
 /**
  * Profile fields, measured rather than guessed: `firstName`, `lastName`,
@@ -59,4 +61,37 @@ export async function changePassword(_state: ActionState, form: FormData): Promi
   }
   // Nothing to revalidate: no rendered value changed.
   return { error: null };
+}
+
+/** The shared frame for the three address mutations. */
+async function mutateAddresses(
+  fn: (client: EmporixClient, ctx: AuthContext) => Promise<unknown>,
+): Promise<ActionState> {
+  try {
+    await withEmporixSessionMutable((client, ctx) => fn(client, ctx), EMPORIX);
+  } catch (e) {
+    return { error: describeError(e) };
+  }
+  revalidatePath("/account/addresses");
+  return { error: null };
+}
+
+export async function addAddress(_state: ActionState, form: FormData): Promise<ActionState> {
+  const address = readAddress(form);
+  const problem = missingField(address);
+  if (problem !== null) return { error: problem };
+  return mutateAddresses((client, ctx) => client.customers.addresses.add(address, ctx));
+}
+
+export async function updateAddress(_state: ActionState, form: FormData): Promise<ActionState> {
+  const id = String(form.get("id"));
+  const address = readAddress(form);
+  const problem = missingField(address);
+  if (problem !== null) return { error: problem };
+  return mutateAddresses((client, ctx) => client.customers.addresses.update(id, address, ctx));
+}
+
+export async function deleteAddress(_state: ActionState, form: FormData): Promise<ActionState> {
+  const id = String(form.get("id"));
+  return mutateAddresses((client, ctx) => client.customers.addresses.remove(id, ctx));
 }

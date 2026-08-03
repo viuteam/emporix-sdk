@@ -330,6 +330,45 @@ Field names are measured, not guessed: `contactEmail` and `contactPhone` (not
 `email`), and `currentPassword` (not `oldPassword`). Both read off
 `storefront-demo/src/account/`, where the calls run against the real tenant.
 
+## Address CRUD
+
+The pattern the returns, rewards and shopping-list pages would repeat, which is
+why the README lists those three as deliberate non-goals rather than gaps. Each
+address is its own `ActionForm`, so an error on one does not clear the others —
+`useActionState` keeps state per component instance.
+
+The field list lives in `app/lib/address-fields.ts` and is used by both the form
+that renders it and the action that reads it back. Two lists would drift, and a
+drifted field name is a 400 whose body names a field you thought you were sending.
+A `"use server"` module may only export async functions, which is why the list is
+not next to the actions.
+
+**Verified 2026-08-03:**
+
+| Check | Result |
+|---|---|
+| create | appears in the list after a reload |
+| edit the city | `Zuerich` → `Bern`, stored |
+| clear a required field | «Postcode is required.» in **1ms**, no Emporix call |
+| delete | gone after a reload |
+| `/checkout` afterwards | address fields prefilled from the saved address |
+
+Two things worth copying from the code rather than the table:
+
+**No cast.** `Address` is a properly typed generated shape, so `a[f.name]` reads
+each field directly. The first version cast it to
+`Record<string, string | undefined>` and the compiler refused — `isDefault` is a
+boolean. It was right to refuse.
+
+**No `as never` either.** `addresses.add(address, ctx)` and `.update(id, address, ctx)`
+typecheck as written. storefront-demo carries that cast in places and it is worth
+trying without it before copying it over.
+
+Beyond this page: `/checkout` now prefills the contact fields from
+`customers.me` as a **fifth** parallel call in the same session. A logged-in
+shopper was retyping their own name into a form the server could fill, which was
+noticed while checking the address round trip.
+
 ## The catalog/cart split
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use
