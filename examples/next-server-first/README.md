@@ -155,6 +155,38 @@ Measured on 2026-08-01 with `next start`:
 | deleting the key | «No cart yet» — **one** session revoked |
 | `/debug` | **PASS** |
 
+Every row above is a **guest** flow, and that is what hid a bug for a release:
+`emporixLogin`, `emporixRefresh` and `emporixLogout` built their jar without the
+`store` option, so the customer path silently ran on cookies. The guest path was
+never affected — it goes through `withEmporixSessionMutable`, which threads the
+option. Fixed and verified:
+
+### The customer path in store mode, verified 2026-08-03
+
+| Check | Result |
+|---|---|
+| catalog visit with no cart | Redis stays **empty** — the catalog writes no session |
+| guest cart | **1** key, TTL **7.00 days**, `anonymousSession` + `cartId` |
+| after login | still **1** key — the same sid, so the login reused the guest record |
+| the record after login | `customerToken`, `refreshToken`, `saasToken`, `sessionStartedAt` all **in Redis** |
+| TTL after login | **7'775'987s = 90.00 days** — `SESSION_ABSOLUTE_MAX` minus the 13s spent |
+| `cartId` after login | changed to the customer's cart — the onboarding ran |
+| `/login` while logged in | renders «Log out», not the form. Before the fix `emporixSession` read the record, found no token and showed the form again — logged in, and every reader said logged out |
+| `document.cookie` | `emporix.siteCode=main` only |
+| `/debug` | **PASS** |
+| logout | `DBSIZE 0` — the record destroyed, which the 0.4.0 notes claimed already worked |
+
+The one-key row is worth more than it looks. `emporixLogin` builds **two** jars
+for one request — the one inside `withEmporixSessionMutable` and its own. That is
+the pattern this README warns about elsewhere, and it works only because the
+first flush sets the sid cookie before the second jar hydrates. A unit test now
+insists on exactly one record, so a change to that ordering fails loudly.
+
+The «not in a cookie» half of the claim is a unit test rather than a browser
+observation, deliberately: `document.cookie` cannot see an httpOnly cookie, so it
+cannot tell store mode from cookie mode. In the test the mock jar **is** the full
+cookie jar, httpOnly included, and it asserts the token is absent from it.
+
 The revocation row is the point of the whole feature. Encrypted cookies cannot do
 it: the ciphertext stays valid until it expires, no matter what you want.
 

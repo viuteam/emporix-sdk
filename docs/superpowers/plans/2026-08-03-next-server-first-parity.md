@@ -2405,8 +2405,10 @@ Nach jeder PR-Gruppe (0 · 1.1–1.2 · 2.1–2.3 · 3.1–3.2 · 4.1–4.4 · 5
 pnpm -r build && pnpm -r test && pnpm typecheck && pnpm lint
 ```
 
-Erwartet: `pnpm -r test` bleibt bei 1'439 Tests plus 3 aus Task 0 plus 4 aus
-Task 4.1 = **1'446**. Typecheck deckt nach Task 1.1 elf Projekte statt zehn.
+Erwartet: `pnpm -r test` bleibt bei 1'439 Tests plus **5** aus Task 0 (nicht 3 —
+beim Umsetzen kamen zwei dazu, für den saasToken und für die Ein-Record-Zusage)
+plus 4 aus Task 4.1 = **1'448**. Nach Task 0 gemessen: **1'444**. Typecheck deckt
+nach Task 1.1 elf Projekte statt zehn.
 
 Dann `superpowers:finishing-a-development-branch` für die PR. Changesets nur für
 Task 0 — `@viu/emporix-examples-*` ist in `.changeset/config.json` unter

@@ -21,6 +21,8 @@ const { emporixLogin, emporixLogout, emporixRefresh, assertSameOrigin } = await 
   "../src/session-auth"
 );
 const { __resetEmporixClients } = await import("../src/client");
+const { SESSION_SID } = await import("../src/session-store");
+type SessionStore = import("../src/session-store").EmporixSessionStore;
 
 interface Call {
   url: string;
@@ -342,5 +344,108 @@ describe("the absolute session ceiling", () => {
     bag.set("emporix.refreshToken", { name: "emporix.refreshToken", value: "old-refresh" });
     expect(await emporixRefresh()).toBe("cust-tok");
     expect(bag.get("emporix.sessionStartedAt")).toBeDefined();
+  });
+});
+
+/** A store that records what it was asked to do — that is the evidence here. */
+function fakeStore(): SessionStore & {
+  records: Map<string, Record<string, string>>;
+  destroyed: string[];
+} {
+  const records = new Map<string, Record<string, string>>();
+  const destroyed: string[] = [];
+  return {
+    records,
+    destroyed,
+    read: async (id) => records.get(id) ?? null,
+    write: async (id, record) => {
+      records.set(id, { ...record });
+    },
+    destroy: async (id) => {
+      destroyed.push(id);
+      records.delete(id);
+    },
+  };
+}
+
+/** Reads the single session record, or throws with a message worth reading. */
+function onlyRecord(store: ReturnType<typeof fakeStore>): Record<string, string> {
+  const all = [...store.records.values()];
+  if (all.length !== 1) throw new Error(`expected exactly one record, got ${all.length}`);
+  return all[0] as Record<string, string>;
+}
+
+describe("the three auth functions in store mode", () => {
+  // All three built their jar with `sessionCookieJar()` — no options — so they
+  // silently ran in cookie mode however the caller was configured. Guest flows
+  // were fine because they go through `withEmporixSessionMutable`, which threads
+  // the option; the customer path was not, and shipped that way in 0.4.0.
+
+  it("emporixLogin keeps the customer token out of the browser", async () => {
+    stubFetch();
+    const store = fakeStore();
+    await emporixLogin({ email: "a@b.test", password: "pw" }, { store, ...SITED });
+
+    // Two-sided on purpose. Asserting only the absence would pass if login wrote
+    // nothing at all; asserting only the record would pass while a copy also sat
+    // in a cookie.
+    expect(bag.get("emporix.customerToken")).toBeUndefined();
+    expect(onlyRecord(store)["emporix.customerToken"]).toBe("cust-tok");
+  });
+
+  it("emporixLogin keeps the saasToken out of the browser", async () => {
+    // The saasToken is the one that authorizes an order. Its JWT payload never
+    // reaching the browser is the headline claim of store mode.
+    stubFetch();
+    const store = fakeStore();
+    await emporixLogin({ email: "a@b.test", password: "pw" }, { store, ...SITED });
+
+    expect(bag.get("emporix.saasToken")).toBeUndefined();
+    expect(onlyRecord(store)["emporix.saasToken"]).toBe("saas-tok");
+  });
+
+  it("emporixLogin leaves exactly ONE session record", async () => {
+    // emporixLogin builds two jars: the one inside withEmporixSessionMutable and
+    // its own. Two jars for one request is what the store spec warns about — a
+    // second jar mints a second session id. It works here only because the first
+    // flush sets the sid cookie BEFORE the second jar hydrates. This test is what
+    // notices if that ordering ever changes.
+    stubFetch();
+    const store = fakeStore();
+    await emporixLogin({ email: "a@b.test", password: "pw" }, { store, ...SITED });
+
+    expect(store.records.size).toBe(1);
+    // And the guest half of the session is in the same record as the customer
+    // half — proof the second jar hydrated the first one's write.
+    expect(onlyRecord(store)["emporix.sessionStartedAt"]).toBeDefined();
+  });
+
+  it("emporixRefresh rotates the token inside the record", async () => {
+    stubFetch();
+    const store = fakeStore();
+    const sid = "sid-under-test";
+    store.records.set(sid, { "emporix.refreshToken": "old-refresh" });
+    bag.set(SESSION_SID, { name: SESSION_SID, value: sid });
+
+    expect(await emporixRefresh({ store })).toBe("cust-tok");
+
+    expect(store.records.get(sid)?.["emporix.refreshToken"]).toBe("cust-refresh");
+    expect(bag.get("emporix.refreshToken")).toBeUndefined();
+  });
+
+  it("emporixLogout destroys the record", async () => {
+    // The 0.4.0 notes claimed this already worked. It did not: destroy() was the
+    // cookie-mode no-op, so the record outlived the logout — and revoking a
+    // single session is the entire reason the store exists.
+    stubFetch();
+    const store = fakeStore();
+    const sid = "sid-to-destroy";
+    store.records.set(sid, { "emporix.customerToken": "cust-tok" });
+    bag.set(SESSION_SID, { name: SESSION_SID, value: sid });
+
+    await emporixLogout({ store });
+
+    expect(store.destroyed).toEqual([sid]);
+    expect(store.records.has(sid)).toBe(false);
   });
 });

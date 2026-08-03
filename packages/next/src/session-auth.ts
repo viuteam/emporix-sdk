@@ -63,7 +63,12 @@ export async function emporixLogin(
     opts,
   );
 
-  const jar = await sessionCookieJar();
+  // `opts.store` matters here, not just in `withEmporixSessionMutable`. Without
+  // it this jar is a cookie jar however the caller was configured, so store mode
+  // wrote the tokens into the browser while every reader looked in the store and
+  // found nothing. Spread conditionally: exactOptionalPropertyTypes rejects
+  // `{ store: undefined }`.
+  const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
   persistSession(jar, session);
   // The ceiling starts here and is never rewritten — see SESSION_STARTED_AT.
   jar.set(SESSION_STARTED_AT, String(Math.floor(Date.now() / 1000)), SESSION_ABSOLUTE_MAX);
@@ -148,7 +153,12 @@ function persistSession(jar: SessionCookieJar, session: CustomerSession): void {
 export async function emporixRefresh(
   opts: WithEmporixSessionOptions = {},
 ): Promise<string | null> {
-  const jar = await sessionCookieJar();
+  // `opts.store` matters here, not just in `withEmporixSessionMutable`. Without
+  // it this jar is a cookie jar however the caller was configured, so store mode
+  // wrote the tokens into the browser while every reader looked in the store and
+  // found nothing. Spread conditionally: exactOptionalPropertyTypes rejects
+  // `{ store: undefined }`.
+  const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
   const startedAt = stampedAt(jar.get(SESSION_STARTED_AT));
   if (startedAt === null) {
     // A session from before this shipped carries no stamp. Adopt it rather
@@ -226,7 +236,12 @@ function stampedAt(raw: string | null): number | null {
  * failed invalidation.
  */
 export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promise<void> {
-  const jar = await sessionCookieJar();
+  // `opts.store` matters here, not just in `withEmporixSessionMutable`. Without
+  // it this jar is a cookie jar however the caller was configured, so store mode
+  // wrote the tokens into the browser while every reader looked in the store and
+  // found nothing. Spread conditionally: exactOptionalPropertyTypes rejects
+  // `{ store: undefined }`.
+  const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
   const token = jar.get(STORAGE_KEYS.customerToken);
   if (token !== null) {
     try {
