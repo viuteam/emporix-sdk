@@ -171,6 +171,45 @@ time, not in your editor: TypeScript does not understand the `react-server`
 condition, so `types` resolves unconditionally to keep `tsc` correct in server
 files.
 
+## Session cookie hardening
+
+| Control | Default | Configure with |
+|---|---|---|
+| Idle window (sliding) | 30 days | `SESSION_MAX_AGE.refreshToken` |
+| Absolute ceiling | 90 days | `SESSION_ABSOLUTE_MAX` |
+| `__Host-` prefix | on over https | derived from the same signal as `secure` |
+| Encryption | off | `EMPORIX_COOKIE_SECRET` |
+
+The idle window slides — every refresh rewrites the cookie — so on its own it
+never expires an active session. The ceiling is stamped at login and never
+rewritten, which is what actually bounds a session. Reaching it clears the
+session and forces a fresh login.
+
+### Encryption
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
+Rotate by prepending the new key and keeping the old one for one refresh cycle:
+
+```
+EMPORIX_COOKIE_SECRET="<new>,<old>"
+```
+
+Dropping the old key logs every session out at once — the one revocation lever a
+stateless design has.
+
+Encryption does **not** prevent session hijacking; whoever holds the cookie is
+in. What it prevents is a leaked cookie — from a log, a HAR file, a browser
+profile backup — being redeemed *directly against Emporix*, bypassing your rate
+limits and your logs. It also protects the values the app itself trusts:
+`cartId` and `activeLegalEntityId` are not Emporix-issued tokens, so nothing
+else validates them.
+
+Turning it on invalidates every running session. There is no plaintext
+fallback, on purpose.
+
 ## Service accounts (`@viu/emporix-sdk-next/service`)
 
 For server-side writes with a dedicated Emporix service account — create a

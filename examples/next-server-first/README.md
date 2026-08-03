@@ -19,6 +19,20 @@ cp .env.example .env.local   # then fill in tenant and storefront client id
 pnpm -F @viu/emporix-examples-next-server-first dev
 ```
 
+Optionally seal the session cookies. Add to `.env.local`:
+
+```
+EMPORIX_COOKIE_SECRET=<a base64url 32-byte key>
+```
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
+Setting or changing it logs every existing session out — including any cart you
+had open. That is the intended behaviour, not a bug: removing a key is the
+mass-logout lever.
+
 ## What each page proves
 
 | Page | Proves |
