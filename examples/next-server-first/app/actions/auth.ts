@@ -1,8 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { emporixLogin, emporixLogout } from "@viu/emporix-sdk-next/session";
+import {
+  STORAGE_KEYS,
+  emporixLogin,
+  emporixLogout,
+  withEmporixSessionMutable,
+} from "@viu/emporix-sdk-next/session";
 import { EMPORIX } from "../emporix";
+import { setCart } from "../lib/cart-session";
 
 export async function login(formData: FormData): Promise<void> {
   await emporixLogin(
@@ -12,6 +18,13 @@ export async function login(formData: FormData): Promise<void> {
     },
     EMPORIX,
   );
+  // emporixLogin folds the guest cart into the customer's and writes the cart id
+  // itself — inside the package, so outside setCart. Without this the header
+  // would keep showing the guest cart's count after the merge.
+  await withEmporixSessionMutable(async (client, ctx, jar) => {
+    const cartId = jar.get(STORAGE_KEYS.cartId);
+    if (cartId !== null) setCart(jar, await client.carts.get(cartId, ctx));
+  }, EMPORIX);
   revalidatePath("/", "layout");
 }
 

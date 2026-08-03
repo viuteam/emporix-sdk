@@ -108,6 +108,41 @@ With no configured payment mode the order goes out with the `custom` provider,
 which Emporix documents as creating the order in the `IN_CHECKOUT` status — a
 real order waiting for payment, not a paid one. The done page says exactly that.
 
+## The shell costs zero Emporix calls
+
+A cart badge in the layout would be a `withEmporixSession` per page view, and the
+guest path deliberately builds a **new** client per call — a shared guest client
+would be a shared cart. On top of that a read-only jar cannot persist a rotated
+anonymous session, so the documented refresh-token reuse would go from «three
+reads on `/cart`» to «every page view», plus a token round-trip per page.
+
+The count therefore sits next to the cart id in the session, written by exactly
+one function (`app/lib/cart-session.ts`). The header reads it and calls nothing.
+
+This is a denormalization with a known ceiling: **write the cart id anywhere but
+`setCart` and the badge drifts.** Four call sites go through it — add to cart,
+cart onboarding after login, the checkout that closes the cart, and the cart
+mutations.
+
+`cartCount` refuses to report a count when there is no cart id, and that is not
+cosmetic — it is what covers logout. `SESSION_COOKIES` in the package's
+`session-auth.ts` is a fixed list; a demo-owned key is not on it and would
+otherwise outlive the logout.
+
+**Verified 2026-08-03, in store mode against Redis:**
+
+| Check | Result |
+|---|---|
+| load a page with the new header, empty session | Redis stays **empty** — the header opens no session |
+| add to cart | `demo.cartCount: "1"` in the record, header shows «Cart (1)» |
+| three more page loads | record **byte-identical** — no session opened, no token rotated |
+| the same three loads, timing | `/debug` fell from 151ms to **32ms** |
+| `cartId` removed from the record, count left behind (what logout produces) | «Cart» with no number |
+| the same, with the guard **mutated away** | «Cart (1)» returns — the guard is load-bearing, not decorative |
+
+The last two rows are the point. A guard that has never been observed failing is
+not known to work.
+
 ## The catalog/cart split
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use

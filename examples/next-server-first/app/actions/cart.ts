@@ -1,11 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  SESSION_MAX_AGE,
-  STORAGE_KEYS,
-  withEmporixSessionMutable,
-} from "@viu/emporix-sdk-next/session";
+import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
+import { setCart } from "../lib/cart-session";
 import { EMPORIX, SITE } from "../emporix";
 
 /** The matched-price fields the cart needs. Read loosely — the generated type is wider. */
@@ -53,7 +50,10 @@ export async function addToCart(productId: string): Promise<void> {
       const cart = await client.carts.getCurrent(ctx, { siteCode: SITE.siteCode, create: true });
       cartId = cart?.id ?? null;
       if (cartId === null) throw new Error("Emporix returned no cart");
-      jar.set(STORAGE_KEYS.cartId, cartId, SESSION_MAX_AGE.cartId);
+      // setCart, not jar.set: it writes the shell's line count alongside the id.
+      // `getCurrent` gives a Cart with `.id`; `create` would give a CartCreated
+      // with `.cartId` and setCart would then store a count with no id.
+      setCart(jar, cart);
     }
 
     await client.carts.addItem(
@@ -70,6 +70,11 @@ export async function addToCart(productId: string): Promise<void> {
       },
       ctx,
     );
+
+    // `addItem` returns nothing useful, so read the cart back for the count.
+    // One extra GET per add, which is what buys a shell that costs zero calls on
+    // every OTHER page view.
+    setCart(jar, await client.carts.get(cartId, ctx));
   }, EMPORIX);
   revalidatePath("/cart");
   revalidatePath("/");

@@ -9,6 +9,7 @@ import {
   withEmporixSessionMutable,
 } from "@viu/emporix-sdk-next/session";
 import { CONTEXT, EMPORIX, SITE, STORE_OPT } from "../emporix";
+import { setCart } from "../lib/cart-session";
 
 function field(form: FormData, name: string): string {
   return String(form.get(name) ?? "").trim();
@@ -128,10 +129,11 @@ export async function submitCheckout(formData: FormData): Promise<void> {
         ...(loggedIn && saasToken !== null ? { saasToken } : {}),
         siteCode: SITE.siteCode,
       });
-      // Emporix CLOSES the cart on a successful checkout. Dropping the id on the
-      // wrapper's jar means it is part of the one flush, rather than a write
-      // nobody persists in store mode.
-      sessionJar.delete(STORAGE_KEYS.cartId);
+      // Emporix CLOSES the cart on a successful checkout. Dropping it through
+      // setCart clears the shell's count too — deleting only the id would leave
+      // a badge pointing at a cart that no longer exists. On the wrapper's jar,
+      // so it is part of the one flush rather than a write nobody persists.
+      setCart(sessionJar, null);
       return placed;
     }, EMPORIX);
     orderId = result.orderId;
