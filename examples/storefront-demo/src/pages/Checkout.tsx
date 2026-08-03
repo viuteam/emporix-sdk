@@ -10,7 +10,7 @@ import {
 } from "@viu/emporix-sdk-react";
 import { cartLines, cartTotal } from "../lib/adapters";
 import { useProductNames } from "../lib/useProductNames";
-import { money } from "../lib/format";
+import { money } from "@viu/emporix-examples-shared";
 import { Button } from "../components/ui/Button";
 import { Field } from "../components/ui/Field";
 import { Loading } from "../components/ui/Spinner";

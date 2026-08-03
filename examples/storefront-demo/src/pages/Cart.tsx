@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useActiveCart, useCartMutations } from "@viu/emporix-sdk-react";
 import { cartLines, cartTotal, cartCoupons, type CartLineVM } from "../lib/adapters";
 import { useProductNames } from "../lib/useProductNames";
-import { money } from "../lib/format";
+import { money } from "@viu/emporix-examples-shared";
 import { Button } from "../components/ui/Button";
 import { Loading } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";

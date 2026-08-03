@@ -11,6 +11,19 @@ and run. Pick by the question you have.
 | Next with client-side hooks | [`next-app-router`](./next-app-router) | Next 16 App Router |
 | Next with **no token in the browser** | [`next-server-first`](./next-server-first) | Next 16 App Router |
 
+## `shared/` is not a demo
+
+[`examples/shared`](./shared) is an unpublished workspace package holding the
+Emporix **shape** normalization that `storefront-demo` and `next-server-first`
+both need — orders come back in two forms, cart lines want their price row echoed
+on update, text fields are sometimes a string and sometimes a locale map. It is a
+helper set, not a sixth example, and it has no command to run.
+
+Building your own storefront? Copy the files. They are deliberately not part of
+the published API, for the same reason
+[`next-server-first/app/session-store.ts`](./next-server-first/app/session-store.ts)
+says «copy it».
+
 ## The two Next examples differ in one decision
 
 They are not two versions of the same thing — they are the two ways to build a
@@ -28,8 +41,9 @@ read, Server Actions write, and the browser never calls Emporix. There is no
 token. The cost is real: no React Query for customer data, and roughly one
 Server Action per mutation.
 
-Read `next-server-first`'s own README before choosing it. It states the cost in
-numbers and shows what a full storefront would need.
+Read `next-server-first`'s own README before choosing it. It carries dated
+verification tables for every claim it makes, including the ones that turned out
+to be wrong.
 
 ## The two Vite examples differ in size
 
@@ -38,8 +52,14 @@ login, token in `localStorage`. It is also what the Playwright suite boots —
 `e2e/playwright.config.ts` runs it as its `webServer`, so changes here can break
 `pnpm e2e`.
 
+**Free port 5173 before running `pnpm e2e`.** The config pins that port with
+`reuseExistingServer`, so any other Vite dev server sitting there — for instance
+`storefront-demo`, which also defaults to 5173 — gets tested instead of
+`vite-spa`. The failure reads like a real regression: `locator('ul li')` expected
+12, received 0.
+
 **`storefront-demo`** is the reference: 17 routes across catalog, cart,
-checkout, account and B2B. You type a tenant and a public storefront client id
+checkout and account. You type a tenant and a public storefront client id
 into the running app rather than configuring env — it drives a real tenant with
 no secrets. When you need to know how a flow is *actually* wired, this is the
 one to read.

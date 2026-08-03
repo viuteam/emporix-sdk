@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import type { OrderVM } from "../lib/adapters";
-import { money, dateFmt } from "../lib/format";
+import { money, dateFmt } from "@viu/emporix-examples-shared";
 
 /** A single row in the order-history list. */
 export function OrderRow({ order }: { order: OrderVM }) {

@@ -3,7 +3,7 @@ import { useShippingZones } from "@viu/emporix-sdk-react";
 import { pickFee, resolveZone, type ShippingMethod, type Zone } from "@viu/emporix-sdk";
 import { Spinner } from "../components/ui/Spinner";
 import { pickText } from "../lib/adapters";
-import { money } from "../lib/format";
+import { money } from "@viu/emporix-examples-shared";
 
 /** The chosen delivery option, shaped for the checkout `shipping` payload. */
 export type SelectedShipping = {

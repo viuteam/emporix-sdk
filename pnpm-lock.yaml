@@ -126,6 +126,16 @@ importers:
         specifier: ^5.6.0
         version: 5.9.3
 
+  examples/shared:
+    dependencies:
+      '@viu/emporix-sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   examples/storefront-demo:
     dependencies:
       '@fontsource-variable/fraunces':
@@ -137,6 +147,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.100.10
         version: 5.100.10(react@19.2.7)
+      '@viu/emporix-examples-shared':
+        specifier: workspace:*
+        version: link:../shared
       '@viu/emporix-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
