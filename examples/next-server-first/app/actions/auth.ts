@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { emporixLogin, emporixLogout } from "@viu/emporix-sdk-next/bff";
+import { emporixLogin, emporixLogout } from "@viu/emporix-sdk-next/session";
 import { EMPORIX } from "../emporix";
 
 export async function login(formData: FormData): Promise<void> {

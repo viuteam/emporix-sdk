@@ -33,7 +33,7 @@
   "files": [
     "dist",
     "service-is-server-only.js",
-    "bff-is-server-only.js",
+    "session-is-server-only.js",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -62,13 +62,13 @@
       },
       "default": "./service-is-server-only.js"
     },
-    "./bff": {
-      "types": "./dist/bff.d.ts",
+    "./session": {
+      "types": "./dist/session.d.ts",
       "react-server": {
-        "import": "./dist/bff.js",
-        "require": "./dist/bff.cjs"
+        "import": "./dist/session.js",
+        "require": "./dist/session.cjs"
       },
-      "default": "./bff-is-server-only.js"
+      "default": "./session-is-server-only.js"
     },
     "./catalog-client": {
       "types": "./dist/catalog-client.d.ts",

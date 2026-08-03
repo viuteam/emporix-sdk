@@ -18,7 +18,7 @@ vi.mock("next/headers", () => ({
 }));
 
 const { emporixLogin, emporixLogout, emporixRefresh, assertSameOrigin } = await import(
-  "../src/bff-auth"
+  "../src/session-auth"
 );
 const { __resetEmporixClients } = await import("../src/client");
 
@@ -153,7 +153,7 @@ describe("emporixLogin cart onboarding", () => {
     expect(bag.get("emporix.cartId")?.value).toBe("cust-cart");
   });
 
-  it("stores the cart id httpOnly, like every other bff cookie", async () => {
+  it("stores the cart id httpOnly, like every other session cookie", async () => {
     stubFetch();
     await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
     expect(bag.get("emporix.cartId")?.opts).toMatchObject({ httpOnly: true });

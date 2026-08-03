@@ -6,7 +6,7 @@ import { readFileSync, existsSync } from "node:fs";
 
 const HEAD_BYTES = 200;
 const mustHaveBanner = ["catalog-client"];
-const mustNotHaveBanner = ["index", "webhook", "proxy", "service", "bff"];
+const mustNotHaveBanner = ["index", "webhook", "proxy", "service", "session"];
 let failed = false;
 
 const head = (name, ext) =>

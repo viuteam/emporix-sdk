@@ -18,7 +18,7 @@ vi.mock("next/headers", () => ({
   headers: () => Promise.resolve({ get: (k: string) => headerBag.get(k) ?? null }),
 }));
 
-const { withEmporixSession, withEmporixSessionMutable } = await import("../src/bff-session");
+const { withEmporixSession, withEmporixSessionMutable } = await import("../src/session-client");
 const { __resetEmporixClients } = await import("../src/client");
 
 function stubFetch(): { tokenCalls: () => number } {
@@ -172,5 +172,51 @@ describe("withEmporixSession — cookie writes", () => {
       await client.products.get("p1", undefined, ctx);
     });
     expect(bag.get("emporix.anonymousSession")?.opts).toMatchObject({ secure: false });
+  });
+});
+
+describe("the server-only guard", () => {
+  it("throws when the guard file is loaded, naming the way out", async () => {
+    // Mirrors the service guard's test, including its lesson: neither pattern
+    // may contain "server-only", because a MISSING file produces "Failed to
+    // load url ../session-is-server-only.js" — which matches that, and would
+    // make the assertion vacuous.
+    // @ts-expect-error — untyped guard module, on purpose
+    await expect(import("../session-is-server-only.js")).rejects.toThrow(
+      /reads and writes session cookies/,
+    );
+    // @ts-expect-error — untyped guard module, on purpose
+    await expect(import("../session-is-server-only.js")).rejects.toThrow(/use client/);
+  });
+
+  it("wires the export condition and ships the guard file", async () => {
+    // Catches what is otherwise only visible on publish: without the files
+    // entry the guard is absent from the tarball and `default` resolves to
+    // nothing.
+    const pkg = (await import("../package.json")) as unknown as {
+      default: { exports: Record<string, unknown>; files: string[] };
+    };
+    const session = pkg.default.exports["./session"] as Record<string, unknown>;
+    expect(session).toBeDefined();
+    // `types` sits OUTSIDE the conditions. TypeScript does not understand
+    // `react-server`, falls through to `default`, and would report
+    // "File 'session-is-server-only.js' is not a module" even in a legitimate
+    // Route Handler.
+    expect(session["types"]).toBe("./dist/session.d.ts");
+    expect(session["react-server"]).toMatchObject({
+      import: "./dist/session.js",
+      require: "./dist/session.cjs",
+    });
+    expect(session["default"]).toBe("./session-is-server-only.js");
+    expect(pkg.default.files).toContain("session-is-server-only.js");
+  });
+
+  it("no longer exposes the old /bff subpath", async () => {
+    // The rename must not leave both paths alive — two names for one entry is
+    // the problem it was meant to remove.
+    const pkg = (await import("../package.json")) as unknown as {
+      default: { exports: Record<string, unknown> };
+    };
+    expect(pkg.default.exports["./bff"]).toBeUndefined();
   });
 });

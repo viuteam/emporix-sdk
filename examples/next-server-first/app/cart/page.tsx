@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { STORAGE_KEYS, withEmporixSession } from "@viu/emporix-sdk-next/bff";
+import { STORAGE_KEYS, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { EMPORIX } from "../emporix";
 
 /**

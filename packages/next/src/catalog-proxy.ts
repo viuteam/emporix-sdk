@@ -1,6 +1,6 @@
 import { emporixTagsForUrl } from "./tags";
 import { getEmporixClient } from "./client";
-import { assertSameOrigin } from "./bff-auth";
+import { assertSameOrigin } from "./session-auth";
 
 const DEFAULT_HOST = "https://api.emporix.io";
 

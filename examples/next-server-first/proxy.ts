@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { emporixTokenProxy } from "@viu/emporix-sdk-next/bff";
+import { emporixTokenProxy } from "@viu/emporix-sdk-next/session";
 
 export async function proxy(request: NextRequest) {
   // Rotates the customer token when it is close to expiry and pins the site.

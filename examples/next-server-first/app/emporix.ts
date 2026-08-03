@@ -1,4 +1,4 @@
-import type { WithEmporixSessionOptions } from "@viu/emporix-sdk-next/bff";
+import type { WithEmporixSessionOptions } from "@viu/emporix-sdk-next/session";
 
 /** Site the proxy pins for every request. */
 export const SITE = { siteCode: "main" } as const;

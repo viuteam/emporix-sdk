@@ -6,7 +6,7 @@ import {
 } from "@viu/emporix-sdk";
 import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 import { getEmporixClient } from "./client";
-import { BFF_MAX_AGE, bffCookieJar, type BffCookieJar } from "./bff-cookies";
+import { SESSION_MAX_AGE, sessionCookieJar, type SessionCookieJar } from "./session-cookies";
 
 export interface WithEmporixSessionOptions {
   /** Default: `process.env.EMPORIX_TENANT`. */
@@ -25,7 +25,7 @@ export interface WithEmporixSessionOptions {
 }
 
 /** Persists the anonymous session in an httpOnly cookie, per guest. */
-function anonymousStore(jar: BffCookieJar): AnonymousSessionStore {
+function anonymousStore(jar: SessionCookieJar): AnonymousSessionStore {
   return {
     read: () => {
       const raw = jar.get(STORAGE_KEYS.anonymousSession);
@@ -47,7 +47,7 @@ function anonymousStore(jar: BffCookieJar): AnonymousSessionStore {
       jar.set(
         STORAGE_KEYS.anonymousSession,
         JSON.stringify({ refreshToken: session.refreshToken, sessionId: session.sessionId }),
-        BFF_MAX_AGE.anonymousSession,
+        SESSION_MAX_AGE.anonymousSession,
       );
     },
   };
@@ -90,7 +90,7 @@ async function run<T>(
   opts: WithEmporixSessionOptions,
   readOnly: boolean,
 ): Promise<T> {
-  const jar = await bffCookieJar({ readOnly });
+  const jar = await sessionCookieJar({ readOnly });
   const customerToken = jar.get(STORAGE_KEYS.customerToken);
   if (customerToken !== null) {
     // Customer path: the memoized client is correct, the token is per call.

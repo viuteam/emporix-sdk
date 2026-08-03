@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
-import { STORAGE_KEYS, withEmporixSession } from "@viu/emporix-sdk-next/bff";
+import { STORAGE_KEYS, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { CONTEXT, EMPORIX, SITE } from "../emporix";
 import { submitCheckout } from "../actions/checkout";
 
@@ -31,7 +31,7 @@ export default async function CheckoutPage({
 
   // ONE session, four parallel calls. Four separate withEmporixSession calls
   // would build four guest clients and redeem the same anonymous refresh token
-  // four times over — see bff-session.ts, newGuestClient.
+  // four times over — see session-client.ts, newGuestClient.
   const { cart, modes, zones, addresses } = await withEmporixSession(async (c, ctx) => {
     const [cart, modes, zones, addresses] = await Promise.all([
       c.carts.get(cartId, ctx),

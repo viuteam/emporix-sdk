@@ -42,6 +42,12 @@ jobs:
       - name: Check react dist "use client" banners
         run: pnpm -F @viu/emporix-sdk-react check:dist
 
+      # Same guard for next: catalog-client must keep its banner, the server
+      # entries must not gain one. The script also fails loudly when an entry
+      # is renamed and the list is not — which is how it earned this step.
+      - name: Check next dist "use client" banners
+        run: pnpm -F @viu/emporix-sdk-next check:dist
+
       - name: Typecheck
         run: pnpm typecheck
 

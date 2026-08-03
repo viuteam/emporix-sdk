@@ -1,13 +1,13 @@
 import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 import { auth, type CustomerSession } from "@viu/emporix-sdk";
 import {
-  BFF_EXPIRES_AT,
-  BFF_FALLBACK_LIFETIME,
-  BFF_MAX_AGE,
-  bffCookieJar,
-  type BffCookieJar,
-} from "./bff-cookies";
-import { withEmporixSessionMutable, type WithEmporixSessionOptions } from "./bff-session";
+  SESSION_EXPIRES_AT,
+  SESSION_FALLBACK_LIFETIME,
+  SESSION_MAX_AGE,
+  sessionCookieJar,
+  type SessionCookieJar,
+} from "./session-cookies";
+import { withEmporixSessionMutable, type WithEmporixSessionOptions } from "./session-client";
 
 /**
  * Rejects a request that did not originate from this site.
@@ -61,7 +61,7 @@ export async function emporixLogin(
     opts,
   );
 
-  const jar = await bffCookieJar();
+  const jar = await sessionCookieJar();
   persistSession(jar, session);
   // Must run AFTER persistSession: it resolves through the customer token this
   // just wrote, and BEFORE the anonymous session is dropped.
@@ -87,7 +87,7 @@ export async function emporixLogin(
  * Best-effort by design: a login must not fail because a cart is in a bad state.
  */
 async function onboardCart(
-  jar: BffCookieJar,
+  jar: SessionCookieJar,
   opts: WithEmporixSessionOptions,
 ): Promise<void> {
   const siteCode = opts.context?.siteCode;
@@ -103,7 +103,7 @@ async function onboardCart(
         // anonymous carts merged into it. Easy to invert.
         await client.carts.merge(customerCartId, [guestCartId], ctx);
       }
-      jar.set(STORAGE_KEYS.cartId, customerCartId, BFF_MAX_AGE.cartId);
+      jar.set(STORAGE_KEYS.cartId, customerCartId, SESSION_MAX_AGE.cartId);
     }, opts);
   } catch {
     // Ignore — the customer is logged in either way.
@@ -117,19 +117,19 @@ async function onboardCart(
  * token is **opaque** — only the `saasToken` is a JWT. Without this the proxy
  * has nothing to compare against and would refresh on every single request.
  */
-function persistSession(jar: BffCookieJar, session: CustomerSession): void {
-  jar.set(STORAGE_KEYS.customerToken, session.customerToken, BFF_MAX_AGE.customerToken);
-  const lifetime = session.expiresIn ?? BFF_FALLBACK_LIFETIME;
+function persistSession(jar: SessionCookieJar, session: CustomerSession): void {
+  jar.set(STORAGE_KEYS.customerToken, session.customerToken, SESSION_MAX_AGE.customerToken);
+  const lifetime = session.expiresIn ?? SESSION_FALLBACK_LIFETIME;
   jar.set(
-    BFF_EXPIRES_AT,
+    SESSION_EXPIRES_AT,
     String(Math.floor(Date.now() / 1000) + lifetime),
-    BFF_MAX_AGE.customerToken,
+    SESSION_MAX_AGE.customerToken,
   );
   if (session.refreshToken) {
-    jar.set(STORAGE_KEYS.refreshToken, session.refreshToken, BFF_MAX_AGE.refreshToken);
+    jar.set(STORAGE_KEYS.refreshToken, session.refreshToken, SESSION_MAX_AGE.refreshToken);
   }
   if (session.saasToken) {
-    jar.set(STORAGE_KEYS.saasToken, session.saasToken, BFF_MAX_AGE.saasToken);
+    jar.set(STORAGE_KEYS.saasToken, session.saasToken, SESSION_MAX_AGE.saasToken);
   }
 }
 
@@ -143,7 +143,7 @@ function persistSession(jar: BffCookieJar, session: CustomerSession): void {
 export async function emporixRefresh(
   opts: WithEmporixSessionOptions = {},
 ): Promise<string | null> {
-  const jar = await bffCookieJar();
+  const jar = await sessionCookieJar();
   const refreshToken = jar.get(STORAGE_KEYS.refreshToken);
   if (refreshToken === null) return null;
   const saasToken = jar.get(STORAGE_KEYS.saasToken);
@@ -171,7 +171,7 @@ export async function emporixRefresh(
  * failed invalidation.
  */
 export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promise<void> {
-  const jar = await bffCookieJar();
+  const jar = await sessionCookieJar();
   const token = jar.get(STORAGE_KEYS.customerToken);
   if (token !== null) {
     try {
@@ -190,7 +190,7 @@ export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promi
     STORAGE_KEYS.cartId,
     STORAGE_KEYS.activeLegalEntityId,
     STORAGE_KEYS.anonymousSession,
-    BFF_EXPIRES_AT,
+    SESSION_EXPIRES_AT,
   ]) {
     jar.delete(name);
   }

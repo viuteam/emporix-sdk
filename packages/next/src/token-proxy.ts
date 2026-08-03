@@ -1,7 +1,7 @@
 import type { NextRequest, NextResponse } from "next/server";
 import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
-import { emporixRefresh } from "./bff-auth";
-import { BFF_EXPIRES_AT } from "./bff-cookies";
+import { emporixRefresh } from "./session-auth";
+import { SESSION_EXPIRES_AT } from "./session-cookies";
 import { emporixSiteProxy, type EmporixSite } from "./proxy";
 
 export interface EmporixTokenProxyOptions {
@@ -52,7 +52,7 @@ export async function emporixTokenProxy(
 ): Promise<NextResponse> {
   const token = request.cookies.get(STORAGE_KEYS.customerToken)?.value;
   if (token !== undefined) {
-    const exp = storedExpiry(request.cookies.get(BFF_EXPIRES_AT)?.value);
+    const exp = storedExpiry(request.cookies.get(SESSION_EXPIRES_AT)?.value);
     const skew = opts.skewSeconds ?? 120;
     // A missing expiry refreshes ONCE and then self-heals, because the refresh
     // writes the cookie. Refreshing on every request instead — which is what

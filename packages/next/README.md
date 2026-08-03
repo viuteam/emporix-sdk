@@ -48,7 +48,7 @@ running demo.
 ```ts
 // app/actions/cart.ts
 "use server";
-import { withEmporixSessionMutable } from "@viu/emporix-sdk-next/bff";
+import { withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
 
 export async function addToCart(cartId: string, item: CartItemRequest) {
   return withEmporixSessionMutable((client, ctx) =>
@@ -79,7 +79,7 @@ every render would log in again. Use `getEmporixClient()` for those.
 ```ts
 // app/actions/auth.ts
 "use server";
-import { emporixLogin, emporixLogout } from "@viu/emporix-sdk-next/bff";
+import { emporixLogin, emporixLogout } from "@viu/emporix-sdk-next/session";
 
 export async function login(formData: FormData) {
   await emporixLogin({
@@ -100,7 +100,7 @@ to serialize into a response body.
 ```ts
 // proxy.ts
 import type { NextRequest } from "next/server";
-import { emporixTokenProxy } from "@viu/emporix-sdk-next/bff";
+import { emporixTokenProxy } from "@viu/emporix-sdk-next/session";
 
 export async function proxy(request: NextRequest) {
   return emporixTokenProxy(request, { site: { siteCode: "main" } });
@@ -120,7 +120,7 @@ function is enough.
 
 ```ts
 // app/api/emporix/[...path]/route.ts
-import { createEmporixCatalogRoute } from "@viu/emporix-sdk-next/bff";
+import { createEmporixCatalogRoute } from "@viu/emporix-sdk-next/session";
 export const GET = createEmporixCatalogRoute();
 ```
 
@@ -163,7 +163,7 @@ and 41 hooks: about **25 Server Actions**, two lines each. A narrower B2C flow
 lands nearer 19. You also give up React Query for customer data in favour of
 `useOptimistic`.
 
-### Importing `/bff` from a Client Component fails the build
+### Importing `/session` from a Client Component fails the build
 
 The entry reads session cookies and handles refresh tokens, so its `exports` map
 resolves to a throwing file outside the server graph. The error arrives at build
@@ -462,12 +462,12 @@ storage URL. There is no custom loader to install — add the storage host to
 
 `.` (client, session, tags), `./webhook` (verification, route factory),
 `./proxy` (`emporixSiteProxy`), `./service` (`getEmporixServiceClient`),
-`./bff` (server-first mode) and `./catalog-client` (the browser half of the
+`./session` (server-first mode) and `./catalog-client` (the browser half of the
 catalog proxy).
 
 The split keeps a Route Handler from pulling in `next/headers` — and a `proxy.ts`
 cannot pull it in at all, because `cookies()` does not exist in a proxy context.
-`./service` and `./bff` carry secrets, and their export conditions make a
+`./service` and `./session` carry secrets, and their export conditions make a
 client-side import a build error. `./catalog-client` is the one entry that ships
 `"use client"`.
 

@@ -18,7 +18,7 @@ function expiresIn(seconds: number): string {
 }
 
 const refreshCalls: number[] = [];
-vi.mock("../src/bff-auth", () => ({
+vi.mock("../src/session-auth", () => ({
   emporixRefresh: vi.fn(async () => {
     refreshCalls.push(1);
     return "fresh-token";

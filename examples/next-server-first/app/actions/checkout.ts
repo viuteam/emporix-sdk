@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { EmporixError, pickFee, resolveZone, type CheckoutInput } from "@viu/emporix-sdk";
-import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/bff";
+import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
 import { CONTEXT, EMPORIX, SITE } from "../emporix";
 
 function field(form: FormData, name: string): string {

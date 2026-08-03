@@ -12,7 +12,7 @@ export default defineConfig([
     ...shared,
     // Each entry is separate for a reason. `webhook`: a Route Handler must not
     // pull the client and session code (and with it `next/headers`). `proxy`:
-    // `cookies()` is not available in a proxy at all. `service` and `bff`: they
+    // `cookies()` is not available in a proxy at all. `service` and `session`: they
     // carry secrets, and their `exports` entries resolve to a throwing file
     // outside the server graph.
     entry: {
@@ -20,7 +20,7 @@ export default defineConfig([
       webhook: "src/webhook.ts",
       proxy: "src/proxy.ts",
       service: "src/service.ts",
-      bff: "src/bff.ts",
+      session: "src/session.ts",
     },
     treeshake: true,
     // clean is handled by the build script — tsup's own clean runs mid-build and

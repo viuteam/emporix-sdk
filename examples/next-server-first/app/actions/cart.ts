@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
-import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/bff";
+import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
 import { EMPORIX, SITE } from "../emporix";
 
 /** The matched-price fields the cart needs. Read loosely — the generated type is wider. */

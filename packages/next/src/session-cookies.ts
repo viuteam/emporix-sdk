@@ -5,7 +5,7 @@ import { cookies, headers } from "next/headers";
  * defaults, not Emporix's — the session security review recorded that there was
  * no application-side session lifetime at all, and this is where one is set.
  */
-export const BFF_MAX_AGE = {
+export const SESSION_MAX_AGE = {
   customerToken: 8 * 60 * 60,
   refreshToken: 30 * 24 * 60 * 60,
   saasToken: 8 * 60 * 60,
@@ -25,16 +25,16 @@ export const BFF_MAX_AGE = {
  * only the `saasToken` is one. Reading an `exp` claim off it is impossible, so
  * the lifetime Emporix returns as `expires_in` is stored instead.
  */
-export const BFF_EXPIRES_AT = "emporix.customerTokenExpiresAt";
+export const SESSION_EXPIRES_AT = "emporix.customerTokenExpiresAt";
 
 /**
  * Fallback lifetime when Emporix omits `expires_in`. Deliberately short: too
  * long means a dead token reaches a Server Component, which cannot recover.
  */
-export const BFF_FALLBACK_LIFETIME = 15 * 60;
+export const SESSION_FALLBACK_LIFETIME = 15 * 60;
 
 /** A narrow cookie surface so the attribute policy lives in exactly one place. */
-export interface BffCookieJar {
+export interface SessionCookieJar {
   get(name: string): string | null;
   /** No-op when the jar is read-only (a Server Component render). */
   set(name: string, value: string, maxAgeSeconds: number): void;
@@ -67,9 +67,9 @@ async function isSecure(): Promise<boolean> {
  * Everything written through here is `httpOnly` — the whole point of the
  * server-first mode is that the browser never reads a token.
  */
-export async function bffCookieJar(
+export async function sessionCookieJar(
   opts: { readOnly?: boolean } = {},
-): Promise<BffCookieJar> {
+): Promise<SessionCookieJar> {
   const jar = await cookies();
   const readOnly = opts.readOnly ?? false;
   const secure = await isSecure();
