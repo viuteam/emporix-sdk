@@ -5,12 +5,20 @@ import {
   STORAGE_KEYS,
   emporixLogin,
   emporixLogout,
+  sessionCookieJar,
   withEmporixSessionMutable,
 } from "@viu/emporix-sdk-next/session";
-import { EMPORIX } from "../emporix";
+import { EMPORIX, STORE_OPT } from "../emporix";
 import { setCart } from "../lib/cart-session";
 
+/** Read-only, so it costs a jar hydrate and no Emporix call. */
+async function readCartId(): Promise<string | null> {
+  const jar = await sessionCookieJar({ readOnly: true, ...STORE_OPT });
+  return jar.get(STORAGE_KEYS.cartId);
+}
+
 export async function login(formData: FormData): Promise<void> {
+  const cartIdBefore = await readCartId();
   await emporixLogin(
     {
       email: String(formData.get("email")),
@@ -18,13 +26,22 @@ export async function login(formData: FormData): Promise<void> {
     },
     EMPORIX,
   );
-  // emporixLogin folds the guest cart into the customer's and writes the cart id
-  // itself — inside the package, so outside setCart. Without this the header
-  // would keep showing the guest cart's count after the merge.
-  await withEmporixSessionMutable(async (client, ctx, jar) => {
-    const cartId = jar.get(STORAGE_KEYS.cartId);
-    if (cartId !== null) setCart(jar, await client.carts.get(cartId, ctx));
-  }, EMPORIX);
+  // Only when the onboarding actually swapped the cart. emporixLogin writes the
+  // cart id itself, inside the package and therefore outside setCart, so a swap
+  // would leave the header showing the guest cart's count.
+  //
+  // Guarded rather than unconditional because the swap is rare: on the `viu`
+  // tenant it never happens — the customer login refreshes the same anonymous
+  // session, Emporix binds the cart to it, and `getCurrent` answers with the
+  // guest cart. Measured twice on 2026-08-03. An unconditional re-read would
+  // spend a cart GET on every login to fix a path this tenant does not take;
+  // the two jar reads around it are free by comparison.
+  if (cartIdBefore !== (await readCartId())) {
+    await withEmporixSessionMutable(async (client, ctx, jar) => {
+      const cartId = jar.get(STORAGE_KEYS.cartId);
+      if (cartId !== null) setCart(jar, await client.carts.get(cartId, ctx));
+    }, EMPORIX);
+  }
   revalidatePath("/", "layout");
 }
 

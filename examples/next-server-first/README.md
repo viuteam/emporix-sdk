@@ -143,6 +143,23 @@ otherwise outlive the logout.
 The last two rows are the point. A guard that has never been observed failing is
 not known to work.
 
+The one place the count could still go stale is a login that swaps the cart, because
+`emporixLogin` writes the cart id inside the package and therefore outside
+`setCart`. `app/actions/auth.ts` re-reads the cart in that case — and only in that
+case, comparing the id before and after. An unconditional re-read would spend a
+cart GET on every login for a swap that this tenant does not perform.
+
+| Check | Result |
+|---|---|
+| login where the cart id changed (none before, new one after) | guard fired, `demo.cartCount: "0"` written — that field comes only from `setCart` |
+| the same login, four jars in one request (two read-only plus the two in `emporixLogin`) | exactly **one** record, all tokens in the store, login intact |
+| header afterwards | «Cart» with no number, logout button instead of the login link |
+| `/debug`, `document.cookie` | PASS, `emporix.siteCode` only |
+
+What this does **not** prove: that the re-read corrects a stale **non-zero**
+count. That needs the merge path to fire with a differing item count, and on this
+tenant it does not fire at all — see the section below.
+
 ## The catalog/cart split
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use
@@ -224,6 +241,40 @@ cookie jar, httpOnly included, and it asserts the token is absent from it.
 
 The revocation row is the point of the whole feature. Encrypted cookies cannot do
 it: the ciphertext stays valid until it expires, no matter what you want.
+
+### The merge did not reproduce on 2026-08-03 — read this before trusting the row above
+
+Two logins that day, in store mode, both ended with the cart id **unchanged**:
+
+| Run | Guest cart before | Customer's other open cart | Cart id after login |
+|---|---|---|---|
+| 1 | `6a707dc1…`, 2 items | none | `6a707dc1…` — unchanged |
+| 2 | `6a707e7f…`, 1 item | `6a707dc1…`, **2 items** | `6a707e7f…` — unchanged |
+
+`onboardCart` merges only when `getCurrent` returns an id **different** from the
+guest's. On this tenant it never does: the customer login refreshes the same
+anonymous session, Emporix binds the cart to that session, and `getCurrent`
+therefore answers with the guest cart itself. The cart is **transferred**, not
+merged — which is the better outcome when there is nothing to merge.
+
+Run 2 is the uncomfortable one. The customer demonstrably held `6a707dc1…` with
+two items, and after logging in `/cart` showed only the guest's single item. Both
+carts were still readable — `GET /cart/viu/carts/…` returned **200** for each,
+with 2 and 1 items. So nothing was lost on Emporix's side, but **two items became
+invisible to the shopper**, and the customer now holds two open carts.
+
+That last part also puts a question mark on `onboardCart`'s own comment, which
+says «a customer may hold only one open cart». Two were open simultaneously here.
+Whether a third via `carts.create` would still answer 409 was not tested — the
+constraint may apply only to an explicit create, not to a cart adopted through an
+anonymous session.
+
+Left as a finding, not fixed: making run 2 fold both carts together needs the
+package to remember the customer's prior cart id, and that is a design decision
+rather than a bug fix.
+
+The 2026-08-01 observation below is left standing because it was observed. It has
+not been reproduced since.
 
 The merge check is worth spelling out, because the obvious version of it proves
 nothing. Seeing the guest's item after logging in is **not** evidence: the cookie
