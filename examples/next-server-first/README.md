@@ -33,6 +33,17 @@ Setting or changing it logs every existing session out — including any cart yo
 had open. That is the intended behaviour, not a bug: removing a key is the
 mass-logout lever.
 
+### Or let the backend invalidate the catalog cache
+
+```
+EMPORIX_WEBHOOK_SECRET=<the HMAC secret from the Emporix webhook subscription>
+```
+
+Only needed if you point a subscription at `POST /api/emporix/webhook`. Without it
+that one route throws on first request — deliberately, because a route that
+silently `401`s every delivery is the most expensive way to hide a missing
+variable. Every other page runs fine. See «The webhook» below.
+
 ### Or keep the session server-side entirely
 
 ```
@@ -76,10 +87,18 @@ encryption looked like it had done nothing.
 | Page | Proves |
 |---|---|
 | `/` | catalog rendered on the server with the memoized tagged client |
+| `/search` | a form GET as the whole state container — no `useState`, back button works |
+| `/category/[id]` | pagination as a URL, and an over-range page that says so |
+| `/product/[id]` | `notFound()` on an unknown id instead of a 500 |
 | `/login` | `emporixLogin` / `emporixLogout` via Server Actions, session in httpOnly cookies |
 | `/cart` | `withEmporixSession*`, a guest cart bound to a server-managed anonymous session |
 | `/checkout` | four reads in one session, and a `saasToken` that authorizes an order without ever reaching the browser |
+| `/account` | a per-page auth gate, because Next 16 middleware cannot read cookies |
+| `/account/profile` | a form that owns every field it shows, so clearing one works |
+| `/account/addresses` | CRUD through three Server Actions and one `ActionForm` |
+| `/account/orders[/id]` | the two order shapes Emporix returns, read by one adapter |
 | `/debug` | **what the browser can actually read** — green only when no secret is reachable from JavaScript |
+| `POST /api/emporix/webhook` | the backend invalidating tagged catalog reads, verified by HMAC |
 | typeahead on `/` | a client-side catalog read with no token, through `/api/emporix` |
 
 ## Checkout
@@ -406,6 +425,68 @@ Two casts the plan for this work suggested, both unnecessary:
 `carts.addItemsBatch(cartId, items, ctx)` takes a **bare array**, not `{ items }`,
 and typechecks without `as never`. `useReorder` carries that cast; it is worth
 trying without before copying it over.
+
+## The webhook, and the half of the cache loop that was missing
+
+`getEmporixClient()` tags every cacheable catalog GET and caches it for an hour
+(`revalidate: 3600`). Nothing shortened that hour: the package shipped
+`createEmporixWebhookRoute` and no example mounted it, so a product renamed in the
+backend stayed wrong for up to sixty minutes. `app/api/emporix/webhook/route.ts`
+closes the loop in eight lines:
+
+```ts
+export const POST = createEmporixWebhookRoute({
+  secret,
+  maxAgeSeconds: 300, // without it, an intercepted delivery stays replayable
+});
+```
+
+Point an Emporix webhook subscription at `POST /api/emporix/webhook` with the same
+HMAC secret in `EMPORIX_WEBHOOK_SECRET`. The route maps `product.*` →
+`emporix:product:<id>` + `emporix:products`, `category.*` → the category pair,
+`price.*` → `emporix:prices`, `availability.*` → `emporix:availability`, and
+`revalidateTag`s them with `{ expire: 0 }`.
+
+**Only the catalog.** `emporixTagsForUrl` returns `[]` for cart, order, customer
+and token endpoints, so no webhook can invalidate those — they are per-shopper or
+secret and are never cached in the first place. The `revalidatePath` calls in the
+cart and account actions are not a blunt substitute for tags there; they are the
+only instrument that applies.
+
+### Verified 2026-08-03, and how to check it yourself
+
+Render time is a poor instrument (0.28s vs 0.12s proves little). Next's on-disk
+data cache is a good one — a revalidated **and refetched** entry gets rewritten,
+so its mtime moves:
+
+```bash
+grep -rl 'emporix:product:<id>' .next/dev/cache/fetch-cache | xargs stat -f '%m %N'
+```
+
+| Delivery | Route | Cache entries rewritten on the next render |
+|---|---|---|
+| Correct signature, fresh | `200` | 1 |
+| Wrong signature | `401 invalid signature` | 0 |
+| Correct signature, 600s old | `401 delivery too old` | 0 |
+| Correct signature, list tag, then `/search` | `200` | 1 of 326 |
+
+«1 of 326» is not a partial invalidation. `revalidateTag` expires all 326 entries
+carrying `emporix:products`; only the one the reloaded page actually requests goes
+upstream again. The other 325 are stale entries from earlier renders and sit there
+expired until something asks for them. Same reason a single product shows 3 tagged
+entries and 1 rewrite.
+
+Two things this does **not** prove, and neither can be faked into a table. First,
+that Emporix's own HMAC matches ours — the signature above is computed by the same
+code that verifies it, so a shared misreading of the vendor spec would pass. The
+package says so at `verifyEmporixSignature`; smoke-test one real delivery, and if a
+tenant signs the raw bytes instead, `canonicalize: false` is the escape hatch.
+Second, that a renamed product appears — that needs a write to the tenant, which
+this verification run did not make.
+
+`logging: { fetches: { fullUrl: true } }` in `next.config.mjs` looks like the
+obvious instrument and prints **nothing** under Turbopack in Next 16.2.12. Do not
+spend time on it; use the cache directory.
 
 ## What this demo deliberately does NOT have
 
