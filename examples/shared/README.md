@@ -32,8 +32,12 @@ applies as to
 which also says «copy it»: a demo helper that becomes public API is API you have
 to keep forever.
 
-`src/adapters.ts` and `src/format.ts` have no dependency beyond
-`@viu/emporix-sdk` types. Paste them into your project and change what you need.
+`src/format.ts` has no imports at all — paste it anywhere. `src/adapters.ts`
+imports `@viu/emporix-sdk` twice, and the two are not the same weight: the `type`
+import of `Product`, `Media` and `PriceMatch` vanishes at compile time, but
+`productIdFromYrn` is a **runtime** function. Copy that one too — it is eleven
+lines in `packages/sdk/src/core/yrn.ts` — or keep the SDK as a dependency. This
+README claimed «no dependency beyond types» until someone checked.
 
 ## What is not here
 
@@ -45,5 +49,11 @@ tag-stripping path while believing it had a sanitizer. Server-side callers use
 ## Conventions
 
 No build step: `exports` points at `src/`, and consumers typecheck against the
-source. No tests either — `test` and `lint` are no-ops, like the other examples.
-It is covered by the two demos typechecking, building and running.
+source. This package's own `test` and `lint` are no-ops, like the other examples,
+and it is mostly covered by the two demos typechecking, building and running.
+
+One exception, and it earned its place: `stripHtml` is unit-tested from
+[`next-server-first/tests/strip-html.test.ts`](../next-server-first/tests/strip-html.test.ts),
+because CodeQL found a polynomial ReDoS in it. The test lives over there rather
+than here so one vitest setup covers both — a second one for a single test is not
+worth the files.

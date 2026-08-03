@@ -73,7 +73,7 @@ pnpm -r --filter "./packages/*" build   # examples typecheck against dist/
 
 | Example | Command | Configuration |
 |---|---|---|
-| `node-server` | `pnpm -F @viu/emporix-examples-node-server start` | `EMPORIX_TENANT`, `EMPORIX_BACKEND_CLIENT_ID`, `EMPORIX_BACKEND_CLIENT_SECRET` |
+| `node-server` | `pnpm -F @viu/emporix-examples-node-server start` | a `.env` file — `EMPORIX_TENANT`, `EMPORIX_BACKEND_CLIENT_ID`, `EMPORIX_BACKEND_CLIENT_SECRET`, `EMPORIX_STOREFRONT_CLIENT_ID` |
 | `vite-spa` | `pnpm -F @viu/emporix-examples-vite-spa dev` | `VITE_EMPORIX_TENANT` |
 | `storefront-demo` | `pnpm -F @viu/emporix-examples-storefront-demo dev` | none — entered in the app |
 | `next-app-router` | `pnpm -F @viu/emporix-examples-next-app-router dev` | `NEXT_PUBLIC_EMPORIX_TENANT` |
@@ -95,10 +95,13 @@ storefront client id server-side, so it cannot take it from the URL or a form.
   changing SDK or React source, run
   `pnpm -F @viu/emporix-sdk build && pnpm -F @viu/emporix-sdk-react build`
   before `pnpm -F @viu/emporix-examples-* typecheck`.
-- **Almost no unit tests.** `test` and `lint` are deliberate no-ops; examples are
-  verified by typecheck, by build, and by running them. The one exception is
-  `next-server-first/tests/safe-next.test.ts`, which covers an open redirect —
-  a trust boundary is worth four assertions even in a demo.
+- **Almost no unit tests.** `test` and `lint` are deliberate no-ops in four of the
+  five; examples are verified by typecheck, by build, and by running them. The
+  exception is `next-server-first`, whose `test` really runs vitest over two files:
+  `tests/safe-next.test.ts` covers an open redirect, and
+  `tests/strip-html.test.ts` covers a ReDoS CodeQL found in `shared/`. Both are
+  trust or availability boundaries, and both are worth a handful of assertions even
+  in a demo. Nothing else here is unit-tested, on purpose.
 - **Not every product has a price**, and Emporix requires a `priceId` on
   internal cart items. Examples that add to a cart resolve the price first; the
   Next ones list a category known to carry prices on the `viu` tenant.

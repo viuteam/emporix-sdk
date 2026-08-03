@@ -43,6 +43,86 @@ public catalog.
 See [`../../examples/next-server-first`](../../examples/next-server-first) for a
 running demo.
 
+### How the session is managed
+
+Two diagrams, because one would have to show three unrelated things at once. The
+first is where a request goes; the second is the ordering trap inside login.
+
+```mermaid
+flowchart TD
+    REQ([Request]) --> PROXY["proxy.ts — emporixTokenProxy<br/>the ONLY place that reads and writes<br/>cookies before the render"]
+    PROXY -->|"rotates a near-expiry<br/>customer token, pins the site"| KIND{What is rendering?}
+
+    KIND -->|Server Component| RO["withEmporixSession<br/>readOnly jar — set/delete no-op"]
+    KIND -->|"Server Action,<br/>Route Handler"| RW["withEmporixSessionMutable<br/>writes go through, then flush"]
+    KIND -->|"catalog read<br/>(no session needed)"| CAT["getEmporixClient()<br/>memoized per process, tagged,<br/>revalidate 3600"]
+
+    RO --> BRANCH{"customer token<br/>in the jar?"}
+    RW --> BRANCH
+
+    BRANCH -->|yes| CUST["memoized client, tagged: false<br/>+ auth.customer(token)"]
+    BRANCH -->|no| GUEST["NEW client per request<br/>+ anonymous store on the jar<br/>+ auth.anonymous()"]
+
+    CUST --> JAR[[SessionCookieJar]]
+    GUEST --> JAR
+    JAR --> MODE{store passed?}
+
+    MODE -->|no| COOKIE["EVERY value in a cookie<br/>AES-256-GCM if EMPORIX_COOKIE_SECRET<br/>__Host- prefix when secure"]
+    MODE -->|yes| STORE["tokens and cart id in the store<br/>hydrate once by emporix.sid,<br/>mutate in memory, ONE flush"]
+    STORE --> PUB["siteCode and language stay cookies<br/>even here — the browser reads them"]
+```
+
+**Why a new client for guests and not for customers.** Emporix maps the anonymous
+token's `session-id` onto the cart at creation. `getEmporixClient()` is memoized
+per process, so attaching one guest's anonymous store to it would hand the next
+guest the same cart. The customer path has no such problem: the token is passed per
+call, not held on the client.
+
+**Why the catalog branch bypasses all of it.** A catalog read needs no stable
+session, and a read-only jar cannot persist the anonymous session the SDK just
+obtained — so routing catalog reads through `withEmporixSession` would log in
+anonymously on every render. It is also the only branch that can be cached, because
+`withEmporixSession*` never passes a `fetch`.
+
+### The ordering trap in login
+
+`emporixLogin` builds **two** jars for one request, and the order between them is
+load-bearing. This cost a day of wrong explanations in store mode, so it is drawn
+rather than described:
+
+```mermaid
+sequenceDiagram
+    participant A as Server Action
+    participant L as emporixLogin
+    participant J1 as jar 1
+    participant S as store (Redis)
+    participant J2 as jar 2 (inside onboardCart)
+    participant E as Emporix
+
+    A->>L: emporixLogin({ email, password }, { store })
+    L->>E: customer login
+    E-->>L: customerToken, refreshToken, saasToken
+    L->>J1: persistSession(...)
+    Note over J1: cookie mode: written through NOW<br/>store mode: in memory only
+    L->>J1: await jar.flush()
+    J1->>S: write(sid, record)
+    Note over L,S: Without this flush the next jar reads a<br/>store with NO customer token and runs<br/>as a GUEST — new empty cart, merge refused
+    L->>J2: onboardCart → withEmporixSessionMutable
+    J2->>S: read(sid)
+    S-->>J2: record WITH customerToken
+    J2->>E: carts.getCurrent (as customer)
+    E-->>J2: the customer's cart
+    J2->>E: carts.merge(customerCartId, [guestCartId])
+    Note over J2,E: path id is the CUSTOMER cart (target),<br/>the body lists the anonymous carts
+    E-->>J2: merged
+    J2->>S: write(sid, record)
+```
+
+Cookie mode never had the bug: `persistSession` writes through there, so jar 2
+sees the token whether or not anything flushed. That asymmetry is exactly why the
+original verification passed — every store-mode check had been a guest flow, and
+the guest flow does not build a second jar.
+
 ### One helper covers every customer and cart call
 
 ```ts
