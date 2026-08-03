@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   STORAGE_KEYS,
   emporixLogin,
@@ -10,6 +11,7 @@ import {
 } from "@viu/emporix-sdk-next/session";
 import { EMPORIX, STORE_OPT } from "../emporix";
 import { setCart } from "../lib/cart-session";
+import { safeNext } from "../lib/safe-next";
 
 /** Read-only, so it costs a jar hydrate and no Emporix call. */
 async function readCartId(): Promise<string | null> {
@@ -43,6 +45,9 @@ export async function login(formData: FormData): Promise<void> {
     }, EMPORIX);
   }
   revalidatePath("/", "layout");
+  // safeNext again, not just when the field was rendered: the value arrives in a
+  // form post and a form post is whatever the client sent.
+  redirect(safeNext(String(formData.get("next") ?? "/")));
 }
 
 export async function logout(): Promise<void> {

@@ -52,13 +52,16 @@ export async function Header(): Promise<React.JSX.Element> {
               Login
             </a>
           ) : (
-            // No /account link yet — that route arrives with the account pages.
-            // Linking it early would ship a 404 in whatever lands first.
-            <form action={logout} style={{ display: "inline" }}>
-              <button type="submit" className="btn btn--ghost btn--sm">
-                Log out
-              </button>
-            </form>
+            <>
+              <a href="/account" className="u-underline">
+                Account
+              </a>
+              <form action={logout} style={{ display: "inline" }}>
+                <button type="submit" className="btn btn--ghost btn--sm">
+                  Log out
+                </button>
+              </form>
+            </>
           )}
           <a href="/debug" className="u-underline">
             Debug

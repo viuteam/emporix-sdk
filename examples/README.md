@@ -95,8 +95,10 @@ storefront client id server-side, so it cannot take it from the URL or a form.
   changing SDK or React source, run
   `pnpm -F @viu/emporix-sdk build && pnpm -F @viu/emporix-sdk-react build`
   before `pnpm -F @viu/emporix-examples-* typecheck`.
-- **No unit tests.** `test` and `lint` are deliberate no-ops. Examples are
-  verified by typecheck, by build, and by running them.
+- **Almost no unit tests.** `test` and `lint` are deliberate no-ops; examples are
+  verified by typecheck, by build, and by running them. The one exception is
+  `next-server-first/tests/safe-next.test.ts`, which covers an open redirect —
+  a trust boundary is worth four assertions even in a demo.
 - **Not every product has a price**, and Emporix requires a `priceId` on
   internal cart items. Examples that add to a cart resolve the price first; the
   Next ones list a category known to carry prices on the `viu` tenant.

@@ -263,6 +263,40 @@ answer can now only make the count wrong, never lose the cart. The count itself
 comes from a re-read, because `items` on those answers is just as unverified as
 `id` was.
 
+## The account gate, and the one trust boundary here
+
+`requireCustomer(next)` sits at the top of every account page. Per page, and not
+by choice: Next 16 runs middleware in `proxy.ts`, which is Node-runtime and has no
+`cookies()`. storefront-demo gates from the client with a `RequireAuth` component,
+which means it renders once, unauthenticated, before deciding. This never does.
+
+The `?next=` it writes is where the demo grows a trust boundary, so `safeNext` is
+**the one thing in these examples with unit tests**. `//evil.com` starts with a
+slash and is still an absolute URL — the browser reads it as protocol-relative —
+which is exactly what a naive `startsWith("/")` check waves through.
+
+`safeNext` lives in its own module with no imports, and that is not tidiness:
+`@viu/emporix-sdk-next/session` is server-only and its guard throws the moment
+vitest resolves it outside the `react-server` condition. Correctly so. A pure
+function does not need the company.
+
+**Verified 2026-08-03:**
+
+| Check | Result |
+|---|---|
+| `GET /account` while logged out | **307** to `/login?next=%2Faccount` |
+| `?next=//evil.com` | hidden field renders `/` |
+| `?next=https://evil.com` | hidden field renders `/` |
+| `?next=/account/orders` | survives |
+| login from `?next=/account` | **303**, lands on `/account` |
+| the account page | name and email from `customers.me`, header shows «Account» |
+| the two guards, mutated away one at a time | each mutation fails its own test |
+
+The email is `contactEmail`, not `email` — the latter is empty on this shape.
+Found by an empty line in the rendered page, then checked against
+`storefront-demo/src/account/ProfileForm.tsx`, which reads the same four fields
+against the real tenant.
+
 ## The catalog/cart split
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use
