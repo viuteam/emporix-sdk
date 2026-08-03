@@ -15,7 +15,7 @@ commerce events, attachments, and agent export/import.
 > `ai.agentexecution_manage_own` scope needs a **token-proxy** that holds the
 > service credentials and brokers each `chat` call. For Next there is now a
 > starting point: `@viu/emporix-sdk-next/service` for the credentials and
-> `createEmporixCatalogRoute` in `/session` as the shape to copy. There is still
+> `createEmporixPublicRoute` in `/session` as the shape to copy. There is still
 > no React binding for the AI Service.
 >
 > The **model is server-fixed** per tenant — there is no `model` parameter.

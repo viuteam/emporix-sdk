@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { createEmporixCatalogRoute } from "../src/catalog-proxy";
-import { createProxyTokenProvider, createProxyFetch } from "../src/catalog-client";
+import { createEmporixPublicRoute } from "../src/public-route";
+import { createProxyTokenProvider, createProxyFetch } from "../src/public-client";
 import { __resetEmporixClients } from "../src/client";
 
 function stubFetch(): { urls: string[]; auths: Array<string | null> } {
@@ -52,45 +52,45 @@ afterEach(() => {
   delete process.env.EMPORIX_STOREFRONT_CLIENT_ID;
 });
 
-describe("createEmporixCatalogRoute — allowlist", () => {
+describe("createEmporixPublicRoute — allowlist", () => {
   it("forwards a catalog product request", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("product/viu/products/p1");
     expect((await route(request, ctx)).status).toBe(200);
   });
 
   it("rejects a cart request with 403", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("cart/viu/carts/c1");
     expect((await route(request, ctx)).status).toBe(403);
   });
 
   it("rejects an order request with 403", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("order/viu/orders/o1");
     expect((await route(request, ctx)).status).toBe(403);
   });
 
   it("rejects a customer request with 403", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("customer/viu/login");
     expect((await route(request, ctx)).status).toBe(403);
   });
 
   it("rejects a foreign tenant with 403", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("product/other/products/p1");
     expect((await route(request, ctx)).status).toBe(403);
   });
 
   it("rejects a cross-site request", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const request = new Request("https://shop.test/api/emporix/product/viu/products/p1", {
       headers: { "sec-fetch-site": "cross-site" },
     });
@@ -99,10 +99,10 @@ describe("createEmporixCatalogRoute — allowlist", () => {
   });
 });
 
-describe("createEmporixCatalogRoute — token substitution", () => {
+describe("createEmporixPublicRoute — token substitution", () => {
   it("never forwards the placeholder Authorization header", async () => {
     const f = stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("product/viu/products/p1");
     await route(request, ctx);
     expect(f.auths).not.toContain("Bearer proxied");
@@ -110,7 +110,7 @@ describe("createEmporixCatalogRoute — token substitution", () => {
 
   it("sends the server's real anonymous token upstream", async () => {
     const f = stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("product/viu/products/p1");
     await route(request, ctx);
     expect(f.auths.some((a) => a === "Bearer real-anon")).toBe(true);
@@ -196,5 +196,31 @@ describe("createProxyFetch", () => {
     const f = createProxyFetch({ base: "/api/emporix" });
     await f("/some/local/path");
     expect(seen[0]).toBe("/some/local/path");
+  });
+});
+
+describe("the public-client entry", () => {
+  it("is wired under ./public-client and carries no server-only guard", async () => {
+    // Unlike /session and /service this one is MEANT for the browser — it must
+    // stay a plain entry, and tsup must give it the "use client" banner
+    // (scripts/check-dist.mjs enforces the banner on the built file).
+    const pkg = (await import("../package.json")) as unknown as {
+      default: { exports: Record<string, unknown> };
+    };
+    expect(pkg.default.exports["./public-client"]).toEqual({
+      types: "./dist/public-client.d.ts",
+      import: "./dist/public-client.js",
+      require: "./dist/public-client.cjs",
+    });
+  });
+
+  it("no longer exposes the old /catalog-client subpath", async () => {
+    // `catalog` named the first use case, not the rule. The allowlist also
+    // admits price, availability and site — and Emporix has a real Catalog
+    // service this has nothing to do with.
+    const pkg = (await import("../package.json")) as unknown as {
+      default: { exports: Record<string, unknown> };
+    };
+    expect(pkg.default.exports["./catalog-client"]).toBeUndefined();
   });
 });

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { EmporixClient } from "@viu/emporix-sdk";
-import { createProxyFetch, createProxyTokenProvider } from "@viu/emporix-sdk-next/catalog-client";
+import { createProxyFetch, createProxyTokenProvider } from "@viu/emporix-sdk-next/public-client";
 
 /**
  * A client-side catalog read with NO token. The token provider makes no network

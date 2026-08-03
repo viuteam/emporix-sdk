@@ -36,4 +36,4 @@ export {
 } from "./session-client";
 export { emporixLogin, emporixLogout, emporixRefresh, assertSameOrigin } from "./session-auth";
 export { emporixTokenProxy, type EmporixTokenProxyOptions } from "./token-proxy";
-export { createEmporixCatalogRoute } from "./catalog-proxy";
+export { createEmporixPublicRoute } from "./public-route";

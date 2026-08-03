@@ -1,11 +1,11 @@
 // Guards the RSC boundary contract of the published package:
-// - catalog-client MUST start with "use client" (esbuild drops source
+// - public-client MUST start with "use client" (esbuild drops source
 //   directives; tsup must re-add them via `banner`).
 // - the server entries MUST stay directive-free.
 import { readFileSync, existsSync } from "node:fs";
 
 const HEAD_BYTES = 200;
-const mustHaveBanner = ["catalog-client"];
+const mustHaveBanner = ["public-client"];
 const mustNotHaveBanner = ["index", "webhook", "proxy", "service", "session"];
 let failed = false;
 

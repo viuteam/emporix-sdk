@@ -29,7 +29,7 @@ export default defineConfig([
   },
   {
     ...shared,
-    entry: { "catalog-client": "src/catalog-client.ts" },
+    entry: { "public-client": "src/public-client.ts" },
     clean: false,
     // treeshake is intentionally omitted: tsup's rollup treeshake post-pass
     // rewrites each chunk and strips any prepended banner. Learned in

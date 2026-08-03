@@ -70,10 +70,10 @@
       },
       "default": "./session-is-server-only.js"
     },
-    "./catalog-client": {
-      "types": "./dist/catalog-client.d.ts",
-      "import": "./dist/catalog-client.js",
-      "require": "./dist/catalog-client.cjs"
+    "./public-client": {
+      "types": "./dist/public-client.d.ts",
+      "import": "./dist/public-client.js",
+      "require": "./dist/public-client.cjs"
     },
     "./package.json": "./package.json"
   },

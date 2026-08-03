@@ -120,15 +120,15 @@ function is enough.
 
 ```ts
 // app/api/emporix/[...path]/route.ts
-import { createEmporixCatalogRoute } from "@viu/emporix-sdk-next/session";
-export const GET = createEmporixCatalogRoute();
+import { createEmporixPublicRoute } from "@viu/emporix-sdk-next/session";
+export const GET = createEmporixPublicRoute();
 ```
 
 ```ts
 import {
   createProxyFetch,
   createProxyTokenProvider,
-} from "@viu/emporix-sdk-next/catalog-client";
+} from "@viu/emporix-sdk-next/public-client";
 
 const client = new EmporixClient({
   tenant,
@@ -462,13 +462,13 @@ storage URL. There is no custom loader to install — add the storage host to
 
 `.` (client, session, tags), `./webhook` (verification, route factory),
 `./proxy` (`emporixSiteProxy`), `./service` (`getEmporixServiceClient`),
-`./session` (server-first mode) and `./catalog-client` (the browser half of the
+`./session` (server-first mode) and `./public-client` (the browser half of the
 catalog proxy).
 
 The split keeps a Route Handler from pulling in `next/headers` — and a `proxy.ts`
 cannot pull it in at all, because `cookies()` does not exist in a proxy context.
 `./service` and `./session` carry secrets, and their export conditions make a
-client-side import a build error. `./catalog-client` is the one entry that ships
+client-side import a build error. `./public-client` is the one entry that ships
 `"use client"`.
 
 ## Authors

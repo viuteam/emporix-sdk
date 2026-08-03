@@ -5,27 +5,33 @@ import { assertSameOrigin } from "./session-auth";
 const DEFAULT_HOST = "https://api.emporix.io";
 
 /**
- * A catch-all Route Handler for **public catalog reads only**.
+ * A catch-all Route Handler for **public reads only**.
  *
- * Lets a storefront keep client-side catalog interaction — typeahead, infinite
- * scroll, filters — while holding no Emporix token in the browser. The browser
- * sends a placeholder; this route substitutes the server's real anonymous token.
+ * Lets a storefront keep client-side interaction — typeahead, infinite scroll,
+ * filters — while holding no Emporix token in the browser. The browser sends a
+ * placeholder; this route substitutes the server's real anonymous token.
  *
  * The allowlist is {@link emporixTagsForUrl}: a URL is proxyable exactly when it
- * yields cache tags, which is already the "public and cacheable" test. Cart,
- * order, customer and token endpoints yield `[]` and get a 403. There is
- * deliberately no second allowlist to keep in sync.
+ * yields cache tags, which is already the "public and cacheable" test. That
+ * currently admits `product`, `category`, `price`, `availability` and `site`.
+ * Cart, order, customer and token endpoints yield `[]` and get a 403. There is
+ * deliberately no second allowlist to keep in sync — widen the tag mapper and
+ * this widens with it, which is the intended coupling.
  *
- * Proxying catalog reads is a net win rather than a cost: the response is cached
+ * Not named `catalog`: the allowlist covers prices and site config too, and
+ * Emporix has a real Catalog service (`client.catalogs`) this has nothing to do
+ * with.
+ *
+ * Proxying these reads is a net win rather than a cost: the response is cached
  * by Next once for all visitors instead of fetched per browser.
  *
  * @example
  * ```ts
  * // app/api/emporix/[...path]/route.ts
- * export const GET = createEmporixCatalogRoute();
+ * export const GET = createEmporixPublicRoute();
  * ```
  */
-export function createEmporixCatalogRoute(
+export function createEmporixPublicRoute(
   opts: { tenant?: string; revalidate?: number } = {},
 ): (request: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response> {
   return async (request, ctx) => {
@@ -38,7 +44,7 @@ export function createEmporixCatalogRoute(
     const tenant = opts.tenant ?? process.env.EMPORIX_TENANT;
     if (!tenant) {
       throw new Error(
-        "createEmporixCatalogRoute: no tenant. Set EMPORIX_TENANT or pass { tenant }.",
+        "createEmporixPublicRoute: no tenant. Set EMPORIX_TENANT or pass { tenant }.",
       );
     }
 
@@ -52,7 +58,7 @@ export function createEmporixCatalogRoute(
     }
 
 
-    // The tagged client is correct here: this is public, cacheable catalog data
+    // The tagged client is correct here: this is public, cacheable data
     // and its anonymous token carries no personalization.
     const client = getEmporixClient({
       tenant,

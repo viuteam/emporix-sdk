@@ -1,7 +1,7 @@
 import type { AnonymousSession, TokenProvider } from "@viu/emporix-sdk";
 
 const DEFAULT_HOST = "https://api.emporix.io";
-/** Discarded by the catalog route; never sent to Emporix. */
+/** Discarded by the public route; never sent to Emporix. */
 const PLACEHOLDER = "proxied";
 
 /**
@@ -13,7 +13,7 @@ const PLACEHOLDER = "proxied";
  * only way to keep a token out of the browser is not to request one.
  *
  * Pair it with {@link createProxyFetch} and a route built by
- * `createEmporixCatalogRoute`, which substitutes the server's real token.
+ * `createEmporixPublicRoute`, which substitutes the server's real token.
  */
 export function createProxyTokenProvider(): TokenProvider {
   const session: AnonymousSession = {

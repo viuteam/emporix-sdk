@@ -69,8 +69,8 @@ provider that never makes a network call.
 | `packages/next/src/bff-auth.ts` | **create** — `emporixLogin`, `emporixLogout`, `emporixRefresh`, `assertSameOrigin`. |
 | `packages/next/src/bff.ts` | **create** — the entry barrel re-exporting the three above. |
 | `packages/next/src/token-proxy.ts` | **create** — `emporixTokenProxy`. |
-| `packages/next/src/catalog-proxy.ts` | **create** — `createEmporixCatalogRoute` (server side of the catalog proxy). |
-| `packages/next/src/catalog-client.ts` | **create** — `createProxyTokenProvider`, `createProxyFetch`. The **first client entry** in this package. |
+| `packages/next/src/public-route.ts` | **create** — `createEmporixPublicRoute` (server side of the catalog proxy). |
+| `packages/next/src/public-client.ts` | **create** — `createProxyTokenProvider`, `createProxyFetch`. The **first client entry** in this package. |
 | `packages/next/bff-is-server-only.js` | **create** — the guard file for `./bff`, mirroring `service-is-server-only.js`. |
 | `packages/next/tsup.config.ts` | **modify** — split into two configs: server entries, and one client entry with the `"use client"` banner. |
 | `packages/next/scripts/check-dist.mjs` | **create** — asserts the client entry carries the banner and the server entries do not. |
@@ -1344,12 +1344,12 @@ refresh rather than a request with a dead token."
 ## Task 4: Catalog proxy and the first client entry
 
 **Files:**
-- Create: `packages/next/src/catalog-proxy.ts`
-- Create: `packages/next/src/catalog-client.ts`
+- Create: `packages/next/src/public-route.ts`
+- Create: `packages/next/src/public-client.ts`
 - Create: `packages/next/src/bff.ts`
 - Create: `packages/next/bff-is-server-only.js`
 - Create: `packages/next/scripts/check-dist.mjs`
-- Create: `packages/next/tests/catalog-proxy.test.ts`
+- Create: `packages/next/tests/public-route.test.ts`
 - Modify: `packages/next/tsup.config.ts`
 - Modify: `packages/next/package.json`
 
@@ -1359,13 +1359,13 @@ refresh rather than a request with a dead token."
   Tasks 1-3 for the `./bff` barrel.
 - Produces:
   ```ts
-  // catalog-proxy.ts — server
-  export function createEmporixCatalogRoute(opts?: {
+  // public-route.ts — server
+  export function createEmporixPublicRoute(opts?: {
     tenant?: string;
     revalidate?: number;
   }): (request: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response>;
 
-  // catalog-client.ts — CLIENT entry
+  // public-client.ts — CLIENT entry
   export function createProxyTokenProvider(): TokenProvider;
   export function createProxyFetch(opts: { base?: string }): typeof globalThis.fetch;
   ```
@@ -1383,12 +1383,12 @@ post-pass rewrites each chunk and strips any prepended banner." Also
 
 - [ ] **Step 1: Write the failing test file**
 
-Create `packages/next/tests/catalog-proxy.test.ts`:
+Create `packages/next/tests/public-route.test.ts`:
 
 ```ts
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { createEmporixCatalogRoute } from "../src/catalog-proxy";
-import { createProxyTokenProvider, createProxyFetch } from "../src/catalog-client";
+import { createEmporixPublicRoute } from "../src/public-route";
+import { createProxyTokenProvider, createProxyFetch } from "../src/public-client";
 import { __resetEmporixClients } from "../src/client";
 
 function stubFetch(): { urls: string[]; auths: Array<string | null> } {
@@ -1435,45 +1435,45 @@ afterEach(() => {
   delete process.env.EMPORIX_STOREFRONT_CLIENT_ID;
 });
 
-describe("createEmporixCatalogRoute — allowlist", () => {
+describe("createEmporixPublicRoute — allowlist", () => {
   it("forwards a catalog product request", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("product/viu/products/p1");
     expect((await route(request, ctx)).status).toBe(200);
   });
 
   it("rejects a cart request with 403", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("cart/viu/carts/c1");
     expect((await route(request, ctx)).status).toBe(403);
   });
 
   it("rejects an order request with 403", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("order/viu/orders/o1");
     expect((await route(request, ctx)).status).toBe(403);
   });
 
   it("rejects a customer request with 403", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("customer/viu/login");
     expect((await route(request, ctx)).status).toBe(403);
   });
 
   it("rejects a foreign tenant with 403", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("product/other/products/p1");
     expect((await route(request, ctx)).status).toBe(403);
   });
 
   it("rejects a cross-site request", async () => {
     stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const request = new Request("https://shop.test/api/emporix/product/viu/products/p1", {
       headers: { "sec-fetch-site": "cross-site" },
     });
@@ -1482,10 +1482,10 @@ describe("createEmporixCatalogRoute — allowlist", () => {
   });
 });
 
-describe("createEmporixCatalogRoute — token substitution", () => {
+describe("createEmporixPublicRoute — token substitution", () => {
   it("never forwards the placeholder Authorization header", async () => {
     const f = stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("product/viu/products/p1");
     await route(request, ctx);
     expect(f.auths).not.toContain("Bearer proxied");
@@ -1493,7 +1493,7 @@ describe("createEmporixCatalogRoute — token substitution", () => {
 
   it("sends the server's real anonymous token upstream", async () => {
     const f = stubFetch();
-    const route = createEmporixCatalogRoute();
+    const route = createEmporixPublicRoute();
     const { request, ctx } = req("product/viu/products/p1");
     await route(request, ctx);
     expect(f.auths.some((a) => a === "Bearer real-anon")).toBe(true);
@@ -1555,14 +1555,14 @@ describe("createProxyFetch", () => {
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-pnpm -F @viu/emporix-sdk-next exec vitest run tests/catalog-proxy.test.ts
+pnpm -F @viu/emporix-sdk-next exec vitest run tests/public-route.test.ts
 ```
 
-Expected: collection fails on `../src/catalog-proxy`; all 12 fail.
+Expected: collection fails on `../src/public-route`; all 12 fail.
 
 - [ ] **Step 3: Write the server side**
 
-Create `packages/next/src/catalog-proxy.ts`:
+Create `packages/next/src/public-route.ts`:
 
 ```ts
 import { emporixTagsForUrl } from "./tags";
@@ -1589,10 +1589,10 @@ const DEFAULT_HOST = "https://api.emporix.io";
  * @example
  * ```ts
  * // app/api/emporix/[...path]/route.ts
- * export const GET = createEmporixCatalogRoute();
+ * export const GET = createEmporixPublicRoute();
  * ```
  */
-export function createEmporixCatalogRoute(
+export function createEmporixPublicRoute(
   opts: { tenant?: string; revalidate?: number } = {},
 ): (request: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response> {
   return async (request, ctx) => {
@@ -1605,7 +1605,7 @@ export function createEmporixCatalogRoute(
     const tenant = opts.tenant ?? process.env.EMPORIX_TENANT;
     if (!tenant) {
       throw new Error(
-        "createEmporixCatalogRoute: no tenant. Set EMPORIX_TENANT or pass { tenant }.",
+        "createEmporixPublicRoute: no tenant. Set EMPORIX_TENANT or pass { tenant }.",
       );
     }
 
@@ -1645,7 +1645,7 @@ export function createEmporixCatalogRoute(
 
 - [ ] **Step 4: Write the client side**
 
-Create `packages/next/src/catalog-client.ts`:
+Create `packages/next/src/public-client.ts`:
 
 ```ts
 import type { AnonymousSession, TokenProvider } from "@viu/emporix-sdk";
@@ -1663,7 +1663,7 @@ const PLACEHOLDER = "proxied";
  * only way to keep a token out of the browser is not to request one.
  *
  * Pair it with {@link createProxyFetch} and a route built by
- * `createEmporixCatalogRoute`, which substitutes the server's real token.
+ * `createEmporixPublicRoute`, which substitutes the server's real token.
  */
 export function createProxyTokenProvider(): TokenProvider {
   const session: AnonymousSession = {
@@ -1713,7 +1713,7 @@ export {
 } from "./bff-session";
 export { emporixLogin, emporixLogout, emporixRefresh, assertSameOrigin } from "./bff-auth";
 export { emporixTokenProxy, type EmporixTokenProxyOptions } from "./token-proxy";
-export { createEmporixCatalogRoute } from "./catalog-proxy";
+export { createEmporixPublicRoute } from "./public-route";
 ```
 
 Create `packages/next/bff-is-server-only.js`:
@@ -1767,7 +1767,7 @@ export default defineConfig([
   },
   {
     ...shared,
-    entry: { "catalog-client": "src/catalog-client.ts" },
+    entry: { "public-client": "src/public-client.ts" },
     clean: false,
     // treeshake is intentionally omitted: tsup's rollup treeshake post-pass
     // rewrites each chunk and strips any prepended banner. Learned in
@@ -1783,13 +1783,13 @@ Create `packages/next/scripts/check-dist.mjs`:
 
 ```js
 // Guards the RSC boundary contract of the published package:
-// - catalog-client MUST start with "use client" (esbuild drops source
+// - public-client MUST start with "use client" (esbuild drops source
 //   directives; tsup must re-add them via `banner`).
 // - the server entries MUST stay directive-free.
 import { readFileSync, existsSync } from "node:fs";
 
 const HEAD_BYTES = 200;
-const mustHaveBanner = ["catalog-client"];
+const mustHaveBanner = ["public-client"];
 const mustNotHaveBanner = ["index", "webhook", "proxy", "service", "bff"];
 let failed = false;
 
@@ -1846,10 +1846,10 @@ and would otherwise report "is not a module" in a legitimate Server Action:
       },
       "default": "./bff-is-server-only.js"
     },
-    "./catalog-client": {
-      "types": "./dist/catalog-client.d.ts",
-      "import": "./dist/catalog-client.js",
-      "require": "./dist/catalog-client.cjs"
+    "./public-client": {
+      "types": "./dist/public-client.d.ts",
+      "import": "./dist/public-client.js",
+      "require": "./dist/public-client.cjs"
     },
 ```
 
@@ -1863,7 +1863,7 @@ Change the `build` script and add `check:dist`:
 - [ ] **Step 9: Run the tests to verify they pass**
 
 ```bash
-pnpm -F @viu/emporix-sdk-next exec vitest run tests/catalog-proxy.test.ts
+pnpm -F @viu/emporix-sdk-next exec vitest run tests/public-route.test.ts
 ```
 
 Expected: `Tests 12 passed (12)`.
@@ -1876,7 +1876,7 @@ pnpm -F @viu/emporix-sdk-next build && pnpm -F @viu/emporix-sdk-next check:dist
 
 Expected: `dist "use client" banners OK`.
 
-If `catalog-client` is missing the banner, `treeshake` leaked into the second
+If `public-client` is missing the banner, `treeshake` leaked into the second
 config — remove it.
 
 Then confirm the guarded entry ships and the client entry does not pull
@@ -1887,19 +1887,19 @@ cd packages/next && pnpm pack && tar -tzf viu-emporix-sdk-next-0.3.0.tgz | grep 
 ```
 
 Expected: `package/bff-is-server-only.js`, `package/dist/bff.*` and
-`package/dist/catalog-client.*` all present. Note `pnpm pack` ignores
+`package/dist/public-client.*` all present. Note `pnpm pack` ignores
 `--pack-destination` and writes to the cwd; `packages/next/*.tgz` is **not**
 gitignored, so delete it.
 
 ```bash
-grep -c "next/headers" packages/next/dist/catalog-client.js || echo "clean: catalog-client has no next/headers"
+grep -c "next/headers" packages/next/dist/public-client.js || echo "clean: public-client has no next/headers"
 ```
 
-Expected: `clean: catalog-client has no next/headers`.
+Expected: `clean: public-client has no next/headers`.
 
 - [ ] **Step 11: Mutation-test the allowlist**
 
-Mutation — in `catalog-proxy.ts`, delete the
+Mutation — in `public-route.ts`, delete the
 `if (emporixTagsForUrl(upstream, tenant).length === 0)` block.
 Expected: 4 failures — the cart, order, customer and foreign-tenant tests.
 Revert. This is the one guard that stands between a public proxy and an open
@@ -1916,7 +1916,7 @@ Expected: all green, `packages/next` at **143** tests. Derivation: 95 baseline
 differs, find out why rather than adjusting the expectation.
 
 ```bash
-git add packages/next/src/catalog-proxy.ts packages/next/src/catalog-client.ts packages/next/src/bff.ts packages/next/bff-is-server-only.js packages/next/scripts/check-dist.mjs packages/next/tests/catalog-proxy.test.ts packages/next/tsup.config.ts packages/next/package.json
+git add packages/next/src/public-route.ts packages/next/src/public-client.ts packages/next/src/bff.ts packages/next/bff-is-server-only.js packages/next/scripts/check-dist.mjs packages/next/tests/public-route.test.ts packages/next/tsup.config.ts packages/next/package.json
 git commit -m "feat(repo): add the catalog proxy and the bff entry" -m "Lets a storefront keep client-side catalog interaction while holding no Emporix
 token in the browser. createProxyTokenProvider makes no network call at all —
 that is the assertion that proves the claim, because the SDK's default provider
@@ -2330,9 +2330,9 @@ export default async function CartPage(): Promise<React.JSX.Element> {
 Create `examples/next-server-first/app/api/emporix/[...path]/route.ts`:
 
 ```ts
-import { createEmporixCatalogRoute } from "@viu/emporix-sdk-next/bff";
+import { createEmporixPublicRoute } from "@viu/emporix-sdk-next/bff";
 
-export const GET = createEmporixCatalogRoute();
+export const GET = createEmporixPublicRoute();
 ```
 
 Create `examples/next-server-first/app/typeahead.tsx`:
@@ -2345,7 +2345,7 @@ import { EmporixClient } from "@viu/emporix-sdk";
 import {
   createProxyFetch,
   createProxyTokenProvider,
-} from "@viu/emporix-sdk-next/catalog-client";
+} from "@viu/emporix-sdk-next/public-client";
 
 /**
  * A client-side catalog read with NO token. The token provider makes no network
@@ -2666,13 +2666,13 @@ function is enough.
 
 ```ts
 // app/api/emporix/[...path]/route.ts
-import { createEmporixCatalogRoute } from "@viu/emporix-sdk-next/bff";
-export const GET = createEmporixCatalogRoute();
+import { createEmporixPublicRoute } from "@viu/emporix-sdk-next/bff";
+export const GET = createEmporixPublicRoute();
 ```
 
 ```ts
 // the browser-side client
-import { createProxyTokenProvider, createProxyFetch } from "@viu/emporix-sdk-next/catalog-client";
+import { createProxyTokenProvider, createProxyFetch } from "@viu/emporix-sdk-next/public-client";
 
 const client = new EmporixClient({
   tenant,
@@ -2721,12 +2721,12 @@ Replace the `## Subpath exports` body with:
 ```markdown
 `.` (client, session, tags), `./webhook` (verification, route factory),
 `./proxy` (`emporixSiteProxy`), `./service` (`getEmporixServiceClient`),
-`./bff` (server-first mode) and `./catalog-client` (the browser half of the
+`./bff` (server-first mode) and `./public-client` (the browser half of the
 catalog proxy).
 
 The split keeps a Route Handler from pulling in `next/headers` — and a `proxy.ts`
 cannot pull it in at all. `./service` and `./bff` carry secrets, and their export
-conditions make a client-side import a build error. `./catalog-client` is the one
+conditions make a client-side import a build error. `./public-client` is the one
 entry that ships `"use client"`.
 ```
 
@@ -2765,11 +2765,11 @@ New entry `@viu/emporix-sdk-next/bff`:
   carrying neither `Sec-Fetch-Site` nor `Origin`, since accepting those would
   make omitting the header the bypass. Use it in your own Route Handlers too;
   Server Actions already get Next's origin check.
-- `createEmporixCatalogRoute` — a catch-all for public catalog reads whose
+- `createEmporixPublicRoute` — a catch-all for public catalog reads whose
   allowlist is the existing `emporixTagsForUrl`. Cart, order, customer and token
   endpoints get a 403.
 
-New entry `@viu/emporix-sdk-next/catalog-client` (the package's first
+New entry `@viu/emporix-sdk-next/public-client` (the package's first
 `"use client"` entry): `createProxyTokenProvider` and `createProxyFetch` let the
 browser use the React catalog hooks with no token at all. The token provider
 makes no network call — that is the mechanism, because the SDK's default provider
@@ -2832,7 +2832,7 @@ Two alternatives were ruled out by measurement, not preference:
 | `emporixLogin` / `emporixLogout` / `emporixRefresh` | httpOnly cookie management |
 | `emporixTokenProxy` | the single rotation point |
 | `assertSameOrigin` | CSRF layer, also exported for your own routes |
-| `createEmporixCatalogRoute` | public catalog proxy, allowlist = `emporixTagsForUrl` |
+| `createEmporixPublicRoute` | public catalog proxy, allowlist = `emporixTagsForUrl` |
 | `createProxyTokenProvider` / `createProxyFetch` | client half, no network call |
 
 ## The two facts that shaped it
@@ -2964,7 +2964,7 @@ expected output.
 
 `withEmporixSession`, `withEmporixSessionMutable`, `WithEmporixSessionOptions`,
 `emporixLogin`, `emporixLogout`, `emporixRefresh`, `assertSameOrigin`,
-`emporixTokenProxy`, `EmporixTokenProxyOptions`, `createEmporixCatalogRoute`,
+`emporixTokenProxy`, `EmporixTokenProxyOptions`, `createEmporixPublicRoute`,
 `createProxyTokenProvider`, `createProxyFetch`, `bffCookieJar`, `BffCookieJar`
 and `BFF_MAX_AGE` are spelled identically in every interface block,
 implementation, test, barrel, README, changeset and PR body. `STORAGE_KEYS` keys
