@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { STORAGE_KEYS, withEmporixSession } from "@viu/emporix-sdk-next/session";
+import { STORAGE_KEYS, sessionCookieJar, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { EMPORIX } from "../emporix";
 
 /**
@@ -10,7 +9,11 @@ import { EMPORIX } from "../emporix";
  * token on use, the SECOND load of this page fails. Reload twice to find out.
  */
 export default async function CartPage(): Promise<React.JSX.Element> {
-  const cartId = (await cookies()).get(STORAGE_KEYS.cartId)?.value ?? null;
+  // sessionCookieJar, not cookies(): it applies the __Host- prefix and the
+  // codec. Reading raw would hand back ciphertext once EMPORIX_COOKIE_SECRET is
+  // set — a cart id that Emporix has never heard of.
+  const jar = await sessionCookieJar({ readOnly: true });
+  const cartId = jar.get(STORAGE_KEYS.cartId);
   const cart =
     cartId === null
       ? null

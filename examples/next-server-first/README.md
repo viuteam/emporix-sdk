@@ -19,6 +19,35 @@ cp .env.example .env.local   # then fill in tenant and storefront client id
 pnpm -F @viu/emporix-examples-next-server-first dev
 ```
 
+Optionally seal the session cookies. Add to `.env.local`:
+
+```
+EMPORIX_COOKIE_SECRET=<a base64url 32-byte key>
+```
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
+Setting or changing it logs every existing session out — including any cart you
+had open. That is the intended behaviour, not a bug: removing a key is the
+mass-logout lever.
+
+**Verified 2026-08-03** against the `viu` tenant, over http on a fresh cookie jar:
+
+| Check | Result |
+|---|---|
+| guest cart without a secret | created and read back |
+| `/debug` | **PASS**, only `emporix.siteCode` readable |
+| existing plaintext cart after enabling a secret | «No cart yet» — invalidated as documented |
+| guest cart with a secret | sealed, written and read back |
+| replacing the key | «No cart yet» again — the mass-logout lever |
+
+Every page and action here reads cookies through `sessionCookieJar`, never
+`cookies()` directly. They did not at first, and it cost the third row above: raw
+reads silently returned the plaintext cookie and kept the cart alive, so enabling
+encryption looked like it had done nothing.
+
 ## What each page proves
 
 | Page | Proves |

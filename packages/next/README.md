@@ -171,6 +171,64 @@ time, not in your editor: TypeScript does not understand the `react-server`
 condition, so `types` resolves unconditionally to keep `tsc` correct in server
 files.
 
+## Session cookie hardening
+
+| Control | Default | Configure with |
+|---|---|---|
+| Idle window (sliding) | 30 days | `SESSION_MAX_AGE.refreshToken` |
+| Absolute ceiling | 90 days | `SESSION_ABSOLUTE_MAX` |
+| `__Host-` prefix | on over https | derived from the same signal as `secure` |
+| Encryption | off | `EMPORIX_COOKIE_SECRET` |
+
+The idle window slides — every refresh rewrites the cookie — so on its own it
+never expires an active session. The ceiling is stamped at login and never
+rewritten, which is what actually bounds a session. Reaching it clears the
+session and forces a fresh login.
+
+### Encryption
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
+Rotate by prepending the new key and keeping the old one for one refresh cycle:
+
+```
+EMPORIX_COOKIE_SECRET="<new>,<old>"
+```
+
+Dropping the old key logs every session out at once — the one revocation lever a
+stateless design has.
+
+Encryption does **not** prevent session hijacking; whoever holds the cookie is
+in. What it prevents is a leaked cookie — from a log, a HAR file, a browser
+profile backup — being redeemed *directly against Emporix*, bypassing your rate
+limits and your logs. It also protects the values the app itself trusts:
+`cartId` and `activeLegalEntityId` are not Emporix-issued tokens, so nothing
+else validates them.
+
+Turning it on invalidates every running session. There is no plaintext
+fallback, on purpose.
+
+### Read session cookies through `sessionCookieJar`, never `cookies()`
+
+```ts
+// wrong once EMPORIX_COOKIE_SECRET is set — hands back the ciphertext
+const cartId = (await cookies()).get(STORAGE_KEYS.cartId)?.value ?? null;
+
+// right — applies the __Host- prefix and the codec
+const jar = await sessionCookieJar({ readOnly: true }); // omit in a Server Action
+const cartId = jar.get(STORAGE_KEYS.cartId);
+```
+
+This is the one footgun the feature introduces, and it fails quietly: without a
+secret both forms work, so raw `cookies()` reads survive review and only break
+when someone turns encryption on. `examples/next-server-first` had all four of
+its reads written the wrong way and was fixed for exactly this reason.
+
+`sessionCookieJar({ readOnly: true })` in Server Components — writes no-op
+there, because Next forbids a cookie write during render.
+
 ## Service accounts (`@viu/emporix-sdk-next/service`)
 
 For server-side writes with a dedicated Emporix service account — create a

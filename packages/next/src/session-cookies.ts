@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { cookieName, readCookie, sealCookie } from "./cookie-name";
 
 /**
  * Cookie lifetimes for the server-first mode. Values are the package's
@@ -26,6 +27,18 @@ export const SESSION_MAX_AGE = {
  * the lifetime Emporix returns as `expires_in` is stored instead.
  */
 export const SESSION_EXPIRES_AT = "emporix.customerTokenExpiresAt";
+
+/**
+ * Epoch seconds at which this session began. Not refreshed — that is the point.
+ *
+ * The idle window slides: `persistSession` rewrites the refresh cookie on every
+ * refresh, so 30 days means 30 days of INACTIVITY and an actively used session
+ * never expires. This is the ceiling that does not move.
+ */
+export const SESSION_STARTED_AT = "emporix.sessionStartedAt";
+
+/** How long a session may live regardless of activity. */
+export const SESSION_ABSOLUTE_MAX = 90 * 24 * 60 * 60;
 
 /**
  * Fallback lifetime when Emporix omits `expires_in`. Deliberately short: too
@@ -74,10 +87,10 @@ export async function sessionCookieJar(
   const readOnly = opts.readOnly ?? false;
   const secure = await isSecure();
   return {
-    get: (name) => jar.get(name)?.value ?? null,
+    get: (name) => readCookie(name, (wire) => jar.get(wire)?.value),
     set: (name, value, maxAgeSeconds) => {
       if (readOnly) return;
-      jar.set(name, value, {
+      jar.set(cookieName(name, secure), sealCookie(name, value), {
         httpOnly: true,
         sameSite: "lax",
         secure,
@@ -87,7 +100,7 @@ export async function sessionCookieJar(
     },
     delete: (name) => {
       if (readOnly) return;
-      jar.delete(name);
+      jar.delete(cookieName(name, secure));
     },
   };
 }

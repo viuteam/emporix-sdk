@@ -1,8 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
+import {
+  SESSION_MAX_AGE,
+  STORAGE_KEYS,
+  sessionCookieJar,
+  withEmporixSessionMutable,
+} from "@viu/emporix-sdk-next/session";
 import { EMPORIX, SITE } from "../emporix";
 
 /** The matched-price fields the cart needs. Read loosely — the generated type is wider. */
@@ -40,8 +44,8 @@ export async function addToCart(productId: string): Promise<void> {
       );
     }
 
-    const jar = await cookies();
-    let cartId = jar.get(STORAGE_KEYS.cartId)?.value ?? null;
+    const jar = await sessionCookieJar();
+    let cartId = jar.get(STORAGE_KEYS.cartId);
     if (cartId === null) {
       // `getCurrent({ create: true })`, not `create`: a customer may hold only
       // one open cart, and a blind create answers 409 when they already have
@@ -49,7 +53,7 @@ export async function addToCart(productId: string): Promise<void> {
       const cart = await client.carts.getCurrent(ctx, { siteCode: SITE.siteCode, create: true });
       cartId = cart?.id ?? null;
       if (cartId === null) throw new Error("Emporix returned no cart");
-      jar.set(STORAGE_KEYS.cartId, cartId, { httpOnly: true, sameSite: "lax", path: "/" });
+      jar.set(STORAGE_KEYS.cartId, cartId, SESSION_MAX_AGE.cartId);
     }
 
     await client.carts.addItem(

@@ -1,9 +1,11 @@
 import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 import { auth, type CustomerSession } from "@viu/emporix-sdk";
 import {
+  SESSION_ABSOLUTE_MAX,
   SESSION_EXPIRES_AT,
   SESSION_FALLBACK_LIFETIME,
   SESSION_MAX_AGE,
+  SESSION_STARTED_AT,
   sessionCookieJar,
   type SessionCookieJar,
 } from "./session-cookies";
@@ -63,6 +65,8 @@ export async function emporixLogin(
 
   const jar = await sessionCookieJar();
   persistSession(jar, session);
+  // The ceiling starts here and is never rewritten — see SESSION_STARTED_AT.
+  jar.set(SESSION_STARTED_AT, String(Math.floor(Date.now() / 1000)), SESSION_ABSOLUTE_MAX);
   // Must run AFTER persistSession: it resolves through the customer token this
   // just wrote, and BEFORE the anonymous session is dropped.
   await onboardCart(jar, opts);
@@ -144,6 +148,17 @@ export async function emporixRefresh(
   opts: WithEmporixSessionOptions = {},
 ): Promise<string | null> {
   const jar = await sessionCookieJar();
+  const startedAt = stampedAt(jar.get(SESSION_STARTED_AT));
+  if (startedAt === null) {
+    // A session from before this shipped carries no stamp. Adopt it rather
+    // than logging the customer out on deploy.
+    jar.set(SESSION_STARTED_AT, String(Math.floor(Date.now() / 1000)), SESSION_ABSOLUTE_MAX);
+  } else if (Math.floor(Date.now() / 1000) - startedAt > SESSION_ABSOLUTE_MAX) {
+    // The ceiling. Refusing here rather than letting the refresh succeed is
+    // the whole control: the idle window slides, this does not.
+    clearSession(jar);
+    return null;
+  }
   const refreshToken = jar.get(STORAGE_KEYS.refreshToken);
   if (refreshToken === null) return null;
   const saasToken = jar.get(STORAGE_KEYS.saasToken);
@@ -161,6 +176,41 @@ export async function emporixRefresh(
 
   persistSession(jar, session);
   return session.customerToken;
+}
+
+/**
+ * Every cookie a session owns.
+ *
+ * One list, because logout and the absolute ceiling both clear it — two copies
+ * would drift the moment someone adds a cookie.
+ */
+const SESSION_COOKIES = [
+  STORAGE_KEYS.customerToken,
+  STORAGE_KEYS.refreshToken,
+  STORAGE_KEYS.saasToken,
+  STORAGE_KEYS.cartId,
+  STORAGE_KEYS.activeLegalEntityId,
+  STORAGE_KEYS.anonymousSession,
+  SESSION_EXPIRES_AT,
+  SESSION_STARTED_AT,
+] as const;
+
+function clearSession(jar: SessionCookieJar): void {
+  for (const name of SESSION_COOKIES) jar.delete(name);
+}
+
+/**
+ * The stored session start, epoch seconds, or `null` when absent or unusable.
+ *
+ * Explicit about `null` rather than leaning on `Number()`: `Number(null)` is
+ * **0**, not `NaN`, so a missing stamp would read as «started at the epoch» and
+ * every session without one would hit the ceiling immediately. Same trap
+ * `storedExpiry` avoids in the token proxy.
+ */
+function stampedAt(raw: string | null): number | null {
+  if (raw === null) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /**
@@ -183,15 +233,5 @@ export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promi
       // Ignore — proceed to clear locally.
     }
   }
-  for (const name of [
-    STORAGE_KEYS.customerToken,
-    STORAGE_KEYS.refreshToken,
-    STORAGE_KEYS.saasToken,
-    STORAGE_KEYS.cartId,
-    STORAGE_KEYS.activeLegalEntityId,
-    STORAGE_KEYS.anonymousSession,
-    SESSION_EXPIRES_AT,
-  ]) {
-    jar.delete(name);
-  }
+  clearSession(jar);
 }
