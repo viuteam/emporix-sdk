@@ -30,7 +30,16 @@ interface Call {
   body: string;
 }
 
-function stubFetch(opts: { cartStatus?: number } = {}): { urls: string[]; calls: Call[] } {
+function stubFetch(
+  opts: {
+    cartStatus?: number;
+    /**
+     * Status for the merge call only. Live it is **404** whenever a guest cart is
+     * involved: a customer token cannot see an anonymous cart.
+     */
+    mergeStatus?: number;
+  } = {},
+): { urls: string[]; calls: Call[] } {
   const urls: string[] = [];
   const calls: Call[] = [];
   vi.stubGlobal(
@@ -39,6 +48,18 @@ function stubFetch(opts: { cartStatus?: number } = {}): { urls: string[]; calls:
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       urls.push(url);
       calls.push({ url, method: init?.method ?? "GET", body: String(init?.body ?? "") });
+
+      // Before the generic /cart/ branch, so a merge can fail on its own while
+      // `getCurrent` still answers.
+      if (url.includes("/merge") && opts.mergeStatus !== undefined) {
+        return new Response(
+          JSON.stringify({
+            code: opts.mergeStatus,
+            message: "Cart with code guest-cart not found.",
+          }),
+          { status: opts.mergeStatus, headers: { "Content-Type": "application/json" } },
+        );
+      }
 
       if (url.includes("/cart/")) {
         const status = opts.cartStatus ?? 200;
@@ -177,6 +198,22 @@ describe("emporixLogin cart onboarding", () => {
     bag.set("emporix.cartId", { name: "emporix.cartId", value: "cust-cart" });
     await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
     expect(f.calls.some((c) => c.url.includes("/merge"))).toBe(false);
+  });
+
+  it("adopts the customer's cart even when the merge is refused", async () => {
+    // The bug, measured against the `viu` tenant on 2026-08-03: a customer token
+    // cannot see an anonymous cart, so the merge answers 404 «Cart with code …
+    // not found» — always, not occasionally. With the id written after the merge,
+    // as it was until then, that 404 took the write with it: the session kept
+    // pointing at the guest cart, so a logged-in customer saw a cart they do not
+    // own while their own one stayed invisible. The outer catch hid the reason.
+    const f = stubFetch({ mergeStatus: 404 });
+    bag.set("emporix.cartId", { name: "emporix.cartId", value: "guest-cart" });
+
+    await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
+
+    expect(f.calls.some((c) => c.url.includes("/merge"))).toBe(true);
+    expect(bag.get("emporix.cartId")?.value).toBe("cust-cart");
   });
 
   it("logs in anyway when the cart call fails", async () => {

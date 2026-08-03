@@ -242,39 +242,47 @@ cookie jar, httpOnly included, and it asserts the token is absent from it.
 The revocation row is the point of the whole feature. Encrypted cookies cannot do
 it: the ciphertext stays valid until it expires, no matter what you want.
 
-### The merge did not reproduce on 2026-08-03 — read this before trusting the row above
+### Why the merge row never reproduced — root cause found 2026-08-03
 
-Two logins that day, in store mode, both ended with the cart id **unchanged**:
+Three logins that day all left the cart id pointing at the **guest** cart, with
+the customer's own cart invisible. Chasing it down went through two wrong
+explanations before the measurement:
 
-| Run | Guest cart before | Customer's other open cart | Cart id after login |
-|---|---|---|---|
-| 1 | `6a707dc1…`, 2 items | none | `6a707dc1…` — unchanged |
-| 2 | `6a707e7f…`, 1 item | `6a707dc1…`, **2 items** | `6a707e7f…` — unchanged |
+1. «`getCurrent` returns the session's cart, so there is nothing to merge.» Wrong
+   — a probe run inside the app showed `getCurrent` answering with
+   `id=6a6dec53… customerId=15416067 items=2`, the customer's own cart.
+2. «A customer token cannot search its own carts, so the owned cart cannot be
+   found.» Wrong — `POST /carts/search` with `q: "status:OPEN"` returned **200**,
+   exactly one hit, exactly the caller's `customerId`. The vendored spec allows
+   `CustomerAccessToken` on that operation.
 
-`onboardCart` merges only when `getCurrent` returns an id **different** from the
-guest's. On this tenant it never does: the customer login refreshes the same
-anonymous session, Emporix binds the cart to that session, and `getCurrent`
-therefore answers with the guest cart itself. The cart is **transferred**, not
-merged — which is the better outcome when there is nothing to merge.
+The actual cause, from the same probe:
 
-Run 2 is the uncomfortable one. The customer demonstrably held `6a707dc1…` with
-two items, and after logging in `/cart` showed only the guest's single item. Both
-carts were still readable — `GET /cart/viu/carts/…` returned **200** for each,
-with 2 and 1 items. So nothing was lost on Emporix's side, but **two items became
-invisible to the shopper**, and the customer now holds two open carts.
+```
+merge THREW: POST /cart/viu/carts/6a6dec53…/merge → 404
+  body={"code":404,"status":"Not Found","message":"Cart with code 6a708337… not found."}
+```
 
-That last part also puts a question mark on `onboardCart`'s own comment, which
-says «a customer may hold only one open cart». Two were open simultaneously here.
-Whether a third via `carts.create` would still answer 409 was not tested — the
-constraint may apply only to an explicit create, not to a cart adopted through an
-anonymous session.
+**A customer token cannot see an anonymous cart.** The merge therefore fails every
+time a guest cart is involved — not occasionally, always — and this code path has
+never merged anything. The 404 escaped to the onboarding's best-effort `catch` and
+took the id write with it, so the session stayed on the guest cart.
 
-Left as a finding, not fixed: making run 2 fold both carts together needs the
-package to remember the customer's prior cart id, and that is a design decision
-rather than a bug fix.
+Fixed by giving the merge its own `catch`: the adoption happens either way, and a
+logged-in customer now sees the cart they own. The guest cart's items stay behind,
+which is the honest state of things until someone answers which token may fold an
+anonymous cart into a customer's.
 
-The 2026-08-01 observation below is left standing because it was observed. It has
-not been reproduced since.
+Two smaller findings from the same session, neither fixed here:
+
+- A customer can hold **two** open carts — `GET /cart/viu/carts/…` returned 200
+  for both. `onboardCart`'s own comment says «a customer may hold only one open
+  cart»; that is not what the tenant enforces. Whether a third via `carts.create`
+  would still answer 409 was not tested.
+- The 2026-08-01 row below claims a successful merge. Given that the merge cannot
+  succeed in this path, that row is most likely a misreading of two
+  customer-visible carts. It is left standing rather than deleted, because it was
+  written from an observation.
 
 The merge check is worth spelling out, because the obvious version of it proves
 nothing. Seeing the guest's item after logging in is **not** evidence: the cookie
