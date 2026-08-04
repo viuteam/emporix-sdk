@@ -1,6 +1,6 @@
 import { pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
 import { pickText } from "@viu/emporix-examples-shared";
-import { STORAGE_KEYS, sessionCookieJar, withEmporixSession } from "@viu/emporix-sdk-next/session";
+import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { SITE, STORE_OPT } from "../emporix";
 import { submitCheckout } from "../actions/checkout";
 import { siteContext, emporixOptions } from "../lib/site-context";
@@ -21,7 +21,7 @@ export default async function CheckoutPage({
   // The shipping country comes from the session context now, not a module
   // constant — same source the Emporix calls below bind.
   const { targetLocation } = await siteContext();
-  const cartId = (await sessionCookieJar({ readOnly: true, ...STORE_OPT })).get(
+  const cartId = (await emporixSessionHandle({ readOnly: true, ...STORE_OPT })).get(
     STORAGE_KEYS.cartId,
   );
   if (cartId === null) {

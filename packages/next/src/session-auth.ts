@@ -6,8 +6,8 @@ import {
   SESSION_FALLBACK_LIFETIME,
   SESSION_MAX_AGE,
   SESSION_STARTED_AT,
-  sessionCookieJar,
-  type SessionCookieJar,
+  emporixSessionHandle,
+  type EmporixSessionHandle,
 } from "./session-cookies";
 import { withEmporixSessionMutable, type WithEmporixSessionOptions } from "./session-client";
 
@@ -64,21 +64,21 @@ export async function emporixLogin(
   );
 
   // `opts.store` matters here, not just in `withEmporixSessionMutable`. Without
-  // it this jar is a cookie jar however the caller was configured, so store mode
+  // it this handle is a cookie handle however the caller was configured, so store mode
   // wrote the tokens into the browser while every reader looked in the store and
   // found nothing. Spread conditionally: exactOptionalPropertyTypes rejects
   // `{ store: undefined }`.
-  const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
-  persistSession(jar, session);
+  const handle = await emporixSessionHandle(opts.store !== undefined ? { store: opts.store } : {});
+  persistSession(handle, session);
   // The ceiling starts here and is never rewritten — see SESSION_STARTED_AT.
-  jar.set(SESSION_STARTED_AT, String(Math.floor(Date.now() / 1000)), SESSION_ABSOLUTE_MAX);
+  handle.set(SESSION_STARTED_AT, String(Math.floor(Date.now() / 1000)), SESSION_ABSOLUTE_MAX);
   // Flush BEFORE onboarding, and this is not an optimisation.
   //
-  // `onboardCart` calls `withEmporixSessionMutable`, which builds its OWN jar and
+  // `onboardCart` calls `withEmporixSessionMutable`, which builds its OWN handle and
   // branches on whether a customer token is stored. In cookie mode `persistSession`
-  // above wrote through, so that jar sees the token and takes the customer path.
+  // above wrote through, so that handle sees the token and takes the customer path.
   // In store mode it only touched the in-memory record — so without this flush the
-  // second jar reads a store that has no customer token yet and runs as a GUEST.
+  // second handle reads a store that has no customer token yet and runs as a GUEST.
   //
   // Measured on 2026-08-03 with instrumentation inside `onboardCart`:
   //   authKind=anonymous  getCurrent=<a NEW empty cart>  customerIdOnCart=(none)
@@ -88,14 +88,14 @@ export async function emporixLogin(
   // cart instead of finding the customer's, and the merge never reached Emporix —
   // the SDK's own `requireCustomerAuth` rejected it. So a guest who logged in
   // landed on an empty cart, in store mode only.
-  await jar.flush();
+  await handle.flush();
   // Must run AFTER persistSession: it resolves through the customer token this
   // just wrote, and BEFORE the anonymous session is dropped.
-  await onboardCart(jar, opts);
+  await onboardCart(handle, opts);
   // The guest session is dead weight once a customer token exists — the auth
   // layer always prefers the customer token.
-  jar.delete(STORAGE_KEYS.anonymousSession);
-  await jar.flush();
+  handle.delete(STORAGE_KEYS.anonymousSession);
+  await handle.flush();
 }
 
 /**
@@ -114,7 +114,7 @@ export async function emporixLogin(
  * Best-effort by design: a login must not fail because a cart is in a bad state.
  */
 async function onboardCart(
-  jar: SessionCookieJar,
+  handle: EmporixSessionHandle,
   opts: WithEmporixSessionOptions,
 ): Promise<void> {
   const siteCode = opts.context?.siteCode;
@@ -124,11 +124,11 @@ async function onboardCart(
       const cart = await client.carts.getCurrent(ctx, { siteCode, create: true });
       const customerCartId = cart?.id;
       if (customerCartId === undefined) return;
-      const guestCartId = jar.get(STORAGE_KEYS.cartId);
+      const guestCartId = handle.get(STORAGE_KEYS.cartId);
 
       if (guestCartId !== null && guestCartId !== customerCartId) {
         // NO try/catch here, deliberately. A merge that fails must abort before
-        // the `jar.set` below, so the session keeps pointing at the guest cart
+        // the `handle.set` below, so the session keeps pointing at the guest cart
         // rather than moving the shopper onto a cart their items are not in.
         // Catching it and writing the id anyway was tried on 2026-08-03 and
         // reverted the same day: it put the shopper on `0 item(s)`.
@@ -137,7 +137,7 @@ async function onboardCart(
         // anonymous carts merged into it. Easy to invert.
         await client.carts.merge(customerCartId, [guestCartId], ctx);
       }
-      jar.set(STORAGE_KEYS.cartId, customerCartId, SESSION_MAX_AGE.cartId);
+      handle.set(STORAGE_KEYS.cartId, customerCartId, SESSION_MAX_AGE.cartId);
     }, opts);
   } catch {
     // Ignore — the customer is logged in either way.
@@ -151,19 +151,19 @@ async function onboardCart(
  * token is **opaque** — only the `saasToken` is a JWT. Without this the proxy
  * has nothing to compare against and would refresh on every single request.
  */
-function persistSession(jar: SessionCookieJar, session: CustomerSession): void {
-  jar.set(STORAGE_KEYS.customerToken, session.customerToken, SESSION_MAX_AGE.customerToken);
+function persistSession(handle: EmporixSessionHandle, session: CustomerSession): void {
+  handle.set(STORAGE_KEYS.customerToken, session.customerToken, SESSION_MAX_AGE.customerToken);
   const lifetime = session.expiresIn ?? SESSION_FALLBACK_LIFETIME;
-  jar.set(
+  handle.set(
     SESSION_EXPIRES_AT,
     String(Math.floor(Date.now() / 1000) + lifetime),
     SESSION_MAX_AGE.customerToken,
   );
   if (session.refreshToken) {
-    jar.set(STORAGE_KEYS.refreshToken, session.refreshToken, SESSION_MAX_AGE.refreshToken);
+    handle.set(STORAGE_KEYS.refreshToken, session.refreshToken, SESSION_MAX_AGE.refreshToken);
   }
   if (session.saasToken) {
-    jar.set(STORAGE_KEYS.saasToken, session.saasToken, SESSION_MAX_AGE.saasToken);
+    handle.set(STORAGE_KEYS.saasToken, session.saasToken, SESSION_MAX_AGE.saasToken);
   }
 }
 
@@ -178,29 +178,29 @@ export async function emporixRefresh(
   opts: WithEmporixSessionOptions = {},
 ): Promise<string | null> {
   // `opts.store` matters here, not just in `withEmporixSessionMutable`. Without
-  // it this jar is a cookie jar however the caller was configured, so store mode
+  // it this handle is a cookie handle however the caller was configured, so store mode
   // wrote the tokens into the browser while every reader looked in the store and
   // found nothing. Spread conditionally: exactOptionalPropertyTypes rejects
   // `{ store: undefined }`.
-  const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
-  const startedAt = stampedAt(jar.get(SESSION_STARTED_AT));
+  const handle = await emporixSessionHandle(opts.store !== undefined ? { store: opts.store } : {});
+  const startedAt = stampedAt(handle.get(SESSION_STARTED_AT));
   if (startedAt === null) {
     // A session from before this shipped carries no stamp. Adopt it rather
     // than logging the customer out on deploy.
-    jar.set(SESSION_STARTED_AT, String(Math.floor(Date.now() / 1000)), SESSION_ABSOLUTE_MAX);
+    handle.set(SESSION_STARTED_AT, String(Math.floor(Date.now() / 1000)), SESSION_ABSOLUTE_MAX);
   } else if (Math.floor(Date.now() / 1000) - startedAt > SESSION_ABSOLUTE_MAX) {
     // The ceiling. Refusing here rather than letting the refresh succeed is
     // the whole control: the idle window slides, this does not.
-    clearSession(jar);
+    clearSession(handle);
     // clearSession empties the record; destroy also drops the store entry and
     // the sid cookie. Both are needed — destroy is a no-op in cookie mode.
-    await jar.destroy();
+    await handle.destroy();
     return null;
   }
-  const refreshToken = jar.get(STORAGE_KEYS.refreshToken);
+  const refreshToken = handle.get(STORAGE_KEYS.refreshToken);
   if (refreshToken === null) return null;
-  const saasToken = jar.get(STORAGE_KEYS.saasToken);
-  const legalEntityId = jar.get(STORAGE_KEYS.activeLegalEntityId);
+  const saasToken = handle.get(STORAGE_KEYS.saasToken);
+  const legalEntityId = handle.get(STORAGE_KEYS.activeLegalEntityId);
 
   const session = await withEmporixSessionMutable(
     (client) =>
@@ -212,8 +212,8 @@ export async function emporixRefresh(
     opts,
   );
 
-  persistSession(jar, session);
-  await jar.flush();
+  persistSession(handle, session);
+  await handle.flush();
   return session.customerToken;
 }
 
@@ -234,8 +234,8 @@ const SESSION_COOKIES = [
   SESSION_STARTED_AT,
 ] as const;
 
-function clearSession(jar: SessionCookieJar): void {
-  for (const name of SESSION_COOKIES) jar.delete(name);
+function clearSession(handle: EmporixSessionHandle): void {
+  for (const name of SESSION_COOKIES) handle.delete(name);
 }
 
 /**
@@ -261,12 +261,12 @@ function stampedAt(raw: string | null): number | null {
  */
 export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promise<void> {
   // `opts.store` matters here, not just in `withEmporixSessionMutable`. Without
-  // it this jar is a cookie jar however the caller was configured, so store mode
+  // it this handle is a cookie handle however the caller was configured, so store mode
   // wrote the tokens into the browser while every reader looked in the store and
   // found nothing. Spread conditionally: exactOptionalPropertyTypes rejects
   // `{ store: undefined }`.
-  const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
-  const token = jar.get(STORAGE_KEYS.customerToken);
+  const handle = await emporixSessionHandle(opts.store !== undefined ? { store: opts.store } : {});
+  const token = handle.get(STORAGE_KEYS.customerToken);
   if (token !== null) {
     try {
       await withEmporixSessionMutable(
@@ -277,6 +277,6 @@ export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promi
       // Ignore — proceed to clear locally.
     }
   }
-  clearSession(jar);
-  await jar.destroy();
+  clearSession(handle);
+  await handle.destroy();
 }

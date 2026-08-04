@@ -8,7 +8,7 @@ interface FakeCookie {
   opts?: Record<string, unknown>;
 }
 const bag = new Map<string, FakeCookie>();
-const jar = {
+const cookieJar = {
   get: (name: string): FakeCookie | undefined => bag.get(name),
   set: (name: string, value: string, opts?: Record<string, unknown>): void => {
     bag.set(name, { name, value, ...(opts ? { opts } : {}) });
@@ -18,12 +18,12 @@ const jar = {
   },
 };
 
-// `headers` is needed because emporixSession now goes through sessionCookieJar,
+// `headers` is needed because emporixSession now goes through emporixSessionHandle,
 // which derives `secure` — and therefore the __Host- prefix — from
-// x-forwarded-proto. Absent, the jar treats the request as plain http.
+// x-forwarded-proto. Absent, the handle treats the request as plain http.
 const headerBag = new Map<string, string>();
 vi.mock("next/headers", () => ({
-  cookies: () => Promise.resolve(jar),
+  cookies: () => Promise.resolve(cookieJar),
   headers: () => Promise.resolve({ get: (k: string) => headerBag.get(k) ?? null }),
 }));
 
@@ -33,12 +33,12 @@ const { emporixSession, emporixSessionMutable } = await import("../src/session")
 beforeEach(() => bag.clear());
 
 describe("emporixSession (read-only)", () => {
-  it("reads the whole session out of the cookie jar", async () => {
-    jar.set("emporix.customerToken", "cust");
-    jar.set("emporix.cartId", "cart-1");
-    jar.set("emporix.siteCode", "main");
-    jar.set("emporix.language", "de");
-    jar.set("emporix.activeLegalEntityId", "le-1");
+  it("reads the whole session out of the cookies", async () => {
+    cookieJar.set("emporix.customerToken", "cust");
+    cookieJar.set("emporix.cartId", "cart-1");
+    cookieJar.set("emporix.siteCode", "main");
+    cookieJar.set("emporix.language", "de");
+    cookieJar.set("emporix.activeLegalEntityId", "le-1");
 
     const s = await emporixSession();
 
@@ -50,7 +50,7 @@ describe("emporixSession (read-only)", () => {
     expect(s.auth).toEqual(auth.customer("cust"));
   });
 
-  it("resolves an anonymous context and null fields on an empty jar", async () => {
+  it("resolves an anonymous context and null fields on an empty handle", async () => {
     const s = await emporixSession();
     expect(s.customerToken).toBeNull();
     expect(s.cartId).toBeNull();
@@ -60,7 +60,7 @@ describe("emporixSession (read-only)", () => {
     expect(s.auth).toEqual(auth.anonymous());
   });
 
-  it("is read-only: a write warns and does not touch the jar", async () => {
+  it("is read-only: a write warns and does not touch the handle", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const s = await emporixSession();
 
@@ -106,7 +106,7 @@ describe("emporixSessionMutable", () => {
   });
 
   it("deletes the cookie on a null write", async () => {
-    jar.set("__Host-emporix.cartId", "c1");
+    cookieJar.set("__Host-emporix.cartId", "c1");
     const s = await emporixSessionMutable();
 
     s.storage.setCartId(null);

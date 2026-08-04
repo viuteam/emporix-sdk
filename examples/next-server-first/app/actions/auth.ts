@@ -6,7 +6,7 @@ import {
   STORAGE_KEYS,
   emporixLogin,
   emporixLogout,
-  sessionCookieJar,
+  emporixSessionHandle,
   withEmporixSessionMutable,
 } from "@viu/emporix-sdk-next/session";
 import { STORE_OPT } from "../emporix";
@@ -14,10 +14,10 @@ import { setCart } from "../lib/cart-session";
 import { safeNext } from "../lib/safe-next";
 import { emporixOptions } from "../lib/site-context";
 
-/** Read-only, so it costs a jar hydrate and no Emporix call. */
+/** Read-only, so it costs a handle hydrate and no Emporix call. */
 async function readCartId(): Promise<string | null> {
-  const jar = await sessionCookieJar({ readOnly: true, ...STORE_OPT });
-  return jar.get(STORAGE_KEYS.cartId);
+  const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
+  return handle.get(STORAGE_KEYS.cartId);
 }
 
 export async function login(formData: FormData): Promise<void> {
@@ -38,11 +38,11 @@ export async function login(formData: FormData): Promise<void> {
   // session, Emporix binds the cart to it, and `getCurrent` answers with the
   // guest cart. Measured twice on 2026-08-03. An unconditional re-read would
   // spend a cart GET on every login to fix a path this tenant does not take;
-  // the two jar reads around it are free by comparison.
+  // the two handle reads around it are free by comparison.
   if (cartIdBefore !== (await readCartId())) {
-    await withEmporixSessionMutable(async (client, ctx, jar) => {
-      const cartId = jar.get(STORAGE_KEYS.cartId);
-      if (cartId !== null) setCart(jar, cartId, await client.carts.get(cartId, ctx));
+    await withEmporixSessionMutable(async (client, ctx, handle) => {
+      const cartId = handle.get(STORAGE_KEYS.cartId);
+      if (cartId !== null) setCart(handle, cartId, await client.carts.get(cartId, ctx));
     }, await emporixOptions());
   }
   revalidatePath("/", "layout");

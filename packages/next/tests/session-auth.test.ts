@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
 const bag = new Map<string, { name: string; value: string; opts?: Record<string, unknown> }>();
-const jar = {
+const cookieJar = {
   get: (name: string) => bag.get(name),
   set: (name: string, value: string, opts?: Record<string, unknown>) => {
     bag.set(name, { name, value, ...(opts ? { opts } : {}) });
@@ -13,7 +13,7 @@ const jar = {
 const headerBag = new Map<string, string>();
 
 vi.mock("next/headers", () => ({
-  cookies: () => Promise.resolve(jar),
+  cookies: () => Promise.resolve(cookieJar),
   headers: () => Promise.resolve({ get: (k: string) => headerBag.get(k) ?? null }),
 }));
 
@@ -424,7 +424,7 @@ function onlyRecord(store: ReturnType<typeof fakeStore>): Record<string, string>
 }
 
 describe("the three auth functions in store mode", () => {
-  // All three built their jar with `sessionCookieJar()` — no options — so they
+  // All three built their handle with `emporixSessionHandle()` — no options — so they
   // silently ran in cookie mode however the caller was configured. Guest flows
   // were fine because they go through `withEmporixSessionMutable`, which threads
   // the option; the customer path was not, and shipped that way in 0.4.0.
@@ -455,8 +455,8 @@ describe("the three auth functions in store mode", () => {
   it("emporixLogin leaves exactly ONE session record", async () => {
     // emporixLogin builds two jars: the one inside withEmporixSessionMutable and
     // its own. Two jars for one request is what the store spec warns about — a
-    // second jar mints a second session id. It works here only because the first
-    // flush sets the sid cookie BEFORE the second jar hydrates. This test is what
+    // second handle mints a second session id. It works here only because the first
+    // flush sets the sid cookie BEFORE the second handle hydrates. This test is what
     // notices if that ordering ever changes.
     stubFetch();
     const store = fakeStore();
@@ -464,7 +464,7 @@ describe("the three auth functions in store mode", () => {
 
     expect(store.records.size).toBe(1);
     // And the guest half of the session is in the same record as the customer
-    // half — proof the second jar hydrated the first one's write.
+    // half — proof the second handle hydrated the first one's write.
     expect(onlyRecord(store)["emporix.sessionStartedAt"]).toBeDefined();
   });
 
@@ -488,17 +488,17 @@ describe("the three auth functions in store mode", () => {
     //   authKind=anonymous  getCurrent=<a NEW empty cart>  customerIdOnCart=(none)
     //   merge FAILED: cart.merge requires a { kind: 'customer' } AuthContext
     //
-    // `onboardCart` builds its own jar and branches on whether a customer token is
+    // `onboardCart` builds its own handle and branches on whether a customer token is
     // stored. In cookie mode `persistSession` writes through, so it sees one. In
     // store mode it only touches the in-memory record, so without a flush first
-    // that second jar reads a store with no token and runs as a GUEST — and then
+    // that second handle reads a store with no token and runs as a GUEST — and then
     // `getCurrent` creates a fresh anonymous cart while the merge never leaves the
     // SDK. A guest who logged in landed on an empty cart.
     //
     // Asserted on the store's WRITE ORDER rather than on the request list. The
     // request list cannot tell the two apart here — the stub answers a merge
     // whichever auth reached it — but the mechanism is precisely «is the customer
-    // token in the store before the onboarding builds its jar?». That is a
+    // token in the store before the onboarding builds its handle?». That is a
     // write that must land BEFORE the final one.
     const store = fakeStore();
     const sid = "sid-onboarding";

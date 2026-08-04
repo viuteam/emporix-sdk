@@ -30,7 +30,7 @@ interface MatchedPrice {
  * — different shape, and it 409s for a customer who already has an open cart.
  */
 export async function addToCart(productId: string): Promise<void> {
-  await withEmporixSessionMutable(async (client, ctx, jar) => {
+  await withEmporixSessionMutable(async (client, ctx, handle) => {
     const matches = await client.prices.matchByContext(
       { items: [{ itemId: { itemType: "PRODUCT", id: productId }, quantity: { quantity: 1 } }] },
       ctx,
@@ -44,9 +44,9 @@ export async function addToCart(productId: string): Promise<void> {
       );
     }
 
-    // The jar the wrapper hands over, not one of our own: a second jar mints a
+    // The handle the wrapper hands over, not one of our own: a second handle mints a
     // second session id and needs its own flush.
-    let cartId = jar.get(STORAGE_KEYS.cartId);
+    let cartId = handle.get(STORAGE_KEYS.cartId);
     if (cartId === null) {
       // `getCurrent({ create: true })`, not `create`: a customer may hold only
       // one open cart, and a blind create answers 409 when they already have
@@ -54,8 +54,8 @@ export async function addToCart(productId: string): Promise<void> {
       const cart = await client.carts.getCurrent(ctx, { siteCode: SITE.siteCode, create: true });
       cartId = cart?.id ?? null;
       if (cartId === null) throw new Error("Emporix returned no cart");
-      // setCart, not jar.set: it writes the shell's line count alongside the id.
-      setCart(jar, cartId, cart ?? undefined);
+      // setCart, not handle.set: it writes the shell's line count alongside the id.
+      setCart(handle, cartId, cart ?? undefined);
     }
 
     await client.carts.addItem(
@@ -76,7 +76,7 @@ export async function addToCart(productId: string): Promise<void> {
     // `addItem` returns nothing useful, so read the cart back for the count.
     // One extra GET per add, which is what buys a shell that costs zero calls on
     // every OTHER page view.
-    setCart(jar, cartId, await client.carts.get(cartId, ctx));
+    setCart(handle, cartId, await client.carts.get(cartId, ctx));
   }, await emporixOptions());
   revalidatePath("/cart");
   revalidatePath("/");
@@ -93,8 +93,8 @@ async function mutateCart(
   fn: (client: EmporixClient, ctx: AuthContext, cartId: string) => Promise<unknown>,
 ): Promise<ActionState> {
   try {
-    await withEmporixSessionMutable(async (client, ctx, jar) => {
-      const cartId = jar.get(STORAGE_KEYS.cartId);
+    await withEmporixSessionMutable(async (client, ctx, handle) => {
+      const cartId = handle.get(STORAGE_KEYS.cartId);
       if (cartId === null) throw new Error("No cart to change.");
       await fn(client, ctx, cartId);
       // Re-read rather than trusting what the mutation answered. Those answers
@@ -102,7 +102,7 @@ async function mutateCart(
       // quantity change deleted the cart out of the session. Their `items` is
       // just as unverified, so this pays one GET per mutation for a count that
       // is actually right.
-      setCart(jar, cartId, await client.carts.get(cartId, ctx));
+      setCart(handle, cartId, await client.carts.get(cartId, ctx));
     }, await emporixOptions());
   } catch (e) {
     return { error: describeError(e) };

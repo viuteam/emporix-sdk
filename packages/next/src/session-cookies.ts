@@ -53,12 +53,21 @@ export const SESSION_ABSOLUTE_MAX = 90 * 24 * 60 * 60;
  */
 export const SESSION_FALLBACK_LIFETIME = 15 * 60;
 
-/** A narrow cookie surface so the attribute policy lives in exactly one place. */
-export interface SessionCookieJar {
+/**
+ * Read/write access to this request's persisted Emporix session, with the
+ * storage policy applied in exactly one place.
+ *
+ * Named a handle rather than a cookie jar, and that is a correction: cookies are
+ * only one of the two backends. In store mode six of the eight
+ * {@link STORAGE_KEYS} live in the store record and just two — `siteCode` and
+ * `language` — stay cookies, so «cookie jar» described a quarter of the keys.
+ * `sessionCookieJar` remains exported as a deprecated alias.
+ */
+export interface EmporixSessionHandle {
   get(name: string): string | null;
-  /** No-op when the jar is read-only (a Server Component render). */
+  /** No-op when the handle is read-only (a Server Component render). */
   set(name: string, value: string, maxAgeSeconds: number): void;
-  /** No-op when the jar is read-only. */
+  /** No-op when the handle is read-only. */
   delete(name: string): void;
   /**
    * Persists a store-backed session. A no-op in cookie mode, where `set` has
@@ -92,14 +101,21 @@ async function isSecure(): Promise<boolean> {
 }
 
 /**
- * The request's cookie jar with this package's attribute policy applied.
+ * This request's session, with the package's storage policy applied.
  *
- * Everything written through here is `httpOnly` — the whole point of the
- * server-first mode is that the browser never reads a token.
+ * Every **cookie** written through here is `httpOnly` — the whole point of the
+ * server-first mode is that the browser never reads a token. That holds for the
+ * two public keys too; they are «public» in the sense that they stay cookies in
+ * store mode rather than moving into the record, not that JavaScript can read
+ * them. A browser-readable site or language cookie is `emporixSiteProxy`'s job.
+ *
+ * Pass a `store` and only `siteCode`, `language` and the `emporix.sid` pointer
+ * remain cookies; everything else lives in the record and needs one
+ * {@link EmporixSessionHandle.flush}.
  */
-export async function sessionCookieJar(
+export async function emporixSessionHandle(
   opts: { readOnly?: boolean; store?: EmporixSessionStore } = {},
-): Promise<SessionCookieJar> {
+): Promise<EmporixSessionHandle> {
   const jar = await cookies();
   const readOnly = opts.readOnly ?? false;
   const secure = await isSecure();
@@ -134,7 +150,7 @@ export async function sessionCookieJar(
   }
 
   // Store mode: hydrate once, mutate in memory, flush once. This is what lets a
-  // synchronous jar sit on top of an async store — and `AnonymousSessionStore`
+  // synchronous handle sit on top of an async store — and `AnonymousSessionStore`
   // (sdk core/auth.ts:42) leaves no choice, it is declared synchronous and is
   // called mid-refresh.
   const sid = cookieGet(SESSION_SID);
@@ -188,3 +204,18 @@ export async function sessionCookieJar(
     },
   };
 }
+
+/**
+ * @deprecated Renamed to {@link emporixSessionHandle} in 0.5.0. The old name
+ * described cookies, and in store mode six of the eight session keys are not
+ * cookies at all. Same function, no behaviour change — switch the import.
+ *
+ * Scheduled for removal in **0.6.0**.
+ */
+export const sessionCookieJar = emporixSessionHandle;
+
+/**
+ * @deprecated Renamed to {@link EmporixSessionHandle} in 0.5.0. Scheduled for
+ * removal in **0.6.0**.
+ */
+export type SessionCookieJar = EmporixSessionHandle;

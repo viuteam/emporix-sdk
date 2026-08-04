@@ -78,7 +78,7 @@ node -e "const {createClient}=require('redis');(async()=>{const c=createClient({
 Delete a key and that one session is gone — the thing encrypted cookies cannot
 do.
 
-**Verified 2026-08-03** against the `viu` tenant, over http on a fresh cookie jar:
+**Verified 2026-08-03** against the `viu` tenant, over http on a fresh cookie handle:
 
 | Check | Result |
 |---|---|
@@ -88,7 +88,7 @@ do.
 | guest cart with a secret | sealed, written and read back |
 | replacing the key | «No cart yet» again — the mass-logout lever |
 
-Every page and action here reads cookies through `sessionCookieJar`, never
+Every page and action here reads cookies through `emporixSessionHandle`, never
 `cookies()` directly. They did not at first, and it cost the third row above: raw
 reads silently returned the plaintext cookie and kept the cart alive, so enabling
 encryption looked like it had done nothing.
@@ -143,7 +143,7 @@ real order waiting for payment, not a paid one. The done page says exactly that.
 
 A cart badge in the layout would be a `withEmporixSession` per page view, and the
 guest path deliberately builds a **new** client per call — a shared guest client
-would be a shared cart. On top of that a read-only jar cannot persist a rotated
+would be a shared cart. On top of that a read-only handle cannot persist a rotated
 anonymous session, so the documented refresh-token reuse would go from «three
 reads on `/cart`» to «every page view», plus a token round-trip per page.
 
@@ -288,8 +288,8 @@ handed that answer straight to `setCart` to save a GET. Those answers carry **no
 cart». A quantity change therefore deleted `emporix.cartId` out of the session and
 the shopper lost their cart.
 
-The fix is in the signature, not the caller: `setCart(jar, cartId, cart)` takes the
-id as its own argument, and clearing is a separate `clearCart(jar)`. A partial
+The fix is in the signature, not the caller: `setCart(handle, cartId, cart)` takes the
+id as its own argument, and clearing is a separate `clearCart(handle)`. A partial
 answer can now only make the count wrong, never lose the cart. The count itself
 comes from a re-read, because `items` on those answers is just as unverified as
 `id` was.
@@ -669,7 +669,7 @@ checking.
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use
 `withEmporixSession*`. Do not swap them: `withEmporixSession` in a Server
-Component gets a read-only cookie jar, so it cannot persist the anonymous session
+Component gets a read-only cookie handle, so it cannot persist the anonymous session
 it just obtained, and every render would log in anonymously again.
 
 ## Not every product has a price
@@ -708,12 +708,12 @@ Measured on 2026-08-01 with `next start`:
 | guest cart in store mode | created and read back |
 | keys in Redis | exactly **one** per visitor |
 | TTL | **7.0 days** for a guest |
-| browser cookie jar | only `emporix.sid` and `emporix.siteCode` |
+| browser cookie handle | only `emporix.sid` and `emporix.siteCode` |
 | deleting the key | «No cart yet» — **one** session revoked |
 | `/debug` | **PASS** |
 
 Every row above is a **guest** flow, and that is what hid a bug for a release:
-`emporixLogin`, `emporixRefresh` and `emporixLogout` built their jar without the
+`emporixLogin`, `emporixRefresh` and `emporixLogout` built their handle without the
 `store` option, so the customer path silently ran on cookies. The guest path was
 never affected — it goes through `withEmporixSessionMutable`, which threads the
 option. Fixed and verified:
@@ -736,13 +736,13 @@ option. Fixed and verified:
 The one-key row is worth more than it looks. `emporixLogin` builds **two** jars
 for one request — the one inside `withEmporixSessionMutable` and its own. That is
 the pattern this README warns about elsewhere, and it works only because the
-first flush sets the sid cookie before the second jar hydrates. A unit test now
+first flush sets the sid cookie before the second handle hydrates. A unit test now
 insists on exactly one record, so a change to that ordering fails loudly.
 
 The «not in a cookie» half of the claim is a unit test rather than a browser
 observation, deliberately: `document.cookie` cannot see an httpOnly cookie, so it
-cannot tell store mode from cookie mode. In the test the mock jar **is** the full
-cookie jar, httpOnly included, and it asserts the token is absent from it.
+cannot tell store mode from cookie mode. In the test the mock handle **is** the full
+cookie handle, httpOnly included, and it asserts the token is absent from it.
 
 The revocation row is the point of the whole feature. Encrypted cookies cannot do
 it: the ciphertext stays valid until it expires, no matter what you want.
@@ -772,10 +772,10 @@ and this after:
 ```
 
 **The cause was a flush order, and it only ever affected store mode.**
-`onboardCart` calls `withEmporixSessionMutable`, which builds its **own** jar and
+`onboardCart` calls `withEmporixSessionMutable`, which builds its **own** handle and
 branches on whether a customer token is stored. In cookie mode `persistSession`
-writes through, so that jar sees the token and runs as the customer. In store
-mode it only touched the in-memory record, so the second jar read a store with no
+writes through, so that handle sees the token and runs as the customer. In store
+mode it only touched the in-memory record, so the second handle read a store with no
 token yet and ran as a **guest** — and then `getCurrent` created a fresh anonymous
 cart instead of finding the customer's, while the merge never even left the SDK:
 `requireCustomerAuth` rejected the anonymous context locally. A guest who logged
@@ -824,7 +824,7 @@ anonymous token, and 5 matching products rendered.
 
 ### One open question, answered
 
-A guest cart read in a Server Component gets a read-only cookie jar, so it cannot
+A guest cart read in a Server Component gets a read-only cookie handle, so it cannot
 persist the rotated anonymous session — the next read reuses the previous refresh
 token. Three consecutive reads all succeeded, so **Emporix tolerates anonymous
 refresh-token reuse**. That is tenant behaviour, not a guarantee: if it ever
