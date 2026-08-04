@@ -155,6 +155,24 @@ describe("createLocalStorageStorage — cartId + anonymous session", () => {
     const s = createLocalStorageStorage();
     expect(s.getAnonymousSession()).toBeNull();
   });
+
+  it("never writes an anonymous access token to localStorage", () => {
+    // The SDK store contract carries `accessToken` and `expiresAt` so a
+    // server client can skip a refresh call per request. In a browser the
+    // client is long-lived and keeps the token in memory anyway, so persisting
+    // it would buy nothing and put a bearer token where JavaScript can read it.
+    const s = createLocalStorageStorage();
+    s.setAnonymousSession({
+      refreshToken: "rt",
+      sessionId: "ss",
+      accessToken: "at",
+      expiresAt: Date.now() + 60_000,
+    } as never);
+    const raw = localStorage.getItem("emporix.anonymousSession") ?? "";
+    expect(raw).toBe(JSON.stringify({ refreshToken: "rt", sessionId: "ss" }));
+    expect(raw).not.toContain("at");
+    expect(raw).not.toContain("expiresAt");
+  });
 });
 
 describe("createMemoryStorage — cartId + anonymous session", () => {

@@ -20,6 +20,7 @@ export type {
   AnonymousSession,
   TokenProvider,
   AnonymousSessionStore,
+  StoredAnonymousSession,
   CustomerTokenRefresher,
 } from "./core/auth";
 export { HttpClient } from "./core/http";

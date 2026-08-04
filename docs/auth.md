@@ -104,11 +104,26 @@ How it works:
   with an adapter that reads/writes `EmporixStorage.getAnonymousSession` /
   `setAnonymousSession`.
 - On the first anonymous-token need, `DefaultTokenProvider` seeds its in-memory
-  session from the store. The seeded session has `expiresAt: 0`, which forces
-  the next call to take the **refresh** path — preserving `sessionId`.
+  session from the store. Without a stored access token the seeded session has
+  `expiresAt: 0`, which forces the next call to take the **refresh** path —
+  preserving `sessionId`.
 - After every successful refresh or fresh login, the SDK writes the rotated
-  `{ refreshToken, sessionId }` back to the store.
+  `{ refreshToken, sessionId, accessToken, expiresAt }` back to the store.
 - On `invalidateAnonymous()`, the SDK calls `store.write(null)`.
+
+`accessToken` and `expiresAt` are optional in `StoredAnonymousSession`, and the
+two backends make opposite choices on purpose:
+
+| Host | Persists the access token? | Why |
+|---|---|---|
+| `@viu/emporix-sdk-react` (browser) | **no** | the client is long-lived and holds the token in memory; persisting it would only put a bearer token where JavaScript can read it |
+| `@viu/emporix-sdk-next` (server) | **yes**, httpOnly | the guest client lives for one request, so without it every request redeems the refresh token for a token it already has — one billed API call per page view |
+
+A store may return `accessToken` only together with a future `expiresAt`; either
+one alone is treated as «no token» and the next call refreshes. A stored token
+that the tenant revoked early, or one an out-of-sync clock made look valid, comes
+back as a 401, which `HttpClient` answers with `expireAnonymous()` plus one retry
+— the failure mode is a refresh, not an error.
 
 Implication for storefronts: a guest cart created in one tab is still
 accessible after a browser reload (or a new tab) for as long as the refresh

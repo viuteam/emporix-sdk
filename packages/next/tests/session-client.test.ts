@@ -125,6 +125,123 @@ describe("withEmporixSession — guest path", () => {
   });
 });
 
+/**
+ * Emporix bills per API call. A guest client lives for one request, so a session
+ * cookie that carries only the refresh token costs one `/anonymous/refresh` per
+ * page view — for a token the guest already has. These pin the fix.
+ */
+describe("withEmporixSession — the guest access token survives the request", () => {
+  /** What the cookie holds, as the store wrote it. */
+  const storedSession = () =>
+    JSON.parse(bag.get("emporix.anonymousSession")?.value ?? "{}") as Record<string, unknown>;
+
+  it("writes the access token and its expiry into the session cookie", async () => {
+    stubFetch();
+    await withEmporixSessionMutable(async (client, ctx) => {
+      await client.products.get("p1", undefined, ctx);
+    });
+    const stored = storedSession();
+    expect(stored).toMatchObject({
+      refreshToken: "anon-refresh",
+      sessionId: "sess-1",
+      accessToken: "anon-access",
+    });
+    expect(stored.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it("spends no token call on the next request while the stored token is valid", async () => {
+    const first = stubFetch();
+    await withEmporixSessionMutable(async (client, ctx) => {
+      await client.products.get("p1", undefined, ctx);
+    });
+    expect(first.tokenCalls()).toBe(1);
+
+    // Second request, same cookie jar, fresh client — this is the guest path's
+    // per-request client, so the in-memory token cache is empty on purpose.
+    const second = stubFetch();
+    await withEmporixSession(async (client, ctx) => {
+      await client.products.get("p1", undefined, ctx);
+    });
+    expect(second.tokenCalls()).toBe(0);
+  });
+
+  it("still spends one call per request for a cookie written before the token was stored", async () => {
+    const f = stubFetch();
+    bag.set("emporix.anonymousSession", {
+      name: "emporix.anonymousSession",
+      value: JSON.stringify({ refreshToken: "r1", sessionId: "sess-9" }),
+    });
+    await withEmporixSession(async (client, ctx) => {
+      await client.products.get("p1", undefined, ctx);
+    });
+    expect(f.tokenCalls()).toBe(1);
+  });
+
+  it("refreshes when the stored token has expired", async () => {
+    const f = stubFetch();
+    bag.set("emporix.anonymousSession", {
+      name: "emporix.anonymousSession",
+      value: JSON.stringify({
+        refreshToken: "r1",
+        sessionId: "sess-9",
+        accessToken: "old-tok",
+        expiresAt: Date.now() - 1_000,
+      }),
+    });
+    await withEmporixSession(async (client, ctx) => {
+      await client.products.get("p1", undefined, ctx);
+    });
+    expect(f.tokenCalls()).toBe(1);
+  });
+
+  it("ignores an expiry that arrives without a token", async () => {
+    // A hand-edited or truncated cookie must not make the SDK send an empty
+    // bearer token.
+    const f = stubFetch();
+    bag.set("emporix.anonymousSession", {
+      name: "emporix.anonymousSession",
+      value: JSON.stringify({
+        refreshToken: "r1",
+        sessionId: "sess-9",
+        expiresAt: Date.now() + 600_000,
+      }),
+    });
+    await withEmporixSession(async (client, ctx) => {
+      await client.products.get("p1", undefined, ctx);
+    });
+    expect(f.tokenCalls()).toBe(1);
+  });
+
+  it("keeps the sessionId across the reuse, so the guest keeps their cart", async () => {
+    stubFetch();
+    await withEmporixSessionMutable(async (client, ctx) => {
+      await client.products.get("p1", undefined, ctx);
+    });
+    const before = storedSession().sessionId;
+    const second = stubFetch();
+    await withEmporixSessionMutable(async (client, ctx) => {
+      await client.products.get("p1", undefined, ctx);
+    });
+    expect(storedSession().sessionId).toBe(before);
+    expect(second.tokenCalls()).toBe(0);
+  });
+
+  it("does not leak the token to a customer request", async () => {
+    // The customer path never touches the anonymous store, and must not start
+    // now that a usable token sits in the cookie.
+    const f = stubFetch();
+    await withEmporixSessionMutable(async (client, ctx) => {
+      await client.products.get("p1", undefined, ctx);
+    });
+    bag.set("emporix.customerToken", { name: "emporix.customerToken", value: "cust-tok" });
+    const second = stubFetch();
+    const seen = await withEmporixSession(async (_c, ctx) => ctx);
+    expect(seen).toEqual({ kind: "customer", token: "cust-tok" });
+    expect(second.tokenCalls()).toBe(0);
+    expect(f.tokenCalls()).toBe(1);
+  });
+});
+
 describe("withEmporixSession — cookie writes", () => {
   it("persists a rotated anonymous session in the mutable variant", async () => {
     stubFetch();

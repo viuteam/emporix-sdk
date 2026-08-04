@@ -34,14 +34,36 @@ export interface AnonymousSession {
 }
 
 /**
+ * An anonymous session as it survives outside the client instance.
+ *
+ * `accessToken` and `expiresAt` are optional, and a store is free to drop them:
+ * they turn a *server* round trip into zero token calls, because a server client
+ * lives for one request and would otherwise refresh on every single one. A
+ * long-lived browser client keeps the token in memory anyway, so the React
+ * storage adapters deliberately persist only the two required fields — a token
+ * readable by JavaScript buys nothing there.
+ *
+ * A store that returns `accessToken` without a future `expiresAt` gets treated as
+ * having no token at all; see {@link DefaultTokenProvider.attachAnonymousStore}.
+ */
+export interface StoredAnonymousSession {
+  refreshToken: string;
+  sessionId: string;
+  /** The access token itself, so a fresh client need not spend a refresh call for it. */
+  accessToken?: string;
+  /** Epoch ms after which `accessToken` is stale. The expiry buffer is already applied. */
+  expiresAt?: number;
+}
+
+/**
  * Persistence callback for anonymous sessions. `read` is called once on the
  * first need for an anonymous token to bootstrap a possibly-existing session;
  * `write` is called after every successful login or refresh. `write(null)`
  * means the SDK is invalidating the stored session.
  */
 export interface AnonymousSessionStore {
-  read(): { refreshToken: string; sessionId: string } | null;
-  write(session: { refreshToken: string; sessionId: string } | null): void;
+  read(): StoredAnonymousSession | null;
+  write(session: StoredAnonymousSession | null): void;
 }
 
 /** Supplies SDK-managed tokens (service/custom + anonymous). May be user-injected. */
@@ -188,18 +210,33 @@ export class DefaultTokenProvider implements TokenProvider {
 
   attachAnonymousStore(store: AnonymousSessionStore): void {
     this.anonStore = store;
-    // Bootstrap `this.anon` from the store if we don't have it yet. The seeded
-    // session has expiresAt = 0 so the next getAnonymousToken triggers a refresh
-    // (which preserves sessionId) instead of a fresh login.
+    // Bootstrap `this.anon` from the store if we don't have it yet.
+    //
+    // A persisted access token that is still inside its lifetime is adopted as
+    // is, and that is the point on a server: a client that lives for one request
+    // would otherwise spend one `/anonymous/refresh` per request for a token it
+    // already holds. Without a token — or past its expiry — `expiresAt` stays 0
+    // and the next getAnonymousToken refreshes, which preserves the sessionId,
+    // so the guest's cart survives either way.
+    //
+    // `expiresAt` counts only when there is a token to go with it. A store that
+    // returns one without the other would otherwise make `anonFresh()` true and
+    // hand out an empty bearer token.
+    //
+    // Trusting a stored expiry means trusting the writer's clock. A token
+    // revoked early, or an expiry that a skewed clock made look valid, comes
+    // back as a 401 — which `HttpClient` answers with `expireAnonymous()` plus
+    // one retry, so the failure mode is a refresh, not an error.
     if (!this.anon) {
       const persisted = store.read();
       if (persisted) {
+        const token = persisted.accessToken ?? "";
         this.anon = {
-          accessToken: "",
+          accessToken: token,
           refreshToken: persisted.refreshToken,
           sessionId: persisted.sessionId,
           expiresIn: 0,
-          expiresAt: 0,
+          expiresAt: token === "" ? 0 : (persisted.expiresAt ?? 0),
         };
       }
     }
@@ -376,9 +413,14 @@ export class DefaultTokenProvider implements TokenProvider {
           obtainedAt +
           ((json.expires_in as number) - this.cfg.cache.expirationBufferSeconds) * 1000,
       };
+      // The access token and its expiry go out too, so a store that keeps them
+      // (a server one) can hand the next request a usable token instead of
+      // another refresh. A store that only wants the refresh token drops them.
       this.anonStore?.write({
         refreshToken: this.anon.refreshToken,
         sessionId: this.anon.sessionId,
+        accessToken: this.anon.accessToken,
+        expiresAt: this.anon.expiresAt,
       });
       this.notifyRefresh("anonymous", true);
       return this.stripExpiry(this.anon);
