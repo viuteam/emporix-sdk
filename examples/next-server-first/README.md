@@ -78,7 +78,7 @@ node -e "const {createClient}=require('redis');(async()=>{const c=createClient({
 Delete a key and that one session is gone — the thing encrypted cookies cannot
 do.
 
-**Verified 2026-08-03** against the `viu` tenant, over http on a fresh cookie handle:
+**Verified 2026-08-03** against the `viu` tenant, over http on a fresh cookie jar:
 
 | Check | Result |
 |---|---|
@@ -669,7 +669,7 @@ checking.
 
 Catalog reads use `getEmporixClient()`. Cart reads and writes use
 `withEmporixSession*`. Do not swap them: `withEmporixSession` in a Server
-Component gets a read-only cookie handle, so it cannot persist the anonymous session
+Component gets a read-only session handle, so it cannot persist the anonymous session
 it just obtained, and every render would log in anonymously again.
 
 ## Not every product has a price
@@ -708,7 +708,7 @@ Measured on 2026-08-01 with `next start`:
 | guest cart in store mode | created and read back |
 | keys in Redis | exactly **one** per visitor |
 | TTL | **7.0 days** for a guest |
-| browser cookie handle | only `emporix.sid` and `emporix.siteCode` |
+| browser cookie jar | only `emporix.sid` and `emporix.siteCode` |
 | deleting the key | «No cart yet» — **one** session revoked |
 | `/debug` | **PASS** |
 
@@ -741,8 +741,8 @@ insists on exactly one record, so a change to that ordering fails loudly.
 
 The «not in a cookie» half of the claim is a unit test rather than a browser
 observation, deliberately: `document.cookie` cannot see an httpOnly cookie, so it
-cannot tell store mode from cookie mode. In the test the mock handle **is** the full
-cookie handle, httpOnly included, and it asserts the token is absent from it.
+cannot tell store mode from cookie mode. In the test the mock jar **is** the full
+cookie jar, httpOnly included, and it asserts the token is absent from it.
 
 The revocation row is the point of the whole feature. Encrypted cookies cannot do
 it: the ciphertext stays valid until it expires, no matter what you want.
@@ -824,7 +824,7 @@ anonymous token, and 5 matching products rendered.
 
 ### One open question, answered
 
-A guest cart read in a Server Component gets a read-only cookie handle, so it cannot
+A guest cart read in a Server Component gets a read-only session handle, so it cannot
 persist the rotated anonymous session — the next read reuses the previous refresh
 token. Three consecutive reads all succeeded, so **Emporix tolerates anonymous
 refresh-token reuse**. That is tenant behaviour, not a guarantee: if it ever
