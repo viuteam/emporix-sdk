@@ -3,6 +3,7 @@ import {
   auth,
   type AnonymousSessionStore,
   type AuthContext,
+  type StoredAnonymousSession,
 } from "@viu/emporix-sdk";
 import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
 import { getEmporixClient } from "./client";
@@ -33,17 +34,43 @@ export interface WithEmporixSessionOptions {
   };
 }
 
-/** Persists the anonymous session in an httpOnly cookie, per guest. */
+/**
+ * Persists the anonymous session in an httpOnly cookie, per guest.
+ *
+ * The access token is kept alongside the refresh token, and that is what makes a
+ * guest page view cost **zero** token calls instead of one. A guest client lives
+ * for one request, so without the token every request redeemed the refresh token
+ * for a token it already had — measured against the `viu` tenant, an anonymous
+ * token is valid for 3599 seconds, which is most of a browsing session.
+ *
+ * It adds no exposure: the cookie is httpOnly (and sealed when
+ * `EMPORIX_COOKIE_SECRET` is set), and whoever holds the refresh token that has
+ * always lived here can mint an access token at will. The token itself is 28
+ * opaque characters on this tenant — no meaningful cookie-size cost.
+ */
 function anonymousStore(handle: EmporixSessionHandle): AnonymousSessionStore {
   return {
     read: () => {
       const raw = handle.get(STORAGE_KEYS.anonymousSession);
       if (raw === null) return null;
       try {
-        const parsed = JSON.parse(raw) as Partial<{ refreshToken: string; sessionId: string }>;
-        return typeof parsed.refreshToken === "string" && typeof parsed.sessionId === "string"
-          ? { refreshToken: parsed.refreshToken, sessionId: parsed.sessionId }
-          : null;
+        const parsed = JSON.parse(raw) as Partial<StoredAnonymousSession>;
+        if (typeof parsed.refreshToken !== "string" || typeof parsed.sessionId !== "string") {
+          return null;
+        }
+        // Both extra fields are validated and carried only together: the SDK
+        // ignores an expiry without a token, and a token without an expiry is
+        // treated as stale. A cookie written before this existed simply has
+        // neither, and still refreshes as it always did.
+        const hasToken = typeof parsed.accessToken === "string" && parsed.accessToken.length > 0;
+        const hasExpiry = typeof parsed.expiresAt === "number" && Number.isFinite(parsed.expiresAt);
+        return {
+          refreshToken: parsed.refreshToken,
+          sessionId: parsed.sessionId,
+          ...(hasToken && hasExpiry
+            ? { accessToken: parsed.accessToken!, expiresAt: parsed.expiresAt! }
+            : {}),
+        };
       } catch {
         return null;
       }
@@ -55,7 +82,12 @@ function anonymousStore(handle: EmporixSessionHandle): AnonymousSessionStore {
       }
       handle.set(
         STORAGE_KEYS.anonymousSession,
-        JSON.stringify({ refreshToken: session.refreshToken, sessionId: session.sessionId }),
+        JSON.stringify({
+          refreshToken: session.refreshToken,
+          sessionId: session.sessionId,
+          ...(session.accessToken !== undefined ? { accessToken: session.accessToken } : {}),
+          ...(session.expiresAt !== undefined ? { expiresAt: session.expiresAt } : {}),
+        }),
         SESSION_MAX_AGE.anonymousSession,
       );
     },

@@ -78,6 +78,16 @@ per process, so attaching one guest's anonymous store to it would hand the next
 guest the same cart. The customer path has no such problem: the token is passed per
 call, not held on the client.
 
+**A guest page view costs no token call.** A per-request client starts with an
+empty token cache, so the session cookie carries the anonymous **access** token
+next to the refresh token (`{ refreshToken, sessionId, accessToken, expiresAt }`,
+httpOnly, sealed when `EMPORIX_COOKIE_SECRET` is set). While that token is valid —
+3599 seconds on the `viu` tenant — the guest path spends zero
+`/customerlogin/auth/anonymous/*` calls; before this it redeemed the refresh token
+on every single request for a token it already held, and Emporix bills per call.
+A logged-in customer has always cost zero: `auth.customer(token)` is passed
+straight through, and no anonymous token is ever minted for them.
+
 **Why the catalog branch bypasses all of it.** A catalog read needs no stable
 session, and a read-only handle cannot persist the anonymous session the SDK just
 obtained — so routing catalog reads through `withEmporixSession` would log in

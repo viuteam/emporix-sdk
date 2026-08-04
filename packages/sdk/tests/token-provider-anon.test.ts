@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse, delay } from "msw";
 import { DefaultTokenProvider } from "../src/core/auth";
+import type { AnonymousSessionStore, StoredAnonymousSession } from "../src/core/auth";
+import { EmporixClient } from "../src/client";
 import { EmporixTimeoutError } from "../src/core/errors";
 
 let loginHits = 0;
@@ -197,55 +199,59 @@ describe("anonymous token expiry → refresh (sessionId preserved)", () => {
   });
 });
 
+/** A store whose reads and writes the test can inspect. */
+function spyStore(seed: StoredAnonymousSession | null = null) {
+  const writes: Array<StoredAnonymousSession | null> = [];
+  let reads = 0;
+  return {
+    writes,
+    reads: () => reads,
+    store: {
+      read: () => {
+        reads += 1;
+        return seed;
+      },
+      write: (s: StoredAnonymousSession | null) => {
+        writes.push(s);
+        seed = s;
+      },
+    } satisfies AnonymousSessionStore,
+  };
+}
+
 describe("DefaultTokenProvider with AnonymousSessionStore", () => {
   it("bootstraps from store.read() and uses refresh mode on first call", async () => {
-    const reads: number[] = [];
-    const writes: Array<{ refreshToken: string; sessionId: string } | null> = [];
-    const store = {
-      read: () => {
-        reads.push(Date.now());
-        return { refreshToken: "rt-1", sessionId: SESSION };
-      },
-      write: (s: { refreshToken: string; sessionId: string } | null) => {
-        writes.push(s);
-      },
-    };
+    const spy = spyStore({ refreshToken: "rt-1", sessionId: SESSION });
     const p = new DefaultTokenProvider(cfg as never);
-    p.attachAnonymousStore!(store);
+    p.attachAnonymousStore!(spy.store);
 
     const sess = await p.getAnonymousToken();
 
     expect(sess.sessionId).toBe(SESSION);
     expect(sess.accessToken).toBe("anon-r1");
-    expect(reads.length).toBe(1);
+    expect(spy.reads()).toBe(1);
     // No login should have happened — refresh used the persisted refresh-token.
     expect(loginHits).toBe(0);
     expect(refreshHits).toBe(1);
-    expect(writes.at(-1)).toEqual({ refreshToken: "rt-1", sessionId: SESSION });
+    expect(spy.writes.at(-1)).toMatchObject({ refreshToken: "rt-1", sessionId: SESSION });
   });
 
   it("falls back to login when store.read() returns null and writes the new session", async () => {
-    const writes: Array<{ refreshToken: string; sessionId: string } | null> = [];
-    const store = {
-      read: () => null,
-      write: (s: { refreshToken: string; sessionId: string } | null) => {
-        writes.push(s);
-      },
-    };
+    const spy = spyStore(null);
     const p = new DefaultTokenProvider(cfg as never);
-    p.attachAnonymousStore!(store);
+    p.attachAnonymousStore!(spy.store);
 
     await p.getAnonymousToken();
 
     expect(loginHits).toBe(1);
-    expect(writes.at(-1)).toEqual({ refreshToken: "rt-1", sessionId: SESSION });
+    expect(spy.writes.at(-1)).toMatchObject({ refreshToken: "rt-1", sessionId: SESSION });
   });
 
   it("invalidateAnonymous clears the store", async () => {
-    const writes: Array<{ refreshToken: string; sessionId: string } | null> = [];
+    const writes: Array<StoredAnonymousSession | null> = [];
     const store = {
       read: () => null,
-      write: (s: { refreshToken: string; sessionId: string } | null) => {
+      write: (s: StoredAnonymousSession | null) => {
         writes.push(s);
       },
     };
@@ -262,6 +268,126 @@ describe("DefaultTokenProvider with AnonymousSessionStore", () => {
     const sess = await p.getAnonymousToken();
     expect(sess.accessToken).toBe("anon-1");
     expect(loginHits).toBe(1);
+  });
+});
+
+/**
+ * The reason the store carries the access token: a server client lives for one
+ * request, so without it every request redeems the refresh token for a token it
+ * already holds. Emporix bills per API call, and this is a call per page view.
+ */
+describe("a stored anonymous access token is reused instead of refreshed", () => {
+  const future = () => Date.now() + 30 * 60 * 1000;
+
+  it("spends no token call at all when the stored token is still valid", async () => {
+    const spy = spyStore({
+      refreshToken: "rt-1",
+      sessionId: SESSION,
+      accessToken: "stored-tok",
+      expiresAt: future(),
+    });
+    const p = new DefaultTokenProvider(cfg as never);
+    p.attachAnonymousStore!(spy.store);
+
+    const sess = await p.getAnonymousToken();
+
+    expect(sess.accessToken).toBe("stored-tok");
+    expect(sess.sessionId).toBe(SESSION);
+    expect(loginHits).toBe(0);
+    expect(refreshHits).toBe(0);
+    // Nothing changed, so nothing was written back.
+    expect(spy.writes).toEqual([]);
+  });
+
+  it("refreshes once and writes the new token plus its expiry", async () => {
+    const spy = spyStore({
+      refreshToken: "rt-1",
+      sessionId: SESSION,
+      accessToken: "stored-tok",
+      expiresAt: Date.now() - 1_000, // already stale
+    });
+    const p = new DefaultTokenProvider(cfg as never);
+    p.attachAnonymousStore!(spy.store);
+
+    const sess = await p.getAnonymousToken();
+
+    expect(sess.accessToken).toBe("anon-r1");
+    expect(refreshHits).toBe(1);
+    const written = spy.writes.at(-1);
+    expect(written).toMatchObject({ accessToken: "anon-r1", sessionId: SESSION });
+    expect(written?.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it("ignores an expiry that arrives without a token", async () => {
+    // Otherwise anonFresh() would be true and the client would send
+    // `Authorization: Bearer ` — a 401 that looks like a permissions problem.
+    const spy = spyStore({ refreshToken: "rt-1", sessionId: SESSION, expiresAt: future() });
+    const p = new DefaultTokenProvider(cfg as never);
+    p.attachAnonymousStore!(spy.store);
+
+    expect((await p.getAnonymousToken()).accessToken).toBe("anon-r1");
+    expect(refreshHits).toBe(1);
+  });
+
+  it("treats a token without an expiry as stale", async () => {
+    const spy = spyStore({ refreshToken: "rt-1", sessionId: SESSION, accessToken: "stored-tok" });
+    const p = new DefaultTokenProvider(cfg as never);
+    p.attachAnonymousStore!(spy.store);
+
+    expect((await p.getAnonymousToken()).accessToken).toBe("anon-r1");
+    expect(refreshHits).toBe(1);
+  });
+
+  it("keeps the sessionId when the stored token is adopted — the cart depends on it", async () => {
+    const spy = spyStore({
+      refreshToken: "rt-1",
+      sessionId: SESSION,
+      accessToken: "stored-tok",
+      expiresAt: future(),
+    });
+    const p = new DefaultTokenProvider(cfg as never);
+    p.attachAnonymousStore!(spy.store);
+    const first = await p.getAnonymousToken();
+    p.expireAnonymous!();
+    const second = await p.getAnonymousToken();
+    expect(first.sessionId).toBe(SESSION);
+    expect(second.sessionId).toBe(SESSION);
+    expect(loginHits).toBe(0);
+  });
+
+  it("recovers from a token the tenant revoked early: one 401, one refresh, then success", async () => {
+    // This is why trusting a stored expiry is safe. The clock could be skewed or
+    // the token revoked; HttpClient answers the 401 with expireAnonymous() and
+    // exactly one retry.
+    let productHits = 0;
+    const tokens: Array<string | null> = [];
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products/p1", ({ request }) => {
+        productHits += 1;
+        tokens.push(request.headers.get("Authorization"));
+        if (productHits === 1) return HttpResponse.json({ message: "expired" }, { status: 401 });
+        return HttpResponse.json({ id: "p1" });
+      }),
+    );
+    const spy = spyStore({
+      refreshToken: "rt-1",
+      sessionId: SESSION,
+      accessToken: "revoked-tok",
+      expiresAt: future(),
+    });
+    const client = new EmporixClient({
+      tenant: "acme",
+      credentials: { storefront: { clientId: "sf" } },
+      logger: false,
+    });
+    client.tokenProvider.attachAnonymousStore!(spy.store);
+
+    const product = await client.products.get("p1", undefined, { kind: "anonymous" });
+
+    expect(product.id).toBe("p1");
+    expect(tokens).toEqual(["Bearer revoked-tok", "Bearer anon-r1"]);
+    expect(refreshHits).toBe(1);
+    expect(loginHits).toBe(0);
   });
 });
 

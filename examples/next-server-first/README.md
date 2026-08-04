@@ -127,8 +127,11 @@ same token has to be readable by JavaScript, because the checkout runs there.
 Two details worth knowing before you read the code:
 
 - **One session, not four.** Each `withEmporixSession` call builds its own guest
-  client with its own token provider. Four calls would redeem the same anonymous
-  refresh token four times in parallel.
+  client with its own token provider. Since the session cookie carries the
+  anonymous access token, four calls normally cost **zero** token round trips —
+  but in the one request where that token expires, all four would redeem the same
+  refresh token in parallel, and Emporix rotates it on every redemption. One call
+  keeps that impossible instead of unlikely.
 - **The Server Action is the authority on shipping.** The page resolves the zone
   for the configured country, but a customer can type a different one. The action
   re-runs `resolveZone`/`pickFee` against what was actually submitted and uses
@@ -141,11 +144,16 @@ real order waiting for payment, not a paid one. The done page says exactly that.
 
 ## The shell costs zero Emporix calls
 
-A cart badge in the layout would be a `withEmporixSession` per page view, and the
-guest path deliberately builds a **new** client per call — a shared guest client
-would be a shared cart. On top of that a read-only handle cannot persist a rotated
-anonymous session, so the documented refresh-token reuse would go from «three
-reads on `/cart`» to «every page view», plus a token round-trip per page.
+A cart badge in the layout would be a `withEmporixSession` per page view — one
+billed `GET /carts` on every page, including the ones that have nothing to do with
+the cart. The guest path also builds a **new** client per call, because a shared
+guest client would be a shared cart, and a read-only handle cannot persist a
+rotated anonymous session, so a badge would keep re-reading a session it cannot
+write back.
+
+(The token round trip that used to be part of this argument is gone: the session
+cookie now carries the anonymous access token, so a page view costs no
+`/anonymous/refresh`. The business call it saves is still worth saving.)
 
 The count therefore sits next to the cart id in the session, written by exactly
 one function (`app/lib/cart-session.ts`). The header reads it and calls nothing.
