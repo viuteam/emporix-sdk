@@ -99,7 +99,8 @@ encryption looked like it had done nothing.
 |---|---|
 | `/` | catalog rendered on the server with the memoized tagged client |
 | `/search` | a form GET as the whole state container — no `useState`, back button works |
-| `/category/[id]` | pagination as a URL, and an over-range page that says so |
+| `/categories` | all 21 category-tree roots from one cached call |
+| `/category/[id]` | breadcrumb and children from the tree, pagination as a URL, an over-range page that says so |
 | `/product/[id]` | `notFound()` on an unknown id instead of a 500 |
 | `/login` | `emporixLogin` / `emporixLogout` via Server Actions, session in httpOnly cookies |
 | `/cart` | `withEmporixSession*`, a guest cart bound to a server-managed anonymous session |
@@ -219,11 +220,9 @@ The `?page=4` row is a fix that came out of the check: it first said «No produc
 in this category», which is a lie about a category holding eleven. A page number
 in a URL is exactly the kind of thing that goes stale in a bookmark.
 
-**The subcategory nav never renders on this tenant.** `categories.subcategories`
-reads category-to-category *assignments*, and `viu` keeps its hierarchy in
-category trees — all of the first 40 categories answered with an empty list.
-storefront-demo's equivalent nav is dead here for the same reason; it calls the
-same function. Kept in both, because other tenants do use assignments.
+The subcategory nav is fed by the category **tree**, not by
+`categories.subcategories` — see «Category browsing» below for why that distinction
+was worth a day.
 
 ## The product page keeps its state in the URL
 
@@ -565,6 +564,82 @@ fetch cache does not key on headers, so a language-aware proxy would serve one
 visitor's language to the next until the language becomes part of the cache key.
 Naming the cause beats a fix that poisons a shared cache.
 
+## Category browsing, and the navigation that was dead
+
+`/categories` lists every root the tenant publishes; `/category/[id]` shows that
+category's children, its breadcrumb and its products. All of it comes from **one**
+call — `categories.tree()` — which returns every category nested, is tagged
+`emporix:categories` and cached for an hour.
+
+That the subcategory nav used to render nothing was not a tenant limitation, which
+is what an earlier version of this file claimed. Measured 2026-08-04:
+
+| call | endpoint | on `viu` |
+|---|---|---|
+| `categories.subcategories(id)` | `/categories/{id}/assignments`, kept where `ref.type === "CATEGORY"` | empty for every category tried |
+| `categories.childCategories(id)` | `/categories/{id}/subcategories` | **404** on a tree root |
+| `categories.parents(id)` | `/categories/{id}/parents` | 404 on a root, 2–4 ancestors on a leaf |
+| `categories.tree()` | `/category-trees` | the whole hierarchy, children inline |
+
+The old code called the first one. storefront-demo still does, so its subcategory
+nav is dead for the same reason.
+
+And the assignments endpoint is not empty — that was the misleading part.
+`productsIn(id)` reads **the same URL** and keeps `ref.type === "PRODUCT"`, which is
+why products worked all along. This tenant expresses category-to-category
+relationships in trees and category-to-product relationships in assignments, so one
+of the two filters always comes back with nothing.
+
+The page therefore takes its label, children and ancestors from the tree and calls
+neither `categories.get()` nor `categories.subcategories()` — two requests fewer
+than before, and a breadcrumb that costs nothing because the walk already knew the
+path.
+
+### What the tenant actually has
+
+| | |
+|---|---|
+| `categories.list()` | 1'631 categories |
+| `categories.tree()` | 21 roots, 1'631 nodes — the same number, so the tree is the whole catalogue |
+| payload | 378 KiB, 282 ms on a cache miss |
+| roots without children | 16, and they carry products directly |
+| roots with children | 5 — «Sports & Outdoor» ×3 (30 leaves each), «Computers & Peripherals» (520), «Building & Construction» (852) |
+
+**Three roots are called «Sports & Outdoor» and only one has products** (`686435e9`).
+All 21 are shown anyway: hiding tenant data by a criterion Emporix does not have
+would only hit the stocked one by luck. «Computers & Peripherals» and
+«Building & Construction» hold 1'372 leaves between them and none of the sampled
+ones carry a product — the tenant's catalogue, not a defect here.
+
+### Verified 2026-08-04, in the browser
+
+| Check | Result |
+|---|---|
+| `/categories` | **21** links, three of them «Sports & Outdoor» |
+| «Sports & Outdoor» `686435e9` | 10 child tiles, no product grid — a pure parent |
+| `Cycling` | breadcrumb `Categories / Sports & Outdoor`, three child tiles |
+| `Bicycles` (level 3) | breadcrumb `Categories / Sports & Outdoor / Cycling`, **17 products** |
+| a leaf under «Building & Construction» | four-level breadcrumb, «No products in this category.» |
+| `/category/gibt-es-nicht` | **404 in 48 ms** — `notFound()` runs before any product call |
+
+Timings from the dev log, `application-code` only: `/categories` **207 ms** on a
+cache miss, a warm category page **38 ms** — and that 38 ms includes reading 378 KiB
+out of the fetch cache and walking 1'631 nodes. The 404 costs 42 ms, because it
+never reaches Emporix at all.
+
+**17 products with no prices.** `Bicycles` renders 17 tiles and every one says «no
+price in this context». That is not a bug in this page: only the 16 childless roots
+carry priced products on `viu`. It is also why the home page lists one category
+instead of the whole catalogue — the first **200** products of `products.list()` have
+no price in the `main`/CHF/CH context, so a home page built on it offers nothing to
+add to a cart. That was tried, measured and reverted in the same PR.
+
+One thing this shape gives up: a category that exists but sits in no published tree
+404s, because the label and hierarchy both come from the tree and `categories.get()`
+is never called. It cannot happen on this tenant — the node count matches the flat
+list exactly — but a tenant with unpublished trees would need `categories.get(id)`
+as a fallback.
+
 ## What this demo deliberately does NOT have
 
 Not gaps — decisions, each with a reason:
@@ -579,12 +654,16 @@ Not gaps — decisions, each with a reason:
 - **Optimistic updates.** There is no client state to be optimistic with. That is
   the documented price of this mode, not an omission.
 
-Three more things are in the code but **cannot fire on the `viu` tenant**, and are
-marked as such where they live: the subcategory nav (hierarchy lives in category
-trees, not assignments), the variant picker (300 products swept, all
-`productType: BASIC`), and a successful order cancellation (every order is
+Two more things are in the code but **cannot fire on the `viu` tenant**, and are
+marked as such where they live: the variant picker (300 products swept, all
+`productType: BASIC`) and a successful order cancellation (every order is
 `IN_CHECKOUT`, which customers may not transition). They stay for tenants that do
 use those features.
+
+This list said «three» and included the subcategory nav until 2026-08-04. That one
+turned out to be reachable after all — it was reading the wrong source, not hitting
+a tenant limitation. Being on a «cannot work here» list is not a reason to stop
+checking.
 
 ## The catalog/cart split
 
