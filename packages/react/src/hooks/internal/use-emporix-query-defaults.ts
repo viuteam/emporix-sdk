@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import type { QueryClient } from "@tanstack/react-query";
+import { EmporixNotFoundError } from "@viu/emporix-sdk";
 
 /**
  * Balanced React-Query defaults scoped to the `["emporix"]` key namespace of
@@ -10,7 +11,12 @@ import type { QueryClient } from "@tanstack/react-query";
 const DEFAULT_QUERY_OPTIONS = {
   staleTime: 30_000,
   refetchOnWindowFocus: false,
-  retry: 1,
+  // A 404 is an answer, not a failure worth repeating: the resource is gone and
+  // the retry bills the tenant for the same answer. Emporix charges per API
+  // call, and a stale cart id (one closed by a checkout on another device) is
+  // exactly the case that would pay it on every mount.
+  retry: (count: number, error: unknown) =>
+    !(error instanceof EmporixNotFoundError) && count < 1,
 } as const;
 
 /**

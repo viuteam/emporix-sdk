@@ -325,6 +325,34 @@ kind. Default: `customer` if a token is stored, else `anonymous`. `useCart` is
 disabled until a `cartId` is supplied — either explicitly via `useCart(id)` or
 implicitly via `storage.getCartId()` when called as `useCart()`.
 
+#### A cart closed on another device heals itself
+
+Emporix allows a customer one open cart per site, and placing an order closes it.
+Every other device where that customer is signed in still holds the closed id in
+its own storage, so its next cart call answers `404`.
+
+`useCart` and `useCartMutations` treat that `404` as «this cart is gone»: they
+clear `storage.cartId` and drop the `cart-bootstrap` cache. `useActiveCart({
+create: true })` then bootstraps a fresh cart on the next render, because its
+bootstrap gate is `cartId === null` — which a stale id never was. Without this
+the device stayed broken until the next login, and every add-to-cart failed.
+
+Three limits worth knowing:
+
+- **Silent by design.** The cart no longer exists server-side, so there is
+  nothing to show the shopper and nothing they could do. They see an empty bag.
+  If you want to say more, watch `storage.getCartId()` (e.g. via the internal
+  `useCartId` snapshot) and message on the transition.
+- **Only a `404`.** A `403` or a `5xx` keeps the id: they mean «not now», not
+  «gone». A `401` from `placeOrder` against a closed cart also keeps it, because
+  the same status means «token expired» far more often.
+- **Only the stored id.** `useCart("some-other-cart")` that 404s leaves
+  `storage.cartId` alone — an explicit id is the caller's business.
+
+The emporix-scoped `retry` default does not retry a `404` either. Emporix bills
+per API call, and a dead cart id would otherwise pay for the same answer twice
+on every mount.
+
 ### Catalog UX
 
 `useProductByCode(code)` — fetches a product by its `code` field. Use for slug-based routes like `/products/[slug]`. Disabled when `code` is undefined/empty.

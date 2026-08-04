@@ -294,6 +294,76 @@ describe("withEmporixSession — cookie writes", () => {
   });
 });
 
+describe("withEmporixSessionMutable — flush when the callback throws", () => {
+  /** A Map-backed store, enough to see whether the record was written. */
+  function fakeStore() {
+    const records = new Map<string, { record: Record<string, string>; ttl: number }>();
+    return {
+      records,
+      read: async (id: string) => records.get(id)?.record ?? null,
+      write: async (id: string, record: Record<string, string>, ttl: number) => {
+        records.set(id, { record: { ...record }, ttl });
+      },
+      destroy: async (id: string) => {
+        records.delete(id);
+      },
+    };
+  }
+
+  it("persists what the callback wrote before it failed", async () => {
+    // Store mode buffers in memory and writes once on flush. Skipping the flush
+    // on an error silently discarded work the callback did on purpose — a
+    // cleanup, or a session key it had already set.
+    stubFetch();
+    const store = fakeStore();
+    await expect(
+      withEmporixSessionMutable(async (_client, _ctx, handle) => {
+        handle.set("emporix.cartId", "cart-1", 60);
+        throw new Error("mutation failed");
+      }, { store }),
+    ).rejects.toThrow("mutation failed");
+
+    const written = [...store.records.values()][0]?.record;
+    expect(written).toMatchObject({ "emporix.cartId": "cart-1" });
+  });
+
+  it("persists a rotated anonymous session even when the callback throws", async () => {
+    // Emporix rotates the anonymous refresh token on every refresh. Losing the
+    // rotation left the session holding a token the tenant had already
+    // invalidated — the next request fell back to a fresh login with a NEW
+    // sessionId, and the guest lost their cart.
+    stubFetch();
+    const store = fakeStore();
+    await expect(
+      withEmporixSessionMutable(async (client, ctx) => {
+        await client.products.get("p1", undefined, ctx); // mints the anon session
+        throw new Error("later failure");
+      }, { store }),
+    ).rejects.toThrow("later failure");
+
+    const written = [...store.records.values()][0]?.record ?? {};
+    expect(JSON.parse(written["emporix.anonymousSession"] ?? "{}")).toMatchObject({
+      sessionId: "sess-1",
+    });
+  });
+
+  it("lets the callback's error through even if the flush also fails", async () => {
+    stubFetch();
+    const store = {
+      ...fakeStore(),
+      write: async () => {
+        throw new Error("redis down");
+      },
+    };
+    await expect(
+      withEmporixSessionMutable(async (_c, _ctx, handle) => {
+        handle.set("emporix.cartId", "cart-1", 60);
+        throw new Error("the real problem");
+      }, { store }),
+    ).rejects.toThrow("the real problem");
+  });
+});
+
 describe("the server-only guard", () => {
   it("throws when the guard file is loaded, naming the way out", async () => {
     // Mirrors the service guard's test, including its lesson: neither pattern

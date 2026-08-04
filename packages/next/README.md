@@ -164,6 +164,54 @@ Neither path can be tagged: `withEmporixSession*` never passes a `fetch`.
 read-only handle cannot persist the anonymous session the SDK just obtained, so
 every render would log in again. Use `getEmporixClient()` for those.
 
+**The mutable variant flushes even when your callback throws.** By then the
+handle can already hold a rotated anonymous refresh token — Emporix rotates it on
+every refresh — or a cleanup you did before failing. Cookie mode always wrote
+those through immediately; store mode used to discard them, so a failed Server
+Action left the session pointing at a token the tenant had already invalidated
+and the guest lost their cart on the next request. A store failure during that
+flush is swallowed rather than replacing your error.
+
+### A cart id in the session can be dead
+
+Emporix allows a customer one open cart per site, and placing an order closes it.
+The same customer signed in on a second device still has the closed id in **that**
+device's session, so its next cart call answers `404` — and `addToCart` keeps
+failing, because it finds a non-null id and never creates a new cart.
+
+The session is the only place that can fix it, and a **Server Component cannot**:
+a read-only handle does not write. So the rule is «render the truth, heal on the
+next write»:
+
+```ts
+// A read (Server Component): show the empty state, do not try to clear.
+try {
+  cart = await withEmporixSession((c, ctx) => c.carts.get(cartId, ctx), opts);
+} catch (e) {
+  if (!(e instanceof EmporixNotFoundError)) throw e;
+  return <EmptyBag />;
+}
+```
+
+```ts
+// A write (Server Action): clear inside the mutable pass, then create a new cart.
+try {
+  await client.carts.addItem(cartId, item, ctx);
+} catch (e) {
+  if (!(e instanceof EmporixNotFoundError)) throw e;
+  handle.delete(STORAGE_KEYS.cartId);
+  const fresh = await client.carts.getCurrent(ctx, { siteCode, create: true });
+  await client.carts.addItem(fresh!.id!, item, ctx);
+}
+```
+
+Recover on the `404` rather than verifying the cart first: a check would spend a
+billed call on every add for a case that is rare. `examples/next-server-first`
+does exactly this in `app/actions/cart.ts` and both read pages.
+
+Do not try to heal this in the proxy. It would have to ask Emporix about the cart
+on every request — the call the session cookie exists to avoid.
+
 ### Login, logout, refresh
 
 ```ts
