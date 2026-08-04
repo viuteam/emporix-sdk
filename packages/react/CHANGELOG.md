@@ -1,5 +1,63 @@
 # @viu/emporix-sdk-react
 
+## 2.31.0
+
+### Patch Changes
+
+- [#216](https://github.com/viuteam/emporix-sdk/pull/216) [`ca45e50`](https://github.com/viuteam/emporix-sdk/commit/ca45e50bf79ab7d72c51c0687f383bffeecfcf6d) Thanks [@amnael1](https://github.com/amnael1)! - `@viu/emporix-sdk-next` no longer depends on `@viu/emporix-sdk-react`. The peer
+  dependency is gone, and the built package contains zero imports of it.
+
+  A server-first Next app therefore installs **three** packages instead of four,
+  and with them no React and no `@tanstack/react-query` — both are peers of the
+  React bindings, and neither has anything to do with a mode where the browser makes
+  no Emporix calls at all.
+
+  What moved to `@viu/emporix-sdk` (`core/session-storage.ts`), completing the step
+  that started with `STORAGE_KEYS`:
+
+  | Export                                                        | Was                                                     |
+  | ------------------------------------------------------------- | ------------------------------------------------------- |
+  | `EmporixStorage`, `TokenStorage`, `PersistedAnonymousSession` | the session-persistence contract                        |
+  | `parseAnonymousSession`                                       | parses a stored anonymous session                       |
+  | `createCookieBackedStorage`, `CookieIo`                       | the whole key-to-accessor mapping                       |
+  | `createServerStorage`, `ServerCookieJar`                      | an `EmporixStorage` over any cookie jar                 |
+  | `serverAuth`                                                  | customer context when a token is stored, else anonymous |
+
+  None of it imports React — `createServerStorage` fits Next, Remix, SvelteKit,
+  Nitro or a plain Node handler, and it was only ever in the React package because
+  that is where the browser backends live. Those stay: `createMemoryStorage`,
+  `createLocalStorage`, `createSessionStorage`, `createCookieStorage` and the
+  `subscribeAll` listener set are genuinely browser concerns.
+
+  **Nothing to change in your code.** `@viu/emporix-sdk-react` re-exports every
+  moved name from `./storage` and `/ssr`, with one definition only. One type is now
+  derived rather than re-declared: `PersistedAnonymousSession` is
+  `Pick<StoredAnonymousSession, "refreshToken" | "sessionId">`, which is what it
+  always was in practice — the browser adapters deliberately persist only those two
+  fields, while a server store may also keep the access token.
+
+- [#215](https://github.com/viuteam/emporix-sdk/pull/215) [`e9d019d`](https://github.com/viuteam/emporix-sdk/commit/e9d019d4a5bf3238311dab11e5fb856ce5689004) Thanks [@amnael1](https://github.com/amnael1)! - Move the eight session keys into the core SDK: `STORAGE_KEYS` and
+  `EmporixStorageKey` are now exported from `@viu/emporix-sdk`.
+
+  They were never a React concern. The same eight strings are cookie names in a
+  Next `proxy.ts`, Web Storage keys in a browser adapter, and record fields in a
+  server-side session store — but they lived in `@viu/emporix-sdk-react`, which is
+  why `@viu/emporix-sdk-next` depended on the React bindings to name a cookie. Six
+  of the seven files in that package imported nothing else from it.
+
+  Nothing to change in your code. `@viu/emporix-sdk-react` re-exports both from
+  `./storage` and `/ssr`, and `@viu/emporix-sdk-next` still re-exports
+  `STORAGE_KEYS` from `/session`. There is exactly one definition, and a test
+  asserts object identity across all three paths — a copy would be the one drift
+  that silently breaks a session by writing a cookie under one name and reading it
+  under another.
+
+  Measured on the built output: `@viu/emporix-sdk-next` reached for
+  `@viu/emporix-sdk-react` in seven places before, and now does so in one —
+  `server-session.ts`, for `createServerStorage`, `serverAuth` and the
+  `EmporixStorage` type. Removing that last one (and the peer dependency with it) is
+  a follow-up, because it touches a public signature.
+
 ## 2.30.1
 
 ### Patch Changes
