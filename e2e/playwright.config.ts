@@ -1,5 +1,19 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Playwright reads no `.env` file on its own. `docs/e2e.md` was right about this
+// and told you to `set -a; source e2e/.env.local` first — but forgetting that step
+// does not fail, it makes every spec using the `customer` fixture **skip**, and a
+// skip reads like a pass. It had been skipping locally with the file sitting right
+// here. `process.loadEnvFile` is Node's own (20.6+), so the file is now enough and
+// there is one less step to forget.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // No file, or unreadable. The customer specs then skip with the reason printed
+  // by `fixtures/test-customer.ts`, which is the documented behaviour for anyone
+  // without viu access.
+}
+
 const PORT = 5173;
 const BASE_URL = `http://localhost:${PORT}`;
 

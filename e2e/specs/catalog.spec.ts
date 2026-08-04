@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { isEmporixRequest } from "../fixtures/emporix-requests";
 
 test("anonymous catalog renders 12 products", async ({ page }) => {
   await page.goto("/");
@@ -10,7 +11,7 @@ test("only anonymous-login + product-list + site-by-code hit Emporix on /", asyn
   const calls: string[] = [];
   page.on("request", (req) => {
     const url = req.url();
-    if (!url.includes("api.emporix.io")) return;
+    if (!isEmporixRequest(url)) return;
     if (req.method() === "OPTIONS") return;
     calls.push(`${req.method()} ${new URL(url).pathname}`);
   });

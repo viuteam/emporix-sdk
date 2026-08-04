@@ -16,6 +16,10 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Reads code and uploads an artifact. `upload-artifact` authenticates with the
+    # runtime token rather than GITHUB_TOKEN, so it needs nothing here.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
 

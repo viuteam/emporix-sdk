@@ -15,6 +15,10 @@ jobs:
     name: quality (node ${{ matrix.node }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Reads code, writes nothing. Without an explicit block the token carries the
+    # repository default, which may be read-write.
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
