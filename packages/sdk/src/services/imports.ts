@@ -1,5 +1,6 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import type { SseEvent } from "../core/sse";
 import type { Page } from "../generated/import-service";
 import type {
   ImportCancelResult,
@@ -9,7 +10,9 @@ import type {
   ImportRecordOutcome,
   ImportRun,
   ImportRunDetail,
+  ImportRunEvent,
   ImportRunInput,
+  ImportRunStream,
   ImportSchedule,
   ImportStream,
   ImportedRecord,
@@ -23,6 +26,7 @@ export type {
   ImportRecordOutcome,
   ImportRun,
   ImportRunDetail,
+  ImportRunEvent,
   ImportRunInput,
   ImportRunMode,
   ImportRunStatus,
@@ -86,6 +90,36 @@ function toPage<T>(
     totalElements: wire.totalElements ?? 0,
     totalPages,
   };
+}
+
+/**
+ * One SSE frame → one typed event. Anything unparseable, non-object or under an
+ * event name this SDK does not model becomes `unknown` instead of throwing: a
+ * preview service is allowed to grow event types, and a run in flight must not
+ * die because of one frame we cannot read.
+ */
+function toRunEvent(ev: SseEvent): ImportRunEvent {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(ev.data);
+  } catch {
+    return { type: "unknown", event: ev.event, data: ev.data };
+  }
+  if (typeof payload !== "object" || payload === null) {
+    return { type: "unknown", event: ev.event, data: ev.data };
+  }
+  switch (ev.event) {
+    case "snapshot": {
+      const detail = payload as ImportRunDetail;
+      return { type: "snapshot", run: detail.run, streams: detail.streams ?? [] };
+    }
+    case "stream":
+      return { type: "stream", stream: payload as ImportRunStream };
+    case "run":
+      return { type: "run", run: payload as ImportRun };
+    default:
+      return { type: "unknown", event: ev.event, data: ev.data };
+  }
 }
 
 /**
@@ -227,10 +261,36 @@ export class ImportService {
   }
 
   /**
+   * Stream a run's progress as Server-Sent Events: an initial `snapshot`, then a
+   * `stream` event per processed batch, then a final `run` event when the run
+   * finishes. The iterator ends when the service closes the stream; breaking out
+   * of the `for await` aborts the request.
+   *
+   * Two ways this differs from every other method here. It does not re-auth: a
+   * `401` while opening the stream throws instead of minting a fresh token and
+   * retrying once, so a long-lived consumer should be ready to re-open (or fall
+   * back to polling {@link getRun}). And frames this SDK version cannot read
+   * arrive as `{ type: "unknown" }` rather than throwing — see
+   * {@link ImportRunEvent}.
+   */
+  async *streamRun(
+    runId: string,
+    auth: AuthContext = SERVICE,
+  ): AsyncIterable<ImportRunEvent> {
+    const frames = this.ctx.http.requestStream({
+      method: "GET",
+      path: `${this.base()}/runs/${encodeURIComponent(runId)}/events`,
+      auth,
+    });
+    for await (const frame of frames) yield toRunEvent(frame);
+  }
+
+  /**
    * Request cancellation of a run. `force: true` hard-stops it immediately;
-   * without it the run stops at the next safe point. Resolves with
-   * `accepted: false` when the run is unknown or already finished — that is a
-   * `200`, not an error.
+   * without it the run stops at the next safe point. The service answers `202`
+   * with `accepted: false` when the run is unknown or already finished — that is
+   * a result, not an error. A state conflict may instead come back as a `409`,
+   * which does throw.
    */
   async cancelRun(
     runId: string,

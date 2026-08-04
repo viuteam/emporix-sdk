@@ -3,6 +3,8 @@ import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { EmporixClient } from "../src/client";
 import { iterateAll } from "../src/core/context";
+import { EmporixForbiddenError } from "../src/core/errors";
+import type { ImportRunEvent } from "../src/services/imports";
 
 const TENANT = "acme";
 const BASE = `https://api.emporix.io/importtool/${TENANT}`;
@@ -276,6 +278,134 @@ describe("ImportService runs", () => {
     expect(page.items[0]?.errorCode).toBe("MAPPING");
     expect(page.totalElements).toBe(30);
     expect(page.hasNextPage).toBe(false);
+  });
+});
+
+/** Serve `frames` as a `text/event-stream` body. */
+function sseResponse(frames: string[]) {
+  const body = new ReadableStream({
+    start(c) {
+      for (const f of frames) c.enqueue(new TextEncoder().encode(f));
+      c.close();
+    },
+  });
+  return new HttpResponse(body, { headers: { "Content-Type": "text/event-stream" } });
+}
+
+async function collect(runId: string): Promise<ImportRunEvent[]> {
+  const out: ImportRunEvent[] = [];
+  for await (const ev of sdk().imports.streamRun(runId)) out.push(ev);
+  return out;
+}
+
+describe("ImportService streamRun", () => {
+  it("yields typed snapshot, stream and run events in order", async () => {
+    let accept: string | null = null;
+    server.use(
+      http.get(`${BASE}/runs/run1/events`, ({ request }) => {
+        accept = request.headers.get("Accept");
+        return sseResponse([
+          'event: snapshot\ndata: {"run":{"id":"run1","status":"RUNNING"},"streams":[{"streamName":"Products","status":"RUNNING"}]}\n\n',
+          'event: stream\ndata: {"streamName":"Products","status":"RUNNING","recordsRead":240,"failed":2}\n\n',
+          'event: run\ndata: {"id":"run1","status":"SUCCEEDED","recordsRead":1250}\n\n',
+        ]);
+      }),
+    );
+    const events = await collect("run1");
+    expect(accept).toBe("text/event-stream");
+    expect(events.map((e) => e.type)).toEqual(["snapshot", "stream", "run"]);
+    // Narrowing on `type` is the point of the discriminated union.
+    const [snapshot, batch, final] = events;
+    if (snapshot?.type !== "snapshot") throw new Error("expected a snapshot");
+    if (batch?.type !== "stream") throw new Error("expected a stream event");
+    if (final?.type !== "run") throw new Error("expected a run event");
+    expect(snapshot.run?.status).toBe("RUNNING");
+    expect(snapshot.streams).toHaveLength(1);
+    expect(batch.stream.failed).toBe(2);
+    expect(final.run.recordsRead).toBe(1250);
+  });
+
+  it("defaults a snapshot without streams to an empty array", async () => {
+    server.use(
+      http.get(`${BASE}/runs/run1/events`, () =>
+        sseResponse(['event: snapshot\ndata: {"run":{"id":"run1"}}\n\n']),
+      ),
+    );
+    const [ev] = await collect("run1");
+    if (ev?.type !== "snapshot") throw new Error("expected a snapshot");
+    expect(ev.streams).toEqual([]);
+  });
+
+  it("passes an unmodelled event name through as unknown instead of dropping it", async () => {
+    server.use(
+      http.get(`${BASE}/runs/run1/events`, () =>
+        sseResponse(['event: quarantine\ndata: {"count":3}\n\n']),
+      ),
+    );
+    expect(await collect("run1")).toEqual([
+      { type: "unknown", event: "quarantine", data: '{"count":3}' },
+    ]);
+  });
+
+  it("does not abort the stream on an unparseable payload", async () => {
+    server.use(
+      http.get(`${BASE}/runs/run1/events`, () =>
+        sseResponse([
+          "event: stream\ndata: {not json\n\n",
+          'event: run\ndata: {"id":"run1","status":"SUCCEEDED"}\n\n',
+        ]),
+      ),
+    );
+    const events = await collect("run1");
+    expect(events[0]).toEqual({ type: "unknown", event: "stream", data: "{not json" });
+    expect(events[1]?.type).toBe("run");
+  });
+
+  it("treats a non-object payload as unknown rather than casting it", async () => {
+    server.use(
+      http.get(`${BASE}/runs/run1/events`, () => sseResponse(["event: run\ndata: 42\n\n"])),
+    );
+    expect(await collect("run1")).toEqual([{ type: "unknown", event: "run", data: "42" }]);
+  });
+
+  it("surfaces a frame without an event name as unknown", async () => {
+    server.use(
+      http.get(`${BASE}/runs/run1/events`, () => sseResponse(['data: {"id":"run1"}\n\n'])),
+    );
+    expect(await collect("run1")).toEqual([
+      { type: "unknown", event: undefined, data: '{"id":"run1"}' },
+    ]);
+  });
+
+  it("ignores keep-alive comments", async () => {
+    server.use(
+      http.get(`${BASE}/runs/run1/events`, () =>
+        sseResponse([": ping\n\n", 'event: run\ndata: {"id":"run1"}\n\n', ": ping\n\n"]),
+      ),
+    );
+    const events = await collect("run1");
+    expect(events).toHaveLength(1);
+    expect(events[0]?.type).toBe("run");
+  });
+
+  it("reassembles an event split across chunk boundaries", async () => {
+    server.use(
+      http.get(`${BASE}/runs/run1/events`, () =>
+        sseResponse(["event: run\nda", 'ta: {"id":"run1","status":"FAILED"}', "\n\n"]),
+      ),
+    );
+    const [ev] = await collect("run1");
+    if (ev?.type !== "run") throw new Error("expected a run event");
+    expect(ev.run.status).toBe("FAILED");
+  });
+
+  it("throws a typed error before the stream opens on a non-2xx", async () => {
+    server.use(
+      http.get(`${BASE}/runs/run1/events`, () =>
+        HttpResponse.json({ message: "scope missing" }, { status: 403 }),
+      ),
+    );
+    await expect(collect("run1")).rejects.toBeInstanceOf(EmporixForbiddenError);
   });
 });
 

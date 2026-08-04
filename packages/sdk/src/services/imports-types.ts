@@ -58,6 +58,29 @@ export type ImportRecordOutcome = NonNullable<
 >;
 
 /**
+ * One frame of a run's progress stream, discriminated on `type` — which mirrors
+ * the SSE `event:` name the service sends.
+ *
+ * `unknown` carries anything this SDK version does not model: a new event name,
+ * an unparseable payload, a payload that is not a JSON object. It exists
+ * because the service is in preview — an unrecognised frame must neither abort
+ * a running import nor vanish silently.
+ */
+export type ImportRunEvent =
+  /**
+   * The initial state of the run and all its streams. `run` is spelled
+   * `| undefined` because the spec makes it optional and the repo runs with
+   * `exactOptionalPropertyTypes`.
+   */
+  | { type: "snapshot"; run?: ImportRun | undefined; streams: ImportRunStream[] }
+  /** Progress for one stream, emitted per processed batch. */
+  | { type: "stream"; stream: ImportRunStream }
+  /** The final run state, emitted when the run finishes. */
+  | { type: "run"; run: ImportRun }
+  /** A frame this SDK version does not model. `data` is the raw payload. */
+  | { type: "unknown"; event: string | undefined; data: string };
+
+/**
  * A page from the import service. The usual {@link PaginatedItems} plus the
  * totals this API reports — the only paginated SDK surface where `hasNextPage`
  * is derived from `totalPages` instead of guessed from a full page.
