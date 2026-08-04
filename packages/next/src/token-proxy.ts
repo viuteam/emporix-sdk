@@ -1,5 +1,5 @@
 import type { NextRequest, NextResponse } from "next/server";
-import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
+import { STORAGE_KEYS } from "@viu/emporix-sdk";
 import { emporixRefresh } from "./session-auth";
 import { SESSION_EXPIRES_AT } from "./session-cookies";
 import { cookieName, readCookie, sealCookie } from "./cookie-name";

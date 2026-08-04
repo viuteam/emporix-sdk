@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
+import { STORAGE_KEYS } from "@viu/emporix-sdk";
 
 /**
  * The site and language a proxy resolved for one request.

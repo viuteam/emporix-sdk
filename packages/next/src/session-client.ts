@@ -5,7 +5,7 @@ import {
   type AuthContext,
   type StoredAnonymousSession,
 } from "@viu/emporix-sdk";
-import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
+import { STORAGE_KEYS } from "@viu/emporix-sdk";
 import { getEmporixClient } from "./client";
 import { SESSION_MAX_AGE, emporixSessionHandle, type EmporixSessionHandle } from "./session-cookies";
 import type { EmporixSessionStore } from "./session-store";

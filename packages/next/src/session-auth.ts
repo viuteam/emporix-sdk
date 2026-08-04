@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
+import { STORAGE_KEYS } from "@viu/emporix-sdk";
 import { auth, type CustomerSession } from "@viu/emporix-sdk";
 import {
   SESSION_ABSOLUTE_MAX,

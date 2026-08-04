@@ -1,24 +1,11 @@
-import type { EmporixStorageKey } from "./index";
-
 /**
- * The eight persisted session keys, as the strings each backend actually uses:
- * cookie names in `./cookie` and `./server`, Web Storage keys in
- * `./local-storage` and `./session-storage`. Same strings on purpose — a value
- * written by one backend must be readable by the next, and the cookie set by a
- * Next `proxy.ts` has to be the one `createCookieStorage` looks for.
+ * The eight persisted session keys.
  *
- * The `satisfies` is the point, not the deduplication: a ninth
- * {@link EmporixStorageKey} without an entry here is a compile error, and an
- * entry here without a union member is too. `as const` stays in front of it so
- * the literal types survive for consumers.
+ * Moved to `@viu/emporix-sdk` (`core/session-keys.ts`): the same strings are
+ * cookie names on a server, Web Storage keys in a browser, and record fields in
+ * a session store, so the contract does not belong to the React bindings. This
+ * re-export keeps every existing import — including `@viu/emporix-sdk-react/ssr`
+ * — working, and there is deliberately only ONE definition. A copy here would be
+ * a second source of truth for the one thing that must not drift.
  */
-export const STORAGE_KEYS = {
-  customerToken: "emporix.customerToken",
-  cartId: "emporix.cartId",
-  anonymousSession: "emporix.anonymousSession",
-  siteCode: "emporix.siteCode",
-  language: "emporix.language",
-  activeLegalEntityId: "emporix.activeLegalEntityId",
-  refreshToken: "emporix.refreshToken",
-  saasToken: "emporix.saasToken",
-} as const satisfies Record<EmporixStorageKey, string>;
+export { STORAGE_KEYS } from "@viu/emporix-sdk";
