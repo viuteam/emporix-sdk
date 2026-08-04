@@ -133,6 +133,17 @@ export type SchemaAttribute = {
         [key: string]: unknown;
     };
     type: SchemaAttributeType;
+    /**
+     * Decimal precision for attributes of `DECIMAL` type. Defines the allowed decimal step for attribute values
+     * (for example `0.1`, `0.01`, `0.001`).
+     * Allowed values:
+     * * `-1` – no precision constraint
+     * * a positive decimal step of the form `0.1`, `0.01`, `0.001`, and so on (`10^-n` where `n >= 1`)
+     * This property can only be provided when `type` is `DECIMAL` (or, for arrays, when `arrayType.type` is `DECIMAL`).
+     * If omitted for a `DECIMAL` attribute, the default precision `0.01` is applied.
+     *
+     */
+    precision?: number;
     metadata: SchemaAttributeMetadata;
     /**
      * List of available values for the attribute. Only valid for `ENUM` and `REFERENCE` type.
