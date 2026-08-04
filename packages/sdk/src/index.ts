@@ -25,6 +25,19 @@ export type {
 } from "./core/auth";
 export { STORAGE_KEYS } from "./core/session-keys";
 export type { EmporixStorageKey } from "./core/session-keys";
+export {
+  createCookieBackedStorage,
+  createServerStorage,
+  parseAnonymousSession,
+  serverAuth,
+} from "./core/session-storage";
+export type {
+  CookieIo,
+  EmporixStorage,
+  PersistedAnonymousSession,
+  ServerCookieJar,
+  TokenStorage,
+} from "./core/session-storage";
 export { HttpClient } from "./core/http";
 export type { RequestOptions, HttpClientOptions } from "./core/http";
 export { EmporixClient } from "./client";

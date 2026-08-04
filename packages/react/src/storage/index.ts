@@ -1,73 +1,21 @@
-import type { EmporixStorageKey } from "@viu/emporix-sdk";
-
-/** Pluggable persistence for SDK session state. SSR-safe by default (memory). */
-export interface EmporixStorage {
-  // Customer token (unchanged).
-  getCustomerToken(): string | null;
-  setCustomerToken(token: string | null): void;
-  subscribe?(listener: (token: string | null) => void): () => void;
-
-  // Active guest / customer cart id.
-  getCartId(): string | null;
-  setCartId(id: string | null): void;
-
-  // Anonymous session — used by DefaultTokenProvider (via EmporixProvider
-  // wiring) to preserve sessionId across page reloads.
-  getAnonymousSession(): PersistedAnonymousSession | null;
-  setAnonymousSession(session: PersistedAnonymousSession | null): void;
-
-  // Active site code (MS-2). `null` = no site bound yet.
-  getSiteCode(): string | null;
-  setSiteCode(code: string | null): void;
-
-  // Active language (Accept-Language). `null` = use the site/tenant default.
-  getLanguage(): string | null;
-  setLanguage(language: string | null): void;
-
-  // Active legal entity id (B2B). `null` = B2C mode.
-  getActiveLegalEntityId(): string | null;
-  setActiveLegalEntityId(id: string | null): void;
-
-  // Refresh token — optional persistence. When absent, B2B company-switch
-  // falls back to a local-state-only update (no server-side token rescope).
-  getRefreshToken(): string | null;
-  setRefreshToken(token: string | null): void;
-
-  // SaaS token (the checkout `saas-token` header). Persisted so a logged-in
-  // customer can still complete checkout after a page reload — the refresh
-  // endpoint does not re-mint it. Optional: a custom adapter may omit these,
-  // in which case the saasToken stays in-memory only (lost on reload, as
-  // before — no regression).
-  getSaasToken?(): string | null;
-  setSaasToken?(token: string | null): void;
-
-  /**
-   * Subscribe to any storage write. The listener receives the key that
-   * changed. Returns an unsubscribe function. Optional — backends may no-op.
-   * Used by the telemetry layer to emit `storage.write` events.
-   */
-  subscribeAll?(
-    listener: (key: EmporixStorageKey) => void,
-  ): () => void;
-}
-
-/** Minimal subset of `AnonymousSession` that needs to outlive a page load. */
-export interface PersistedAnonymousSession {
-  refreshToken: string;
-  sessionId: string;
-}
-
-/** Backward-compat alias. New code should prefer `EmporixStorage`. */
-export type TokenStorage = EmporixStorage;
-
 /**
- * Keys that participate in {@link EmporixStorage.subscribeAll}.
+ * The session-persistence contract and its two framework-free implementations
+ * now live in `@viu/emporix-sdk` (`core/session-storage.ts`) — none of it was a
+ * React concern, and `@viu/emporix-sdk-next` needed exactly this to stop
+ * depending on the React bindings. Re-exported here unchanged: these names have
+ * always been part of this package's public surface.
  *
- * Defined in `@viu/emporix-sdk` next to {@link STORAGE_KEYS} — the two are
- * bound by a `satisfies` guard and cannot live in different packages. Re-exported
- * here because it has always been part of this package's public surface.
+ * What is left in this file is what genuinely belongs to a browser: the listener
+ * set the Web Storage and cookie backends use for `subscribeAll`, and the
+ * backends themselves.
  */
-export type { EmporixStorageKey };
+export type {
+  EmporixStorage,
+  EmporixStorageKey,
+  PersistedAnonymousSession,
+  TokenStorage,
+} from "@viu/emporix-sdk";
+export { parseAnonymousSession } from "@viu/emporix-sdk";
 
 /**
  * Internal: create a swallow-on-throw listener set used by all three storage
@@ -94,24 +42,6 @@ export function createListenerSet<T>(): {
       }
     },
   };
-}
-
-/**
- * Internal: parses a raw `anonymousSession` JSON payload (from localStorage
- * or a cookie) into a {@link PersistedAnonymousSession}. Returns `null` for
- * any malformed or missing input.
- */
-export function parseAnonymousSession(raw: string | null): PersistedAnonymousSession | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Partial<PersistedAnonymousSession>;
-    if (typeof parsed.refreshToken === "string" && typeof parsed.sessionId === "string") {
-      return { refreshToken: parsed.refreshToken, sessionId: parsed.sessionId };
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 export { createMemoryStorage } from "./memory";

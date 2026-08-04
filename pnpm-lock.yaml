@@ -286,9 +286,6 @@ importers:
       '@viu/emporix-sdk':
         specifier: workspace:*
         version: link:../sdk
-      '@viu/emporix-sdk-react':
-        specifier: workspace:*
-        version: link:../react
       eslint:
         specifier: ^9.0.0
         version: 9.39.4(jiti@2.6.1)
