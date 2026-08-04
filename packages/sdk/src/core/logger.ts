@@ -43,6 +43,7 @@ export type ServiceName =
   | "returns"
   | "sepa-export"
   | "indexing"
+  | "import"
   | "unit-handling"
   | "catalog"
   | "vendor"

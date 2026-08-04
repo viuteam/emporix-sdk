@@ -109,6 +109,12 @@
       "fetchedAt": "2026-07-31T09:12:58.637Z",
       "sha256": "a86159d666a94efe23d1cbc06345fbf42543fae57b0cbfa6abfbb069e05b7417"
     },
+    "import-service": {
+      "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/utilities/import-service/api-reference/api.yml",
+      "specVersion": "",
+      "fetchedAt": "2026-08-04T07:58:52.079Z",
+      "sha256": "42a2628b55ec86e9a518bd0eb9feded2eb6d1f0ba00f55026193d71eb7936177"
+    },
     "coupon": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/rewards-and-promotions/coupon/api-reference/api.yml",
       "specVersion": "",
