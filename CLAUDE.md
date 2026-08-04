@@ -56,7 +56,7 @@ decision, not by style.
 ## Test architecture
 
 - **Unit tests** (Vitest, `jsdom` env in React) — `packages/sdk/tests/`, `packages/react/tests/`. HTTP mocked with MSW. `pnpm -r test`.
-- **E2E tests** (Playwright + Chromium) — `e2e/specs/`. Boots `examples/vite-spa` via `webServer` in `playwright.config.ts`, hits the real `viu` tenant. Some specs need `EMPORIX_TEST_CUSTOMER_EMAIL/_PASSWORD` (via `e2e/.env.local`); without them they skip cleanly. `pnpm e2e`.
+- **E2E tests** (Playwright + Chromium) — `e2e/specs/`. Boots `examples/vite-spa` via `webServer` in `playwright.config.ts`, hits the real `viu` tenant. Some specs need `EMPORIX_TEST_CUSTOMER_EMAIL/_PASSWORD`; the config loads `e2e/.env.local` itself, so the file is enough. Without the values those specs **skip**, which in the output looks a lot like passing — check the count. `pnpm e2e`.
 - Chrome DevTools MCP is the interactive-debug fallback if Playwright Agent CLI is unavailable; see `docs/e2e.md`.
 
 ## Things that are easy to get wrong

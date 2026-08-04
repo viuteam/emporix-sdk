@@ -1,5 +1,6 @@
 import { test, expect } from "../fixtures/test-customer";
 import { fillSecret } from "../fixtures/secret-input";
+import { isEmporixRequest } from "../fixtures/emporix-requests";
 
 test("guest cart is merged into the customer cart on login", async ({ page, customer }) => {
   // 1. Fresh start, create guest cart.
@@ -17,7 +18,7 @@ test("guest cart is merged into the customer cart on login", async ({ page, cust
   const cartCalls: { method: string; path: string }[] = [];
   page.on("request", (req) => {
     const url = req.url();
-    if (!url.includes("api.emporix.io")) return;
+    if (!isEmporixRequest(url)) return;
     if (req.method() === "OPTIONS") return;
     const path = new URL(url).pathname;
     if (path.includes("/cart/")) cartCalls.push({ method: req.method(), path });

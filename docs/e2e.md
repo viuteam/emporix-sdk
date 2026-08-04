@@ -11,8 +11,6 @@ EMPORIX_TEST_CUSTOMER_EMAIL=your-test-email@example.com
 EMPORIX_TEST_CUSTOMER_PASSWORD=your-test-password
 EOF
 
-set -a; source e2e/.env.local; set +a
-
 # Run all E2E tests (anonymous specs always run; customer-bound specs skip without creds).
 pnpm e2e
 
@@ -20,7 +18,17 @@ pnpm e2e
 pnpm e2e:headed
 ```
 
+`playwright.config.ts` loads `e2e/.env.local` itself via `process.loadEnvFile`, so
+the file is all you need — no `source` step. Until that landed there was one, and
+forgetting it did not fail: the customer-bound specs skipped, and a skip in the
+Playwright output reads much like a pass.
+
 The dev server (`vite-spa` on port 5173) starts automatically. Existing dev server is reused locally; freshly started in CI.
+
+**Free port 5173 first.** `reuseExistingServer` is on locally, so any other Vite
+dev server there gets tested instead of `vite-spa` — `storefront-demo` also
+defaults to 5173. The failure looks like a regression: `locator('ul li')` expected
+12, received 0.
 
 ## Test customer setup on `viu`
 

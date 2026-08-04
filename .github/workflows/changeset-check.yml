@@ -4,6 +4,10 @@ jobs:
   changeset:
     name: changeset
     runs-on: ubuntu-latest
+    # Reads code and the PR's labels, which arrive in the event payload rather
+    # than through the API. Nothing here is written.
+    permissions:
+      contents: read
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-release') }}
     steps:
       - uses: actions/checkout@v7
