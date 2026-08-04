@@ -22,15 +22,15 @@ export const STORE_OPT = SESSION_STORE !== undefined ? { store: SESSION_STORE } 
 
 /**
  * Category known to contain priced products on the `viu` tenant — «Berechtigungen»,
- * one of the 16 roots that carry products directly rather than through children.
+ * one of the 16 category-tree roots that carry products directly rather than
+ * through children.
  *
- * **Nothing imports this.** The home page used to; it lists `products.list()` now,
- * like storefront-demo's does. It survives as the one documented shortcut to a
- * product that actually carries a `priceId`: open `/category/<this>` and every tile
- * has an «Add to cart» button, which is what you want when walking the cart and
- * checkout by hand. The Playwright suite does not use it — that boots
- * `examples/vite-spa`, not this demo.
+ * The home page lists it instead of the whole catalogue, and that is not laziness:
+ * measured 2026-08-04, the first **200** products of `products.list()` have no
+ * price in the `main`/CHF/CH context, so a home page built on it offers nothing to
+ * add to a cart. This category answers with 11 products and 11 «Add to cart»
+ * buttons. See the comment in `app/page.tsx`.
  *
- * Delete it the day the README stops pointing at it.
+ * Only this demo uses it. The Playwright suite boots `examples/vite-spa`.
  */
 export const PRICED_CATEGORY = "4a1a25bd-d828-476c-a481-925fcffe6f34";

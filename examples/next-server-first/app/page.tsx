@@ -1,4 +1,5 @@
 import { getEmporixClient } from "@viu/emporix-sdk-next";
+import { PRICED_CATEGORY } from "./emporix";
 import { Typeahead } from "./typeahead";
 import { ProductGrid } from "./components/product-grid";
 import { pricesFor } from "./lib/prices";
@@ -11,29 +12,46 @@ import { siteContext } from "./lib/site-context";
  * in again. Catalog data needs no stable session, so the process-wide token is
  * both correct and cheaper.
  *
- * This used to list one hard-coded category so every tile was guaranteed a price.
- * `products.list` is what storefront-demo's home does, and it makes the demo
- * honest: a tenant's products are not all priced, so some tiles have no button.
- * That is the lesson, and hiding it behind a curated category taught nothing.
+ * **This lists one category on purpose, and it was tried the other way.**
+ * storefront-demo's home calls `useProducts()`, so this briefly did the same with
+ * `products.list()`. Measured against `viu` on 2026-08-04:
+ *
+ *   products.list(pageSize=12):  12 products, 0 with a price
+ *   products.list(pageSize=50):  50 products, 0 with a price
+ *   products.list(pageSize=200): 200 products, 0 with a price
+ *
+ * Twelve tiles, twelve «no price in this context», no «Add to cart» anywhere — an
+ * entry page where the cart, checkout and account flows cannot be started. Only
+ * the 16 childless category roots carry priced products on this tenant, and
+ * `PRICED_CATEGORY` is one of them (11 tiles, 11 buttons). Honesty about unpriced
+ * products is worth less here than a home page the rest of the demo can start from,
+ * and `/categories` covers the browse-everything case a link away.
  */
 export default async function Home(): Promise<React.JSX.Element> {
   const client = getEmporixClient({ context: await siteContext() });
-  const page = await client.products.list({ pageSize: 12 }, undefined);
+  const page = await client.categories.productsIn(PRICED_CATEGORY, { pageSize: 12 }, undefined);
   const priceOf = await pricesFor(client, undefined, page.items);
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">Catalog</p>
       <h2 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
-        Products
+        Products from the priced category
       </h2>
       <p className="muted" style={{ maxWidth: "52ch" }}>
         Adding needs a price — Emporix requires a <code>priceId</code> on internal
-        cart items, so a product without one shows no button.
+        cart items, so a product without one shows no button. Most of this tenant's
+        catalogue has none, which is why this page shows one category rather than
+        everything.
       </p>
       <p>
         <a href="/categories" className="u-underline">
           Browse all categories →
+        </a>
+      </p>
+      <p>
+        <a href={`/category/${PRICED_CATEGORY}`} className="u-underline">
+          Browse this category with pagination →
         </a>
       </p>
       <Typeahead />
