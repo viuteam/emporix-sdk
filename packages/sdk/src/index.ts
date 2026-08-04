@@ -23,6 +23,8 @@ export type {
   StoredAnonymousSession,
   CustomerTokenRefresher,
 } from "./core/auth";
+export { STORAGE_KEYS } from "./core/session-keys";
+export type { EmporixStorageKey } from "./core/session-keys";
 export { HttpClient } from "./core/http";
 export type { RequestOptions, HttpClientOptions } from "./core/http";
 export { EmporixClient } from "./client";

@@ -1,3 +1,5 @@
+import type { EmporixStorageKey } from "@viu/emporix-sdk";
+
 /** Pluggable persistence for SDK session state. SSR-safe by default (memory). */
 export interface EmporixStorage {
   // Customer token (unchanged).
@@ -58,16 +60,14 @@ export interface PersistedAnonymousSession {
 /** Backward-compat alias. New code should prefer `EmporixStorage`. */
 export type TokenStorage = EmporixStorage;
 
-/** Keys that participate in {@link EmporixStorage.subscribeAll}. */
-export type EmporixStorageKey =
-  | "customerToken"
-  | "cartId"
-  | "siteCode"
-  | "language"
-  | "anonymousSession"
-  | "activeLegalEntityId"
-  | "refreshToken"
-  | "saasToken";
+/**
+ * Keys that participate in {@link EmporixStorage.subscribeAll}.
+ *
+ * Defined in `@viu/emporix-sdk` next to {@link STORAGE_KEYS} — the two are
+ * bound by a `satisfies` guard and cannot live in different packages. Re-exported
+ * here because it has always been part of this package's public surface.
+ */
+export type { EmporixStorageKey };
 
 /**
  * Internal: create a swallow-on-throw listener set used by all three storage

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
+import { STORAGE_KEYS } from "@viu/emporix-sdk";
 import { SESSION_ABSOLUTE_MAX, SESSION_STARTED_AT } from "./session-cookies";
 
 /**
