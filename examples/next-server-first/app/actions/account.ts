@@ -110,8 +110,8 @@ export async function deleteAddress(_state: ActionState, form: FormData): Promis
 export async function cancelOrder(_state: ActionState, form: FormData): Promise<ActionState> {
   const orderId = String(form.get("orderId"));
   try {
-    await withEmporixSessionMutable(async (client, ctx, jar) => {
-      const saasToken = jar.get(STORAGE_KEYS.saasToken);
+    await withEmporixSessionMutable(async (client, ctx, handle) => {
+      const saasToken = handle.get(STORAGE_KEYS.saasToken);
       await client.orders.cancel(orderId, ctx, saasToken !== null ? { saasToken } : {});
     }, await emporixOptions());
   } catch (e) {
@@ -133,7 +133,7 @@ export async function cancelOrder(_state: ActionState, form: FormData): Promise<
 export async function reorder(_state: ActionState, form: FormData): Promise<ActionState> {
   const orderId = String(form.get("orderId"));
   try {
-    await withEmporixSessionMutable(async (client, ctx, jar) => {
+    await withEmporixSessionMutable(async (client, ctx, handle) => {
       const order = await client.orders.get(orderId, ctx);
       const lines = orderItems(order).filter((i) => i.productId !== "" && i.quantity > 0);
       if (lines.length === 0) throw new Error("This order has no items to reorder.");
@@ -168,7 +168,7 @@ export async function reorder(_state: ActionState, form: FormData): Promise<Acti
       });
       if (items.length === 0) throw new Error("None of these products is priced today.");
 
-      let cartId = jar.get(STORAGE_KEYS.cartId);
+      let cartId = handle.get(STORAGE_KEYS.cartId);
       if (cartId === null) {
         // `getCurrent({ create: true })`, not `create`: a customer may hold only
         // one open cart and a blind create answers 409.
@@ -178,7 +178,7 @@ export async function reorder(_state: ActionState, form: FormData): Promise<Acti
       }
       // A bare array, not `{ items }` — `addItemsBatch` sends the body as given.
       await client.carts.addItemsBatch(cartId, items, ctx);
-      setCart(jar, cartId, await client.carts.get(cartId, ctx));
+      setCart(handle, cartId, await client.carts.get(cartId, ctx));
     }, await emporixOptions());
   } catch (e) {
     return { error: describeError(e) };

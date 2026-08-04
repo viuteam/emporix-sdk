@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 
 /** Next's cookies() shape, enough of it to drive the code under test. */
 const bag = new Map<string, { name: string; value: string; opts?: Record<string, unknown> }>();
-const jar = {
+const cookieJar = {
   get: (name: string) => bag.get(name),
   set: (name: string, value: string, opts?: Record<string, unknown>) => {
     bag.set(name, { name, value, ...(opts ? { opts } : {}) });
@@ -15,7 +15,7 @@ const jar = {
 const headerBag = new Map<string, string>();
 
 vi.mock("next/headers", () => ({
-  cookies: () => Promise.resolve(jar),
+  cookies: () => Promise.resolve(cookieJar),
   headers: () => Promise.resolve({ get: (k: string) => headerBag.get(k) ?? null }),
 }));
 

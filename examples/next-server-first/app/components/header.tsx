@@ -1,4 +1,4 @@
-import { emporixSession, sessionCookieJar } from "@viu/emporix-sdk-next/session";
+import { emporixSession, emporixSessionHandle } from "@viu/emporix-sdk-next/session";
 import { STORE_OPT } from "../emporix";
 import { cartCount } from "../lib/cart-session";
 import { logout } from "../actions/auth";
@@ -17,9 +17,9 @@ import { LanguageSwitcher } from "./language-switcher";
  * this file needs no `"use client"` at all.
  */
 export async function Header(): Promise<React.JSX.Element> {
-  const jar = await sessionCookieJar({ readOnly: true, ...STORE_OPT });
+  const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
   const { customerToken } = await emporixSession(STORE_OPT);
-  const count = cartCount(jar);
+  const count = cartCount(handle);
 
   return (
     <header style={{ borderBottom: "1px solid var(--line)" }}>

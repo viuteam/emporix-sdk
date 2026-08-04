@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { STORAGE_KEYS, sessionCookieJar } from "@viu/emporix-sdk-next/session";
+import { STORAGE_KEYS, emporixSessionHandle } from "@viu/emporix-sdk-next/session";
 import { STORE_OPT } from "../emporix";
 import type { ActionState } from "../components/action-form";
 import { LANGUAGES } from "../lib/site-context";
@@ -18,9 +18,9 @@ export async function switchLanguage(_state: ActionState, form: FormData): Promi
     return { error: "Unsupported language" };
   }
 
-  const jar = await sessionCookieJar(STORE_OPT);
-  jar.set(STORAGE_KEYS.language, language, LANGUAGE_MAX_AGE);
-  await jar.flush();
+  const handle = await emporixSessionHandle(STORE_OPT);
+  handle.set(STORAGE_KEYS.language, language, LANGUAGE_MAX_AGE);
+  await handle.flush();
 
   // "layout", not the current page alone: the language changes every server-side
   // read, including the ones in pages the visitor has already cached.

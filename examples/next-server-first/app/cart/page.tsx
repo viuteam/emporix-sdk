@@ -1,4 +1,4 @@
-import { STORAGE_KEYS, sessionCookieJar, withEmporixSession } from "@viu/emporix-sdk-next/session";
+import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { cartCoupons, cartLines, cartTotal, money } from "@viu/emporix-examples-shared";
 import { STORE_OPT } from "../emporix";
 import { ActionForm } from "../components/action-form";
@@ -14,11 +14,11 @@ import { emporixOptions } from "../lib/site-context";
  * the documented cost of this mode, not an omission.
  */
 export default async function CartPage(): Promise<React.JSX.Element> {
-  // sessionCookieJar, not cookies(): it applies the __Host- prefix and the codec.
+  // emporixSessionHandle, not cookies(): it applies the __Host- prefix and the codec.
   // Reading raw would hand back ciphertext once EMPORIX_COOKIE_SECRET is set — a
   // cart id Emporix has never heard of.
-  const jar = await sessionCookieJar({ readOnly: true, ...STORE_OPT });
-  const cartId = jar.get(STORAGE_KEYS.cartId);
+  const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
+  const cartId = handle.get(STORAGE_KEYS.cartId);
 
   if (cartId === null) {
     return (

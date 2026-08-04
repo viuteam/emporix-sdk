@@ -60,13 +60,13 @@ export async function emporixTokenProxy(
 ): Promise<NextResponse> {
   // This runs in a proxy, where `cookies()` does not exist — so it reads
   // `request.cookies` directly and has to repeat the name and codec rules
-  // rather than going through the jar. Same derivation emporixSiteProxy uses.
+  // rather than going through the handle. Same derivation emporixSiteProxy uses.
   const secure = request.nextUrl.protocol === "https:";
   const tokenCookie = cookieName(STORAGE_KEYS.customerToken, secure);
   const read = (wire: string): string | undefined => request.cookies.get(wire)?.value;
 
   // In store mode the cookies hold nothing but a sid, so the token has to come
-  // from the record. The jar is unavailable here — `cookies()` does not exist in
+  // from the record. The handle is unavailable here — `cookies()` does not exist in
   // a proxy — so this reads the store directly.
   let token: string | null;
   let expiryRaw: string | null;

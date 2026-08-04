@@ -1,7 +1,7 @@
 import {
   SESSION_MAX_AGE,
   STORAGE_KEYS,
-  type SessionCookieJar,
+  type EmporixSessionHandle,
 } from "@viu/emporix-sdk-next/session";
 
 /** Demo-owned, so it is prefixed to stay out of the package's namespace. */
@@ -19,7 +19,7 @@ const COUNT = "demo.cartCount";
  * The count sits next to it in the session so the shell can show a badge without
  * an Emporix call. The alternative would be a `withEmporixSession` per page view,
  * and the guest path deliberately builds a NEW client per call — a shared guest
- * client would be a shared cart. On top of that a read-only jar cannot persist a
+ * client would be a shared cart. On top of that a read-only handle cannot persist a
  * rotated anonymous session, so the documented refresh-token reuse would go from
  * «three reads on /cart» to «every page view», plus a token round-trip per page.
  *
@@ -27,28 +27,28 @@ const COUNT = "demo.cartCount";
  * impossible rather than merely unlikely.
  */
 export function setCart(
-  jar: SessionCookieJar,
+  handle: EmporixSessionHandle,
   cartId: string,
   cart: { items?: unknown[] } | undefined,
 ): void {
-  jar.set(STORAGE_KEYS.cartId, cartId, SESSION_MAX_AGE.cartId);
-  jar.set(COUNT, String(cart?.items?.length ?? 0), SESSION_MAX_AGE.cartId);
+  handle.set(STORAGE_KEYS.cartId, cartId, SESSION_MAX_AGE.cartId);
+  handle.set(COUNT, String(cart?.items?.length ?? 0), SESSION_MAX_AGE.cartId);
 }
 
 /** Clearing is its own function, and that separation is a bug fix. */
-export function clearCart(jar: SessionCookieJar): void {
-  jar.delete(STORAGE_KEYS.cartId);
-  jar.delete(COUNT);
+export function clearCart(handle: EmporixSessionHandle): void {
+  handle.delete(STORAGE_KEYS.cartId);
+  handle.delete(COUNT);
 }
 
 /** Line count for the shell badge. Zero Emporix calls. */
-export function cartCount(jar: SessionCookieJar): number {
+export function cartCount(handle: EmporixSessionHandle): number {
   // Without a cart id a count is meaningless, and this is what covers logout:
   // SESSION_COOKIES in session-auth.ts is a fixed list, our demo key is not on
   // it and would otherwise outlive the logout.
-  if (jar.get(STORAGE_KEYS.cartId) === null) return 0;
+  if (handle.get(STORAGE_KEYS.cartId) === null) return 0;
   // `Number.isInteger` rather than a truthiness test: `Number(null)` is 0, not
   // NaN — the same trap that made every unstamped session hit the 90-day ceiling.
-  const n = Number(jar.get(COUNT));
+  const n = Number(handle.get(COUNT));
   return Number.isInteger(n) && n > 0 ? n : 0;
 }

@@ -1,4 +1,4 @@
-import { STORAGE_KEYS, sessionCookieJar } from "@viu/emporix-sdk-next/session";
+import { STORAGE_KEYS, emporixSessionHandle } from "@viu/emporix-sdk-next/session";
 import { STORE_OPT } from "../emporix";
 import { LANGUAGES } from "../lib/site-context";
 import { switchLanguage } from "../actions/site";
@@ -13,8 +13,8 @@ import { ActionForm } from "./action-form";
  * and claiming «en is active» would be a guess.
  */
 export async function LanguageSwitcher(): Promise<React.JSX.Element> {
-  const jar = await sessionCookieJar({ readOnly: true, ...STORE_OPT });
-  const active = jar.get(STORAGE_KEYS.language);
+  const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
+  const active = handle.get(STORAGE_KEYS.language);
 
   return (
     <span className="cluster" style={{ gap: "var(--s-2)" }} aria-label="Language">
