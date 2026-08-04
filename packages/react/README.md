@@ -77,6 +77,12 @@ per request/render.
 `q` string **or** a type-safe mixin filter built with `mixinQuery` from
 `@viu/emporix-mixins` — see [`../../docs/mixin-search.md`](../../docs/mixin-search.md).
 
+Admin-only services have no hooks here on purpose — the import service is the
+clearest case: every one of its operations needs client-credentials with the
+`importtool.import_trigger` scope, and `EmporixProvider` is configured with a
+public storefront client id, so a hook would mean a secret in the browser bundle.
+Call it from a server route instead ([`../../docs/import.md`](../../docs/import.md)).
+
 Query keys are namespaced `["emporix", resource, ...args, meta]` where `meta`
 holds the cache discriminators — at minimum `{ tenant, authKind }`, plus
 `siteCode` for site-aware hooks and `legalEntityId` for B2B-aware hooks (cart,

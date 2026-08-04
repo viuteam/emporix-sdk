@@ -467,6 +467,52 @@ There is no `context` option either: `context` belongs to
 `StorefrontCredentials` and is bound at anonymous login, and a service client has
 no storefront credentials.
 
+### Streaming an import run to the browser
+
+`client.imports.streamRun(runId)` yields Server-Sent Events. It needs the
+`importtool.import_trigger` scope, so it can only run on the server — re-emit it
+from a Route Handler and put your own authorisation in front of it:
+
+```ts
+// app/api/imports/[runId]/events/route.ts
+import { auth } from "@viu/emporix-sdk";
+import { service } from "@/lib/emporix-service";
+
+export const runtime = "nodejs";
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ runId: string }> },
+) {
+  const { runId } = await params;
+  const events = service.imports.streamRun(runId, auth.service("importer"));
+  const encoder = new TextEncoder();
+
+  const body = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const ev of events) {
+          // Breaking aborts the upstream request. Checked per frame, so an idle
+          // stream stays open until the service sends the next one.
+          if (request.signal.aborted) break;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(ev)}\n\n`));
+        }
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(body, {
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
+  });
+}
+```
+
+Node runtime, not edge: the SDK's stream reader is a Node `fetch` body reader, and
+the service entry is server-only anyway. Full service reference in
+[`../../docs/import.md`](../../docs/import.md).
+
 ### An empty secret fails locally
 
 `getEmporixServiceClient` rejects a credential set with an empty `clientId` or

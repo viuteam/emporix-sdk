@@ -11,6 +11,12 @@ interface PaginatedItems<T> {
 }
 ```
 
+One service extends this contract: the import service reports `totalPages`, so
+`client.imports` returns `ImportPage<T> = PaginatedItems<T> & { totalElements,
+totalPages }` and its `hasNextPage` is derived from the totals instead of guessed
+— see [import.md](./import.md#pagination). Everything below applies unchanged;
+`ImportPage` is assignable to `PaginatedItems`.
+
 ## Single page (`useQuery`)
 
 ```tsx
@@ -61,7 +67,10 @@ for await (const x of iterateAll<X>((pageNumber) => fetchPage(pageNumber))) {
 | `useCategories` / `useCategoriesInfinite` | `PaginatedItems<Category>` |
 | `useMySegmentProducts` / `useMySegmentProductsInfinite` | `PaginatedItems<Product>` |
 | `useMySegmentCategories` / `useMySegmentCategoriesInfinite` | `PaginatedItems<Category>` |
+| `client.imports.listRuns` / `listRunErrors` / `searchRecords` / `searchStreamRecords` | `ImportPage<T>` |
 
 ## Why not absolute totals?
 
 Emporix returns `X-Total-Count` headers on some endpoints, but the SDK does not currently expose response headers to facades. `hasNextPage` covers infinite scroll cleanly; absolute totals (for "X of Y" UIs) will be added when there's a concrete consumer that needs them.
+
+The import service is the exception, and not by a change to this rule: it reports `totalElements` and `totalPages` **in the response body**, so no header access is needed. Anywhere else, "X of Y" still needs the headers.
