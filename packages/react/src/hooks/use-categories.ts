@@ -81,8 +81,16 @@ export function useCategoriesInfinite(
   });
 }
 
-/** The catalogue's root categories (published category trees) for top-level nav. */
-export function useCategoryTree(options: QueryOpts = {}): UseQueryResult<Category[]> {
+/**
+ * The catalogue's root categories (published category trees) for top-level nav.
+ *
+ * `CategoryNode[]`, not `Category[]` — the tree endpoint answers with nodes that
+ * carry their children inline in `subcategories` and no `parentId`. This hook
+ * declared the wrong one until 2026-08-04, which made `data[0].subcategories`
+ * invisible to consumers and `data[0].parentId` compile while always being
+ * `undefined`.
+ */
+export function useCategoryTree(options: QueryOpts = {}): UseQueryResult<CategoryNode[]> {
   const { client } = useEmporix();
   return useEmporixQuery({
     mode: "read-auth", site: "full", resource: "category-tree", args: [],

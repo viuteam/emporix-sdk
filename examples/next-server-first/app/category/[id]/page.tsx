@@ -1,9 +1,12 @@
+import { notFound } from "next/navigation";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { catId, catLabel } from "@viu/emporix-examples-shared";
 
 import { ProductGrid } from "../../components/product-grid";
 import { pricesFor } from "../../lib/prices";
 import { siteContext } from "../../lib/site-context";
+import { categoryTree } from "../../lib/category-tree";
+import { findCategory } from "../../lib/category-walk";
 
 const PAGE_SIZE = 24;
 
@@ -32,28 +35,66 @@ export default async function CategoryPage({
   const page = Math.max(1, Number((await searchParams).page) || 1);
 
   const client = getEmporixClient({ context: await siteContext() });
-  const [category, subs, products] = await Promise.all([
-    client.categories.get(id, undefined),
-    client.categories.subcategories(id, { pageSize: 50 }, undefined),
-    client.categories.productsIn(id, { pageNumber: page, pageSize: PAGE_SIZE }, undefined),
-  ]);
+
+  // Sequential, and NOT a Promise.all — measured 2026-08-04:
+  // `productsIn("does-not-exist")` throws `EmporixNotFoundError`, so running both
+  // in parallel lets that rejection win the race and the page 500s before
+  // `notFound()` can run. The tree is cached for an hour, so awaiting it first
+  // costs a cache read on all but the first request of the hour.
+  const roots = await categoryTree();
+
+  // The label and the hierarchy both come out of the tree, so `categories.get()`
+  // is not called at all — one request fewer, and both are cached under the same
+  // tag anyway.
+  //
+  // A category that exists but sits in no published tree therefore 404s here. On
+  // the tenant this was measured against that cannot happen: `tree()` returned
+  // 1'631 nodes and `categories.list()` counted 1'631 categories, so the tree is
+  // the whole catalogue. A tenant with unpublished trees would need
+  // `categories.get(id)` as a fallback.
+  const found = findCategory(roots, id);
+  if (found === null) notFound();
+  const children = found.node.subcategories ?? [];
+
+  const products = await client.categories.productsIn(
+    id,
+    { pageNumber: page, pageSize: PAGE_SIZE },
+    undefined,
+  );
   const priceOf = await pricesFor(client, undefined, products.items);
   const href = (n: number): string => `/category/${encodeURIComponent(id)}?page=${n}`;
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <p className="eyebrow">Category</p>
+      {/* Ancestors come from the same walk that found the node, so the breadcrumb
+          costs nothing. It is not parity with storefront-demo — it has none — but
+          «Building & Construction» is six levels deep on this tenant, and without
+          it level 4 gives a shopper no idea where they are. */}
+      <p className="eyebrow">
+        <a href="/categories" className="u-underline">
+          Categories
+        </a>
+        {found.ancestors.map((a) => (
+          <span key={catId(a)}>
+            {" / "}
+            <a href={`/category/${encodeURIComponent(catId(a))}`} className="u-underline">
+              {catLabel(a)}
+            </a>
+          </span>
+        ))}
+      </p>
       <h2 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
-        {catLabel(category)}
+        {catLabel(found.node)}
       </h2>
 
-      {/* Never renders on the `viu` tenant: `subcategories` reads category-to-
-          category ASSIGNMENTS, and this tenant keeps its hierarchy in category
-          trees instead — checked against the first 40 categories on 2026-08-03,
-          every one of them answered with an empty list. storefront-demo's
-          equivalent nav is dead here for the same reason, since it calls the same
-          thing. Kept because other tenants do use assignments. */}
-      {subs.length > 0 ? (
+      {/* Children from the TREE, not from `categories.subcategories()`. That call
+          reads category-to-category assignments — the same `/assignments` URL
+          `productsIn` uses, filtered to `ref.type === "CATEGORY"` instead of
+          `"PRODUCT"` — and this tenant expresses hierarchy in trees, so that filter
+          answered empty for every category tried. Which is why this nav used to be
+          dead, and why storefront-demo's still is. The hierarchy was always
+          available; the old code read the wrong source. */}
+      {children.length > 0 ? (
         <nav
           className="catnav"
           aria-label="Subcategories"
@@ -63,7 +104,7 @@ export default async function CategoryPage({
             marginBottom: "var(--s-6)",
           }}
         >
-          {subs.map((s) => (
+          {children.map((s) => (
             <a
               key={catId(s)}
               href={`/category/${encodeURIComponent(catId(s))}`}
@@ -83,7 +124,7 @@ export default async function CategoryPage({
           <p className="muted">
             Nothing on page {page}. <a href={href(1)} className="u-underline">Back to page 1</a>.
           </p>
-        ) : subs.length > 0 ? (
+        ) : children.length > 0 ? (
           // A pure parent category holds only subcategories, so the tiles above
           // are the answer — an «empty» notice would be wrong there.
           null

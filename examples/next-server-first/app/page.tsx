@@ -7,10 +7,25 @@ import { siteContext } from "./lib/site-context";
 
 /**
  * Catalog reads use the MEMOIZED, TAGGED client — not withEmporixSession.
- * withEmporixSession in a Server Component gets a read-only cookie handle, so the
+ * withEmporixSession in a Server Component gets a read-only session handle, so the
  * anonymous session it obtains cannot be persisted and the next render would log
  * in again. Catalog data needs no stable session, so the process-wide token is
  * both correct and cheaper.
+ *
+ * **This lists one category on purpose, and it was tried the other way.**
+ * storefront-demo's home calls `useProducts()`, so this briefly did the same with
+ * `products.list()`. Measured against `viu` on 2026-08-04:
+ *
+ *   products.list(pageSize=12):  12 products, 0 with a price
+ *   products.list(pageSize=50):  50 products, 0 with a price
+ *   products.list(pageSize=200): 200 products, 0 with a price
+ *
+ * Twelve tiles, twelve «no price in this context», no «Add to cart» anywhere — an
+ * entry page where the cart, checkout and account flows cannot be started. Only
+ * the 16 childless category roots carry priced products on this tenant, and
+ * `PRICED_CATEGORY` is one of them (11 tiles, 11 buttons). Honesty about unpriced
+ * products is worth less here than a home page the rest of the demo can start from,
+ * and `/categories` covers the browse-everything case a link away.
  */
 export default async function Home(): Promise<React.JSX.Element> {
   const client = getEmporixClient({ context: await siteContext() });
@@ -25,11 +40,18 @@ export default async function Home(): Promise<React.JSX.Element> {
       </h2>
       <p className="muted" style={{ maxWidth: "52ch" }}>
         Adding needs a price — Emporix requires a <code>priceId</code> on internal
-        cart items, so a product without one shows no button.
+        cart items, so a product without one shows no button. Most of this tenant's
+        catalogue has none, which is why this page shows one category rather than
+        everything.
+      </p>
+      <p>
+        <a href="/categories" className="u-underline">
+          Browse all categories →
+        </a>
       </p>
       <p>
         <a href={`/category/${PRICED_CATEGORY}`} className="u-underline">
-          Browse the category with pagination →
+          Browse this category with pagination →
         </a>
       </p>
       <Typeahead />

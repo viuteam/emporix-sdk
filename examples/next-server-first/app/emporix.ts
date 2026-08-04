@@ -20,5 +20,17 @@ export const SESSION_STORE = sessionStore();
  *  WithEmporixSessionOptions: the proxy and emporixSession. */
 export const STORE_OPT = SESSION_STORE !== undefined ? { store: SESSION_STORE } : {};
 
-/** Category known to contain priced products on the `viu` tenant. */
+/**
+ * Category known to contain priced products on the `viu` tenant — «Berechtigungen»,
+ * one of the 16 category-tree roots that carry products directly rather than
+ * through children.
+ *
+ * The home page lists it instead of the whole catalogue, and that is not laziness:
+ * measured 2026-08-04, the first **200** products of `products.list()` have no
+ * price in the `main`/CHF/CH context, so a home page built on it offers nothing to
+ * add to a cart. This category answers with 11 products and 11 «Add to cart»
+ * buttons. See the comment in `app/page.tsx`.
+ *
+ * Only this demo uses it. The Playwright suite boots `examples/vite-spa`.
+ */
 export const PRICED_CATEGORY = "4a1a25bd-d828-476c-a481-925fcffe6f34";

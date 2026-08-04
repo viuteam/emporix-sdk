@@ -46,6 +46,12 @@ export async function Header(): Promise<React.JSX.Element> {
           style={{ gap: "var(--s-4)", marginLeft: "auto", fontSize: "var(--step--1)" }}
         >
           <LanguageSwitcher />
+          {/* A plain anchor, deliberately. Rendering the category tree here would
+              put an Emporix call in the shell and break the invariant this file's
+              doc comment claims — /categories carries that cost instead. */}
+          <a href="/categories" className="u-underline">
+            Categories
+          </a>
           <a href="/cart" className="u-underline">
             Cart{count > 0 ? ` (${count})` : ""}
           </a>
