@@ -121,11 +121,25 @@ export class CategoryService {
 
   /**
    * The catalogue's **root categories** — the published category trees
-   * (`GET /category-trees`). Use these for top-level storefront navigation;
-   * drill into a node's children with {@link subcategories}.
+   * (`GET /category-trees`).
+   *
+   * Returns `CategoryNode[]` (the generated `CategoryTree`), not `Category[]`.
+   * The two differ: `Category` carries `parentId` and no `subcategories`,
+   * `CategoryTree` the reverse, and this endpoint answers with the latter.
+   * Measured against a live tenant on 2026-08-04 — every node had
+   * `subcategories` or nothing, none had `parentId`.
+   *
+   * **Children arrive inline in `subcategories`.** Do not reach for
+   * {@link subcategories} to drill down: that method reads category-to-category
+   * *assignments* (`/categories/{id}/assignments`, filtered to
+   * `ref.type === "CATEGORY"`), which is a different feature — on the tenant this
+   * was measured on, that filter answered empty for every category while the
+   * `"PRODUCT"` filter behind {@link productsIn} worked fine.
+   * {@link childCategories} hits `/categories/{id}/subcategories` and answers
+   * **404** for a tree root. One call gives you the whole hierarchy.
    */
-  async tree(auth: AuthContext = ANON): Promise<Category[]> {
-    return this.ctx.http.request<Category[]>({
+  async tree(auth: AuthContext = ANON): Promise<CategoryNode[]> {
+    return this.ctx.http.request<CategoryNode[]>({
       method: "GET",
       path: `/category/${this.ctx.tenant}/category-trees`,
       auth,
