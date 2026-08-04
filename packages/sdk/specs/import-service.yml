@@ -1,0 +1,1519 @@
+openapi: 3.0.0
+info:
+  title: Import Service
+  version: ''
+  description: |-
+    The Emporix Import Service imports external master data into Emporix. A configuration groups one or more
+    streams; each stream extracts from a source connection, maps fields to an Emporix target type, and
+    upserts idempotently. Imports run asynchronously and stream per-stream progress over Server-Sent Events.
+
+    {% hint style="danger" %}
+    This functionality is in preview mode - some of the features may not be fully operational yet.
+    {% endhint %}
+
+    This reference covers the operational surface available with the `importtool.import_trigger` scope:
+    triggering, scheduling, monitoring, and cancelling import runs, and reading configurations, streams,
+    schedules, runs, and imported data. Administrative operations (creating and changing configurations,
+    connections, streams, and mappings) require the `importtool.import_manage` scope.
+  contact:
+    name: Emporix
+    url: https://emporix.com
+    email: documentation@emporix.com
+tags:
+  - name: Configurations
+    description: Read import configurations.
+  - name: Streams
+    description: Read the streams of a configuration.
+  - name: Schedules
+    description: Read and set a configuration's run schedule.
+  - name: Runs
+    description: Trigger, monitor, and cancel import runs.
+  - name: Data
+    description: Read imported records.
+servers:
+  - url: 'https://api.emporix.io'
+paths:
+  '/importtool/{tenant}/configs':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+    get:
+      summary: Retrieving all import configurations
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves all import configurations defined for the tenant.
+
+      operationId: GET-importtool-list-configs
+      tags:
+        - Configurations
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The configurations are returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ImportConfig'
+              examples:
+                Configurations response:
+                  $ref: '#/components/examples/ImportConfigs_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/configs/{id}':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_id'
+    get:
+      summary: Retrieving an import configuration
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves a single import configuration by its identifier.
+
+      operationId: GET-importtool-get-config
+      tags:
+        - Configurations
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The configuration is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportConfig'
+              examples:
+                Configuration response:
+                  $ref: '#/components/examples/ImportConfig_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '404':
+          $ref: '#/components/responses/NotFound_404'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/configs/{configId}/streams':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_configId'
+    get:
+      summary: Retrieving all streams of a configuration
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves the streams belonging to a configuration, ordered by sequence.
+
+      operationId: GET-importtool-list-streams
+      tags:
+        - Streams
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The streams are returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ImportStream'
+              examples:
+                Streams response:
+                  $ref: '#/components/examples/ImportStreams_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/streams/{id}':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_id'
+    get:
+      summary: Retrieving a stream
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves a single stream by its identifier, including its resolved target types.
+
+      operationId: GET-importtool-get-stream
+      tags:
+        - Streams
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The stream is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportStream'
+              examples:
+                Stream response:
+                  $ref: '#/components/examples/ImportStream_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '404':
+          $ref: '#/components/responses/NotFound_404'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/configs/{configId}/schedule':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_configId'
+    get:
+      summary: Retrieving a schedule
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves the cron schedule for a configuration.
+
+      operationId: GET-importtool-get-schedule
+      tags:
+        - Schedules
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The schedule is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+              examples:
+                Schedule response:
+                  $ref: '#/components/examples/Schedule_Example'
+        '204':
+          description: No schedule is configured for the configuration.
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+    put:
+      summary: Scheduling an import job
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Creates or updates the cron schedule (cron expression, time zone, and enabled flag) that runs a configuration automatically.
+
+      operationId: PUT-importtool-schedule-job
+      tags:
+        - Schedules
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Schedule'
+            examples:
+              Every day at 02:00 Berlin time:
+                value:
+                  cron: '0 0 2 * * *'
+                  timezone: Europe/Berlin
+                  enabled: true
+      responses:
+        '200':
+          description: The request was successful. The schedule has been saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+              examples:
+                Schedule response:
+                  $ref: '#/components/examples/Schedule_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/configs/{configId}/runs':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_configId'
+    post:
+      summary: Triggering an import run
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Starts an import run for the configuration and returns immediately with the run in a running state;
+        progress is streamed over Server-Sent Events. At most one run is active per configuration.
+      operationId: POST-importtool-trigger-run
+      tags:
+        - Runs
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum:
+                    - FULL
+                    - DELTA
+                  description: The run mode. Defaults to `DELTA`.
+                  example: DELTA
+                dryRun:
+                  type: boolean
+                  description: When `true`, the run maps and validates but performs no remote writes.
+                  example: false
+            examples:
+              Full run:
+                value:
+                  mode: FULL
+              Delta dry run:
+                value:
+                  mode: DELTA
+                  dryRun: true
+      responses:
+        '200':
+          description: The request was successful. The run has been started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRun'
+              examples:
+                Run response:
+                  $ref: '#/components/examples/ImportRun_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '409':
+          $ref: '#/components/responses/Conflict_409'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+    get:
+      summary: Retrieving run history
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves the run history for a configuration, most recent first.
+
+      operationId: GET-importtool-list-runs
+      tags:
+        - Runs
+      parameters:
+        - $ref: '#/components/parameters/trait_page'
+        - $ref: '#/components/parameters/trait_size'
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The run history is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRunPage'
+              examples:
+                Run history response:
+                  $ref: '#/components/examples/ImportRunPage_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/runs/{runId}':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_runId'
+    get:
+      summary: Retrieving a run
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves a run's status together with its per-stream progress.
+
+      operationId: GET-importtool-get-run
+      tags:
+        - Runs
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The run and its streams are returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDetail'
+              examples:
+                Run detail response:
+                  $ref: '#/components/examples/RunDetail_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '404':
+          $ref: '#/components/responses/NotFound_404'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/runs/{runId}/events':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_runId'
+    get:
+      summary: Streaming run progress
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Streams a run's progress as Server-Sent Events: an initial `snapshot` (run and streams), then a
+        `stream` event per processed batch, and a final `run` event when the run finishes.
+      operationId: GET-importtool-stream-run-events
+      tags:
+        - Runs
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The event stream was opened.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |-
+                  event: snapshot
+                  data: {"run":{"id":"9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d","status":"RUNNING"},"streams":[{"streamName":"Products","status":"RUNNING","recordsRead":120}]}
+
+                  event: stream
+                  data: {"streamName":"Products","status":"RUNNING","recordsRead":240,"created":20,"updated":210,"failed":2}
+
+                  event: run
+                  data: {"id":"9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d","status":"SUCCEEDED","recordsRead":1250}
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/runs/{runId}/cancel':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_runId'
+    post:
+      summary: Cancelling a run
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Requests cancellation of an active run. By default the cancellation is cooperative; with
+        `force=true` the run is stopped immediately and its configuration is unblocked.
+      operationId: POST-importtool-cancel-run
+      tags:
+        - Runs
+      parameters:
+        - name: force
+          in: query
+          required: false
+          description: When `true`, hard-stops the run immediately.
+          schema:
+            type: boolean
+            default: false
+            example: false
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '202':
+          description: The cancellation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelResult'
+              examples:
+                Cancellation response:
+                  $ref: '#/components/examples/CancelResult_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '409':
+          $ref: '#/components/responses/Conflict_409'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/runs/{runId}/errors':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_runId'
+    get:
+      summary: Retrieving run errors
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves the errors recorded during a run, paginated.
+
+      operationId: GET-importtool-list-run-errors
+      tags:
+        - Runs
+      parameters:
+        - $ref: '#/components/parameters/trait_page'
+        - $ref: '#/components/parameters/trait_size'
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The errors are returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRecordPage'
+              examples:
+                Errors response:
+                  $ref: '#/components/examples/ErrorRecordPage_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/data/types':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+    get:
+      summary: Retrieving imported data types
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves the distinct target types that currently hold imported records.
+
+      operationId: GET-importtool-list-data-types
+      tags:
+        - Data
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The types are returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: product
+              examples:
+                Data types response:
+                  $ref: '#/components/examples/DataTypes_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/data/records':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+    get:
+      summary: Searching imported records
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Searches imported records of a given type with an optional `search` filter on the natural key, paginated.
+
+      operationId: GET-importtool-search-data-records
+      tags:
+        - Data
+      parameters:
+        - name: type
+          in: query
+          required: true
+          description: The target type to search.
+          schema:
+            type: string
+            example: product
+        - name: search
+          in: query
+          required: false
+          description: >-
+            Optional free-text filter. This is a case-insensitive substring match on the record's
+            natural key only — it is NOT the Emporix query language, so field selectors and operators
+            (e.g. `field:value`, comparisons, boolean logic) are not supported.
+          schema:
+            type: string
+            default: ''
+            example: SKU-1001
+        - name: outcome
+          in: query
+          required: false
+          description: >-
+            Optional filter by import outcome. Omit to return records of all outcomes. `UPSERTED`
+            (created or updated), `DELETED` (removed at the source), `DELETED_TARGET` (removed in
+            Emporix), `FAILED`, `DRY_RUN` (produced by a dry run).
+          schema:
+            type: string
+            enum: [UPSERTED, DELETED, DELETED_TARGET, FAILED, DRY_RUN]
+        - $ref: '#/components/parameters/trait_page'
+        - $ref: '#/components/parameters/trait_size'
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The records are returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportedRecordPage'
+              examples:
+                Imported records response:
+                  $ref: '#/components/examples/ImportedRecordPage_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/data/streams/{streamId}/records':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_streamId'
+    get:
+      summary: Searching a stream's imported records
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Searches the imported records produced by a specific stream with an optional `search` filter on the natural key, paginated.
+
+      operationId: GET-importtool-search-stream-records
+      tags:
+        - Data
+      parameters:
+        - name: search
+          in: query
+          required: false
+          description: >-
+            Optional free-text filter. This is a case-insensitive substring match on the record's
+            natural key only — it is NOT the Emporix query language, so field selectors and operators
+            (e.g. `field:value`, comparisons, boolean logic) are not supported.
+          schema:
+            type: string
+            default: ''
+            example: SKU-1001
+        - name: outcome
+          in: query
+          required: false
+          description: >-
+            Optional filter by import outcome. Omit to return records of all outcomes. `UPSERTED`
+            (created or updated), `DELETED` (removed at the source), `DELETED_TARGET` (removed in
+            Emporix), `FAILED`, `DRY_RUN` (produced by a dry run).
+          schema:
+            type: string
+            enum: [UPSERTED, DELETED, DELETED_TARGET, FAILED, DRY_RUN]
+        - $ref: '#/components/parameters/trait_page'
+        - $ref: '#/components/parameters/trait_size'
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The records are returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportedRecordPage'
+              examples:
+                Stream records response:
+                  $ref: '#/components/examples/ImportedRecordPage_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+components:
+  schemas:
+    errorMessage:
+      title: Error
+      description: Schema for specific API errors.
+      type: object
+      properties:
+        code:
+          type: integer
+          description: HTTP status code.
+          minimum: 100
+          maximum: 599
+        status:
+          description: HTTP status.
+          type: string
+        message:
+          description: Descriptive error message for debugging.
+          type: string
+        details:
+          description: List of problems causing this error.
+          type: array
+          items:
+            title: Error Detail
+            description: Error details.
+            type: string
+      required:
+        - status
+        - code
+        - message
+    ImportConfig:
+      title: Import configuration
+      type: object
+      description: An import configuration grouping one or more streams.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The configuration identifier.
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        tenant:
+          type: string
+          description: The owning tenant.
+          example: mytenant
+        name:
+          type: string
+          description: The configuration name.
+          example: ERP product master import
+        description:
+          type: string
+          description: A free-text description.
+          example: Nightly import of product master data from the ERP system.
+        sourceConnId:
+          type: string
+          format: uuid
+          description: The default source connection for the configuration's streams.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        deltaEnabled:
+          type: boolean
+          description: Whether delta (incremental) runs are enabled.
+          example: true
+        enabled:
+          type: boolean
+          description: Whether the configuration is active.
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          description: When the configuration was created.
+          example: '2026-07-01T10:15:30.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the configuration was last updated.
+          example: '2026-07-20T08:00:00.000Z'
+    ImportStream:
+      title: Stream
+      type: object
+      description: A stream that extracts from a source, maps fields, and upserts into an Emporix target type.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The stream identifier.
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        configId:
+          type: string
+          format: uuid
+          description: The parent configuration.
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        name:
+          type: string
+          description: The stream name.
+          example: Products
+        sourceEntity:
+          type: string
+          description: The logical source entity or record.
+          example: PRODUCT
+        targetWriter:
+          type: string
+          description: The target writer code, for example `emporix.customEntity`.
+          example: emporix.customEntity
+        targetType:
+          type: string
+          description: The default target type (custom-entity type identifier).
+          example: product
+        mode:
+          type: string
+          enum:
+            - STANDALONE
+            - COMPOSITE_CHILD
+            - COMPOSITE_MERGE
+          description: How the stream contributes to the target.
+          example: STANDALONE
+        enabled:
+          type: boolean
+          description: Whether the stream is active.
+          example: true
+    Schedule:
+      title: Schedule
+      type: object
+      description: A cron schedule for a configuration.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The schedule identifier.
+          example: a3bb189e-8bf9-3888-9912-ace4e6543002
+        configId:
+          type: string
+          format: uuid
+          description: The scheduled configuration.
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        cron:
+          type: string
+          description: A Spring cron expression with six fields.
+          example: '0 0 2 * * *'
+        timezone:
+          type: string
+          description: The IANA time zone the cron is evaluated in.
+          example: Europe/Berlin
+        enabled:
+          type: boolean
+          description: Whether the schedule is active.
+          example: true
+        nextFireAt:
+          type: string
+          format: date-time
+          description: The next fire time.
+          example: '2026-07-28T00:00:00.000Z'
+      required:
+        - cron
+    ImportRun:
+      title: Run
+      type: object
+      description: An import run and its reconciled counters.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The run identifier.
+          example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        configId:
+          type: string
+          format: uuid
+          description: The configuration the run belongs to.
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        tenant:
+          type: string
+          description: The owning tenant.
+          example: mytenant
+        trigger:
+          type: string
+          enum:
+            - MANUAL
+            - SCHEDULED
+          description: What triggered the run.
+          example: MANUAL
+        status:
+          type: string
+          enum:
+            - QUEUED
+            - RUNNING
+            - SUCCEEDED
+            - PARTIAL
+            - FAILED
+            - CANCELLED
+          description: The run status.
+          example: SUCCEEDED
+        mode:
+          type: string
+          enum:
+            - FULL
+            - DELTA
+          description: The run mode.
+          example: DELTA
+        startedAt:
+          type: string
+          format: date-time
+          description: When the run started.
+          example: '2026-07-27T02:00:00.000Z'
+        finishedAt:
+          type: string
+          format: date-time
+          description: When the run finished.
+          example: '2026-07-27T02:04:12.000Z'
+        recordsRead:
+          type: integer
+          description: Records read (created + updated + skipped + deleted + failed).
+          example: 1250
+        created:
+          type: integer
+          description: Records created.
+          example: 40
+        updated:
+          type: integer
+          description: Records updated.
+          example: 1180
+        skipped:
+          type: integer
+          description: Records skipped because they were unchanged.
+          example: 25
+        failed:
+          type: integer
+          description: Records that failed.
+          example: 5
+        deleted:
+          type: integer
+          description: Records deleted.
+          example: 0
+        message:
+          type: string
+          description: A terminal status message, typically set on failure.
+          example: Import completed with 5 record failures.
+    ImportRunStream:
+      title: Run stream progress
+      type: object
+      description: The per-stream progress within a run.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The run-stream identifier.
+          example: c56a4180-65aa-42ec-a945-5fd21dec0538
+        runId:
+          type: string
+          format: uuid
+          description: The run this progress belongs to.
+          example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        streamId:
+          type: string
+          format: uuid
+          description: The stream this progress belongs to.
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        streamName:
+          type: string
+          description: The stream name.
+          example: Products
+        status:
+          type: string
+          enum:
+            - QUEUED
+            - RUNNING
+            - SUCCEEDED
+            - PARTIAL
+            - FAILED
+            - SKIPPED
+          description: The stream's status within the run.
+          example: PARTIAL
+        recordsRead:
+          type: integer
+          description: Records read for this stream.
+          example: 1250
+        created:
+          type: integer
+          description: Records created.
+          example: 40
+        updated:
+          type: integer
+          description: Records updated.
+          example: 1180
+        skipped:
+          type: integer
+          description: Records skipped.
+          example: 25
+        failed:
+          type: integer
+          description: Records that failed.
+          example: 5
+        deleted:
+          type: integer
+          description: Records deleted.
+          example: 0
+        message:
+          type: string
+          description: A per-stream status message.
+          example: 5 records failed validation.
+    RunDetail:
+      title: Run detail
+      type: object
+      description: A run together with its per-stream progress.
+      properties:
+        run:
+          $ref: '#/components/schemas/ImportRun'
+        streams:
+          type: array
+          description: The per-stream progress.
+          items:
+            $ref: '#/components/schemas/ImportRunStream'
+    CancelResult:
+      title: Cancellation result
+      type: object
+      description: The outcome of a cancellation request.
+      properties:
+        runId:
+          type: string
+          format: uuid
+          description: The run the cancellation targeted.
+          example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        force:
+          type: boolean
+          description: Whether a hard stop was requested.
+          example: false
+        accepted:
+          type: boolean
+          description: Whether the cancellation was accepted. `false` when the run is unknown or already finished.
+          example: true
+    ErrorRecord:
+      title: Error record
+      type: object
+      description: A single error recorded during a run.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The error identifier.
+          example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+        runId:
+          type: string
+          format: uuid
+          description: The run the error occurred in.
+          example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        streamId:
+          type: string
+          format: uuid
+          description: The stream the error occurred in.
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        naturalKey:
+          type: string
+          description: The source natural key of the offending record.
+          example: SKU-1001
+        targetEntity:
+          type: string
+          description: The target writer the record was bound for.
+          example: emporix.customEntity
+        stage:
+          type: string
+          description: The pipeline stage the error occurred in.
+          example: MAPPING
+        errorCode:
+          type: string
+          description: A machine-readable error code.
+          example: REQUIRED_FIELD_MISSING
+        message:
+          type: string
+          description: A human-readable error message.
+          example: Required field 'name' is missing for natural key SKU-1001.
+        createdAt:
+          type: string
+          format: date-time
+          description: When the error was recorded.
+          example: '2026-07-27T02:03:41.000Z'
+    ImportedRecord:
+      title: Imported record
+      type: object
+      description: A record that was imported. Holds keys and outcome; for composite parents it also holds the embedded child arrays.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The imported-record identifier.
+          example: 1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed
+        configId:
+          type: string
+          format: uuid
+          description: The configuration the record belongs to.
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        streamId:
+          type: string
+          format: uuid
+          description: The stream that produced the record.
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        runId:
+          type: string
+          format: uuid
+          description: The run that last touched the record.
+          example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        targetEntity:
+          type: string
+          description: The target writer code.
+          example: emporix.customEntity
+        targetType:
+          type: string
+          description: The target type.
+          example: product
+        naturalKey:
+          type: string
+          description: The source natural key.
+          example: SKU-1001
+        fields:
+          type: object
+          description: The stored fields.
+          example:
+            name: Pipe cutter
+            sku: SKU-1001
+            active: true
+        outcome:
+          type: string
+          description: The last outcome, one of `UPSERTED`, `DELETED`, `DELETED_TARGET`, `FAILED`, or `DRY_RUN`.
+          example: UPDATED
+        importedAt:
+          type: string
+          format: date-time
+          description: When the record was last imported.
+          example: '2026-07-27T02:03:55.000Z'
+    Page:
+      title: Page
+      type: object
+      description: Pagination metadata for a page of results.
+      properties:
+        totalElements:
+          type: integer
+          description: The total number of elements across all pages.
+          example: 1250
+        totalPages:
+          type: integer
+          description: The total number of pages.
+          example: 63
+        number:
+          type: integer
+          description: The current zero-based page number.
+          example: 0
+        size:
+          type: integer
+          description: The page size.
+          example: 20
+    ImportRunPage:
+      title: Run page
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            content:
+              type: array
+              description: The runs on this page.
+              items:
+                $ref: '#/components/schemas/ImportRun'
+    ErrorRecordPage:
+      title: Error record page
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            content:
+              type: array
+              description: The error records on this page.
+              items:
+                $ref: '#/components/schemas/ErrorRecord'
+    ImportedRecordPage:
+      title: Imported record page
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            content:
+              type: array
+              description: The imported records on this page.
+              items:
+                $ref: '#/components/schemas/ImportedRecord'
+  responses:
+    Unauthorized_401:
+      description: Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              fault:
+                type: object
+                properties:
+                  faultstring:
+                    type: string
+                  detail:
+                    type: object
+                    properties:
+                      errorcode:
+                        type: string
+          examples:
+            Invalid access token:
+              value:
+                fault:
+                  faultstring: Invalid access token
+                  detail:
+                    errorcode: oauth.v2.InvalidAccessToken
+            Access token expired:
+              value:
+                fault:
+                  faultstring: Access Token expired
+                  detail:
+                    errorcode: keymanagement.service.access_token_expired
+    Forbidden_403:
+      description: Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errorMessage'
+          examples:
+            Access to resource is forbidden:
+              $ref: '#/components/examples/Forbidden403_Example'
+    NotFound_404:
+      description: The requested resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errorMessage'
+          examples:
+            Resource not found:
+              $ref: '#/components/examples/NotFound404_Example'
+    Conflict_409:
+      description: The request conflicts with the current state of the resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errorMessage'
+          examples:
+            Run already active:
+              $ref: '#/components/examples/Conflict409_Example'
+    InternalServiceError_500:
+      description: Internal Service Error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/errorMessage'
+          examples:
+            Internal service error:
+              $ref: '#/components/examples/InternalServiceError500_Example'
+  parameters:
+    trait_tenant:
+      name: tenant
+      in: path
+      required: true
+      description: |
+        The tenant you want to access.
+      schema:
+        type: string
+        example: mytenant
+    trait_id:
+      name: id
+      in: path
+      required: true
+      description: The resource identifier.
+      schema:
+        type: string
+        format: uuid
+        example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+    trait_configId:
+      name: configId
+      in: path
+      required: true
+      description: The configuration identifier.
+      schema:
+        type: string
+        format: uuid
+        example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+    trait_streamId:
+      name: streamId
+      in: path
+      required: true
+      description: The stream identifier.
+      schema:
+        type: string
+        format: uuid
+        example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+    trait_runId:
+      name: runId
+      in: path
+      required: true
+      description: The run identifier.
+      schema:
+        type: string
+        format: uuid
+        example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+    trait_page:
+      name: page
+      in: query
+      required: false
+      description: The zero-based page number.
+      schema:
+        type: integer
+        default: 0
+        example: 0
+    trait_size:
+      name: size
+      in: query
+      required: false
+      description: The page size.
+      schema:
+        type: integer
+        example: 20
+  examples:
+    Forbidden403_Example:
+      value:
+        status: forbidden
+        code: 403
+        message: The access to the requested resource has been forbidden.
+        details:
+          - Missing required scopes
+    NotFound404_Example:
+      value:
+        status: element_resource_non_existing
+        code: 404
+        message: The requested resource does not exist.
+    Conflict409_Example:
+      value:
+        status: conflict
+        code: 409
+        message: An import run is already active for this configuration.
+    InternalServiceError500_Example:
+      value:
+        status: internal_service_error
+        code: 500
+        message: A server-side exception occurred that prevented the system from correctly returning the result.
+        details:
+          - 'https://pattern.yaas.io/errortypes.html'
+    ImportConfig_Example:
+      value:
+        id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        tenant: mytenant
+        name: ERP product master import
+        description: Nightly import of product master data from the ERP system.
+        sourceConnId: 550e8400-e29b-41d4-a716-446655440000
+        deltaEnabled: true
+        enabled: true
+        createdAt: '2026-07-01T10:15:30.000Z'
+        updatedAt: '2026-07-20T08:00:00.000Z'
+    ImportConfigs_Example:
+      value:
+        - id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+          tenant: mytenant
+          name: ERP product master import
+          description: Nightly import of product master data from the ERP system.
+          sourceConnId: 550e8400-e29b-41d4-a716-446655440000
+          deltaEnabled: true
+          enabled: true
+          createdAt: '2026-07-01T10:15:30.000Z'
+          updatedAt: '2026-07-20T08:00:00.000Z'
+    ImportStream_Example:
+      value:
+        id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        configId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        name: Products
+        sourceEntity: PRODUCT
+        targetWriter: emporix.customEntity
+        targetType: product
+        mode: STANDALONE
+        enabled: true
+    ImportStreams_Example:
+      value:
+        - id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+          configId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+          name: Products
+          sourceEntity: PRODUCT
+          targetWriter: emporix.customEntity
+          targetType: product
+          mode: STANDALONE
+          enabled: true
+    Schedule_Example:
+      value:
+        id: a3bb189e-8bf9-3888-9912-ace4e6543002
+        configId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        cron: '0 0 2 * * *'
+        timezone: Europe/Berlin
+        enabled: true
+        nextFireAt: '2026-07-28T00:00:00.000Z'
+    ImportRun_Example:
+      value:
+        id: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        configId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        tenant: mytenant
+        trigger: MANUAL
+        status: RUNNING
+        mode: FULL
+        startedAt: '2026-07-27T02:00:00.000Z'
+        finishedAt: null
+        recordsRead: 120
+        created: 10
+        updated: 100
+        skipped: 8
+        failed: 2
+        deleted: 0
+        message: null
+    ImportRunPage_Example:
+      value:
+        totalElements: 3
+        totalPages: 1
+        number: 0
+        size: 20
+        content:
+          - id: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+            configId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+            tenant: mytenant
+            trigger: MANUAL
+            status: SUCCEEDED
+            mode: DELTA
+            startedAt: '2026-07-27T02:00:00.000Z'
+            finishedAt: '2026-07-27T02:04:12.000Z'
+            recordsRead: 1250
+            created: 40
+            updated: 1180
+            skipped: 25
+            failed: 5
+            deleted: 0
+            message: Import completed with 5 record failures.
+    RunDetail_Example:
+      value:
+        run:
+          id: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+          configId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+          tenant: mytenant
+          trigger: MANUAL
+          status: SUCCEEDED
+          mode: DELTA
+          startedAt: '2026-07-27T02:00:00.000Z'
+          finishedAt: '2026-07-27T02:04:12.000Z'
+          recordsRead: 1250
+          created: 40
+          updated: 1180
+          skipped: 25
+          failed: 5
+          deleted: 0
+          message: Import completed with 5 record failures.
+        streams:
+          - id: c56a4180-65aa-42ec-a945-5fd21dec0538
+            runId: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+            streamId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+            streamName: Products
+            status: PARTIAL
+            recordsRead: 1250
+            created: 40
+            updated: 1180
+            skipped: 25
+            failed: 5
+            deleted: 0
+            message: 5 records failed validation.
+    CancelResult_Example:
+      value:
+        runId: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        force: false
+        accepted: true
+    ErrorRecordPage_Example:
+      value:
+        totalElements: 5
+        totalPages: 1
+        number: 0
+        size: 50
+        content:
+          - id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+            runId: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+            streamId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+            naturalKey: SKU-1001
+            targetEntity: emporix.customEntity
+            stage: MAPPING
+            errorCode: REQUIRED_FIELD_MISSING
+            message: Required field 'name' is missing for natural key SKU-1001.
+            createdAt: '2026-07-27T02:03:41.000Z'
+    DataTypes_Example:
+      value:
+        - product
+        - category
+    ImportedRecordPage_Example:
+      value:
+        totalElements: 1250
+        totalPages: 63
+        number: 0
+        size: 20
+        content:
+          - id: 1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed
+            configId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+            streamId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+            runId: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+            targetEntity: emporix.customEntity
+            targetType: product
+            naturalKey: SKU-1001
+            fields:
+              name: Pipe cutter
+              sku: SKU-1001
+              active: true
+            outcome: UPDATED
+            importedAt: '2026-07-27T02:03:55.000Z'
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: 'https://api.emporix.io/oauth/token'
+          scopes:
+            importtool.import_trigger: Needed to trigger, schedule, monitor, and cancel import runs and to read configurations, streams, schedules, runs, and imported data.
+security:
+  - OAuth2:
+      - importtool.import_trigger
