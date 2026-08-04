@@ -53,19 +53,19 @@ flowchart TD
     REQ([Request]) --> PROXY["proxy.ts — emporixTokenProxy<br/>the ONLY place that reads and writes<br/>cookies before the render"]
     PROXY -->|"rotates a near-expiry<br/>customer token, pins the site"| KIND{What is rendering?}
 
-    KIND -->|Server Component| RO["withEmporixSession<br/>readOnly jar — set/delete no-op"]
+    KIND -->|Server Component| RO["withEmporixSession<br/>readOnly handle — set/delete no-op"]
     KIND -->|"Server Action,<br/>Route Handler"| RW["withEmporixSessionMutable<br/>writes go through, then flush"]
     KIND -->|"catalog read<br/>(no session needed)"| CAT["getEmporixClient()<br/>memoized per process, tagged,<br/>revalidate 3600"]
 
-    RO --> BRANCH{"customer token<br/>in the jar?"}
+    RO --> BRANCH{"customer token<br/>in the handle?"}
     RW --> BRANCH
 
     BRANCH -->|yes| CUST["memoized client, tagged: false<br/>+ auth.customer(token)"]
-    BRANCH -->|no| GUEST["NEW client per request<br/>+ anonymous store on the jar<br/>+ auth.anonymous()"]
+    BRANCH -->|no| GUEST["NEW client per request<br/>+ anonymous store on the handle<br/>+ auth.anonymous()"]
 
-    CUST --> JAR[[SessionCookieJar]]
-    GUEST --> JAR
-    JAR --> MODE{store passed?}
+    CUST --> HANDLE[[EmporixSessionHandle]]
+    GUEST --> HANDLE
+    HANDLE --> MODE{store passed?}
 
     MODE -->|no| COOKIE["EVERY value in a cookie<br/>AES-256-GCM if EMPORIX_COOKIE_SECRET<br/>__Host- prefix when secure"]
     MODE -->|yes| STORE["tokens and cart id in the store<br/>hydrate once by emporix.sid,<br/>mutate in memory, ONE flush"]
@@ -79,14 +79,14 @@ guest the same cart. The customer path has no such problem: the token is passed 
 call, not held on the client.
 
 **Why the catalog branch bypasses all of it.** A catalog read needs no stable
-session, and a read-only jar cannot persist the anonymous session the SDK just
+session, and a read-only handle cannot persist the anonymous session the SDK just
 obtained — so routing catalog reads through `withEmporixSession` would log in
 anonymously on every render. It is also the only branch that can be cached, because
 `withEmporixSession*` never passes a `fetch`.
 
 ### The ordering trap in login
 
-`emporixLogin` builds **two** jars for one request, and the order between them is
+`emporixLogin` builds **two** handles for one request, and the order between them is
 load-bearing. This cost a day of wrong explanations in store mode, so it is drawn
 rather than described:
 
@@ -94,9 +94,9 @@ rather than described:
 sequenceDiagram
     participant A as Server Action
     participant L as emporixLogin
-    participant J1 as jar 1
+    participant J1 as handle 1
     participant S as store (Redis)
-    participant J2 as jar 2 (inside onboardCart)
+    participant J2 as handle 2 (in onboardCart)
     participant E as Emporix
 
     A->>L: emporixLogin({ email, password }, { store })
@@ -104,9 +104,9 @@ sequenceDiagram
     E-->>L: customerToken, refreshToken, saasToken
     L->>J1: persistSession(...)
     Note over J1: cookie mode: written through NOW<br/>store mode: in memory only
-    L->>J1: await jar.flush()
+    L->>J1: await handle.flush()
     J1->>S: write(sid, record)
-    Note over L,S: Without this flush the next jar reads a<br/>store with NO customer token and runs<br/>as a GUEST — new empty cart, merge refused
+    Note over L,S: Without this flush the next handle reads a<br/>store with NO customer token and runs<br/>as a GUEST — new empty cart, merge refused
     L->>J2: onboardCart → withEmporixSessionMutable
     J2->>S: read(sid)
     S-->>J2: record WITH customerToken
@@ -118,10 +118,10 @@ sequenceDiagram
     J2->>S: write(sid, record)
 ```
 
-Cookie mode never had the bug: `persistSession` writes through there, so jar 2
+Cookie mode never had the bug: `persistSession` writes through there, so handle 2
 sees the token whether or not anything flushed. That asymmetry is exactly why the
 original verification passed — every store-mode check had been a guest flow, and
-the guest flow does not build a second jar.
+the guest flow does not build a second handle.
 
 ### One helper covers every customer and cart call
 
@@ -151,7 +151,7 @@ sharing a client would share a cart.
 Neither path can be tagged: `withEmporixSession*` never passes a `fetch`.
 
 **Catalog reads do not belong here.** They need no stable session, and a
-read-only jar cannot persist the anonymous session the SDK just obtained, so
+read-only handle cannot persist the anonymous session the SDK just obtained, so
 every render would log in again. Use `getEmporixClient()` for those.
 
 ### Login, logout, refresh
@@ -290,15 +290,25 @@ else validates them.
 Turning it on invalidates every running session. There is no plaintext
 fallback, on purpose.
 
-### Read session cookies through `sessionCookieJar`, never `cookies()`
+### Read the session through `emporixSessionHandle`, never `cookies()`
+
+> **Renamed in 0.5.0.** `sessionCookieJar` → `emporixSessionHandle`,
+> `SessionCookieJar` → `EmporixSessionHandle`. Both old names are still exported
+> and still the same function; they are `@deprecated` and go away in **0.6.0**.
+>
+> The old name claimed too much. Pass a `store` and six of the eight
+> `STORAGE_KEYS` live in the store record — only `siteCode` and `language`
+> stay cookies — so «cookie jar» described a quarter of what it holds. A one-line
+> find-and-replace is the whole migration.
+
 
 ```ts
 // wrong once EMPORIX_COOKIE_SECRET is set — hands back the ciphertext
 const cartId = (await cookies()).get(STORAGE_KEYS.cartId)?.value ?? null;
 
 // right — applies the __Host- prefix and the codec
-const jar = await sessionCookieJar({ readOnly: true }); // omit in a Server Action
-const cartId = jar.get(STORAGE_KEYS.cartId);
+const handle = await emporixSessionHandle({ readOnly: true }); // omit in a Server Action
+const cartId = handle.get(STORAGE_KEYS.cartId);
 ```
 
 This is the one footgun the feature introduces, and it fails quietly: without a
@@ -306,13 +316,13 @@ secret both forms work, so raw `cookies()` reads survive review and only break
 when someone turns encryption on. `examples/next-server-first` had all four of
 its reads written the wrong way and was fixed for exactly this reason.
 
-`sessionCookieJar({ readOnly: true })` in Server Components — writes no-op
+`emporixSessionHandle({ readOnly: true })` in Server Components — writes no-op
 there, because Next forbids a cookie write during render.
 
 ## Server-side sessions
 
 Pass a `store` and the session values leave the browser entirely. What is left in
-the cookie jar is one opaque id.
+the browser is one opaque id — the cookie jar holds nothing else of the session.
 
 ```ts
 import type { EmporixSessionStore } from "@viu/emporix-sdk-next/session";
@@ -341,17 +351,17 @@ await emporixSession({ store });                    // session values
 Forget it in one place and that place silently falls back to cookie mode. There
 is no error, because cookie mode is a legitimate configuration.
 
-### Take the jar the callback hands you
+### Take the handle the callback hands you
 
 ```ts
-await withEmporixSessionMutable(async (client, ctx, jar) => {
-  const cartId = jar.get(STORAGE_KEYS.cartId);
-  jar.set(STORAGE_KEYS.cartId, id, SESSION_MAX_AGE.cartId);
+await withEmporixSessionMutable(async (client, ctx, handle) => {
+  const cartId = handle.get(STORAGE_KEYS.cartId);
+  handle.set(STORAGE_KEYS.cartId, id, SESSION_MAX_AGE.cartId);
 });
 ```
 
-Building your own with `sessionCookieJar()` inside the callback gives you a
-**second** jar for the same request: it mints its own session id, clobbers the
+Building your own with `emporixSessionHandle()` inside the callback gives you a
+**second** handle for the same request: it mints its own session id, clobbers the
 `sid` cookie, and needs its own `flush()`. In cookie mode the mistake is
 invisible, because `set` writes through immediately. That is how it was found.
 

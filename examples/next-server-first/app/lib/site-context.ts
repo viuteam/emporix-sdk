@@ -1,6 +1,6 @@
 import {
   STORAGE_KEYS,
-  sessionCookieJar,
+  emporixSessionHandle,
   type WithEmporixSessionOptions,
 } from "@viu/emporix-sdk-next/session";
 import { SESSION_STORE, STORE_OPT } from "../emporix";
@@ -34,7 +34,7 @@ export const LANGUAGES = ["en", "de"] as const;
  * `emporix.language` is a *public* session key in the sense of
  * `isPublicSessionKey`: it stays an ordinary cookie even in store mode instead of
  * moving into Redis. It is **not** browser-readable here, because everything
- * `sessionCookieJar` writes is `httpOnly` without exception — measured, after the
+ * `emporixSessionHandle` writes is `httpOnly` without exception — measured, after the
  * comment on this function claimed the opposite. That is fine for this demo: the
  * switcher is a Server Component and nothing client-side reads the language. A
  * *client-side* switcher needs the other writer, `emporixSiteProxy`, which writes
@@ -50,8 +50,8 @@ export async function siteContext(): Promise<{
   targetLocation: string;
   language?: string;
 }> {
-  const jar = await sessionCookieJar({ readOnly: true, ...STORE_OPT });
-  const language = jar.get(STORAGE_KEYS.language);
+  const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
+  const language = handle.get(STORAGE_KEYS.language);
   return {
     ...DEFAULTS,
     // Absent, not empty: without the field the SDK sends no `Accept-Language` at

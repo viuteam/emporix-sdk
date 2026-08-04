@@ -7,7 +7,7 @@ import { siteContext } from "./lib/site-context";
 
 /**
  * Catalog reads use the MEMOIZED, TAGGED client — not withEmporixSession.
- * withEmporixSession in a Server Component gets a read-only cookie jar, so the
+ * withEmporixSession in a Server Component gets a read-only cookie handle, so the
  * anonymous session it obtains cannot be persisted and the next render would log
  * in again. Catalog data needs no stable session, so the process-wide token is
  * both correct and cheaper.

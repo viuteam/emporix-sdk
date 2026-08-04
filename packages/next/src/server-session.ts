@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import type { AuthContext } from "@viu/emporix-sdk";
 import { cookieName, readCookie, sealCookie } from "./cookie-name";
-import { SESSION_MAX_AGE, sessionCookieJar } from "./session-cookies";
+import { SESSION_MAX_AGE, emporixSessionHandle } from "./session-cookies";
 import type { EmporixSessionStore } from "./session-store";
 import {
   createServerStorage,
@@ -59,14 +59,14 @@ function build(storage: EmporixStorage): EmporixServerSession {
 export async function emporixSession(
   opts: { store?: EmporixSessionStore } = {},
 ): Promise<EmporixServerSession> {
-  // Goes through the session jar rather than cookies() directly: the jar knows
+  // Goes through emporixSessionHandle rather than cookies() directly: the handle knows
   // the __Host- prefix, the codec, and — with a store — that the values are not
   // in the browser at all.
-  const sessionJar = await sessionCookieJar({
+  const handle = await emporixSessionHandle({
     readOnly: true,
     ...(opts.store !== undefined ? { store: opts.store } : {}),
   });
-  const io: ServerCookieJar = { get: (name) => sessionJar.get(name) };
+  const io: ServerCookieJar = { get: (name) => handle.get(name) };
   return build(createServerStorage(io));
 }
 
@@ -94,19 +94,19 @@ export async function emporixSessionMutable(
     // Store mode ignores the attribute overrides: there is exactly one cookie
     // left, the sid, and its attributes are the package's business. The
     // overrides stay a cookie-mode feature rather than being widened into the
-    // jar for one caller.
-    const sessionJar = await sessionCookieJar({ store: opts.store });
+    // handle for one caller.
+    const handle = await emporixSessionHandle({ store: opts.store });
     const io: ServerCookieJar = {
-      get: (name) => sessionJar.get(name),
+      get: (name) => handle.get(name),
       set: (name, value) => {
-        if (value === null) sessionJar.delete(name);
-        else sessionJar.set(name, value, SESSION_MAX_AGE.customerToken);
+        if (value === null) handle.delete(name);
+        else handle.set(name, value, SESSION_MAX_AGE.customerToken);
       },
     };
     // `createServerStorage` writes synchronously, so the store write has to
     // happen after the caller is done. Handing back a `flush` is the honest
     // shape — a silent write-behind would lie about when state lands.
-    return { ...build(createServerStorage(io)), flush: () => sessionJar.flush() };
+    return { ...build(createServerStorage(io)), flush: () => handle.flush() };
   }
   const jar = await cookies();
   const attrs = {

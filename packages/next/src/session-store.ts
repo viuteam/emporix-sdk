@@ -68,7 +68,7 @@ export function newSessionId(): string {
  * session does and a sliding TTL cannot outlive a non-sliding ceiling.
  *
  * `Number(undefined)` is `NaN`, so `Number.isFinite` is enough here — unlike
- * `jar.get()`, which returns `null`, and `Number(null)` is **0**. That
+ * `handle.get()`, which returns `null`, and `Number(null)` is **0**. That
  * difference already caused one bug in the session ceiling.
  */
 export function recordTtl(record: Record<string, string>): number {
