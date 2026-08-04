@@ -1,9 +1,21 @@
-import { pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
+import { EmporixNotFoundError, pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
 import { pickText } from "@viu/emporix-examples-shared";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { SITE, STORE_OPT } from "../emporix";
 import { submitCheckout } from "../actions/checkout";
 import { siteContext, emporixOptions } from "../lib/site-context";
+
+/** No cart, or one that Emporix no longer has. Same dead end for the shopper. */
+function NoCart(): React.JSX.Element {
+  return (
+    <main>
+      <h1>Checkout</h1>
+      <p>
+        No cart yet. Add something from the <a href="/">catalog</a>.
+      </p>
+    </main>
+  );
+}
 
 /** `LocalizedValue` is `string | Record<string, string>`. Pick something showable. */
 function label(name: string | Record<string, string> | undefined, fallback: string): string {
@@ -24,35 +36,36 @@ export default async function CheckoutPage({
   const cartId = (await emporixSessionHandle({ readOnly: true, ...STORE_OPT })).get(
     STORAGE_KEYS.cartId,
   );
-  if (cartId === null) {
-    return (
-      <main>
-        <h1>Checkout</h1>
-        <p>
-          No cart yet. Add something from the <a href="/">catalog</a>.
-        </p>
-      </main>
-    );
-  }
+  if (cartId === null) return <NoCart />;
 
   // ONE session, five parallel calls. Five separate withEmporixSession calls
   // would build five guest clients and redeem the same anonymous refresh token
   // five times over — see session-client.ts, newGuestClient.
-  const { cart, modes, zones, addresses, me } = await withEmporixSession(async (c, ctx) => {
-    const [cart, modes, zones, addresses, me] = await Promise.all([
-      c.carts.get(cartId, ctx),
-      c.payments.listPaymentModes(ctx),
-      c.shipping.listZones(SITE.siteCode, { expand: "methods,fees", activeMethods: "true" }, ctx),
-      // A guest throws EmporixAuthError locally, an expired token 401s. Both
-      // mean "no saved addresses", and neither deserves a second code path.
-      c.customers.addresses.list(ctx).catch(() => [] as Address[]),
-      // Same story for the profile: a guest has none, and then the contact
-      // fields simply start empty. Added because a logged-in shopper was
-      // retyping their own name into a form the server could fill.
-      c.customers.me(ctx).catch(() => undefined),
-    ]);
-    return { cart, modes, zones, addresses, me };
-  }, await emporixOptions());
+  let data;
+  try {
+    data = await withEmporixSession(async (c, ctx) => {
+      const [cart, modes, zones, addresses, me] = await Promise.all([
+        c.carts.get(cartId, ctx),
+        c.payments.listPaymentModes(ctx),
+        c.shipping.listZones(SITE.siteCode, { expand: "methods,fees", activeMethods: "true" }, ctx),
+        // A guest throws EmporixAuthError locally, an expired token 401s. Both
+        // mean "no saved addresses", and neither deserves a second code path.
+        c.customers.addresses.list(ctx).catch(() => [] as Address[]),
+        // Same story for the profile: a guest has none, and then the contact
+        // fields simply start empty. Added because a logged-in shopper was
+        // retyping their own name into a form the server could fill.
+        c.customers.me(ctx).catch(() => undefined),
+      ]);
+      return { cart, modes, zones, addresses, me };
+    }, await emporixOptions());
+  } catch (e) {
+    // Checked out on another device: that closed this cart, and the id in this
+    // session died with it. Offering a checkout form for a cart that no longer
+    // exists is worse than saying so — the submit would 404 anyway.
+    if (!(e instanceof EmporixNotFoundError)) throw e;
+    return <NoCart />;
+  }
+  const { cart, modes, zones, addresses, me } = data;
 
   const total = cart.totalPrice?.amount ?? 0;
   // ponytail: the zone is resolved for the configured country only. Typing a

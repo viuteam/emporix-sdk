@@ -1,9 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { AuthContext, EmporixClient } from "@viu/emporix-sdk";
-import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
-import { setCart } from "../lib/cart-session";
+import { EmporixNotFoundError, type AuthContext, type EmporixClient } from "@viu/emporix-sdk";
+import {
+  STORAGE_KEYS,
+  withEmporixSessionMutable,
+  type EmporixSessionHandle,
+} from "@viu/emporix-sdk-next/session";
+import { clearCart, setCart } from "../lib/cart-session";
 import { describeError } from "../lib/describe-error";
 import type { ActionState } from "../components/action-form";
 import { SITE } from "../emporix";
@@ -29,6 +33,24 @@ interface MatchedPrice {
  * a `Cart` with `.id`. `carts.create` would return `CartCreated` with `.cartId`
  * — different shape, and it 409s for a customer who already has an open cart.
  */
+/**
+ * `getCurrent({ create: true })`, persisted. Not `create`: a customer may hold
+ * only one open cart, and a blind create answers 409 when they already have one
+ * — which is exactly what happens after a checkout closed the last.
+ */
+async function freshCart(
+  client: EmporixClient,
+  ctx: AuthContext,
+  handle: EmporixSessionHandle,
+): Promise<string> {
+  const cart = await client.carts.getCurrent(ctx, { siteCode: SITE.siteCode, create: true });
+  const id = cart?.id ?? null;
+  if (id === null) throw new Error("Emporix returned no cart");
+  // setCart, not handle.set: it writes the shell's line count alongside the id.
+  setCart(handle, id, cart ?? undefined);
+  return id;
+}
+
 export async function addToCart(productId: string): Promise<void> {
   await withEmporixSessionMutable(async (client, ctx, handle) => {
     const matches = await client.prices.matchByContext(
@@ -44,34 +66,34 @@ export async function addToCart(productId: string): Promise<void> {
       );
     }
 
+    const item = {
+      itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${productId}`,
+      quantity: 1,
+      price: {
+        priceId: match.priceId,
+        originalAmount: amount,
+        effectiveAmount: amount,
+        currency: match.currency,
+      },
+    };
+
     // The handle the wrapper hands over, not one of our own: a second handle mints a
     // second session id and needs its own flush.
     let cartId = handle.get(STORAGE_KEYS.cartId);
-    if (cartId === null) {
-      // `getCurrent({ create: true })`, not `create`: a customer may hold only
-      // one open cart, and a blind create answers 409 when they already have
-      // one — which is exactly what happens after a checkout closed the last.
-      const cart = await client.carts.getCurrent(ctx, { siteCode: SITE.siteCode, create: true });
-      cartId = cart?.id ?? null;
-      if (cartId === null) throw new Error("Emporix returned no cart");
-      // setCart, not handle.set: it writes the shell's line count alongside the id.
-      setCart(handle, cartId, cart ?? undefined);
-    }
+    if (cartId === null) cartId = await freshCart(client, ctx, handle);
 
-    await client.carts.addItem(
-      cartId,
-      {
-        itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${productId}`,
-        quantity: 1,
-        price: {
-          priceId: match.priceId,
-          originalAmount: amount,
-          effectiveAmount: amount,
-          currency: match.currency,
-        },
-      },
-      ctx,
-    );
+    try {
+      await client.carts.addItem(cartId, item, ctx);
+    } catch (e) {
+      // The same customer checking out on another device CLOSED this cart, and
+      // this session still holds its id. Only the 404 tells us — so add first
+      // and recover once, rather than verifying the cart on every add, which
+      // would cost a billed call each time for the rare case.
+      if (!(e instanceof EmporixNotFoundError)) throw e;
+      clearCart(handle);
+      cartId = await freshCart(client, ctx, handle);
+      await client.carts.addItem(cartId, item, ctx);
+    }
 
     // `addItem` returns nothing useful, so read the cart back for the count.
     // One extra GET per add, which is what buys a shell that costs zero calls on
@@ -96,13 +118,21 @@ async function mutateCart(
     await withEmporixSessionMutable(async (client, ctx, handle) => {
       const cartId = handle.get(STORAGE_KEYS.cartId);
       if (cartId === null) throw new Error("No cart to change.");
-      await fn(client, ctx, cartId);
-      // Re-read rather than trusting what the mutation answered. Those answers
-      // carry no `id` — the earlier version passed one straight to setCart and a
-      // quantity change deleted the cart out of the session. Their `items` is
-      // just as unverified, so this pays one GET per mutation for a count that
-      // is actually right.
-      setCart(handle, cartId, await client.carts.get(cartId, ctx));
+      try {
+        await fn(client, ctx, cartId);
+        // Re-read rather than trusting what the mutation answered. Those answers
+        // carry no `id` — the earlier version passed one straight to setCart and a
+        // quantity change deleted the cart out of the session. Their `items` is
+        // just as unverified, so this pays one GET per mutation for a count that
+        // is actually right.
+        setCart(handle, cartId, await client.carts.get(cartId, ctx));
+      } catch (e) {
+        // Closed elsewhere. Drop it here, inside the mutable pass, so the next
+        // page view starts from an empty bag instead of the same 404 forever.
+        // The wrapper flushes even though this rethrows.
+        if (e instanceof EmporixNotFoundError) clearCart(handle);
+        throw e;
+      }
     }, await emporixOptions());
   } catch (e) {
     return { error: describeError(e) };

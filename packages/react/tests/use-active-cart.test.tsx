@@ -186,16 +186,19 @@ describe("useActiveCart", () => {
     expect(seenAuth).toBe("Bearer CUST-TOK");
   });
 
-  it("surfaces errors from carts.get without crashing", async () => {
+  it("surfaces an error from carts.get without crashing", async () => {
+    // Deliberately not a 404: that one means «this cart is gone» and clears the
+    // stored id (see use-cart-stale-id.test.tsx). Any other status keeps it.
     server.use(
-      http.get("https://api.emporix.io/cart/acme/carts/stale-cart", () =>
-        HttpResponse.json({ message: "not found" }, { status: 404 }),
+      http.get("https://api.emporix.io/cart/acme/carts/stored-cart", () =>
+        HttpResponse.json({ message: "nope" }, { status: 403 }),
       ),
     );
     const storage = createMemoryStorage();
-    storage.setCartId("stale-cart");
+    storage.setCartId("stored-cart");
     const { result } = renderHook(() => useActiveCart(), { wrapper: wrap(storage) });
     await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(storage.getCartId()).toBe("stored-cart");
   });
 
   it("two parallel useActiveCart({create:true}) under the same provider share one bootstrap call", async () => {

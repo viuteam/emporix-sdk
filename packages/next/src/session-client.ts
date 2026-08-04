@@ -136,20 +136,34 @@ async function run<T>(
     ...(opts.store !== undefined ? { store: opts.store } : {}),
   });
   const customerToken = handle.get(STORAGE_KEYS.customerToken);
-  if (customerToken !== null) {
-    // Customer path: the memoized client is correct, the token is per call.
-    const client = getEmporixClient({ ...opts, tagged: false });
-    const result = await fn(client, auth.customer(customerToken), handle);
-    // Store mode needs one write at the end; in cookie mode `set` already wrote
-    // through and this is a no-op. The read-only variant never flushes.
+  const client =
+    customerToken !== null
+      ? // Customer path: the memoized client is correct, the token is per call.
+        getEmporixClient({ ...opts, tagged: false })
+      : newGuestClient(opts);
+  const ctx = customerToken !== null ? auth.customer(customerToken) : auth.anonymous();
+  if (customerToken === null) {
+    client.tokenProvider.attachAnonymousStore?.(anonymousStore(handle));
+  }
+  // Store mode needs one write at the end; in cookie mode `set` already wrote
+  // through and flush is a no-op. The read-only variant never flushes.
+  //
+  // The flush also runs when `fn` THREW, and that is the point. By then the
+  // handle can already hold a rotated anonymous refresh token — Emporix rotates
+  // it on every refresh — or a cleanup the callback did before failing. Cookie
+  // mode wrote those through the moment they were set; store mode used to drop
+  // them, so a failed Server Action left the session pointing at a refresh
+  // token Emporix had already invalidated, and the guest lost their cart on the
+  // next request. A store failure while unwinding must not replace the error
+  // the caller needs to see.
+  try {
+    const result = await fn(client, ctx, handle);
     if (!readOnly) await handle.flush();
     return result;
+  } catch (e) {
+    if (!readOnly) await handle.flush().catch(() => {});
+    throw e;
   }
-  const client = newGuestClient(opts);
-  client.tokenProvider.attachAnonymousStore?.(anonymousStore(handle));
-  const result = await fn(client, auth.anonymous(), handle);
-  if (!readOnly) await handle.flush();
-  return result;
 }
 
 /**

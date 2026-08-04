@@ -3,11 +3,13 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
   type UseMutationResult,
   type UseQueryResult,
 } from "@tanstack/react-query";
 import {
   EmporixError,
+  EmporixNotFoundError,
   type AuthContext,
   type Cart,
   type CartAddress,
@@ -27,10 +29,41 @@ import { useEmporixQuery } from "./internal/use-emporix-query";
 import { bootstrapCart } from "./internal/bootstrap-cart";
 import { emporixKey } from "./internal/query-keys";
 import { useActiveCompany } from "../company-context";
+import type { EmporixStorage } from "../storage";
+
+/**
+ * Forgets a cart the server no longer has.
+ *
+ * Emporix allows a customer one open cart per site, and placing an order closes
+ * it. Every other device still holds that id in its own storage, so its next
+ * cart read 404s — and it stays broken, because `useActiveCart({ create: true })`
+ * only bootstraps when the id is `null`, and a stale id is not `null`. Dropping
+ * the id turns the dead end into a fresh cart on the next render.
+ *
+ * Silent on purpose: the cart is gone server-side, so there is nothing left to
+ * show the shopper and nothing they could do about it.
+ *
+ * Clears only while `id` is still the stored one — a caller who passes some
+ * other cart's id must not be able to wipe this session's cart.
+ */
+function forgetGoneCart(
+  error: unknown,
+  id: string,
+  storage: EmporixStorage,
+  qc: QueryClient,
+): void {
+  if (!(error instanceof EmporixNotFoundError)) return;
+  if (storage.getCartId() !== id) return;
+  storage.setCartId(null);
+  // Held with `staleTime: Infinity`, so without this the next bootstrap would
+  // re-adopt the same dead cart out of the cache.
+  qc.removeQueries({ queryKey: ["emporix", "cart-bootstrap"] });
+}
 
 /** Fetches a cart by id. Falls back to `storage.getCartId()` when no argument is passed; disabled when neither is set. */
 export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResult<Cart> {
-  const { client } = useEmporix();
+  const { client, storage } = useEmporix();
+  const qc = useQueryClient();
   const { activeCompany } = useActiveCompany();
   const storedCartId = useCartId();
   const resolvedId = cartId ?? storedCartId ?? undefined;
@@ -39,7 +72,15 @@ export function useCart(cartId?: string, options: QueryOpts = {}): UseQueryResul
     args: [resolvedId ?? null, activeCompany?.id ?? null],
     ...(options.auth ? { authOverride: options.auth } : {}),
     enabled: resolvedId !== undefined,
-    queryFn: (ctx) => client.carts.get(resolvedId as string, ctx),
+    queryFn: async (ctx) => {
+      const id = resolvedId as string;
+      try {
+        return await client.carts.get(id, ctx);
+      } catch (e) {
+        forgetGoneCart(e, id, storage, qc);
+        throw e;
+      }
+    },
   });
 }
 
@@ -131,7 +172,7 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
       Cart,
       unknown,
       TVars,
-      { previous: Cart | undefined; key: readonly unknown[] }
+      { previous: Cart | undefined; key: readonly unknown[]; id: string }
     >({
       mutationFn: async (vars) => run(resolveId(), vars),
       onMutate: async (vars) => {
@@ -140,10 +181,14 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
         await qc.cancelQueries({ queryKey: key });
         const previous = qc.getQueryData<Cart>(key);
         if (optimistic) qc.setQueryData<Cart>(key, optimistic(previous, vars));
-        return { previous, key };
+        return { previous, key, id };
       },
-      onError: (_e, _v, c) => {
+      onError: (e, _v, c) => {
         if (c) qc.setQueryData(c.key, c.previous);
+        // A write into a cart that was closed elsewhere 404s just like a read.
+        // Same cleanup, so the mutate path recovers too instead of failing
+        // forever against a dead id.
+        if (c) forgetGoneCart(e, c.id, storage, qc);
       },
       onSuccess: (cart, _v, c) => {
         if (!c) return;

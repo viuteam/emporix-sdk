@@ -1,3 +1,4 @@
+import { EmporixNotFoundError } from "@viu/emporix-sdk";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { cartCoupons, cartLines, cartTotal, money } from "@viu/emporix-examples-shared";
 import { STORE_OPT } from "../emporix";
@@ -13,6 +14,21 @@ import { emporixOptions } from "../lib/site-context";
  * be — nothing in the browser holds cart state to update optimistically. That is
  * the documented cost of this mode, not an omission.
  */
+function EmptyBag(): React.JSX.Element {
+  return (
+    <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
+      <h1 className="serif">Your bag</h1>
+      <p className="muted">
+        No cart yet. Add something from the{" "}
+        <a href="/" className="u-underline">
+          catalog
+        </a>
+        .
+      </p>
+    </main>
+  );
+}
+
 export default async function CartPage(): Promise<React.JSX.Element> {
   // emporixSessionHandle, not cookies(): it applies the __Host- prefix and the codec.
   // Reading raw would hand back ciphertext once EMPORIX_COOKIE_SECRET is set — a
@@ -20,37 +36,39 @@ export default async function CartPage(): Promise<React.JSX.Element> {
   const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
   const cartId = handle.get(STORAGE_KEYS.cartId);
 
-  if (cartId === null) {
-    return (
-      <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-        <h1 className="serif">Your bag</h1>
-        <p className="muted">
-          No cart yet. Add something from the{" "}
-          <a href="/" className="u-underline">
-            catalog
-          </a>
-          .
-        </p>
-      </main>
-    );
-  }
+  if (cartId === null) return <EmptyBag />;
 
   // ONE session for the cart and the names. A second `withEmporixSession` would
   // build its own guest client and redeem the same anonymous refresh token again.
-  const { lines, total, coupons, names } = await withEmporixSession(async (client, ctx) => {
-    const cart = await client.carts.get(cartId, ctx);
-    const l = cartLines(cart);
-    return {
-      lines: l,
-      total: cartTotal(cart),
-      coupons: cartCoupons(cart),
-      names: await namesFor(
-        client,
-        ctx,
-        l.map((x) => x.productId),
-      ),
-    };
-  }, await emporixOptions());
+  let page;
+  try {
+    page = await withEmporixSession(async (client, ctx) => {
+      const cart = await client.carts.get(cartId, ctx);
+      const l = cartLines(cart);
+      return {
+        lines: l,
+        total: cartTotal(cart),
+        coupons: cartCoupons(cart),
+        names: await namesFor(
+          client,
+          ctx,
+          l.map((x) => x.productId),
+        ),
+      };
+    }, await emporixOptions());
+  } catch (e) {
+    // The same customer checked out on another device, which closed this cart.
+    // Show the empty bag rather than an error boundary — the cart is gone, and
+    // there is nothing the shopper could do about it.
+    //
+    // The id CANNOT be cleared here: this is a render, and a read-only handle
+    // does not write. The next Server Action clears it (see actions/cart.ts),
+    // and `addToCart` recovers on its own. Until then the header badge keeps the
+    // stale count — the price of not spending a cart call per page view.
+    if (!(e instanceof EmporixNotFoundError)) throw e;
+    return <EmptyBag />;
+  }
+  const { lines, total, coupons, names } = page;
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>

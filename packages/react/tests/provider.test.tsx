@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, renderHook, screen } from "@testing-library/react";
 import { QueryClient, useQueryClient } from "@tanstack/react-query";
-import { EmporixClient, type AnonymousSessionStore } from "@viu/emporix-sdk";
+import {
+  EmporixClient,
+  EmporixNotFoundError,
+  type AnonymousSessionStore,
+} from "@viu/emporix-sdk";
 import { EmporixProvider, useEmporix } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
 import type { ReactNode } from "react";
@@ -139,6 +143,18 @@ describe("EmporixProvider", () => {
   });
 });
 
+/**
+ * `retry` is a predicate, not a count: one retry for a transient failure, none
+ * for a 404. A 404 is an answer, and Emporix bills the repeat of it.
+ */
+function expectRetryPolicy(retry: unknown): void {
+  const fn = retry as (count: number, error: unknown) => boolean;
+  expect(typeof fn).toBe("function");
+  expect(fn(0, new Error("transient"))).toBe(true);
+  expect(fn(1, new Error("transient"))).toBe(false);
+  expect(fn(0, new EmporixNotFoundError("gone", 404))).toBe(false);
+}
+
 describe("EmporixProvider — QueryClient defaults (Balanced)", () => {
   it("applies Balanced defaults (emporix-scoped) when no queryClient prop is passed", () => {
     const client = mkClient();
@@ -152,7 +168,7 @@ describe("EmporixProvider — QueryClient defaults (Balanced)", () => {
     const defaults = result.current.getQueryDefaults(["emporix"]);
     expect(defaults.staleTime).toBe(30_000);
     expect(defaults.refetchOnWindowFocus).toBe(false);
-    expect(defaults.retry).toBe(1);
+    expectRetryPolicy(defaults.retry);
   });
 
   it("does not override an externally-passed QueryClient", () => {
@@ -182,7 +198,7 @@ describe("EmporixProvider — QueryClient defaults (Balanced)", () => {
     const defaults = qc.getQueryDefaults(["emporix"]);
     expect(defaults.staleTime).toBe(30_000);
     expect(defaults.refetchOnWindowFocus).toBe(false);
-    expect(defaults.retry).toBe(1);
+    expectRetryPolicy(defaults.retry);
   });
 
   it("keeps consumer-set emporix defaults (theirs win over ours)", () => {
