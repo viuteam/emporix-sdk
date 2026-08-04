@@ -20,5 +20,17 @@ export const SESSION_STORE = sessionStore();
  *  WithEmporixSessionOptions: the proxy and emporixSession. */
 export const STORE_OPT = SESSION_STORE !== undefined ? { store: SESSION_STORE } : {};
 
-/** Category known to contain priced products on the `viu` tenant. */
+/**
+ * Category known to contain priced products on the `viu` tenant — «Berechtigungen»,
+ * one of the 16 roots that carry products directly rather than through children.
+ *
+ * **Nothing imports this.** The home page used to; it lists `products.list()` now,
+ * like storefront-demo's does. It survives as the one documented shortcut to a
+ * product that actually carries a `priceId`: open `/category/<this>` and every tile
+ * has an «Add to cart» button, which is what you want when walking the cart and
+ * checkout by hand. The Playwright suite does not use it — that boots
+ * `examples/vite-spa`, not this demo.
+ *
+ * Delete it the day the README stops pointing at it.
+ */
 export const PRICED_CATEGORY = "4a1a25bd-d828-476c-a481-925fcffe6f34";
