@@ -86,7 +86,6 @@
   },
   "peerDependencies": {
     "@viu/emporix-sdk": "workspace:^",
-    "@viu/emporix-sdk-react": "workspace:^",
     "next": "^16.0.0"
   },
   "devDependencies": {
@@ -95,7 +94,6 @@
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^2.0.0",
     "@viu/emporix-sdk": "workspace:*",
-    "@viu/emporix-sdk-react": "workspace:*",
     "eslint": "^9.0.0",
     "next": "^16.2.12",
     "tsup": "^8.2.0",

@@ -1,14 +1,14 @@
 import { cookies } from "next/headers";
-import type { AuthContext } from "@viu/emporix-sdk";
-import { cookieName, readCookie, sealCookie } from "./cookie-name";
-import { SESSION_MAX_AGE, emporixSessionHandle } from "./session-cookies";
-import type { EmporixSessionStore } from "./session-store";
 import {
   createServerStorage,
   serverAuth,
+  type AuthContext,
+  type EmporixStorage,
   type ServerCookieJar,
-} from "@viu/emporix-sdk-react/ssr";
-import type { EmporixStorage } from "@viu/emporix-sdk-react";
+} from "@viu/emporix-sdk";
+import { cookieName, readCookie, sealCookie } from "./cookie-name";
+import { SESSION_MAX_AGE, emporixSessionHandle } from "./session-cookies";
+import type { EmporixSessionStore } from "./session-store";
 
 /** The Emporix session as it exists on the server for one request. */
 export interface EmporixServerSession {

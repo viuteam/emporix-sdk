@@ -7,10 +7,16 @@ reaches for `next/headers` or `next/cache`.
 ## Install
 
 ```bash
-pnpm add @viu/emporix-sdk-next @viu/emporix-sdk @viu/emporix-sdk-react next
+pnpm add @viu/emporix-sdk-next @viu/emporix-sdk next
 ```
 
-All four are peer dependencies. This package has no runtime dependencies.
+All three are peer dependencies. This package has no runtime dependencies.
+
+`@viu/emporix-sdk-react` is **not** required. It used to be — the session keys and
+the cookie-backed storage lived there — but none of that was React, so it moved to
+`@viu/emporix-sdk`. A server-first app now installs no React, no
+`@tanstack/react-query`, and no client bundle at all. Add the React package only
+if you also want a SPA.
 
 Requires **Next 16**. Next 15 is not supported: Next 16 made `revalidateTag`'s
 second `cacheLife` argument mandatory, and bridging both signatures would need a
