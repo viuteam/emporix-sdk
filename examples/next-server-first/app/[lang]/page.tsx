@@ -2,6 +2,7 @@ import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { PRICED_CATEGORY, TIMEOUTS } from "../emporix";
 import { Typeahead } from "../typeahead";
 import { ProductGrid } from "../components/product-grid";
+import { Island, Note, Sheet } from "../components/sheet";
 import { pricesFor } from "../lib/prices";
 import { siteContext } from "../lib/site-context";
 
@@ -43,28 +44,51 @@ export default async function Home({
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <p className="eyebrow">Catalog</p>
-      {/* `<h1>`, nicht `<h2>`: diese Seite hatte keine erste Ueberschrift. */}
-      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-4)" }}>
-        Products from the priced category
-      </h1>
-      <p className="muted" style={{ maxWidth: "52ch" }}>
-        Adding needs a price — Emporix requires a <code>priceId</code> on internal
-        cart items, so a product without one shows no button. Most of this tenant's
-        catalogue has none, which is why this page shows one category rather than
-        everything.
-      </p>
-      <p className="cluster" style={{ marginTop: "var(--s-4)" }}>
-        <a href={`/${lang}/categories`} className="u-underline">
-          Browse all categories →
-        </a>
-        <a href={`/${lang}/category/${PRICED_CATEGORY}`} className="u-underline">
-          Browse this category with pagination →
-        </a>
-      </p>
-      <Typeahead />
-      <hr className="rule" style={{ marginBlock: "var(--s-6)" }} />
-      <ProductGrid products={page.items} priceOf={priceOf} lang={lang} />
+      <Sheet
+        meta={{
+          route: "/[lang]",
+          render: "static",
+          revalidate: 3600,
+          islands: ["typeahead"],
+        }}
+        rail={
+          <>
+            {/* Diese vier Zeilen standen bis zum 2026-08-05 unter dem Titel und
+                waren das Erste, was ein Besucher lesen musste. Eine Fussnote am
+                Anfang des Textes ist keine Fussnote. */}
+            <Note title="Why one category">
+              Adding needs a price — Emporix requires a <code>priceId</code>{" "}
+              on internal cart items, so a product without one shows no button. Most
+              of this tenant&rsquo;s catalogue has none, which is why this page shows
+              one category rather than everything.
+            </Note>
+            <Note title="No Emporix call per view">
+              This page was rendered once and is served from the cache for an hour.
+              The catalogue read runs through the memoized, tagged client — not
+              through a session — so no anonymous login happens here.
+            </Note>
+          </>
+        }
+      >
+        <p className="eyebrow">Catalog</p>
+        {/* `<h1>`, nicht `<h2>`: diese Seite hatte keine erste Ueberschrift. */}
+        <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
+          Products from the priced category
+        </h1>
+        <p className="cluster">
+          <a href={`/${lang}/categories`} className="u-underline">
+            Browse all categories →
+          </a>
+          <a href={`/${lang}/category/${PRICED_CATEGORY}`} className="u-underline">
+            Browse this category with pagination →
+          </a>
+        </p>
+        <Island label="client island · typeahead">
+          <Typeahead />
+        </Island>
+        <hr className="rule" style={{ marginBlock: "var(--s-5)" }} />
+        <ProductGrid products={page.items} priceOf={priceOf} lang={lang} />
+      </Sheet>
     </main>
   );
 }

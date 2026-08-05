@@ -3,6 +3,7 @@ import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emp
 import { cartCoupons, cartLines, cartTotal, money } from "@viu/emporix-examples-shared";
 import { STORE_OPT } from "../emporix";
 import { ActionForm } from "../components/action-form";
+import { Note, TitleBlock } from "../components/sheet";
 import { namesFor } from "../lib/product-names";
 import { applyCoupon, removeCoupon, removeLine, setQuantity } from "../actions/cart";
 import { emporixOptions } from "../lib/site-context";
@@ -17,7 +18,8 @@ import { emporixOptions } from "../lib/site-context";
 function EmptyBag(): React.JSX.Element {
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <h1 className="serif">Your bag</h1>
+      <p className="eyebrow">Session</p>
+      <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Your bag</h1>
       <p className="muted">
         No cart yet. Add something from the{" "}
         <a href="/" className="u-underline">
@@ -72,9 +74,8 @@ export default async function CartPage(): Promise<React.JSX.Element> {
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <h1 className="serif" style={{ marginBottom: "var(--s-4)" }}>
-        Your bag
-      </h1>
+      <p className="eyebrow">Session</p>
+      <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Your bag</h1>
       {/* The id is httpOnly, so only the server can show it. Printed because
           watching it change across a login is the only way to see that the cart
           onboarding swapped the guest cart for the customer's — the items alone
@@ -94,7 +95,7 @@ export default async function CartPage(): Promise<React.JSX.Element> {
             <ul className="cart__lines">
               {lines.map((l) => (
                 <li key={l.id} className="cart__line">
-                  <span className="serif" style={{ fontSize: "var(--step-1)" }}>
+                  <span style={{ fontWeight: 500 }}>
                     {names[l.productId] ?? l.productId}
                   </span>
                   <ActionForm action={setQuantity} submit="Update" className="cluster">
@@ -124,47 +125,70 @@ export default async function CartPage(): Promise<React.JSX.Element> {
           )}
         </div>
 
-        <aside className="cart__summary surface">
-          {/* `<h2>`, nicht `<h3>`: nach dem `<h1>` dieser Seite ist h3 eine
-              uebersprungene Stufe. */}
-          <h2 className="serif" style={{ fontSize: "var(--step-2)" }}>
-            Summary
-          </h2>
+        {/* Diese Seite bekommt keine dritte Spalte. Die Summary ist Hauptsache und
+            nicht Annotation — Betrag und Kasse gehoeren in den Inhalt, nicht an den
+            Rand. Das Schriftfeld haengt sich deshalb unter die Summary statt in eine
+            eigene Marginalie. */}
+        <div className="stack">
+          <aside className="cart__summary surface">
+            {/* `<h2>`, nicht `<h3>`: nach dem `<h1>` dieser Seite ist h3 eine
+                uebersprungene Stufe. */}
+            <h2 style={{ fontSize: "var(--step-1)" }}>Summary</h2>
 
-          <div className="stack" style={{ marginTop: "var(--s-4)" }}>
-            <ActionForm action={applyCoupon} submit="Apply" className="stack">
-              <p className="field">
-                <label className="field__label" htmlFor="code">
-                  Coupon
-                </label>
-                <input id="code" className="input" name="code" />
-              </p>
-            </ActionForm>
-
-            {coupons.map((c) => (
-              <ActionForm key={c} action={removeCoupon} submit={`Remove ${c}`}>
-                <input type="hidden" name="code" value={c} />
+            <div className="stack" style={{ marginTop: "var(--s-4)" }}>
+              <ActionForm action={applyCoupon} submit="Apply" className="stack">
+                <p className="field">
+                  <label className="field__label" htmlFor="code">
+                    Coupon
+                  </label>
+                  <input id="code" className="input" name="code" />
+                </p>
               </ActionForm>
-            ))}
-          </div>
 
-          <hr className="rule" style={{ marginBlock: "var(--s-5)" }} />
-          <div className="cart__total">
-            <span className="eyebrow">Total</span>
-            <span className="price" style={{ fontSize: "var(--step-2)" }}>
-              {total ? money(total.amount, total.currency) : "—"}
-            </span>
-          </div>
-          {lines.length > 0 ? (
-            <a
-              href="/checkout"
-              className="btn btn--accent btn--block"
-              style={{ marginTop: "var(--s-5)" }}
-            >
-              Checkout →
-            </a>
-          ) : null}
-        </aside>
+              {coupons.map((c) => (
+                <ActionForm key={c} action={removeCoupon} submit={`Remove ${c}`}>
+                  <input type="hidden" name="code" value={c} />
+                </ActionForm>
+              ))}
+            </div>
+
+            <hr className="rule" style={{ marginBlock: "var(--s-5)" }} />
+            <div className="cart__total">
+              <span className="eyebrow">Total</span>
+              <span className="price" style={{ fontSize: "var(--step-2)" }}>
+                {total ? money(total.amount, total.currency) : "—"}
+              </span>
+            </div>
+            {lines.length > 0 ? (
+              <a
+                href="/checkout"
+                className="btn btn--accent btn--block"
+                style={{ marginTop: "var(--s-5)" }}
+              >
+                Checkout →
+              </a>
+            ) : null}
+          </aside>
+
+          {/* Die Formulare dieser Seite tragen KEINE Redline-Klammer, und das ist
+              Absicht: hier ist jedes Bedienelement ein `ActionForm` und damit eine
+              Insel. Fuenf Klammern, die alle dasselbe sagen, sagen nichts — die
+              Klammer verdient sich ihren Platz dort, wo sie etwas unterscheidet,
+              also im Header und beim Typeahead. */}
+          <TitleBlock
+            meta={{
+              route: "/cart",
+              render: "dynamic",
+              because: "session cookie",
+              islands: ["one per mutation form"],
+            }}
+          />
+          <Note title="No optimistic update">
+            Every mutation is a form post, and there is nothing in the browser holding
+            cart state to update ahead of the server. That is the documented cost of
+            this mode, not an omission.
+          </Note>
+        </div>
       </div>
     </main>
   );

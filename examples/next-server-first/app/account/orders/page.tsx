@@ -34,7 +34,7 @@ export default async function OrdersPage({
           ← Account
         </a>
       </p>
-      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
+      <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
         Orders
       </h1>
 

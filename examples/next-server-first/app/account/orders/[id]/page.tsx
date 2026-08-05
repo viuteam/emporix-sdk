@@ -43,7 +43,7 @@ export default async function OrderDetailPage({
           ← Orders
         </a>
       </p>
-      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-2)" }}>
+      <h1 style={{ marginBlock: "var(--s-2) var(--s-2)" }}>
         {vm.number}
       </h1>
       <p className="muted" style={{ marginBottom: "var(--s-6)" }}>
@@ -59,7 +59,7 @@ export default async function OrderDetailPage({
           >
             {/* The name is on the ORDER line — unlike a cart line, which carries
                 an empty `product` and needs a separate lookup. */}
-            <span className="serif">{i.name}</span>
+            <span style={{ fontWeight: 500 }}>{i.name}</span>
             <span className="muted">× {i.quantity}</span>
             <span className="price" style={{ marginLeft: "auto" }}>
               {i.lineTotal ? money(i.lineTotal.amount, i.lineTotal.currency) : ""}

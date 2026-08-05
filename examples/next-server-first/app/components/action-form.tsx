@@ -54,7 +54,7 @@ export function ActionForm({
     <form action={formAction} {...(className !== undefined ? { className } : {})}>
       {children}
       {state.error !== null ? (
-        <p role="alert" className="muted" style={{ color: "var(--oxblood)" }}>
+        <p role="alert" className="muted" style={{ color: "var(--redline)" }}>
           {state.error}
         </p>
       ) : null}

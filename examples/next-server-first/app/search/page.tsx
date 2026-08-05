@@ -1,6 +1,7 @@
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 
 import { ProductGrid } from "../components/product-grid";
+import { Note, Sheet } from "../components/sheet";
 import { pricesFor } from "../lib/prices";
 import { siteContext } from "../lib/site-context";
 import { DEFAULT_LANGUAGE } from "../lib/languages";
@@ -36,20 +37,32 @@ export default async function SearchPage({
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <p className="eyebrow">Search</p>
-      {/* `<h1>`, nicht `<h2>`: das ist die Ueberschrift dieser Seite, und darueber
-          steht keine. Eine Seite, die bei h2 anfaengt, hat fuer einen
-          Screenreader-Nutzer kein Thema. */}
-      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
-        {q === "" ? "Search the catalogue" : `«${q}»`}
-      </h1>
-      {page === null ? (
-        <p className="muted">Type a query in the header.</p>
-      ) : page.items.length === 0 ? (
-        <p className="muted">Nothing found for «{q}».</p>
-      ) : (
-        <ProductGrid products={page.items} priceOf={priceOf} lang={lang} />
-      )}
+      <Sheet
+        meta={{ route: "/search", render: "dynamic", because: "searchParams" }}
+        rail={
+          <Note title="No client state">
+            The header&rsquo;s search box is a plain <code>GET</code> form, so the
+            browser puts the query in the URL and this page reads it. storefront-demo
+            keeps the same query in <code>useState</code> and navigates
+            programmatically; here nobody has to.
+          </Note>
+        }
+      >
+        <p className="eyebrow">Search</p>
+        {/* `<h1>`, nicht `<h2>`: das ist die Ueberschrift dieser Seite, und darueber
+            steht keine. Eine Seite, die bei h2 anfaengt, hat fuer einen
+            Screenreader-Nutzer kein Thema. */}
+        <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
+          {q === "" ? "Search the catalogue" : `«${q}»`}
+        </h1>
+        {page === null ? (
+          <p className="muted">Type a query in the header.</p>
+        ) : page.items.length === 0 ? (
+          <p className="muted">Nothing found for «{q}».</p>
+        ) : (
+          <ProductGrid products={page.items} priceOf={priceOf} lang={lang} />
+        )}
+      </Sheet>
     </main>
   );
 }

@@ -28,7 +28,7 @@ export default async function AccountPage(): Promise<React.JSX.Element> {
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">Account</p>
-      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-2)" }}>
+      <h1 style={{ marginBlock: "var(--s-2) var(--s-2)" }}>
         {name === "" ? "Your account" : name}
       </h1>
       <p className="muted" style={{ marginBottom: "var(--s-6)" }}>
