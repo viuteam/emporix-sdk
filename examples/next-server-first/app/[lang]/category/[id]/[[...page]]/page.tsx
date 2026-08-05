@@ -1,12 +1,10 @@
 import { notFound } from "next/navigation";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
-import { catId, catLabel } from "@viu/emporix-examples-shared";
 
 import { ProductGrid } from "../../../../components/product-grid";
 import { pricesFor } from "../../../../lib/prices";
 import { siteContext } from "../../../../lib/site-context";
-import { categoryTree } from "../../../../lib/category-tree";
-import { findCategory } from "../../../../lib/category-walk";
+import { categoryIndex } from "../../../../lib/category-tree";
 import { TIMEOUTS } from "../../../../emporix";
 
 const PAGE_SIZE = 24;
@@ -59,9 +57,9 @@ export default async function CategoryPage({
   // Sequential, and NOT a Promise.all — measured 2026-08-04:
   // `productsIn("does-not-exist")` throws `EmporixNotFoundError`, so running both
   // in parallel lets that rejection win the race and the page 500s before
-  // `notFound()` can run. The tree is cached for an hour, so awaiting it first
-  // costs a cache read on all but the first request of the hour.
-  const roots = await categoryTree(lang);
+  // `notFound()` can run. The index is cached for an hour, so awaiting it first
+  // costs a cache read on all but the first render of the hour.
+  const index = await categoryIndex(lang);
 
   // The label and the hierarchy both come out of the tree, so `categories.get()`
   // is not called at all — one request fewer, and both are cached under the same
@@ -72,9 +70,9 @@ export default async function CategoryPage({
   // 1'631 nodes and `categories.list()` counted 1'631 categories, so the tree is
   // the whole catalogue. A tenant with unpublished trees would need
   // `categories.get(id)` as a fallback.
-  const found = findCategory(roots, id);
-  if (found === null) notFound();
-  const children = found.node.subcategories ?? [];
+  const entry = index.byId[id];
+  if (entry === undefined) notFound();
+  const children = entry.children;
 
   const products = await client.categories.productsIn(
     id,
@@ -92,25 +90,25 @@ export default async function CategoryPage({
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      {/* Ancestors come from the same walk that found the node, so the breadcrumb
-          costs nothing. It is not parity with storefront-demo — it has none — but
+      {/* The breadcrumb comes out of the index entry, prebuilt: no walk per
+          render. It is not parity with storefront-demo — it has none — but
           «Building & Construction» is six levels deep on this tenant, and without
           it level 4 gives a shopper no idea where they are. */}
       <p className="eyebrow">
         <a href={`/${lang}/categories`} className="u-underline">
           Categories
         </a>
-        {found.ancestors.map((a) => (
-          <span key={catId(a)}>
+        {entry.path.map((a) => (
+          <span key={a.id}>
             {" / "}
-            <a href={`/${lang}/category/${encodeURIComponent(catId(a))}`} className="u-underline">
-              {catLabel(a)}
+            <a href={`/${lang}/category/${encodeURIComponent(a.id)}`} className="u-underline">
+              {a.label}
             </a>
           </span>
         ))}
       </p>
       <h2 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
-        {catLabel(found.node)}
+        {entry.label}
       </h2>
 
       {/* Children from the TREE, not from `categories.subcategories()`. That call
@@ -132,11 +130,11 @@ export default async function CategoryPage({
         >
           {children.map((s) => (
             <a
-              key={catId(s)}
-              href={`/${lang}/category/${encodeURIComponent(catId(s))}`}
+              key={s.id}
+              href={`/${lang}/category/${encodeURIComponent(s.id)}`}
               className="u-underline"
             >
-              {catLabel(s)}
+              {s.label}
             </a>
           ))}
         </nav>
