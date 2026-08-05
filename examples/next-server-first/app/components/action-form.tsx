@@ -34,14 +34,24 @@ export function ActionForm({
   action,
   submit,
   children,
+  className,
 }: {
   action: FormAction;
   submit: string;
   children?: React.ReactNode;
+  /**
+   * Layout des Formulars, weil das `<form>` seinen Kindern keines gibt.
+   *
+   * Ohne das stiess der Knopf ohne Abstand an die Unterkante des Feldes — in der
+   * Warenkorb-Summary sichtbar. Die Warenkorbzeile will das Gegenteil, naemlich
+   * Beschriftung, Feld und Knopf in einer Reihe, und bekommt das schon vom
+   * Inline-Fluss. Darum ein Prop und kein fester Wert.
+   */
+  className?: string;
 }): React.JSX.Element {
   const [state, formAction, pending] = useActionState(action, { error: null });
   return (
-    <form action={formAction}>
+    <form action={formAction} {...(className !== undefined ? { className } : {})}>
       {children}
       {state.error !== null ? (
         <p role="alert" className="muted" style={{ color: "var(--oxblood)" }}>

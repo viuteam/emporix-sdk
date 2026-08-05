@@ -78,6 +78,9 @@ export default async function ProductPage({
   // stripHtml, not sanitizeHtml: there is no `DOMParser` in Node, so this demo
   // shows plain text where storefront-demo renders markup. See the README.
   const description = stripHtml(pickText((parent as { description?: unknown }).description, ""));
+  const images = productImages(parent)
+    .map((m) => imageOf([m]))
+    .filter((u): u is string => u !== undefined);
 
   async function add(formData: FormData): Promise<void> {
     "use server";
@@ -91,15 +94,21 @@ export default async function ProductPage({
           ← Catalogue
         </a>
       </p>
-      <div className="pdp__grid">
-        <div>
-          {productImages(parent).map((m, i) => {
-            const url = imageOf([m]);
-            return url === undefined ? null : (
-              <img key={i} src={url} alt={name} style={{ maxWidth: "100%" }} />
-            );
-          })}
-        </div>
+      {/* Zwei Spalten nur, wenn es ein Bild gibt. Kein Produkt dieses Tenants hat
+          eines, und ein leerer 600px-Platzhalter neben den Angaben ist schlechter
+          als gar keine Bildspalte. Jedes Bild sitzt in einer `.pdp__hero`-Box: die
+          hat ein `aspect-ratio`, steht also vor dem Bild und nimmt den
+          Layout-Sprung weg — der Grund, warum hier kein `next/image` fehlt. */}
+      <div className={images.length > 0 ? "pdp__grid" : ""}>
+        {images.length > 0 ? (
+          <div>
+            {images.map((url, i) => (
+              <div key={i} className="pdp__hero">
+                <img src={url} alt={name} loading={i === 0 ? "eager" : "lazy"} decoding="async" />
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="pdp__info">
           <h1 className="serif" style={{ fontSize: "var(--step-3)" }}>
             {name}

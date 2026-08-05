@@ -32,15 +32,20 @@ export default async function CategoriesPage({
       {roots.length === 0 ? (
         <p className="muted">This tenant publishes no category trees.</p>
       ) : (
-        <ul style={{ listStyle: "none", padding: 0 }}>
+        // Zuvor trug jeder Eintrag `.cart__line` — eine Warenkorb-Klasse auf einer
+        // Kategorieliste, uebrig aus einem Copy-Paste, und ohne Definition ohnehin
+        // wirkungslos. `.catnav` ist die Klasse fuer eine Reihe Kategorielinks.
+        <nav className="catnav" aria-label="Category roots">
           {roots.map((c) => (
-            <li key={c.id} className="cart__line">
-              <a href={`/${lang}/category/${encodeURIComponent(c.id)}`} className="u-underline serif">
-                {c.label}
-              </a>
-            </li>
+            <a
+              key={c.id}
+              href={`/${lang}/category/${encodeURIComponent(c.id)}`}
+              className="u-underline"
+            >
+              {c.label}
+            </a>
           ))}
-        </ul>
+        </nav>
       )}
     </main>
   );

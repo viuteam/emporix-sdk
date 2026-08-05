@@ -17,9 +17,14 @@
   --line-2: #d6ccb8;
   --good: #3f5b3a;
 
-  /* Type */
-  --font-display: "Fraunces Variable", "Fraunces", Georgia, "Times New Roman", serif;
-  --font-body: "Hanken Grotesk Variable", "Hanken Grotesk", system-ui, sans-serif;
+  /* Type — die Familien kommen aus `next/font/google` (siehe layout.tsx), nicht
+     aus einem @fontsource-Paket wie in storefront-demo. Zwei Gruende: next/font
+     braucht keine neue Dependency, und es setzt `preload` plus eine
+     metrik-angepasste Fallback-Familie, womit der Wechsel ohne Layout-Sprung
+     passiert. Die Kette hier ist deshalb `var(--font-fraunces)` statt eines
+     Familiennamens — den Namen generiert next/font pro Build. */
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-hanken), system-ui, sans-serif;
 
   /* Fluid type scale */
   --step--2: clamp(0.69rem, 0.67rem + 0.1vw, 0.75rem);

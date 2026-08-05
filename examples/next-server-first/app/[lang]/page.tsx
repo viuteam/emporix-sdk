@@ -44,26 +44,26 @@ export default async function Home({
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">Catalog</p>
-      <h2 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
+      {/* `<h1>`, nicht `<h2>`: diese Seite hatte keine erste Ueberschrift. */}
+      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-4)" }}>
         Products from the priced category
-      </h2>
+      </h1>
       <p className="muted" style={{ maxWidth: "52ch" }}>
         Adding needs a price — Emporix requires a <code>priceId</code> on internal
         cart items, so a product without one shows no button. Most of this tenant's
         catalogue has none, which is why this page shows one category rather than
         everything.
       </p>
-      <p>
+      <p className="cluster" style={{ marginTop: "var(--s-4)" }}>
         <a href={`/${lang}/categories`} className="u-underline">
           Browse all categories →
         </a>
-      </p>
-      <p>
         <a href={`/${lang}/category/${PRICED_CATEGORY}`} className="u-underline">
           Browse this category with pagination →
         </a>
       </p>
       <Typeahead />
+      <hr className="rule" style={{ marginBlock: "var(--s-6)" }} />
       <ProductGrid products={page.items} priceOf={priceOf} lang={lang} />
     </main>
   );
