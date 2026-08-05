@@ -1,4 +1,5 @@
 import { categoryIndex } from "../../lib/category-tree";
+import { Note, Sheet } from "../../components/sheet";
 
 /**
  * Every root category the tenant publishes.
@@ -24,29 +25,45 @@ export default async function CategoriesPage({
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <p className="eyebrow">Catalog</p>
-      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
-        Categories
-      </h1>
+      <Sheet
+        meta={{ route: "/[lang]/categories", render: "static", revalidate: 3600 }}
+        rail={
+          <>
+            <Note title="Roots only">
+              The tenant publishes 1&rsquo;631 categories in these trees. Rendering
+              every node would be 378 KiB of links on one page, and the whole tree is
+              reachable by drilling down from here.
+            </Note>
+            <Note title="Three of a name">
+              Three roots are called «Sports &amp; Outdoor» with 30 leaves each, so a
+              count next to the name would not tell them apart — the one thing a
+              reader would want it for.
+            </Note>
+          </>
+        }
+      >
+        <p className="eyebrow">Catalog</p>
+        <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>Categories</h1>
 
-      {roots.length === 0 ? (
-        <p className="muted">This tenant publishes no category trees.</p>
-      ) : (
-        // Zuvor trug jeder Eintrag `.cart__line` — eine Warenkorb-Klasse auf einer
-        // Kategorieliste, uebrig aus einem Copy-Paste, und ohne Definition ohnehin
-        // wirkungslos. `.catnav` ist die Klasse fuer eine Reihe Kategorielinks.
-        <nav className="catnav" aria-label="Category roots">
-          {roots.map((c) => (
-            <a
-              key={c.id}
-              href={`/${lang}/category/${encodeURIComponent(c.id)}`}
-              className="u-underline"
-            >
-              {c.label}
-            </a>
-          ))}
-        </nav>
-      )}
+        {roots.length === 0 ? (
+          <p className="muted">This tenant publishes no category trees.</p>
+        ) : (
+          // Zuvor trug jeder Eintrag `.cart__line` — eine Warenkorb-Klasse auf einer
+          // Kategorieliste, uebrig aus einem Copy-Paste, und ohne Definition ohnehin
+          // wirkungslos. `.catnav` ist die Klasse fuer eine Reihe Kategorielinks.
+          <nav className="catnav" aria-label="Category roots">
+            {roots.map((c) => (
+              <a
+                key={c.id}
+                href={`/${lang}/category/${encodeURIComponent(c.id)}`}
+                className="u-underline"
+              >
+                {c.label}
+              </a>
+            ))}
+          </nav>
+        )}
+      </Sheet>
     </main>
   );
 }

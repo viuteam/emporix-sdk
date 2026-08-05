@@ -1,3 +1,5 @@
+import { Note, Sheet } from "../../components/sheet";
+
 export default async function CheckoutDonePage({
   searchParams,
 }: {
@@ -6,37 +8,47 @@ export default async function CheckoutDonePage({
   const { orderId } = await searchParams;
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <p className="eyebrow">Done</p>
-      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-4)" }}>
-        Order placed
-      </h1>
-      <p className="muted" style={{ marginBottom: "var(--s-6)" }}>
-        Order <code>{orderId !== undefined && orderId !== "" ? orderId : "(none returned)"}</code>
-      </p>
-
-      <div className="surface form-col" style={{ padding: "var(--s-5)", maxWidth: "52ch" }}>
-        <div className="stack">
-          <p>
-            With the <code>custom</code> payment provider Emporix creates the order in the{" "}
-            <code>IN_CHECKOUT</code> status — it exists and is waiting for payment, it is not paid.
+      <Sheet
+        meta={{ route: "/checkout/done", render: "dynamic", because: "searchParams" }}
+        rail={
+          <Note title="Not paid">
+            With the <code>custom</code> payment provider Emporix creates the order in
+            the <code>IN_CHECKOUT</code> status — it exists and is waiting for payment.
             The cart is closed and its cookie has been cleared.
-          </p>
-          <p className="muted">
-            The <code>saasToken</code> used for this order stayed in an httpOnly cookie the whole
-            time. Check{" "}
-            <a href="/debug" className="u-underline">
-              /debug
-            </a>
-            .
-          </p>
-        </div>
-      </div>
+          </Note>
+        }
+      >
+        <p className="eyebrow">Done</p>
+        <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>Order placed</h1>
 
-      <p style={{ marginTop: "var(--s-5)" }}>
-        <a href="/" className="btn btn--outline">
-          Back to the catalog
-        </a>
-      </p>
+        <div className="tblock" style={{ maxWidth: "34rem" }}>
+          <div className="tblock__row">
+            <div className="tblock__key">Order</div>
+            <div className="tblock__val">
+              {orderId !== undefined && orderId !== "" ? orderId : "(none returned)"}
+            </div>
+          </div>
+          <div className="tblock__row">
+            <div className="tblock__key">Status</div>
+            <div className="tblock__val">IN_CHECKOUT</div>
+          </div>
+          <div className="tblock__row">
+            <div className="tblock__key">Token</div>
+            <div className="tblock__val tblock__val--static">
+              stayed in an httpOnly cookie
+            </div>
+          </div>
+        </div>
+
+        <p className="cluster" style={{ marginTop: "var(--s-6)" }}>
+          <a href="/" className="btn btn--outline">
+            Back to the catalog
+          </a>
+          <a href="/debug" className="u-underline">
+            Inspect the session →
+          </a>
+        </p>
+      </Sheet>
     </main>
   );
 }

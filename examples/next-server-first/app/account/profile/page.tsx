@@ -31,7 +31,7 @@ export default async function ProfilePage(): Promise<React.JSX.Element> {
           ← Account
         </a>
       </p>
-      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
+      <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
         Profile
       </h1>
 
@@ -76,7 +76,7 @@ export default async function ProfilePage(): Promise<React.JSX.Element> {
         />
       </ActionForm>
 
-      <h2 className="serif" style={{ marginTop: "var(--s-6)" }}>
+      <h2 style={{ marginTop: "var(--s-6)" }}>
         Password
       </h2>
       <ActionForm action={changePassword} submit="Change">

@@ -1,39 +1,83 @@
-/* Kopiert aus examples/storefront-demo/src/styles/tokens.css am 2026-08-03.
-   Absichtlich eine Kopie, keine geteilte Datei: geteilt haette eine Aenderung
-   dort diese Demo kaputt aussehen lassen, ohne dass ein Test es merkt.
-   Kopiert driften die zwei Demos optisch auseinander und nichts bricht. */
-/* Editorial Luxe — design tokens. One source of truth for the aesthetic. */
-:root {
-  /* Palette — warm paper, deep ink, a single oxblood accent. */
-  --paper: #f7f3ec;
-  --paper-2: #efe7d8;
-  --paper-3: #e9dfcc;
-  --ink: #14110d;
-  --ink-2: #3a342b;
-  --oxblood: #6b1f1f;
-  --oxblood-2: #511616;
-  --muted: #8a8175;
-  --line: #e3dccf;
-  --line-2: #d6ccb8;
-  --good: #3f5b3a;
+/* «Technische Zeichnung» — die Design-Tokens dieser Demo.
+   =========================================================================
 
-  /* Type — die Familien kommen aus `next/font/google` (siehe layout.tsx), nicht
-     aus einem @fontsource-Paket wie in storefront-demo. Zwei Gruende: next/font
-     braucht keine neue Dependency, und es setzt `preload` plus eine
-     metrik-angepasste Fallback-Familie, womit der Wechsel ohne Layout-Sprung
-     passiert. Die Kette hier ist deshalb `var(--font-fraunces)` statt eines
-     Familiennamens — den Namen generiert next/font pro Build. */
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
-  --font-body: var(--font-hanken), system-ui, sans-serif;
+   Vorher standen hier «Editorial Luxe», kopiert aus examples/storefront-demo.
+   Die Kopie war nicht falsch abgeschrieben, sie war das Kostuem einer anderen
+   App: warmes Papier, hochkontrastige Serif, ein Oxblood-Akzent. Das ist eine
+   Ausstattung fuer einen Shop, der etwas Schoenes verkauft.
+
+   Diese Demo verkauft nichts. Ihr Gegenstand ist eine Architektur-Entscheidung —
+   der Browser haelt keinen Token — und ihr Publikum sind Entwickler, die
+   entscheiden, ob sie diesen Modus uebernehmen. Entsprechend besteht ihr Inhalt
+   zu einem grossen Teil aus Maschinenwerten: `priceId`, Cart-Hashes,
+   `IN_CHECKOUT`, `revalidate 3600`, «no price in this context». Eine
+   Mode-Serif hat fuer nichts davon einen Platz, also landete das alles als
+   grauer Nebentext dort, wo die Seite ihre Hauptsache haette.
+
+   Eine Referenz-Implementierung IST eine annotierte Zeichnung. Daraus kommt
+   alles hier:
+
+   FARBE   Zeichnungsfilm statt Papier. Der Film der Reissbrett-Aera ist kuehl
+           und leicht gruenstichig, nicht cremefarben. Linien und Text in
+           Zeichentusche-Blauschwarz. Der eine Akzent ist Redline-Rot: die Farbe,
+           in der eine Zeichnung korrigiert und kommentiert wird — «redlining»
+           ist der Fachbegriff dafuer. Er ist deshalb ausschliesslich fuer
+           Annotation und fuer die Server/Client-Grenze reserviert, nie fuer
+           Dekoration.
+
+   SCHRIFT Drei Rollen, drei Aufgaben. Archivo mit weit gestellter Breitenachse
+           fuer Display — eine Grotesk mit Breitenkontrast statt Stilkontrast,
+           was die Bewegung einer technischen Plattenschrift ist: Beschriftung
+           breit, Notiz schmal. IBM Plex Sans fuer Text und IBM Plex Mono fuer
+           jeden Maschinenwert. Die zwei Plex sind metrisch verwandte
+           Geschwister, gebaut fuer technische Dokumentation — genau der
+           Wechsel, den diese App auf jeder Seite dutzendfach macht.
+
+   RASTER  Inhaltsspalte plus Annotations-Marginalie. Die rechten 55 % des
+           Fensters standen leer (auf 1440px gemessen), und gleichzeitig
+           verstopfte die Erklaerprosa den Seitenanfang. Beide Probleme sind
+           dasselbe Problem.
+
+   SIGNATURE  Das Schriftfeld und die Insel-Klammern, siehe
+           `components/sheet.tsx`. Eine Motivik in zwei Auspraegungen, beide mit
+           echten Fakten pro Seite.
+
+   Bewusst NICHT uebernommen aus der Zeichnungssprache: Schraffuren, ein
+   Massstab, eine Blattnummer, Pfeilspitzen an jeder Linie. Das waere Dekoration
+   mit Fachbegriff — eine Blattnummer kodiert hier nichts. */
+:root {
+  /* Palette — Zeichnungsfilm, Tusche, eine Korrekturfarbe. */
+  --film: #eaeeec;
+  --film-2: #dee3e0;
+  --film-3: #d2d9d5;
+  --ink: #16232b;
+  --ink-2: #4a5c66;
+  --redline: #b8301a;
+  --redline-2: #8f2413;
+  /* Gemessen, nicht geschaetzt: der erste Wert (#6d7f88) kam auf 3.56 gegen
+     `--film` und fiel damit unter die 4.5 der WCAG-AA fuer normalen Text. Diese
+     Farbe traegt jede Beschriftung der Demo — Eyebrow, Feldbeschriftung, die
+     Schluesselspalte im Schriftfeld —, also ausgerechnet den Text, der Kontrast am
+     dringendsten braucht. #52646d liegt bei 5.27 auf `--film` und 5.28 auf
+     `--film-2`. */
+  --muted: #52646d;
+  --line: #c3cdc8;
+  --line-2: #aab6b1;
+  --good: #2f5d4a;
+
+  /* Type — die Familien kommen aus `next/font/google`, siehe layout.tsx. */
+  --font-display: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --font-body: var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
 
   /* Fluid type scale */
   --step--2: clamp(0.69rem, 0.67rem + 0.1vw, 0.75rem);
   --step--1: clamp(0.83rem, 0.79rem + 0.2vw, 0.94rem);
-  --step-0: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
-  --step-1: clamp(1.2rem, 1.1rem + 0.5vw, 1.5rem);
-  --step-2: clamp(1.6rem, 1.35rem + 1.2vw, 2.4rem);
-  --step-3: clamp(2.1rem, 1.65rem + 2.2vw, 3.4rem);
-  --step-4: clamp(2.7rem, 1.9rem + 3.8vw, 5.2rem);
+  --step-0: clamp(1rem, 0.95rem + 0.25vw, 1.0625rem);
+  --step-1: clamp(1.15rem, 1.05rem + 0.45vw, 1.4rem);
+  --step-2: clamp(1.5rem, 1.25rem + 1.1vw, 2.2rem);
+  --step-3: clamp(1.9rem, 1.5rem + 2vw, 3rem);
+  --step-4: clamp(2.4rem, 1.75rem + 3.2vw, 4.4rem);
 
   /* Space */
   --s-1: 0.25rem;
@@ -45,17 +89,24 @@
   --s-7: 4rem;
   --s-8: 6rem;
   --gutter: clamp(1.1rem, 0.5rem + 2.6vw, 3rem);
-  --maxw: 80rem;
+  --maxw: 84rem;
+  /* Breite der Annotations-Marginalie. */
+  --rail: 17rem;
 
-  --radius: 2px;
-  --radius-lg: 4px;
+  /* Eine Zeichnung hat keine abgerundeten Ecken und keinen Schlagschatten. Beide
+     Tokens bleiben, weil global.css sie referenziert — auf 0 gesetzt statt
+     entfernt, damit hier eine Entscheidung steht und keine Luecke. */
+  --radius: 0;
+  --radius-lg: 0;
   --line-w: 1px;
+  /* Die Linie, mit der annotiert wird, ist duenner als die, mit der gezeichnet
+     wird. Unter 1px rendert kein Browser verlaesslich, also ueber die Farbe. */
+  --line-annot: 1px;
 
-  /* Depth — restrained, editorial */
-  --shadow-1: 0 1px 0 var(--line), 0 8px 24px -18px rgba(20, 17, 13, 0.45);
-  --shadow-2: 0 18px 50px -28px rgba(20, 17, 13, 0.5);
+  --shadow-1: none;
+  --shadow-2: none;
 
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur: 0.5s;
+  --dur: 0.35s;
 }

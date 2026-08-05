@@ -28,9 +28,19 @@ export function LanguageSwitcher(): React.JSX.Element {
       {LANGUAGES.map((l) => {
         const next = swapLanguage(pathname, l);
         const href = `/api/session/language?to=${l}&next=${encodeURIComponent(next)}`;
+        // Die aktive Sprache ist umrahmt, nicht mit einem Punkt markiert. Auf einer
+        // Zeichnung ist der geltende Stand eingerahmt, und ein Rahmen ist — anders
+        // als eine Farbe allein — ein Unterschied, den auch sieht, wer Rot nicht von
+        // Grau unterscheiden kann. `aria-current` sagt dasselbe fuer Screenreader.
         return (
-          <a key={l} href={href} className="u-underline" hrefLang={l}>
-            {l === active ? `${l} ●` : l}
+          <a
+            key={l}
+            href={href}
+            className={l === active ? "tag tag--accent" : "tag"}
+            hrefLang={l}
+            {...(l === active ? { "aria-current": "true" as const } : {})}
+          >
+            {l}
           </a>
         );
       })}

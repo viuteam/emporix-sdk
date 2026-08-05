@@ -108,9 +108,7 @@ export default async function CategoryPage({
         ))}
       </p>
       {/* `<h1>`, nicht `<h2>`: der Kategoriename ist das Thema dieser Seite. */}
-      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
-        {entry.label}
-      </h1>
+      <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>{entry.label}</h1>
 
       {/* Children from the TREE, not from `categories.subcategories()`. That call
           reads category-to-category assignments — the same `/assignments` URL

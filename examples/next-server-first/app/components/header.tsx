@@ -1,5 +1,6 @@
 import { LanguageSwitcher } from "./language-switcher";
 import { SessionNav } from "./session-nav";
+import { Island } from "./sheet";
 
 /**
  * A Server Component that makes zero Emporix calls **and reads no cookies**.
@@ -28,8 +29,12 @@ export function Header(): React.JSX.Element {
         className="container cluster"
         style={{ gap: "var(--s-5)", paddingBlock: "var(--s-4)", alignItems: "center" }}
       >
-        <a href="/" className="serif" style={{ fontSize: "var(--step-1)", whiteSpace: "nowrap" }}>
-          Server<span style={{ color: "var(--oxblood)" }}>—</span>First
+        <a
+          href="/"
+          className="display"
+          style={{ fontSize: "var(--step-1)", whiteSpace: "nowrap", fontWeight: 600 }}
+        >
+          Server<span style={{ color: "var(--redline)" }}>/</span>First
         </a>
 
         {/* Mit `flex: 1` allein stand das 26rem-Feld auf einem 390px-Viewport ueber
@@ -54,14 +59,27 @@ export function Header(): React.JSX.Element {
           className="cluster"
           style={{ gap: "var(--s-4)", marginLeft: "auto", fontSize: "var(--step--1)" }}
         >
-          <LanguageSwitcher />
+          {/* Die zwei Inseln der Shell, mit der Redline-Klammer markiert: das ist
+              alles, was auf jeder Seite im Browser hydriert. Ohne Beschriftung, weil
+              hier kein Platz dafuer ist — die Legende steht im Schriftfeld der
+              Marginalie. */}
+          <Island>
+            <LanguageSwitcher />
+          </Island>
           {/* A plain anchor, deliberately. Rendering the category tree here would
               put an Emporix call in the shell and break the invariant this file's
               doc comment claims — /categories carries that cost instead. */}
           <a href="/categories" className="u-underline">
             Categories
           </a>
-          <SessionNav />
+          <Island>
+            {/* `SessionNav` liefert zwei bis drei Geschwister. In der Klammer sind
+                sie Kinder eines eigenen `div` und verlieren damit den Abstand, den
+                die Navigation aussen setzt — der `.cluster` hier gibt ihn zurueck. */}
+            <span className="cluster" style={{ gap: "var(--s-4)" }}>
+              <SessionNav />
+            </span>
+          </Island>
           <a href="/debug" className="u-underline">
             Debug
           </a>

@@ -2,6 +2,7 @@ import { EmporixNotFoundError, pickFee, resolveZone, type Address } from "@viu/e
 import { money, pickText } from "@viu/emporix-examples-shared";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { SITE, STORE_OPT } from "../emporix";
+import { Note, Sheet } from "../components/sheet";
 import { submitCheckout } from "../actions/checkout";
 import { siteContext, emporixOptions } from "../lib/site-context";
 
@@ -9,7 +10,8 @@ import { siteContext, emporixOptions } from "../lib/site-context";
 function NoCart(): React.JSX.Element {
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <h1 className="serif">Checkout</h1>
+      <p className="eyebrow">Step 2 of 2</p>
+      <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Checkout</h1>
       <p className="muted">
         No cart yet. Add something from the{" "}
         <a href="/" className="u-underline">
@@ -123,18 +125,41 @@ export default async function CheckoutPage({
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <p className="eyebrow">Step 2 of 2</p>
-      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-4)" }}>
-        Checkout
-      </h1>
-      {error !== undefined && error !== "" ? (
-        <p role="alert" className="tag tag--accent" style={{ marginBottom: "var(--s-4)" }}>
-          {error}
+      <Sheet
+        meta={{
+          route: "/checkout",
+          render: "dynamic",
+          because: "session cookie · searchParams",
+        }}
+        rail={
+          <>
+            <Note title="One session, five calls">
+              The cart, the payment modes, the shipping zones, the saved addresses and
+              the profile are read in a single <code>withEmporixSession</code>. Five
+              separate calls would build five guest clients and redeem the same
+              anonymous refresh token five times over.
+            </Note>
+            <Note title="Errors travel in the URL">
+              This form redirects back with an <code>error</code> query parameter
+              instead of holding state in a client component. It needs no JavaScript —
+              and it writes error text into a shareable URL, which is a defect rather
+              than a cosmetic difference. Both shapes are in this demo on purpose; the
+              cart uses the other one.
+            </Note>
+          </>
+        }
+      >
+        <p className="eyebrow">Step 2 of 2</p>
+        <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Checkout</h1>
+        {error !== undefined && error !== "" ? (
+          <p role="alert" className="tag tag--accent" style={{ marginBottom: "var(--s-4)" }}>
+            {error}
+          </p>
+        ) : null}
+        <p className="muted" style={{ marginBottom: "var(--s-6)" }}>
+          {items} {items === 1 ? "item" : "items"} ·{" "}
+          <span className="price">{money(total, currency)}</span>
         </p>
-      ) : null}
-      <p className="muted" style={{ marginBottom: "var(--s-6)" }}>
-        {items} {items === 1 ? "item" : "items"} · <span className="price">{money(total, currency)}</span>
-      </p>
 
       {/* `.form-col` begrenzt die Spalte. Ohne das waren die Felder so breit wie
           der Viewport — auf 1440px gemessen 1'190px fuer eine Postleitzahl. */}
@@ -234,7 +259,8 @@ export default async function CheckoutPage({
         >
           Place order
         </button>
-      </form>
+        </form>
+      </Sheet>
     </main>
   );
 }

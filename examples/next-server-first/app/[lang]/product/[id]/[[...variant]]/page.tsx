@@ -10,6 +10,7 @@ import {
   stripHtml,
 } from "@viu/emporix-examples-shared";
 
+import { Note, Sheet } from "../../../../components/sheet";
 import { pricesFor } from "../../../../lib/prices";
 import { addToCart } from "../../../../actions/cart";
 import { siteContext } from "../../../../lib/site-context";
@@ -89,74 +90,103 @@ export default async function ProductPage({
 
   return (
     <main className="container pdp" style={{ paddingBlock: "var(--s-6)" }}>
-      <p style={{ marginBottom: "var(--s-5)" }}>
-        <a href={`/${lang}`} className="eyebrow u-underline">
-          ← Catalogue
-        </a>
-      </p>
-      {/* Zwei Spalten nur, wenn es ein Bild gibt. Kein Produkt dieses Tenants hat
-          eines, und ein leerer 600px-Platzhalter neben den Angaben ist schlechter
-          als gar keine Bildspalte. Jedes Bild sitzt in einer `.pdp__hero`-Box: die
-          hat ein `aspect-ratio`, steht also vor dem Bild und nimmt den
-          Layout-Sprung weg — der Grund, warum hier kein `next/image` fehlt. */}
-      <div className={images.length > 0 ? "pdp__grid" : ""}>
-        {images.length > 0 ? (
-          <div>
-            {images.map((url, i) => (
-              <div key={i} className="pdp__hero">
-                <img src={url} alt={name} loading={i === 0 ? "eager" : "lazy"} decoding="async" />
-              </div>
-            ))}
+      <Sheet
+        meta={{
+          route: "/[lang]/product/[id]/[[...variant]]",
+          render: "static",
+          revalidate: 3600,
+        }}
+        rail={
+          <>
+            <Note title="Variant is a path">
+              The chosen variant is a path segment, not <code>?variant=</code>.
+              Reading <code>searchParams</code> would make this route dynamic, and a
+              variant deserves its own cacheable, bookmarkable URL anyway.
+            </Note>
+            <Note title="Plain text description">
+              storefront-demo renders the merchant&rsquo;s HTML. There is no{" "}
+              <code>DOMParser</code> in Node, so this demo strips it instead of
+              sanitising it — a server-first build has to say where its limits are.
+            </Note>
+          </>
+        }
+      >
+        <p style={{ marginBottom: "var(--s-5)" }}>
+          <a href={`/${lang}`} className="eyebrow u-underline">
+            ← Catalogue
+          </a>
+        </p>
+        {/* Zwei Spalten nur, wenn es ein Bild gibt. Kein Produkt dieses Tenants hat
+            eines, und ein leerer 600px-Platzhalter neben den Angaben ist schlechter
+            als gar keine Bildspalte. Jedes Bild sitzt in einer `.pdp__hero`-Box: die
+            hat ein `aspect-ratio`, steht also vor dem Bild und nimmt den
+            Layout-Sprung weg — der Grund, warum hier kein `next/image` fehlt. */}
+        <div className={images.length > 0 ? "pdp__grid" : ""}>
+          {images.length > 0 ? (
+            <div>
+              {images.map((url, i) => (
+                <div key={i} className="pdp__hero">
+                  <img
+                    src={url}
+                    alt={name}
+                    loading={i === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <div className="pdp__info">
+            <h1 style={{ fontSize: "var(--step-2)" }}>{name}</h1>
+            {price !== undefined ? (
+              <p className="price" style={{ fontSize: "var(--step-1)", marginTop: "var(--s-4)" }}>
+                {money(price.amount, price.currency)}
+              </p>
+            ) : (
+              <p className="muted" style={{ marginTop: "var(--s-4)" }}>
+                No price in this context — this product cannot be added to a cart.
+              </p>
+            )}
+            {description !== "" ? (
+              <p className="muted" style={{ marginTop: "var(--s-4)", maxWidth: "60ch" }}>
+                {description}
+              </p>
+            ) : null}
+
+            {children.length > 0 ? (
+              <nav
+                className="cluster"
+                aria-label="Variants"
+                style={{ gap: "var(--s-2)", marginTop: "var(--s-5)" }}
+              >
+                {children.map((c) => {
+                  const cid = (c as { id?: string }).id ?? "";
+                  return (
+                    <a
+                      key={cid}
+                      href={`/${lang}/product/${encodeURIComponent(id)}/${encodeURIComponent(cid)}`}
+                      className={cid === selectedId ? "tag tag--accent" : "tag"}
+                    >
+                      {productName(c)}
+                    </a>
+                  );
+                })}
+              </nav>
+            ) : null}
+
+            {price !== undefined ? (
+              <form action={add} style={{ marginTop: "var(--s-5)" }}>
+                {/* The SELECTED id, which is a variant's when one is picked: a
+                    PARENT_VARIANT is not orderable. */}
+                <input type="hidden" name="productId" value={selectedId} />
+                <button type="submit" className="btn btn--accent">
+                  Add to cart
+                </button>
+              </form>
+            ) : null}
           </div>
-        ) : null}
-        <div className="pdp__info">
-          <h1 className="serif" style={{ fontSize: "var(--step-3)" }}>
-            {name}
-          </h1>
-          {price !== undefined ? (
-            <p className="price" style={{ fontSize: "var(--step-2)", marginTop: "var(--s-3)" }}>
-              {money(price.amount, price.currency)}
-            </p>
-          ) : (
-            <p className="muted" style={{ marginTop: "var(--s-3)" }}>
-              No price in this context — this product cannot be added to a cart.
-            </p>
-          )}
-          {description !== "" ? (
-            <p className="muted" style={{ marginTop: "var(--s-4)", maxWidth: "52ch" }}>
-              {description}
-            </p>
-          ) : null}
-
-          {children.length > 0 ? (
-            <nav className="cluster" aria-label="Variants" style={{ gap: "var(--s-2)", marginTop: "var(--s-4)" }}>
-              {children.map((c) => {
-                const cid = (c as { id?: string }).id ?? "";
-                return (
-                  <a
-                    key={cid}
-                    href={`/${lang}/product/${encodeURIComponent(id)}/${encodeURIComponent(cid)}`}
-                    className={cid === selectedId ? "tag tag--accent" : "tag"}
-                  >
-                    {productName(c)}
-                  </a>
-                );
-              })}
-            </nav>
-          ) : null}
-
-          {price !== undefined ? (
-            <form action={add} style={{ marginTop: "var(--s-4)" }}>
-              {/* The SELECTED id, which is a variant's when one is picked: a
-                  PARENT_VARIANT is not orderable. */}
-              <input type="hidden" name="productId" value={selectedId} />
-              <button type="submit" className="btn btn--accent">
-                Add to cart
-              </button>
-            </form>
-          ) : null}
         </div>
-      </div>
+      </Sheet>
     </main>
   );
 }
