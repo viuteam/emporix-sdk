@@ -357,6 +357,10 @@ export type ImportedRecord = {
      */
     naturalKey?: string;
     /**
+     * The deterministic Emporix instance ID the record was written under. It's derived from the natural key and allows the record to be located in the target.
+     */
+    targetId?: string;
+    /**
      * The stored fields.
      */
     fields?: {
@@ -828,6 +832,10 @@ export type PostImporttoolTriggerRunData = {
          * When `true`, the run maps and validates but performs no remote writes.
          */
         dryRun?: boolean;
+        /**
+         * When `true`, every extracted record is rewritten, even if unchanged. It bypasses the idempotency `skip-if-unchanged` check. Use it to force target IDs and values to be rewritten.
+         */
+        force?: boolean;
     };
     path: {
         /**
