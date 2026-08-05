@@ -1,5 +1,81 @@
 # @viu/emporix-sdk-next
 
+## 0.8.0
+
+### Minor Changes
+
+- [#225](https://github.com/viuteam/emporix-sdk/pull/225) [`8d7dd9b`](https://github.com/viuteam/emporix-sdk/commit/8d7dd9b0514242f033ec8158e97908b4cb4523bc) Thanks [@amnael1](https://github.com/amnael1)! - Two fixes from the 1'000-CCU analysis, both in this package.
+
+  **`createEmporixPublicRoute` caches.** It called `globalThis.fetch` with no cache
+  options and returned no `Cache-Control`, so every debounced keystroke in a
+  typeahead was a billed Emporix call for an answer every visitor shares — while its
+  own doc comment claimed «cached by Next once for all visitors». The upstream fetch
+  now carries the same `next: { tags, revalidate }` a Server Component's catalog read
+  gets, so the same webhook invalidates both, and the response carries
+  `Cache-Control: public, s-maxage=<revalidate>, stale-while-revalidate=60`. Errors
+  and the 403 for a forbidden path answer `no-store`: a 502 pinned for an hour would
+  outlive the outage that caused it.
+
+  **`timeouts` is configurable.** Neither `getEmporixClient` nor
+  `withEmporixSession` could set a request budget, so every consumer ran on the SDK
+  defaults — 10 s to headers, 60 s to the end of the body. At high concurrency that
+  is what turns one slow Emporix minute into a process full of parked requests. The
+  option is part of `getEmporixClient`'s memo key, so two budgets are two clients
+  rather than whichever one asked first.
+
+- [#224](https://github.com/viuteam/emporix-sdk/pull/224) [`6fb3a23`](https://github.com/viuteam/emporix-sdk/commit/6fb3a2302545e542303610e4e3f0f37d3cd99d8d) Thanks [@amnael1](https://github.com/amnael1)! - Share the read-only session handle within one request.
+
+  A page view builds the handle several times for the same record — the page,
+  whatever resolves the site context, `withEmporixSession` — and each build re-read
+  the cookies, re-derived `Secure` from the headers, and in store mode made its own
+  round trip to Redis. For data that cannot change mid-request. Measured on
+  `examples/next-server-first`: `/api/session/nav` has two construction sites and
+  now builds **one** handle; before this it built two.
+
+  Read-only handles are memoized on the object `await cookies()` returns, which
+  Next scopes to the request. **Mutable handles are deliberately not shared**:
+  `emporixLogin` builds one, flushes it, and lets the cart onboarding build a
+  second that must read what the first wrote. Collapsing those two would break
+  login in store mode, where the record only exists after a flush.
+
+  No React. `cache()` would have been the obvious tool and would have re-added the
+  dependency this package removed in 0.7.0; `AsyncLocalStorage` needs someone to
+  open the context, which Next does not offer a library. The `WeakMap` entry dies
+  with the request because nothing else holds the anchor.
+
+  Two limits worth knowing: the memo keys coarsely on «cookie mode» versus «store
+  mode», so an app running two different stores in one process would share an entry
+  — an app has one. And a rejected build is not cached, so a transient store outage
+  costs one failed read rather than poisoning every later read in the request.
+
+### Patch Changes
+
+- [#221](https://github.com/viuteam/emporix-sdk/pull/221) [`7d95ca8`](https://github.com/viuteam/emporix-sdk/commit/7d95ca89d2c600227a3e81648353b0f46f1b2751) Thanks [@amnael1](https://github.com/amnael1)! - Docs only for the package: `examples/next-server-first` now serves its catalog
+  from static, revalidated routes instead of rendering every visit, and the package
+  README's server-first section gains the rule that made it possible — a
+  `cookies()` read anywhere in a route's tree makes that route dynamic for good,
+  including a read in the shared header.
+
+  No package code changed. The example moved its catalog to `/[lang]/…`, turned
+  `?page=` and `?variant=` into path segments, and moved the two personalised bits
+  of the header into client islands backed by a new `/api/session/nav` route. The
+  result, measured against `next start`: `x-nextjs-cache: MISS` then `HIT` with
+  `s-maxage=3600` on category and product pages, while `/cart` stays
+  `private, no-cache, no-store`.
+
+- [#226](https://github.com/viuteam/emporix-sdk/pull/226) [`8d10ce8`](https://github.com/viuteam/emporix-sdk/commit/8d10ce8b6dd477c1b864c868d8b72c497280903e) Thanks [@amnael1](https://github.com/amnael1)! - Docs only for the package. `examples/next-server-first` now flattens the category
+  tree into a cached index instead of walking it per render: the tenant's tree is
+  1'631 nodes and 378 KiB of full category objects, and a category page needed three
+  things out of it — a label, a breadcrumb and the direct children.
+
+  Worth stating what this is worth now rather than repeating the number from the
+  analysis: since the catalog routes moved to ISR, a render only happens on a cache
+  miss, so this is a per-miss saving shared across every category path and both
+  listing pages within the hour — not the per-request one it would have been before.
+
+  `category-walk.ts` is gone with it; the walk it did per render is now done once
+  per hour by `buildIndex`.
+
 ## 0.7.1
 
 ### Patch Changes
