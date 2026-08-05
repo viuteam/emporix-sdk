@@ -99,4 +99,43 @@ describe("emporixSiteProxy", () => {
     expect(cookie).toContain(`${LANG}=de`);
     expect(cookie).not.toContain(`${LANG}=fr`);
   });
+
+  it("persistiert bei einer echten Dokument-Navigation", () => {
+    const request = new NextRequest("https://shop.test/de/x", {
+      headers: { "Sec-Fetch-Mode": "navigate" },
+    });
+    const response = emporixSiteProxy(request, { siteCode: "main", language: "de" });
+    expect(response.cookies.get(LANG)?.value).toBe("de");
+    expect(response.cookies.get(SITE)?.value).toBe("main");
+  });
+
+  it("persistiert NICHTS auf einem fetch-basierten Request", () => {
+    // Der Fall, um den es geht: ein `<Link>`-Prefetch auf eine Route in der
+    // anderen Sprache darf die Sprache des Besuchers nicht umstellen. Prefetch und
+    // clientseitige Navigation sind beide `cors`.
+    const request = new NextRequest("https://shop.test/en/x", {
+      headers: { cookie: `${LANG}=de`, "Sec-Fetch-Mode": "cors" },
+    });
+    const response = emporixSiteProxy(request, { siteCode: "main", language: "en" });
+    expect(response.cookies.get(LANG)).toBeUndefined();
+    expect(response.cookies.get(SITE)).toBeUndefined();
+  });
+
+  it("injiziert auch dann in die weitergeleiteten Request-Cookies", () => {
+    // Nur das Persistieren faellt weg. Der Render dieser Anfrage soll weiterhin
+    // die Sprache seiner eigenen URL sehen — das ist per Request und bleibt nicht.
+    const request = new NextRequest("https://shop.test/en/x", {
+      headers: { cookie: `${LANG}=de`, "Sec-Fetch-Mode": "cors" },
+    });
+    emporixSiteProxy(request, { siteCode: "main", language: "en" });
+    expect(request.headers.get("cookie") ?? "").toContain(`${LANG}=en`);
+  });
+
+  it("persistiert weiter, wenn der Client keinen Sec-Fetch-Mode sendet", () => {
+    // Fail-open: alte Clients, curl und Bots senden keinen. Ein Prefetch kommt
+    // immer aus einem Browser, der ihn setzt — die Annahme kostet nichts.
+    const request = new NextRequest("https://shop.test/de/x");
+    const response = emporixSiteProxy(request, { language: "de" });
+    expect(response.cookies.get(LANG)?.value).toBe("de");
+  });
 });
