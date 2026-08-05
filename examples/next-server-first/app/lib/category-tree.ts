@@ -23,7 +23,10 @@ import { siteContext } from "./site-context";
  * so vitest can load it. This file cannot be tested: `siteContext` pulls in the
  * server-only session entry.
  */
-export async function categoryTree(): Promise<CategoryNode[]> {
-  const client = getEmporixClient({ context: await siteContext() });
+export async function categoryTree(lang?: string): Promise<CategoryNode[]> {
+  // The language is passed in, never read from the session here. A cookie read
+  // inside this helper made every page that calls it dynamic — including the
+  // two catalog routes that exist to be cached.
+  const client = getEmporixClient({ context: await siteContext(lang) });
   return client.categories.tree(undefined);
 }

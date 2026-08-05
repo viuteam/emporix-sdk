@@ -13,9 +13,12 @@ import { addToCart } from "../actions/cart";
 export function ProductGrid({
   products,
   priceOf,
+  lang,
 }: {
   products: Product[];
   priceOf: (id: string) => PriceVM | undefined;
+  /** Prefix for the product links — catalog routes live under `/[lang]/…`. */
+  lang: string;
 }): React.JSX.Element {
   async function add(formData: FormData): Promise<void> {
     "use server";
@@ -29,7 +32,7 @@ export function ProductGrid({
         const price = priceOf(vm.id);
         return (
           <li key={vm.id} className="pc">
-            <a href={`/product/${encodeURIComponent(vm.id)}`}>
+            <a href={`/${lang}/product/${encodeURIComponent(vm.id)}`}>
               {vm.image !== undefined ? (
                 <img src={vm.image} alt={vm.imageAlt} style={{ maxWidth: "100%" }} />
               ) : (

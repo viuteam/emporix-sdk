@@ -166,6 +166,29 @@ sharing a client would share a cart.
 
 Neither path can be tagged: `withEmporixSession*` never passes a `fetch`.
 
+### One session read in the shell makes every route dynamic
+
+Worth knowing before you put `withEmporixSession` or `emporixSessionHandle` in a
+layout: a `cookies()` call anywhere in a route's tree marks that route dynamic
+for good. `revalidate` is ignored, no CDN can hold the answer, and every visitor
+pays a full render for HTML that may be identical for all of them.
+
+A header that shows a cart badge is the usual way this happens — it sits in the
+root layout, so its one read applies to every page, including a catalog nobody
+personalises.
+
+Two ways out, and this package works with either:
+
+- Move the personalised bits into **client islands** that fetch a small route
+  handler of your own after the page is served. A Server Component may render a
+  Client Component without becoming dynamic. `examples/next-server-first` does
+  this — see its README section «Why the catalog lives under `/[lang]/…`».
+- Enable `experimental.cacheComponents` (Partial Prerendering) and keep the
+  Server Components. Still experimental in Next 16.2, so the example does not.
+
+The same applies to anything else that reads the request: `searchParams`,
+`headers()`, and a language taken from a cookie rather than from the URL.
+
 **Catalog reads do not belong here.** They need no stable session, and a
 read-only handle cannot persist the anonymous session the SDK just obtained, so
 every render would log in again. Use `getEmporixClient()` for those.

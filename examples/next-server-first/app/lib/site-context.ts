@@ -13,19 +13,11 @@ import { SESSION_STORE, STORE_OPT } from "../emporix";
 const DEFAULTS = { siteCode: "main", currency: "CHF", targetLocation: "CH" } as const;
 
 /**
- * The languages this demo offers.
- *
- * Not invented: `client.sites.get("main")` on the `viu` tenant returns
- * `languages: ["en", "de"], defaultLanguage: "de"`. It stays a literal because
- * the switcher lives in the header, and the header makes zero Emporix calls —
- * that invariant is worth more than a self-configuring dropdown. A multi-site app
- * reads the list from the site and caches it under the `emporix:sites` tag.
- *
- * It lives **here** and not next to `switchLanguage`, because a `"use server"`
- * file may only export async functions — an exported array there fails the build
- * with «can only export async functions, found object».
+ * Moved to `./languages` when the catalog routes went to `/[lang]/…`: the list
+ * now decides the route table, and `generateStaticParams` must be able to import
+ * it without dragging in the server-only session entry.
  */
-export const LANGUAGES = ["en", "de"] as const;
+export { LANGUAGES } from "./languages";
 
 /**
  * The Emporix request context for **this** request, read from the session
@@ -40,16 +32,23 @@ export const LANGUAGES = ["en", "de"] as const;
  * *client-side* switcher needs the other writer, `emporixSiteProxy`, which writes
  * the same key browser-readable on purpose.
  *
- * Costs no Emporix call. Every page here is already dynamic because the header
- * reads the cart count from the session, so one more cookie read changes nothing
- * about how the route renders.
+ * **Pass `lang` from a catalog route and this costs nothing at all** — no cookie,
+ * no session, no store. That is the whole point of the `/[lang]/…` segment: a
+ * `cookies()` read makes a route dynamic for good, and a route that cannot be
+ * static cannot be cached by a CDN. Session routes (`/cart`, `/checkout`,
+ * `/account/…`) keep reading the cookie, because they are per-visitor anyway and
+ * have nothing to gain.
+ *
+ * The seam between the two sources is held together by the language switcher,
+ * which writes the cookie *and* navigates to the prefixed URL.
  */
-export async function siteContext(): Promise<{
+export async function siteContext(lang?: string): Promise<{
   siteCode: string;
   currency: string;
   targetLocation: string;
   language?: string;
 }> {
+  if (lang !== undefined) return { ...DEFAULTS, language: lang };
   const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
   const language = handle.get(STORAGE_KEYS.language);
   return {
