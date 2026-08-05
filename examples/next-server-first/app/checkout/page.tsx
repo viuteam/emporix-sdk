@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EmporixNotFoundError, pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
 import { money, pickText } from "@viu/emporix-examples-shared";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
@@ -14,9 +15,9 @@ function NoCart(): React.JSX.Element {
       <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Checkout</h1>
       <p className="muted">
         No cart yet. Add something from the{" "}
-        <a href="/" className="u-underline">
+        <Link href="/" className="u-underline">
           catalog
-        </a>
+        </Link>
         .
       </p>
     </main>

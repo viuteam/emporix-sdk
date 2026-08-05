@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { pickText } from "@viu/emporix-examples-shared";
 
@@ -36,15 +37,15 @@ export default async function AccountPage(): Promise<React.JSX.Element> {
       </p>
 
       <nav className="cluster" style={{ gap: "var(--s-4)" }}>
-        <a href="/account/profile" className="u-underline">
+        <Link href="/account/profile" className="u-underline">
           Profile
-        </a>
-        <a href="/account/addresses" className="u-underline">
+        </Link>
+        <Link href="/account/addresses" className="u-underline">
           Addresses
-        </a>
-        <a href="/account/orders" className="u-underline">
+        </Link>
+        <Link href="/account/orders" className="u-underline">
           Orders
-        </a>
+        </Link>
       </nav>
     </main>
   );

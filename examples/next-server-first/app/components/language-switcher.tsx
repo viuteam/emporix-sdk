@@ -64,6 +64,11 @@ export function LanguageSwitcher(): React.JSX.Element {
         // Zeichnung ist der geltende Stand eingerahmt, und ein Rahmen ist — anders
         // als eine Farbe allein — ein Unterschied, den auch sieht, wer Rot nicht von
         // Grau unterscheiden kann. `aria-current` sagt dasselbe fuer Screenreader.
+        //
+        // **Der einzige `<a>` dieser App, und er muss einer bleiben.** Das Ziel ist
+        // ein Route-Handler, der mit 303 weiterleitet — keine Seite. Der Next-Router
+        // kann dorthin nicht clientseitig navigieren, er erwartet eine RSC-Payload.
+        // `<Link>` waere hier nicht unschoener, sondern kaputt.
         return (
           <a
             key={l}

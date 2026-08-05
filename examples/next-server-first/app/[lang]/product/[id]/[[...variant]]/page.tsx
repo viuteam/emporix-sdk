@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { EmporixNotFoundError, type Product } from "@viu/emporix-sdk";
@@ -112,9 +113,9 @@ export default async function ProductPage({
         }
       >
         <p style={{ marginBottom: "var(--s-5)" }}>
-          <a href={`/${lang}`} className="eyebrow u-underline">
+          <Link href={`/${lang}`} className="eyebrow u-underline">
             ← Catalogue
-          </a>
+          </Link>
         </p>
         {/* Zwei Spalten nur, wenn es ein Bild gibt. Kein Produkt dieses Tenants hat
             eines, und ein leerer 600px-Platzhalter neben den Angaben ist schlechter
@@ -162,13 +163,13 @@ export default async function ProductPage({
                 {children.map((c) => {
                   const cid = (c as { id?: string }).id ?? "";
                   return (
-                    <a
+                    <Link
                       key={cid}
                       href={`/${lang}/product/${encodeURIComponent(id)}/${encodeURIComponent(cid)}`}
                       className={cid === selectedId ? "tag tag--accent" : "tag"}
                     >
                       {productName(c)}
-                    </a>
+                    </Link>
                   );
                 })}
               </nav>

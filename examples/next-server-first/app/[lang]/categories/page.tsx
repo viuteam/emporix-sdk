@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { categoryIndex } from "../../lib/category-tree";
 import { Note, Sheet } from "../../components/sheet";
 
@@ -52,14 +53,20 @@ export default async function CategoriesPage({
           // Kategorieliste, uebrig aus einem Copy-Paste, und ohne Definition ohnehin
           // wirkungslos. `.catnav` ist die Klasse fuer eine Reihe Kategorielinks.
           <nav className="catnav" aria-label="Category roots">
+            {/* `prefetch={false}`: 21 Wurzeln auf dieser Seite, und jede Kategorie
+                rendert beim ersten Aufruf `productsIn` plus `pricesFor`. Ins
+                Blickfeld geraten sie alle gleichzeitig — das waeren ueber 40
+                Emporix-Aufrufe fuer eine Seite, von der man eine Kategorie
+                anklickt. */}
             {roots.map((c) => (
-              <a
+              <Link
                 key={c.id}
                 href={`/${lang}/category/${encodeURIComponent(c.id)}`}
                 className="u-underline"
+                prefetch={false}
               >
                 {c.label}
-              </a>
+              </Link>
             ))}
           </nav>
         )}

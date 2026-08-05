@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { PRICED_CATEGORY, TIMEOUTS } from "../emporix";
 import { Typeahead } from "../typeahead";
@@ -76,12 +77,12 @@ export default async function Home({
           Products from the priced category
         </h1>
         <p className="cluster">
-          <a href={`/${lang}/categories`} className="u-underline">
+          <Link href={`/${lang}/categories`} className="u-underline">
             Browse all categories →
-          </a>
-          <a href={`/${lang}/category/${PRICED_CATEGORY}`} className="u-underline">
+          </Link>
+          <Link href={`/${lang}/category/${PRICED_CATEGORY}`} className="u-underline">
             Browse this category with pagination →
-          </a>
+          </Link>
         </p>
         <Island label="client island · typeahead">
           <Typeahead />

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EmporixNotFoundError } from "@viu/emporix-sdk";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { cartCoupons, cartLines, cartTotal, money } from "@viu/emporix-examples-shared";
@@ -22,9 +23,9 @@ function EmptyBag(): React.JSX.Element {
       <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Your bag</h1>
       <p className="muted">
         No cart yet. Add something from the{" "}
-        <a href="/" className="u-underline">
+        <Link href="/" className="u-underline">
           catalog
-        </a>
+        </Link>
         .
       </p>
     </main>
@@ -160,13 +161,13 @@ export default async function CartPage(): Promise<React.JSX.Element> {
               </span>
             </div>
             {lines.length > 0 ? (
-              <a
+              <Link
                 href="/checkout"
                 className="btn btn--accent btn--block"
                 style={{ marginTop: "var(--s-5)" }}
               >
                 Checkout →
-              </a>
+              </Link>
             ) : null}
           </aside>
 

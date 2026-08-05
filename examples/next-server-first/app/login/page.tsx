@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { emporixSession } from "@viu/emporix-sdk-next";
 import { STORE_OPT } from "../emporix";
 import { Note, Sheet } from "../components/sheet";
@@ -25,9 +26,9 @@ export default async function LoginPage({
             The token is in an httpOnly cookie. This page read it on the server.
           </p>
           <p className="cluster" style={{ marginTop: "var(--s-5)" }}>
-            <a href="/account" className="btn btn--outline">
+            <Link href="/account" className="btn btn--outline">
               Your account →
-            </a>
+            </Link>
             <form action={logout}>
               <button type="submit" className="btn btn--ghost btn--sm">
                 Log out

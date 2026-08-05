@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 
 import { requireCustomer } from "../../lib/require-customer";
@@ -24,9 +25,9 @@ export default async function AddressesPage(): Promise<React.JSX.Element> {
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">
-        <a href="/account" className="u-underline">
+        <Link href="/account" className="u-underline">
           ← Account
-        </a>
+        </Link>
       </p>
       <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
         Addresses

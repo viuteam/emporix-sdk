@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { Product } from "@viu/emporix-sdk";
 import { money, toProductCard, type PriceVM } from "@viu/emporix-examples-shared";
@@ -44,7 +45,15 @@ export function ProductGrid({
           // `reveal` staffelt den Seitenaufbau; `--i` ist der Platz in der Reihe.
           // global.css schaltet die Animation bei `prefers-reduced-motion` ab.
           <li key={vm.id} className="pc reveal" style={{ "--i": i % 12 } as CSSProperties}>
-            <a href={`/${lang}/product/${encodeURIComponent(vm.id)}`}>
+            {/* `prefetch={false}`, und das ist eine Kostenentscheidung.
+                `/[lang]/product/[id]` hat ein leeres `generateStaticParams`, ist also
+                cachebar aber nicht vorgebaut: der erste Aufruf einer URL rendert voll
+                und kostet `products.get` + `listVariantChildren` + `pricesFor`. Bei 24
+                Kacheln waeren das rund 70 Emporix-Aufrufe fuer Produkte, die niemand
+                anklickt — und Emporix verrechnet pro Aufruf. Der Link im Header und
+                die Paginierung prefetchen dagegen weiter: wenige Ziele, hohe
+                Klickrate. */}
+            <Link href={`/${lang}/product/${encodeURIComponent(vm.id)}`} prefetch={false}>
               <div className="pc__media">
                 {vm.image !== undefined ? (
                   // Kein `next/image`: Emporix-Medien liegen auf einem
@@ -73,7 +82,7 @@ export function ProductGrid({
                   <span className="muted pc__price">no price in this context</span>
                 )}
               </div>
-            </a>
+            </Link>
             {price !== undefined ? (
               <form action={add} className="pc__action">
                 <input type="hidden" name="productId" value={vm.id} />

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { money, orderVM } from "@viu/emporix-examples-shared";
 
@@ -30,9 +31,9 @@ export default async function OrdersPage({
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">
-        <a href="/account" className="u-underline">
+        <Link href="/account" className="u-underline">
           ← Account
-        </a>
+        </Link>
       </p>
       <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
         Orders
@@ -43,9 +44,9 @@ export default async function OrdersPage({
           {page > 1 ? (
             <>
               Nothing on page {page}.{" "}
-              <a href="/account/orders" className="u-underline">
+              <Link href="/account/orders" className="u-underline">
                 Back to page 1
-              </a>
+              </Link>
               .
             </>
           ) : (
@@ -63,12 +64,16 @@ export default async function OrdersPage({
                   className="surface cluster"
                   style={{ marginBottom: "var(--s-3)", gap: "var(--s-4)", alignItems: "baseline" }}
                 >
-                  <a
+                  {/* `prefetch={false}`: jede Bestellzeile fuehrt auf einen eigenen
+                      `orders.get`-Aufruf. Eine Liste mit 20 Bestellungen wuerde beim
+                      Scrollen 20 davon ausloesen. */}
+                  <Link
                     href={`/account/orders/${encodeURIComponent(vm.id)}`}
                     className="u-underline serif"
+                    prefetch={false}
                   >
                     {vm.number}
-                  </a>
+                  </Link>
                   <span className="tag">{vm.status}</span>
                   <span className="muted">{vm.createdAt ?? ""}</span>
                   <span className="muted">{vm.itemCount} item(s)</span>
@@ -85,15 +90,15 @@ export default async function OrdersPage({
             style={{ gap: "var(--s-4)", marginTop: "var(--s-6)", alignItems: "center" }}
           >
             {page > 1 ? (
-              <a href={`/account/orders?page=${page - 1}`} className="btn btn--outline">
+              <Link href={`/account/orders?page=${page - 1}`} className="btn btn--outline">
                 ← Previous
-              </a>
+              </Link>
             ) : null}
             <span className="muted">Page {page}</span>
             {result.hasNextPage ? (
-              <a href={`/account/orders?page=${page + 1}`} className="btn btn--outline">
+              <Link href={`/account/orders?page=${page + 1}`} className="btn btn--outline">
                 Next →
-              </a>
+              </Link>
             ) : null}
           </nav>
         </>

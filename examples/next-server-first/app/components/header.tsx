@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LanguageSwitcher } from "./language-switcher";
 import { SessionNav } from "./session-nav";
 import { Island } from "./sheet";
@@ -21,6 +22,35 @@ import { Island } from "./sheet";
  *
  * The search box is a plain GET form. storefront-demo's header keeps the query
  * in `useState` and navigates programmatically; here the browser does it.
+ *
+ * ## Die Prefetch-Regel dieser App
+ *
+ * Alle internen Links sind `<Link>` — auch in einer Server-First-Demo, denn `<Link>`
+ * rendert ein `<a href>` und funktioniert damit ohne JavaScript genauso. Was es
+ * dazugibt, ist clientseitige Navigation und Prefetching.
+ *
+ * Prefetching ist hier aber **nicht gratis**, weil Emporix pro API-Aufruf verrechnet
+ * und die Katalogrouten ein leeres `generateStaticParams` haben: cachebar, aber nicht
+ * vorgebaut. Der erste Aufruf einer URL rendert voll. Darum:
+ *
+ * - **`prefetch={false}`**, wo eine Seite viele Links auf teure Renders traegt —
+ *   Produktkacheln, die Kategorie-Wurzelliste, die Unterkategorie-Navigation, die
+ *   Bestellliste. Die geraten beim Scrollen alle gleichzeitig ins Blickfeld.
+ * - **Standard-Prefetch** fuer Navigation mit wenigen Zielen und hoher Klickrate —
+ *   Header, Brotkrumen, Paginierung, Konto-Navigation, Warenkorb, Login.
+ *
+ * Bewusst kein `prefetch={true}`: das erzwingt den vollen Render auch bei dynamischen
+ * Routen.
+ *
+ * Und bewusst **kein** `prefetch={false}` auf `/cart`, `/login` oder `/account`,
+ * obwohl das zunaechst richtig klingt — gemessen am 2026-08-05: der Standard-Prefetch
+ * schickt `Next-Router-Segment-Prefetch: /_tree` und bekommt **183 Bytes** Routenbaum
+ * zurueck, waehrend eine echte Navigation 5'973 Bytes mit dem Seiteninhalt liefert.
+ * Der Prefetch rendert die Seite also nicht und kostet keinen Emporix-Aufruf. Wer das
+ * hier «aufraeumen» will, nimmt Geschwindigkeit weg und spart nichts.
+ *
+ * Die **einzige** Ausnahme von `<Link>` ist der Sprachumschalter — er zeigt auf einen
+ * Route-Handler, nicht auf eine Seite. Begruendung dort im Code.
  */
 export function Header(): React.JSX.Element {
   return (
@@ -29,13 +59,13 @@ export function Header(): React.JSX.Element {
         className="container cluster"
         style={{ gap: "var(--s-5)", paddingBlock: "var(--s-4)", alignItems: "center" }}
       >
-        <a
+        <Link
           href="/"
           className="display"
           style={{ fontSize: "var(--step-1)", whiteSpace: "nowrap", fontWeight: 600 }}
         >
           Server<span style={{ color: "var(--redline)" }}>/</span>First
-        </a>
+        </Link>
 
         {/* Mit `flex: 1` allein stand das 26rem-Feld auf einem 390px-Viewport ueber
             dem Seitenrand hinaus, mit `minWidth: 0` schrumpfte es stattdessen auf
@@ -69,9 +99,9 @@ export function Header(): React.JSX.Element {
           {/* A plain anchor, deliberately. Rendering the category tree here would
               put an Emporix call in the shell and break the invariant this file's
               doc comment claims — /categories carries that cost instead. */}
-          <a href="/categories" className="u-underline">
+          <Link href="/categories" className="u-underline">
             Categories
-          </a>
+          </Link>
           <Island>
             {/* `SessionNav` liefert zwei bis drei Geschwister. In der Klammer sind
                 sie Kinder eines eigenen `div` und verlieren damit den Abstand, den
@@ -80,9 +110,9 @@ export function Header(): React.JSX.Element {
               <SessionNav />
             </span>
           </Island>
-          <a href="/debug" className="u-underline">
+          <Link href="/debug" className="u-underline">
             Debug
-          </a>
+          </Link>
         </nav>
       </div>
     </header>
