@@ -309,6 +309,11 @@ paths:
                   type: boolean
                   description: When `true`, the run maps and validates but performs no remote writes.
                   example: false
+                force:
+                  type: boolean
+                  description: >-
+                    When `true`, every extracted record is rewritten, even if unchanged. It bypasses the idempotency `skip-if-unchanged` check. Use it to force target IDs and values to be rewritten.
+                  example: false
             examples:
               Full run:
                 value:
@@ -1116,6 +1121,12 @@ components:
           type: string
           description: The source natural key.
           example: SKU-1001
+        targetId:
+          type: string
+          description: >-
+            The deterministic Emporix instance ID the record was written under. It's derived from the natural
+            key and allows the record to be located in the target.
+          example: id-sku-1001
         fields:
           type: object
           description: The stored fields.
