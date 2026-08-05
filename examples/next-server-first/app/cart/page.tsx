@@ -85,9 +85,9 @@ export default async function CartPage(): Promise<React.JSX.Element> {
         Cart <code>{cartId}</code>
       </p>
 
-      {/* `.cart` stellt Positionen und Summary nebeneinander, sobald der Platz da
-          ist. Vorher stand die Summary unter einer einspaltigen Liste, weil die
-          Klasse zwar im Markup war, aber nirgends definiert. */}
+      {/* `.cart` puts the lines and the summary side by side as soon as there is
+          room. Before, the summary sat under a single-column list, because the class
+          was in the markup but defined nowhere. */}
       <div className="cart">
         <div>
           {lines.length === 0 ? (
@@ -126,14 +126,13 @@ export default async function CartPage(): Promise<React.JSX.Element> {
           )}
         </div>
 
-        {/* Diese Seite bekommt keine dritte Spalte. Die Summary ist Hauptsache und
-            nicht Annotation — Betrag und Kasse gehoeren in den Inhalt, nicht an den
-            Rand. Das Schriftfeld haengt sich deshalb unter die Summary statt in eine
-            eigene Marginalie. */}
+        {/* This page gets no third column. The summary is the main thing rather than
+            annotation — the total and the checkout belong in the content, not in the
+            margin. So the title block hangs under the summary instead of getting a
+            rail of its own. */}
         <div className="stack">
           <aside className="cart__summary surface">
-            {/* `<h2>`, nicht `<h3>`: nach dem `<h1>` dieser Seite ist h3 eine
-                uebersprungene Stufe. */}
+            {/* `<h2>`, not `<h3>`: after this page's `<h1>`, h3 skips a level. */}
             <h2 style={{ fontSize: "var(--step-1)" }}>Summary</h2>
 
             <div className="stack" style={{ marginTop: "var(--s-4)" }}>
@@ -171,11 +170,10 @@ export default async function CartPage(): Promise<React.JSX.Element> {
             ) : null}
           </aside>
 
-          {/* Die Formulare dieser Seite tragen KEINE Redline-Klammer, und das ist
-              Absicht: hier ist jedes Bedienelement ein `ActionForm` und damit eine
-              Insel. Fuenf Klammern, die alle dasselbe sagen, sagen nichts — die
-              Klammer verdient sich ihren Platz dort, wo sie etwas unterscheidet,
-              also im Header und beim Typeahead. */}
+          {/* The forms on this page carry NO redline bracket, deliberately: here every
+              control is an `ActionForm` and therefore an island. Five brackets all
+              saying the same thing say nothing — the bracket earns its place where it
+              distinguishes something, so in the header and around the typeahead. */}
           <TitleBlock
             meta={{
               route: "/cart",

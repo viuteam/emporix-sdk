@@ -59,8 +59,8 @@ export default async function LoginPage({
             You need an account for <code>{next}</code>.
           </p>
         ) : null}
-        {/* `.form-col` statt der Viewport-Breite: ohne die Begrenzung war das
-            Email-Feld auf einem 1440px-Fenster 1'190px breit. */}
+        {/* `.form-col` rather than the viewport width: without the bound the email
+            field was 1'190px wide in a 1440px window. */}
         <form action={login} className="form-col stack" style={{ marginTop: "var(--s-5)" }}>
           <input type="hidden" name="next" value={next} />
           <p className="field">

@@ -117,11 +117,11 @@ export default async function ProductPage({
             ← Catalogue
           </Link>
         </p>
-        {/* Zwei Spalten nur, wenn es ein Bild gibt. Kein Produkt dieses Tenants hat
-            eines, und ein leerer 600px-Platzhalter neben den Angaben ist schlechter
-            als gar keine Bildspalte. Jedes Bild sitzt in einer `.pdp__hero`-Box: die
-            hat ein `aspect-ratio`, steht also vor dem Bild und nimmt den
-            Layout-Sprung weg — der Grund, warum hier kein `next/image` fehlt. */}
+        {/* Two columns only when there is an image. No product on this tenant has
+            one, and an empty 600px placeholder next to the details is worse than no
+            image column at all. Each image sits in a `.pdp__hero` box: it has an
+            `aspect-ratio`, so the box is there before the image and the layout shift is
+            gone — which is why `next/image` is not missed here. */}
         <div className={images.length > 0 ? "pdp__grid" : ""}>
           {images.length > 0 ? (
             <div>

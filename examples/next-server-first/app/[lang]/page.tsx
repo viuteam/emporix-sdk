@@ -54,9 +54,9 @@ export default async function Home({
         }}
         rail={
           <>
-            {/* Diese vier Zeilen standen bis zum 2026-08-05 unter dem Titel und
-                waren das Erste, was ein Besucher lesen musste. Eine Fussnote am
-                Anfang des Textes ist keine Fussnote. */}
+            {/* Until 2026-08-05 these four lines sat under the title and were the
+                first thing a visitor had to read. A footnote at the start of the text
+                is not a footnote. */}
             <Note title="Why one category">
               Adding needs a price — Emporix requires a <code>priceId</code>{" "}
               on internal cart items, so a product without one shows no button. Most

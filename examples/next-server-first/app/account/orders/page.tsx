@@ -64,9 +64,9 @@ export default async function OrdersPage({
                   className="surface cluster"
                   style={{ marginBottom: "var(--s-3)", gap: "var(--s-4)", alignItems: "baseline" }}
                 >
-                  {/* `prefetch={false}`: jede Bestellzeile fuehrt auf einen eigenen
-                      `orders.get`-Aufruf. Eine Liste mit 20 Bestellungen wuerde beim
-                      Scrollen 20 davon ausloesen. */}
+                  {/* `prefetch={false}`: every order row leads to its own `orders.get`
+                      call. A list of 20 orders would fire 20 of them while
+                      scrolling. */}
                   <Link
                     href={`/account/orders/${encodeURIComponent(vm.id)}`}
                     className="u-underline serif"
