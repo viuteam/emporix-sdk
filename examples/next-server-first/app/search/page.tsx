@@ -37,9 +37,12 @@ export default async function SearchPage({
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">Search</p>
-      <h2 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
+      {/* `<h1>`, nicht `<h2>`: das ist die Ueberschrift dieser Seite, und darueber
+          steht keine. Eine Seite, die bei h2 anfaengt, hat fuer einen
+          Screenreader-Nutzer kein Thema. */}
+      <h1 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
         {q === "" ? "Search the catalogue" : `«${q}»`}
-      </h2>
+      </h1>
       {page === null ? (
         <p className="muted">Type a query in the header.</p>
       ) : page.items.length === 0 ? (

@@ -43,24 +43,37 @@ export default async function LoginPage({
           You need an account for <code>{next}</code>.
         </p>
       ) : null}
-      <form action={login}>
+      {/* `.form-col` statt der Viewport-Breite: ohne die Begrenzung war das
+          Email-Feld auf einem 1440px-Fenster 1'190px breit. */}
+      <form action={login} className="form-col stack" style={{ marginTop: "var(--s-5)" }}>
         <input type="hidden" name="next" value={next} />
-        <label className="field__label" htmlFor="email">
-          Email
-        </label>
-        <input id="email" className="input" name="email" type="email" required />
-        <label className="field__label" htmlFor="password">
-          Password
-        </label>
-        <input
-          id="password"
-          className="input"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
-        <button type="submit" className="btn btn--accent" style={{ marginTop: "var(--s-4)" }}>
+        <p className="field">
+          <label className="field__label" htmlFor="email">
+            Email
+          </label>
+          <input
+            id="email"
+            className="input"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+          />
+        </p>
+        <p className="field">
+          <label className="field__label" htmlFor="password">
+            Password
+          </label>
+          <input
+            id="password"
+            className="input"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+          />
+        </p>
+        <button type="submit" className="btn btn--accent">
           Log in
         </button>
       </form>

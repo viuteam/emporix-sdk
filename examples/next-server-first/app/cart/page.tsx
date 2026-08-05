@@ -83,70 +83,89 @@ export default async function CartPage(): Promise<React.JSX.Element> {
         Cart <code>{cartId}</code>
       </p>
 
-      {lines.length === 0 ? (
-        <p className="muted">Your bag is empty.</p>
-      ) : (
-        <ul className="cart__lines" style={{ listStyle: "none", padding: 0 }}>
-          {lines.map((l) => (
-            <li key={l.id} className="cart__line">
-              <span className="serif" style={{ fontSize: "var(--step-1)" }}>
-                {names[l.productId] ?? l.productId}
-              </span>
-              <ActionForm action={setQuantity} submit="Update">
-                <input type="hidden" name="itemId" value={l.id} />
-                <label className="field__label" htmlFor={`qty-${l.id}`}>
-                  Quantity
-                </label>
-                <input
-                  id={`qty-${l.id}`}
-                  className="input"
-                  name="quantity"
-                  type="number"
-                  min={1}
-                  defaultValue={l.quantity}
-                  style={{ width: "5rem" }}
-                />
-              </ActionForm>
-              <ActionForm action={removeLine} submit="Remove">
-                <input type="hidden" name="itemId" value={l.id} />
-              </ActionForm>
-              <span className="price">
-                {l.lineTotal ? money(l.lineTotal.amount, l.lineTotal.currency) : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <aside className="cart__summary surface" style={{ marginTop: "var(--s-6)" }}>
-        <h3 className="serif">Summary</h3>
-
-        <ActionForm action={applyCoupon} submit="Apply">
-          <label className="field__label" htmlFor="code">
-            Coupon
-          </label>
-          <input id="code" className="input" name="code" placeholder="Code" />
-        </ActionForm>
-
-        {coupons.map((c) => (
-          <ActionForm key={c} action={removeCoupon} submit={`Remove ${c}`}>
-            <input type="hidden" name="code" value={c} />
-          </ActionForm>
-        ))}
-
-        <hr className="rule" style={{ marginBlock: "var(--s-5)" }} />
-        <div className="cart__total">
-          <span className="eyebrow">Total</span>
-          <span className="price" style={{ fontSize: "var(--step-2)" }}>
-            {total ? money(total.amount, total.currency) : "—"}
-          </span>
+      {/* `.cart` stellt Positionen und Summary nebeneinander, sobald der Platz da
+          ist. Vorher stand die Summary unter einer einspaltigen Liste, weil die
+          Klasse zwar im Markup war, aber nirgends definiert. */}
+      <div className="cart">
+        <div>
+          {lines.length === 0 ? (
+            <p className="muted">Your bag is empty.</p>
+          ) : (
+            <ul className="cart__lines">
+              {lines.map((l) => (
+                <li key={l.id} className="cart__line">
+                  <span className="serif" style={{ fontSize: "var(--step-1)" }}>
+                    {names[l.productId] ?? l.productId}
+                  </span>
+                  <ActionForm action={setQuantity} submit="Update" className="cluster">
+                    <input type="hidden" name="itemId" value={l.id} />
+                    <label className="field__label" htmlFor={`qty-${l.id}`}>
+                      Quantity
+                    </label>
+                    <input
+                      id={`qty-${l.id}`}
+                      className="input"
+                      name="quantity"
+                      type="number"
+                      min={1}
+                      defaultValue={l.quantity}
+                      style={{ width: "4.5rem" }}
+                    />
+                  </ActionForm>
+                  <ActionForm action={removeLine} submit="Remove">
+                    <input type="hidden" name="itemId" value={l.id} />
+                  </ActionForm>
+                  <span className="price">
+                    {l.lineTotal ? money(l.lineTotal.amount, l.lineTotal.currency) : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {lines.length > 0 ? (
-          <a href="/checkout" className="btn btn--accent" style={{ marginTop: "var(--s-4)" }}>
-            Checkout →
-          </a>
-        ) : null}
-      </aside>
+
+        <aside className="cart__summary surface">
+          {/* `<h2>`, nicht `<h3>`: nach dem `<h1>` dieser Seite ist h3 eine
+              uebersprungene Stufe. */}
+          <h2 className="serif" style={{ fontSize: "var(--step-2)" }}>
+            Summary
+          </h2>
+
+          <div className="stack" style={{ marginTop: "var(--s-4)" }}>
+            <ActionForm action={applyCoupon} submit="Apply" className="stack">
+              <p className="field">
+                <label className="field__label" htmlFor="code">
+                  Coupon
+                </label>
+                <input id="code" className="input" name="code" />
+              </p>
+            </ActionForm>
+
+            {coupons.map((c) => (
+              <ActionForm key={c} action={removeCoupon} submit={`Remove ${c}`}>
+                <input type="hidden" name="code" value={c} />
+              </ActionForm>
+            ))}
+          </div>
+
+          <hr className="rule" style={{ marginBlock: "var(--s-5)" }} />
+          <div className="cart__total">
+            <span className="eyebrow">Total</span>
+            <span className="price" style={{ fontSize: "var(--step-2)" }}>
+              {total ? money(total.amount, total.currency) : "—"}
+            </span>
+          </div>
+          {lines.length > 0 ? (
+            <a
+              href="/checkout"
+              className="btn btn--accent btn--block"
+              style={{ marginTop: "var(--s-5)" }}
+            >
+              Checkout →
+            </a>
+          ) : null}
+        </aside>
+      </div>
     </main>
   );
 }

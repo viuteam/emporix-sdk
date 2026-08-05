@@ -32,7 +32,15 @@ export function Header(): React.JSX.Element {
           Server<span style={{ color: "var(--oxblood)" }}>—</span>First
         </a>
 
-        <form action="/search" method="get" style={{ flex: 1, maxWidth: "26rem" }}>
+        {/* Mit `flex: 1` allein stand das 26rem-Feld auf einem 390px-Viewport ueber
+            dem Seitenrand hinaus, mit `minWidth: 0` schrumpfte es stattdessen auf
+            null. Eine Untergrenze plus Wachstumsbasis loest beides: passt es nicht
+            neben Logo und Navigation, bricht `.cluster` es auf eine eigene Zeile. */}
+        <form
+          action="/search"
+          method="get"
+          style={{ flex: "1 1 14rem", minWidth: "12rem", maxWidth: "26rem" }}
+        >
           <input
             className="input"
             type="search"
