@@ -1,6 +1,7 @@
 import type { CategoryNode } from "@viu/emporix-sdk";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { siteContext } from "./site-context";
+import { TIMEOUTS } from "../emporix";
 
 /**
  * Every category the tenant has, nested — in one cached call.
@@ -27,6 +28,6 @@ export async function categoryTree(lang?: string): Promise<CategoryNode[]> {
   // The language is passed in, never read from the session here. A cookie read
   // inside this helper made every page that calls it dynamic — including the
   // two catalog routes that exist to be cached.
-  const client = getEmporixClient({ context: await siteContext(lang) });
+  const client = getEmporixClient({ context: await siteContext(lang), timeouts: TIMEOUTS });
   return client.categories.tree(undefined);
 }

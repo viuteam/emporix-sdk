@@ -607,6 +607,24 @@ Node runtime, not edge: the SDK's stream reader is a Node `fetch` body reader, a
 the service entry is server-only anyway. Full service reference in
 [`../../docs/import.md`](../../docs/import.md).
 
+### Picking a request budget
+
+The SDK waits 10 s for headers and 60 s for the end of the body. A fine default
+for a script and a poor one for a storefront under load: a slow upstream holds a
+socket and an event-loop task for a minute per request, so one bad Emporix minute
+fills the process with parked work before anything gives up.
+
+Both entry points take a budget:
+
+```ts
+getEmporixClient({ timeouts: { connectMs: 3_000, readMs: 8_000 } });
+withEmporixSession(fn, { timeouts: { connectMs: 3_000, readMs: 8_000 } });
+```
+
+It is part of `getEmporixClient`'s memo key, so two budgets are two clients rather
+than whichever one asked first. `examples/next-server-first` sets 3 s / 8 s in one
+place (`app/emporix.ts`) and threads it through every call site.
+
 ### An empty secret fails locally
 
 `getEmporixServiceClient` rejects a credential set with an empty `clientId` or

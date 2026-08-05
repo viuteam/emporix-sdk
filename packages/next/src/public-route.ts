@@ -22,8 +22,10 @@ const DEFAULT_HOST = "https://api.emporix.io";
  * Emporix has a real Catalog service (`client.catalogs`) this has nothing to do
  * with.
  *
- * Proxying these reads is a net win rather than a cost: the response is cached
- * by Next once for all visitors instead of fetched per browser.
+ * Proxying these reads is a net win rather than a cost: the answer is tagged and
+ * revalidated exactly like a Server Component's catalog read, so Next holds it
+ * once for all visitors and the same webhook invalidates both. The response also
+ * carries `Cache-Control`, so a CDN in front never has to ask twice.
  *
  * @example
  * ```ts
@@ -53,11 +55,15 @@ export function createEmporixPublicRoute(
     const search = new URL(request.url).search;
     const upstream = `${host}/${path.join("/")}${search}`;
 
-    if (emporixTagsForUrl(upstream, tenant).length === 0) {
-      return new Response("forbidden", { status: 403 });
+    const tags = emporixTagsForUrl(upstream, tenant);
+    if (tags.length === 0) {
+      return new Response("forbidden", {
+        status: 403,
+        headers: { "Cache-Control": "no-store" },
+      });
     }
 
-
+    const revalidate = opts.revalidate ?? 3600;
     // The tagged client is correct here: this is public, cacheable data
     // and its anonymous token carries no personalization.
     const client = getEmporixClient({
@@ -68,16 +74,32 @@ export function createEmporixPublicRoute(
 
     // The placeholder Authorization from the browser is DISCARDED, never
     // forwarded — a fresh Headers object rather than a copy of the request's.
+    //
+    // `next.tags` and `next.revalidate` are the whole point of this line. Without
+    // them this was an uncached passthrough: one billed Emporix call per
+    // debounced keystroke in a typeahead, for an answer every visitor shares.
+    // The same webhook that invalidates a Server Component's catalog read
+    // invalidates this, because the tags are the same ones.
     const res = await fetch(upstream, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${session.accessToken}`,
         Accept: "application/json",
       },
-    });
+      next: { tags, revalidate },
+    } as RequestInit & { next: { tags: string[]; revalidate: number } });
+
+    // A CDN may hold a 2xx — it is public and shared. It must NOT hold an error:
+    // a 502 pinned for an hour outlives the outage that caused it.
+    const cacheable = res.status >= 200 && res.status < 300;
     return new Response(res.body, {
       status: res.status,
-      headers: { "Content-Type": res.headers.get("content-type") ?? "application/json" },
+      headers: {
+        "Content-Type": res.headers.get("content-type") ?? "application/json",
+        "Cache-Control": cacheable
+          ? `public, s-maxage=${revalidate}, stale-while-revalidate=60`
+          : "no-store",
+      },
     });
   };
 }

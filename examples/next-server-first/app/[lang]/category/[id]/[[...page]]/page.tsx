@@ -7,6 +7,7 @@ import { pricesFor } from "../../../../lib/prices";
 import { siteContext } from "../../../../lib/site-context";
 import { categoryTree } from "../../../../lib/category-tree";
 import { findCategory } from "../../../../lib/category-walk";
+import { TIMEOUTS } from "../../../../emporix";
 
 const PAGE_SIZE = 24;
 
@@ -53,7 +54,7 @@ export default async function CategoryPage({
   // the bound is drawn even though no framework is doing it.
   const page = Math.max(1, Number(segments?.[0]) || 1);
 
-  const client = getEmporixClient({ context: await siteContext(lang) });
+  const client = getEmporixClient({ context: await siteContext(lang), timeouts: TIMEOUTS });
 
   // Sequential, and NOT a Promise.all — measured 2026-08-04:
   // `productsIn("does-not-exist")` throws `EmporixNotFoundError`, so running both

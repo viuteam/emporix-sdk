@@ -1,5 +1,5 @@
 import { getEmporixClient } from "@viu/emporix-sdk-next";
-import { PRICED_CATEGORY } from "../emporix";
+import { PRICED_CATEGORY, TIMEOUTS } from "../emporix";
 import { Typeahead } from "../typeahead";
 import { ProductGrid } from "../components/product-grid";
 import { pricesFor } from "../lib/prices";
@@ -37,7 +37,7 @@ export default async function Home({
   const { lang } = await params;
   // The language comes from the URL, not from a cookie — that is what lets this
   // page be static. See `app/[lang]/layout.tsx`.
-  const client = getEmporixClient({ context: await siteContext(lang) });
+  const client = getEmporixClient({ context: await siteContext(lang), timeouts: TIMEOUTS });
   const page = await client.categories.productsIn(PRICED_CATEGORY, { pageSize: 12 }, undefined);
   const priceOf = await pricesFor(client, undefined, page.items);
 

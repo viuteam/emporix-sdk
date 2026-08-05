@@ -4,6 +4,7 @@ import { ProductGrid } from "../components/product-grid";
 import { pricesFor } from "../lib/prices";
 import { siteContext } from "../lib/site-context";
 import { DEFAULT_LANGUAGE } from "../lib/languages";
+import { TIMEOUTS } from "../emporix";
 
 /**
  * Search without a line of client-side state.
@@ -26,7 +27,7 @@ export default async function SearchPage({
   // Search reads `searchParams`, so it is dynamic no matter what — it keeps the
   // cookie language. The grid still needs a prefix for its product links.
   const lang = ctx.language ?? DEFAULT_LANGUAGE;
-  const client = getEmporixClient({ context: ctx });
+  const client = getEmporixClient({ context: ctx, timeouts: TIMEOUTS });
 
   // `searchByName` builds the Emporix `name:(~…)` filter and escapes the regex
   // metacharacters, so no quoting is needed here.

@@ -3,7 +3,7 @@ import {
   emporixSessionHandle,
   type WithEmporixSessionOptions,
 } from "@viu/emporix-sdk-next/session";
-import { SESSION_STORE, STORE_OPT } from "../emporix";
+import { SESSION_STORE, STORE_OPT, TIMEOUTS } from "../emporix";
 
 /**
  * What a visitor who has chosen nothing gets. This was the module constant
@@ -63,6 +63,7 @@ export async function siteContext(lang?: string): Promise<{
 export async function emporixOptions(): Promise<WithEmporixSessionOptions> {
   return {
     context: await siteContext(),
+    timeouts: TIMEOUTS,
     ...(SESSION_STORE !== undefined ? { store: SESSION_STORE } : {}),
   };
 }
