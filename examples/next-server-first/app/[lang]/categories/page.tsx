@@ -1,5 +1,4 @@
-import { catId, catLabel } from "@viu/emporix-examples-shared";
-import { categoryTree } from "../../lib/category-tree";
+import { categoryIndex } from "../../lib/category-tree";
 
 /**
  * Every root category the tenant publishes.
@@ -21,7 +20,7 @@ export default async function CategoriesPage({
   params: Promise<{ lang: string }>;
 }): Promise<React.JSX.Element> {
   const { lang } = await params;
-  const roots = await categoryTree(lang);
+  const { roots } = await categoryIndex(lang);
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
@@ -35,9 +34,9 @@ export default async function CategoriesPage({
       ) : (
         <ul style={{ listStyle: "none", padding: 0 }}>
           {roots.map((c) => (
-            <li key={catId(c)} className="cart__line">
-              <a href={`/${lang}/category/${encodeURIComponent(catId(c))}`} className="u-underline serif">
-                {catLabel(c)}
+            <li key={c.id} className="cart__line">
+              <a href={`/${lang}/category/${encodeURIComponent(c.id)}`} className="u-underline serif">
+                {c.label}
               </a>
             </li>
           ))}
