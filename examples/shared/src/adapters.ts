@@ -19,23 +19,23 @@ import type { Product, Media, PriceMatch } from "@viu/emporix-sdk";
  */
 
 /**
- * Der Fallback, wenn kein `Accept-Language` gesetzt war.
+ * The fallback for when no `Accept-Language` was set.
  *
- * **Die erste Sprache dieser Liste ist die Standardsprache deiner Site.** Beim
- * Kopieren dieser Datei also anpassen — sie ist tenant-spezifisch und sieht nur
- * aus wie eine allgemeine Wahrheit.
+ * **The first language in this list is your site's default language.** Change it
+ * when you copy this file — the list is tenant-specific and only looks like a
+ * general truth.
  *
- * Warum das ueberhaupt zaehlt: Emporix liefert `name` und `description` als
- * vollstaendige Sprachkarte, wenn die Anfrage kein `Accept-Language` trug. Der
- * SDK verengt sie sonst selbst, und dann kommt hier nie eine Karte an. Die Liste
- * greift also genau im cookielosen Erstkontakt.
+ * Why it matters at all: Emporix returns `name` and `description` as a complete
+ * locale map when the request carried no `Accept-Language`. Otherwise the SDK
+ * narrows the map itself and none ever reaches this function. So the list applies
+ * exactly on a first contact without a cookie.
  *
- * Sie begann bis zum 2026-08-05 mit `en`, obwohl alle Beispiele auf den
- * `viu`-Tenant zeigen und `client.sites.get("main")` dort `defaultLanguage: "de"`
- * meldet (gemessen 2026-08-04). Folge: der Katalog unter `/de/…` war deutsch, der
- * Warenkorb derselben Sitzung englisch — «Just-in-Time Zugriff (JIT)» gegen
- * «Just-in-Time Access (JIT)», live reproduziert. Jetzt stimmt der Fallback mit
- * dem ueberein, was der Tenant selbst als Standard angibt.
+ * Until 2026-08-05 it started with `en`, although every example points at the `viu`
+ * tenant and `client.sites.get("main")` reports `defaultLanguage: "de"` there
+ * (measured 2026-08-04). The result: the catalog under `/de/…` was German while the
+ * cart in the same session was English — «Just-in-Time Zugriff (JIT)» against
+ * «Just-in-Time Access (JIT)», reproduced live. The fallback now agrees with what
+ * the tenant itself declares as its default.
  */
 const LOCALE_ORDER = ["de", "de-CH", "de-DE", "en", "en-US"];
 

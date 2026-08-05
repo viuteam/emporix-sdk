@@ -84,18 +84,18 @@ export function emporixSiteProxy(
       ? NextResponse.next(init)
       : NextResponse.rewrite(new URL(rewriteTo, request.url), init);
 
-  // Persistiert wird nur bei einer echten Navigation des Besuchers.
+  // Only a real navigation by the visitor persists anything.
   //
-  // Ein `<Link>`-Prefetch ist ein Request wie jeder andere, und ohne diese Zeile
-  // schrieb er `emporix.language` aus dem Pfad — ein Link in die andere Sprache
-  // stellte damit die Sprache des Besuchers um, sobald er ins Blickfeld geriet.
-  // Am 2026-08-05 mit einem echten Chrome-Prefetch reproduziert. Siehe
-  // `./navigation.ts` fuer die Messung, warum «ist ein Prefetch» in einer
-  // Middleware nicht pruefbar ist und diese Gegenrichtung uebrig bleibt.
+  // A `<Link>` prefetch is a request like any other, and without this line it wrote
+  // `emporix.language` from the path — so a link to the other language switched the
+  // visitor's language as soon as it entered the viewport. Reproduced on 2026-08-05
+  // with a real Chrome prefetch. See `./navigation.ts` for the measurement showing
+  // why "is a prefetch" cannot be checked in middleware and why this opposite
+  // direction is what remains.
   //
-  // Die Injektion in die weitergeleiteten Request-Cookies oben bleibt davon
-  // unberuehrt: sie ist per Request, persistiert nichts, und der spekulative
-  // Render soll die Sprache seiner eigenen URL benutzen.
+  // The forwarded request-cookie injection above is untouched by this: it is
+  // per-request, persists nothing, and a speculative render should use the language
+  // of the URL it was asked for.
   if (!isTopLevelNavigation(request)) return response;
 
   for (const [name, value] of changed) {

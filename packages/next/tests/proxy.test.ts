@@ -100,7 +100,7 @@ describe("emporixSiteProxy", () => {
     expect(cookie).not.toContain(`${LANG}=fr`);
   });
 
-  it("persistiert bei einer echten Dokument-Navigation", () => {
+  it("persists on a real document navigation", () => {
     const request = new NextRequest("https://shop.test/de/x", {
       headers: { "Sec-Fetch-Mode": "navigate" },
     });
@@ -109,10 +109,10 @@ describe("emporixSiteProxy", () => {
     expect(response.cookies.get(SITE)?.value).toBe("main");
   });
 
-  it("persistiert NICHTS auf einem fetch-basierten Request", () => {
-    // Der Fall, um den es geht: ein `<Link>`-Prefetch auf eine Route in der
-    // anderen Sprache darf die Sprache des Besuchers nicht umstellen. Prefetch und
-    // clientseitige Navigation sind beide `cors`.
+  it("persists NOTHING on a fetch-based request", () => {
+    // The case this is about: a `<Link>` prefetch of a route in the other language
+    // must not switch the visitor's language. A prefetch and a client-side
+    // navigation are both `cors`.
     const request = new NextRequest("https://shop.test/en/x", {
       headers: { cookie: `${LANG}=de`, "Sec-Fetch-Mode": "cors" },
     });
@@ -121,9 +121,9 @@ describe("emporixSiteProxy", () => {
     expect(response.cookies.get(SITE)).toBeUndefined();
   });
 
-  it("injiziert auch dann in die weitergeleiteten Request-Cookies", () => {
-    // Nur das Persistieren faellt weg. Der Render dieser Anfrage soll weiterhin
-    // die Sprache seiner eigenen URL sehen — das ist per Request und bleibt nicht.
+  it("still injects into the forwarded request cookies", () => {
+    // Only persistence drops away. This request's render should still see the
+    // language of its own URL — that is per-request and does not stick.
     const request = new NextRequest("https://shop.test/en/x", {
       headers: { cookie: `${LANG}=de`, "Sec-Fetch-Mode": "cors" },
     });
@@ -131,9 +131,9 @@ describe("emporixSiteProxy", () => {
     expect(request.headers.get("cookie") ?? "").toContain(`${LANG}=en`);
   });
 
-  it("persistiert weiter, wenn der Client keinen Sec-Fetch-Mode sendet", () => {
-    // Fail-open: alte Clients, curl und Bots senden keinen. Ein Prefetch kommt
-    // immer aus einem Browser, der ihn setzt — die Annahme kostet nichts.
+  it("keeps persisting when the client sends no Sec-Fetch-Mode", () => {
+    // Fail-open: old clients, curl and bots send none. A prefetch always comes from
+    // a browser that sets it, so the assumption costs nothing.
     const request = new NextRequest("https://shop.test/de/x");
     const response = emporixSiteProxy(request, { language: "de" });
     expect(response.cookies.get(LANG)?.value).toBe("de");

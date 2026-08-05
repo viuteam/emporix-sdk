@@ -1,45 +1,43 @@
 /**
- * Ist dieser Request eine echte Top-Level-Navigation des Besuchers?
+ * Is this request a real top-level navigation by the visitor?
  *
- * Gebraucht, weil ein Proxy Besucherzustand schreibt und ein **spekulativer**
- * Request das nicht darf. Der Fall, der es aufgedeckt hat: `emporixSiteProxy`
- * schreibt `emporix.language` aus dem Pfad, und ein `<Link>`-Prefetch auf eine
- * Route in der anderen Sprache stellte damit die Sprache des Besuchers um —
- * ohne Klick, sobald der Link ins Blickfeld geriet. Am 2026-08-05 mit einem
- * echten Chrome-Prefetch gegen `next start` reproduziert.
+ * Needed because a proxy writes visitor state, and a **speculative** request must
+ * not. The case that surfaced it: `emporixSiteProxy` writes `emporix.language`
+ * from the path, and a `<Link>` prefetch of a route in the other language switched
+ * the visitor's language — no click, just the link entering the viewport.
+ * Reproduced on 2026-08-05 with a real Chrome prefetch against `next start`.
  *
- * **Warum nicht auf «ist ein Prefetch» geprueft wird.** Das waere das direktere
- * Signal, ist in einer Next-Middleware aber nicht verfuegbar. Gemessen am
- * 2026-08-05 (Next 16.2.12) — der Browser sendet, die Middleware sieht nichts:
+ * **Why this does not check for "is a prefetch".** That would be the direct signal
+ * and it is not available in Next middleware. Measured on 2026-08-05 (Next
+ * 16.2.12) — the browser sends these, middleware sees nothing:
  *
- * | gesendet                            | in der Middleware |
- * | ----------------------------------- | ----------------- |
- * | `next-router-prefetch: 1`           | `null`            |
- * | `rsc: 1`                            | `null`            |
- * | `next-router-segment-prefetch: …`   | `null`            |
- * | `?_rsc=…` in der URL                | nicht sichtbar    |
+ * | sent by the browser                 | seen in middleware |
+ * | ----------------------------------- | ------------------ |
+ * | `next-router-prefetch: 1`           | `null`             |
+ * | `rsc: 1`                            | `null`             |
+ * | `next-router-segment-prefetch: …`   | `null`             |
+ * | `?_rsc=…` in the URL                | not visible        |
  *
- * Next entfernt seine eigenen Router-Signale, bevor die Middleware laeuft. Ein
- * Prefetch ist dort nicht von einer echten clientseitigen Navigation zu
- * unterscheiden — beide sind `sec-fetch-mode: cors`.
+ * Next strips its own router signals before middleware runs. A prefetch is
+ * therefore indistinguishable there from a genuine client-side navigation — both
+ * are `sec-fetch-mode: cors`.
  *
- * Was bleibt, ist die Gegenrichtung: eine echte Dokument-Navigation traegt
- * `sec-fetch-mode: navigate`, alles fetch-basierte `cors`. Dieser Header kommt
- * vom Browser, nicht von Next, und kommt deshalb an.
+ * What is left is the opposite direction: a real document navigation carries
+ * `sec-fetch-mode: navigate`, anything fetch-based carries `cors`. That header
+ * comes from the browser rather than from Next, which is why it arrives.
  *
- * Das reicht, weil ein Schreibvorgang aus dem Pfad nur beim **Erstkontakt**
- * gebraucht wird, und ein Erstkontakt ist immer eine Dokument-Navigation. Eine
- * absichtliche spaetere Aenderung laeuft ueber den Umschalter der Anwendung, der
- * sein Cookie selbst schreibt.
+ * It is enough, because writing from the path is only needed on **first contact**,
+ * and first contact is always a document navigation. Any later intentional change
+ * goes through the application's own language switcher, which writes its cookie
+ * itself.
  *
- * **Fehlt der Header, gilt `true`.** Alte Clients, `curl` und Bots senden kein
- * `sec-fetch-mode`; sie als Navigation zu behandeln haelt das Verhalten fuer sie
- * unveraendert, statt ihnen still den Zustand zu verweigern. Ein Prefetch kommt
- * immer aus einem Browser, der den Header setzt — die Annahme kostet also nichts
- * am Fall, um den es geht.
+ * **A missing header counts as `true`.** Old clients, `curl` and bots send no
+ * `sec-fetch-mode`; treating them as a navigation keeps their behaviour unchanged
+ * instead of silently denying them state. A prefetch always comes from a browser
+ * that sets the header, so the assumption costs nothing on the case that matters.
  *
- * Der Parametertyp ist strukturell und nicht `NextRequest`, damit die Datei ohne
- * `next/server` testbar bleibt.
+ * The parameter type is structural rather than `NextRequest` so this file stays
+ * testable without `next/server`.
  */
 export function isTopLevelNavigation(request: {
   headers: { get(name: string): string | null };

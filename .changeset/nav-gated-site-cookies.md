@@ -2,25 +2,23 @@
 "@viu/emporix-sdk-next": patch
 ---
 
-`emporixSiteProxy` schreibt `emporix.siteCode` und `emporix.language` nur noch bei
-einer echten Top-Level-Navigation als `Set-Cookie`.
+`emporixSiteProxy` now emits `Set-Cookie` for `emporix.siteCode` and
+`emporix.language` only on a real top-level navigation.
 
-Vorher schrieb jeder Request, der die Middleware erreichte — auch ein
-`<Link>`-Prefetch. Ein Link in die andere Sprache stellte damit die Sprache des
-Besuchers um, sobald er ins Blickfeld geriet, und die Sitzungsrouten renderten
-danach in einer Sprache, die niemand gewählt hatte. Mit einem echten Chrome-Prefetch
-gegen einen Produktions-Build reproduziert.
+Before, every request that reached middleware wrote them — including a `<Link>`
+prefetch. A link to another language therefore switched the visitor's language as
+soon as it entered the viewport, and the session routes then rendered in a language
+nobody chose. Reproduced with a real Chrome prefetch against a production build.
 
-Erkannt wird über `sec-fetch-mode`: `navigate` ist eine Navigation, alles
-fetch-basierte nicht. Fehlt der Header — alte Clients, `curl`, Bots — gilt
-Navigation, damit deren Verhalten unverändert bleibt. Die Injektion in die
-weitergeleiteten Request-Cookies passiert weiterhin immer, sodass auch ein
-spekulativer Render die Sprache seiner eigenen URL benutzt.
+Detection reads `sec-fetch-mode`: `navigate` is a navigation, anything fetch-based is
+not. A missing header counts as a navigation, so old clients, `curl` and bots keep
+their behaviour. The forwarded request cookies are still injected either way, so even
+a speculative render uses the language of the URL it was asked for.
 
-Auf «ist ein Prefetch» wird bewusst nicht geprüft: Next entfernt seine Router-Signale
-(`next-router-prefetch`, `rsc`, `next-router-segment-prefetch`, den
-`_rsc`-Query-Parameter), bevor die Middleware läuft — gemessen auf Next 16.2.12. Ein
-Prefetch ist dort nicht von einer echten clientseitigen Navigation zu unterscheiden.
+Checking for "is this a prefetch" instead is deliberately not done: Next strips its
+own router signals — `next-router-prefetch`, `rsc`, `next-router-segment-prefetch`
+and the `_rsc` query parameter — before middleware runs, measured on Next 16.2.12. A
+prefetch is indistinguishable there from a genuine client-side navigation.
 
-Die Token-Rotation in `emporixTokenProxy` ist absichtlich **nicht** so gegattert: wer
-eine Stunde nur clientseitig navigiert, würde sonst nie rotieren.
+Token rotation in `emporixTokenProxy` is deliberately **not** gated the same way: a
+visitor who navigates client-side for an hour would otherwise never rotate.
