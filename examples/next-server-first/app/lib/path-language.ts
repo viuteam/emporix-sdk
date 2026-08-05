@@ -1,17 +1,17 @@
 import { isLanguage, type Language } from "./languages";
 
 /**
- * Die Sprache, die ein Pfad ansagt — oder `null`, wenn er keine ansagt.
+ * The language a path announces — or `null` when it announces none.
  *
- * Steht als eigene Datei da, weil `proxy.ts` sie braucht und Tests sie laden
- * muessen: derselbe Schnitt wie bei `swap-language.ts` und `category-index.ts`.
- * Ein Proxy laeuft in einer Umgebung ohne `cookies()`, und vitest kann nichts
- * laden, das `@viu/emporix-sdk-next/session` hereinzieht.
+ * Its own file because `proxy.ts` needs it and tests have to load it: the same split
+ * as `swap-language.ts` and `category-index.ts`. A proxy runs in an environment
+ * without `cookies()`, and vitest cannot load anything that pulls in
+ * `@viu/emporix-sdk-next/session`.
  *
- * `null` und nicht `DEFAULT_LANGUAGE`: der Unterschied zwischen «dieser Pfad sagt
- * `de`» und «dieser Pfad sagt nichts» ist der ganze Zweck der Funktion.
- * `emporixSiteProxy` laesst ein fehlendes Feld in Ruhe, es gibt kein Loeschen —
- * `/cart` darf die Wahl also nicht ueberschreiben, nur `/de/cart` duerfte das.
+ * `null` rather than `DEFAULT_LANGUAGE`: the difference between "this path says `de`"
+ * and "this path says nothing" is the whole point of the function. `emporixSiteProxy`
+ * leaves an absent field alone — there is no delete — so `/cart` must not overwrite
+ * the visitor's choice, while `/de/cart` would be allowed to.
  */
 export function pathLanguage(pathname: string): Language | null {
   const segment = pathname.split("/")[1] ?? "";

@@ -1,23 +1,23 @@
-/* Uebernommen aus examples/storefront-demo/src/styles/catalog.css am 2026-08-05,
-   nach dem Muster von tokens.css und global.css: eine Kopie, keine geteilte Datei.
+/* Taken from examples/storefront-demo/src/styles/catalog.css on 2026-08-05,
+   following the pattern of tokens.css and global.css: a copy, not a shared file.
 
-   Diese Datei fehlte, und das war kein kosmetischer Mangel. `.pc`, `.pc__ph`,
+   This file was missing, and that was not a cosmetic shortcoming. `.pc`, `.pc__ph`,
    `.pdp__grid`, `.pdp__info`, `.cart__lines`, `.cart__line`, `.cart__summary`,
-   `.cart__total` und `.catnav` standen seit dem 2026-08-03 im Markup, ohne dass es
-   eine Definition dazu gab: das Produkt-Grid war ein Einspalter, die
-   Warenkorb-Summary hatte kein Padding und «TOTAL» klebte am Betrag.
+   `.cart__total` and `.catnav` had been in the markup since 2026-08-03 with no
+   definition anywhere: the product grid was a single column, the cart summary had no
+   padding, and «TOTAL» stuck to the amount.
 
-   NICHT uebernommen, weil diese Demo das Markup dazu nicht hat:
-   `.qty` (braucht einen JS-Stepper — hier ist die Menge ein Zahlenfeld in einem
-   Formular), `.pdp__thumbs`/`.pdp__thumb` (brauchen eine Client-Galerie — hier ist
-   jede Variante eine eigene URL), `.pdp__desc` (diese Demo macht `stripHtml`, es
-   gibt also keine Merchant-Markup zu rhythmisieren), `.cart__thumb` (keine
-   Bildspalte im Warenkorb), `.hero*` und `.section-head` (ungenutzt).
+   NOT carried over, because this demo has no markup for it: `.qty` (needs a JS
+   stepper — here the quantity is a number field in a form), `.pdp__thumbs` and
+   `.pdp__thumb` (need a client gallery — here every variant is its own URL),
+   `.pdp__desc` (this demo runs `stripHtml`, so there is no merchant markup to give
+   rhythm to), `.cart__thumb` (no image column in the cart), `.hero*` and
+   `.section-head` (unused).
 
-   ABWEICHUNG: `.cart__line` ist hier vier Zellen breit statt drei. Der Warenkorb
-   dieser Demo hat kein Vorschaubild und mutiert ueber zwei Formulare statt ueber
-   JS — Name, Menge, Entfernen, Betrag. Die 5rem-Bildspalte des Originals haette
-   den Namen auf 5rem gequetscht. */
+   DEVIATION: `.cart__line` is four cells wide here rather than three. This demo's
+   cart has no thumbnail and mutates through two forms instead of through JS — name,
+   quantity, remove, amount. The original's 5rem image column would have squeezed the
+   name into 5rem. */
 
 /* Catalogue — asymmetric editorial grid + product cards. */
 
@@ -44,11 +44,11 @@
 }
 .pc__media {
   position: relative;
-  /* 4/3 statt des 3/4 der Vorlage. Die Box haelt den Platz frei, bevor das Bild
-     da ist — das ist ihr Zweck und der Grund, warum es hier kein `next/image`
-     braucht. Nur hat auf diesem Tenant kein Produkt ein Bild, und ein Portraet
-     reserviert dann 340px Hoehe pro Karte fuer nichts. Querformat halbiert das
-     und traegt ein echtes Produktfoto genauso. */
+  /* 4/3 rather than the source's 3/4. The box reserves the space before the image
+     arrives — that is its purpose, and the reason no `next/image` is needed here. Only
+     no product on this tenant has an image, and a portrait then reserves 340px of
+     height per card for nothing. Landscape halves that and carries a real product
+     photo just as well. */
   aspect-ratio: 4 / 3;
   overflow: hidden;
   background: var(--film-2);
@@ -64,9 +64,9 @@
 .pc:hover .pc__media img {
   transform: scale(1.03);
 }
-/* Kein Bild. Auf einer Zeichnung wird eine leere Flaeche diagonal durchgestrichen —
-   das ist die Konvention fuer «hier ist nichts», nicht Dekoration. Vorher stand
-   hier ein radialer Farbfleck, der aussah wie ein Bild, das nicht laedt. */
+/* No image. On a drawing an empty area is struck through diagonally — that is the
+   convention for «nothing here», not decoration. This used to be a radial colour
+   smudge that looked like an image failing to load. */
 .pc__ph {
   width: 100%;
   height: 100%;
@@ -105,8 +105,8 @@
   font-size: var(--step-0);
   margin-top: 2px;
 }
-/* Der «Add to cart»-Knopf sitzt unten auf gleicher Hoehe, auch wenn die Namen
-   ueber zwei Zeilen unterschiedlich hoch laufen. */
+/* The «Add to cart» button sits at the same height across cards, even when the names
+   run to different numbers of lines. */
 .pc__action {
   margin-top: auto;
   padding-top: var(--s-3);
@@ -189,7 +189,7 @@
     gap: var(--s-4);
     align-items: end;
   }
-  /* Der Betrag rechtsbuendig, damit die Spalte eine Kante hat. */
+  /* The amount right-aligned, so the column has an edge. */
   .cart__line > .price {
     text-align: right;
   }
@@ -210,33 +210,33 @@
   gap: var(--s-4);
 }
 
-/* Formulare — ohne Begrenzung wird ein Login-Feld auf einem 1440px-Viewport
-   1'190px breit. Kein Feld dieser Demo braucht mehr als eine Textzeile. */
+/* Forms — without a bound a login field grows to 1'190px on a 1440px viewport. No
+   field in this demo needs more than one line of text. */
 .form-col {
   max-width: 26rem;
 }
-/* Der Checkout ist breiter, weil er zweispaltige Zeilen hat. */
+/* The checkout is wider because it has two-column rows. */
 .form-col--wide {
   max-width: 34rem;
 }
 
-/* Feldgruppe im Checkout.
-   Die Gruppentitel trugen zuerst `.eyebrow` — dieselbe Grossschreibung, Sperrung
-   und Farbe wie `.field__label`. «ADDRESS» sah damit aus wie die Beschriftung des
-   Feldes darunter statt wie die Ueberschrift von fuenf Feldern. Eine Gruppe
-   braucht eine andere Stimme, nicht dieselbe in einer anderen Zeile. */
+/* Field group in the checkout.
+   The group titles first carried `.eyebrow` — the same capitals, letterspacing and
+   colour as `.field__label`. «ADDRESS» therefore looked like the label of the field
+   below it rather than the heading of five fields. A group needs a different voice,
+   not the same one on another line. */
 .fgroup {
   border: 0;
   padding: 0;
   margin: 0;
 }
-/* Nur Abstand, keine Trennlinie.
-   Zuerst stand hier ein `border-top`, und die Linie lief mitten durch «Address»:
-   ein `<legend>` wird vom Browser auf die Fieldset-Kante gesetzt, und die
-   UA-Stylesheet erzwingt `float: none !important` und `position: static
-   !important`, die bekannte Legend-Normalisierung greift also nicht mehr.
-   Die Linie war ohnehin das Accessoire zu viel — eine Serif-Ueberschrift auf
-   `--step-1` mit `--s-6` Luft darueber trennt zwei Gruppen von selbst. */
+/* Spacing only, no rule.
+   This started as a `border-top`, and the line ran straight through «Address»: a
+   `<legend>` is placed on the fieldset edge by the browser, and the UA stylesheet
+   forces `float: none !important` and `position: static !important`, so the familiar
+   legend normalisation no longer bites. The line was the one accessory too many
+   anyway — a display heading at `--step-1` with `--s-6` of air above it separates two
+   groups by itself. */
 .fgroup + .fgroup {
   margin-top: var(--s-6);
 }
@@ -250,8 +250,8 @@
   margin-bottom: var(--s-4);
 }
 
-/* Zwei Felder auf einer Zeile — Strasse/Nummer, PLZ/Ort. Acht gestapelte Felder
-   machten den Checkout 1'400px hoch. */
+/* Two fields on one row — street/number, postcode/city. Eight stacked fields made
+   the checkout 1'400px tall. */
 .field-row {
   display: grid;
   gap: var(--s-4);
@@ -265,24 +265,22 @@
   }
 }
 
-/* Radios in der Akzentfarbe statt im Browser-Blau. Eine Zeile, native Eigenschaft,
-   kein nachgebautes Steuerelement — und die Tastaturbedienung bleibt die des
-   Browsers. */
+/* Radios in the accent colour instead of browser blue. One line, a native property,
+   no rebuilt control — and the keyboard behaviour stays the browser's. */
 input[type="radio"],
 input[type="checkbox"] {
   accent-color: var(--redline);
 }
 
 /* =========================================================================
-   Das Blatt: Inhaltsspalte plus Annotations-Marginalie.
+   The sheet: content column plus annotation rail.
 
-   Die rechten 55 % des Fensters standen leer, gemessen auf 1440px, und
-   gleichzeitig verstopfte die Erklaerprosa den Seitenanfang: die Startseite
-   begann mit vier Zeilen darueber, warum die meisten Produkte dieses Tenants
-   keinen Preis haben. Beides ist dasselbe Problem — der Text hatte keinen Ort,
-   also nahm er den Platz der Hauptsache.
+   The right 55 % of the window sat empty, measured at 1440px, while the explanatory
+   prose clogged the top of the page: the home page opened with four lines about why
+   most products on this tenant carry no price. Both are the same problem — the text
+   had no home, so it took the place of the main point.
 
-   Auf einer Zeichnung stehen Notizen am Rand und nicht im Bild.
+   On a drawing, notes go in the margin and not in the picture.
    ========================================================================= */
 .sheet {
   display: grid;
@@ -305,11 +303,11 @@ input[type="checkbox"] {
   font-size: var(--step--1);
 }
 
-/* Das Schriftfeld — auf einer echten Zeichnung die Tabelle in der Blattecke, die
-   sagt, was man vor sich hat. Hier sagt sie, wie diese Route gerendert wurde. Das
-   sind keine erfundenen Angaben: sie stehen so im `next build` und in den
-   Antwort-Headern, und fuer wen diese Demo gemacht ist, sind sie die
-   interessanteste Information auf der Seite. */
+/* The title block — on a real drawing, the table in the corner of the sheet saying
+   what you are looking at. Here it says how this route was rendered. None of it is
+   invented: the values appear exactly like that in `next build` and in the response
+   headers, and for the audience this demo is made for they are the most interesting
+   information on the page. */
 .tblock {
   border: var(--line-w) solid var(--ink);
 }
@@ -337,8 +335,8 @@ input[type="checkbox"] {
 .tblock__val {
   overflow-wrap: anywhere;
 }
-/* Der Zustand, um den es dieser Demo geht: statisch heisst, die Antwort kam ohne
-   Emporix-Aufruf aus dem Cache. Das ist die Aussage, nicht eine Farbe. */
+/* The state this demo is about: static means the answer came from the cache with no
+   Emporix call. That is the statement; the colour only carries it. */
 .tblock__val--static {
   color: var(--good);
 }
@@ -346,8 +344,8 @@ input[type="checkbox"] {
   color: var(--redline);
 }
 
-/* Eine Randnotiz, mit Anschlusslinie nach links wie eine Hinweislinie auf einer
-   Zeichnung. */
+/* A margin note, with a connecting line on the left like a leader line on a
+   drawing. */
 .note {
   border-left: 2px solid var(--redline);
   padding-left: var(--s-3);
@@ -365,21 +363,21 @@ input[type="checkbox"] {
 }
 
 /* =========================================================================
-   Die Insel-Markierung.
+   The island marker.
 
-   Alles auf diesen Seiten wird auf dem Server gerendert — bis auf drei Stellen,
-   die im Browser hydrieren. Genau darum geht es in dieser Demo, und man sah es
-   nirgends: eine Client-Insel sah aus wie jedes andere Stueck Seite.
+   Everything on these pages is rendered on the server — except three places that
+   hydrate in the browser. That is exactly what this demo is about, and it was visible
+   nowhere: a client island looked like any other piece of page.
 
-   Die Klammer ist eine Massklammer: sie misst die Ausdehnung eines Bereichs, und
-   ein hydrierter Bereich ist genau das. Sie zeichnet sich beim Seitenaufbau
-   einmal ein, was `prefers-reduced-motion` abschaltet.
+   The bracket is a dimension bracket: it measures the extent of a region, and a
+   hydrated region is precisely that. It draws itself in once during the page
+   build-up, which `prefers-reduced-motion` switches off.
    ========================================================================= */
 .island {
   position: relative;
   padding-left: var(--s-3);
-  /* Platz fuer die Beschriftung ueber dem Inhalt. Ohne das legt sich die Marke
-     ueber die erste Zeile der Insel. */
+  /* Room for the label above the content. Without it the mark lies over the island's
+     first line. */
   padding-top: 1rem;
 }
 .island::before {
@@ -398,8 +396,8 @@ input[type="checkbox"] {
   top: 0;
   left: calc(var(--s-3) + 2px);
   font-family: var(--font-mono);
-  /* Auf der Skala, nicht daneben. 0.6rem waren 9.6px — klein ist im Genre echt,
-     unlesbar ist kein Stil. */
+  /* On the scale rather than beside it. 0.6rem was 9.6px — small is authentic to the
+     genre, unreadable is not a style. */
   font-size: var(--step--2);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -407,8 +405,8 @@ input[type="checkbox"] {
   white-space: nowrap;
   pointer-events: none;
 }
-/* Im Header ist kein Platz fuer eine Beschriftung neben der Klammer — dort traegt
-   nur die Klammer selbst die Aussage, und die Legende steht im Schriftfeld. */
+/* In the header there is no room for a label beside the bracket — there the bracket
+   carries the statement alone, and the legend sits in the title block. */
 .island--bare {
   padding-left: var(--s-2);
   padding-top: 0;

@@ -40,12 +40,12 @@ export function ActionForm({
   submit: string;
   children?: React.ReactNode;
   /**
-   * Layout des Formulars, weil das `<form>` seinen Kindern keines gibt.
+   * Layout for the form, because a `<form>` gives its children none.
    *
-   * Ohne das stiess der Knopf ohne Abstand an die Unterkante des Feldes — in der
-   * Warenkorb-Summary sichtbar. Die Warenkorbzeile will das Gegenteil, naemlich
-   * Beschriftung, Feld und Knopf in einer Reihe, und bekommt das schon vom
-   * Inline-Fluss. Darum ein Prop und kein fester Wert.
+   * Without it the button butted straight against the bottom edge of the field —
+   * visible in the cart summary. The cart line wants the opposite, namely label,
+   * field and button on one row, and gets that from the inline flow already. Hence a
+   * prop rather than a fixed value.
    */
   className?: string;
 }): React.JSX.Element {

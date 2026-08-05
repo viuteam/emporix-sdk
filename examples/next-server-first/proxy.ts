@@ -4,66 +4,63 @@ import { STORE_OPT } from "./app/emporix";
 import { pathLanguage } from "./app/lib/path-language";
 
 /**
- * Rotates the customer token, pins the site — and **schliesst die Naht zwischen den
- * zwei Sprachquellen**.
+ * Rotates the customer token, pins the site — and **closes the seam between the two
+ * language sources**.
  *
- * Der Katalog liest die Sprache aus seiner URL (`/de/category/…`), weil ein
- * Cookie-Zugriff die Route dynamisch und damit uncacheable machen wuerde. Die
- * Sitzungsrouten (`/cart`, `/checkout`, `/account/…`) lesen das Cookie, weil sie
- * ohnehin pro Besucher rendern. Zwei Quellen, und `/api/session/language` war als
- * einziger Schreiber dokumentiert.
+ * The catalog reads its language from the URL (`/de/category/…`), because a cookie
+ * read would make the route dynamic and therefore uncacheable. The session routes
+ * (`/cart`, `/checkout`, `/account/…`) read the cookie, because they render per
+ * visitor anyway. Two sources, and `/api/session/language` was documented as the only
+ * writer.
  *
- * Diese Naht hatte ein Loch: **wer den Sprachumschalter nie anklickt, hat kein
- * Cookie.** `/` leitet auf `DEFAULT_LANGUAGE` um, ohne es zu schreiben, und wer
- * direkt auf `/de/product/x` landet, schreibt es auch nicht. Ohne Cookie sendet der
- * SDK kein `Accept-Language`, Emporix liefert die vollstaendige Sprachkarte, und
- * `localized()` in examples/shared nimmt daraus den ersten Treffer seiner Reihenfolge
- * — und die beginnt mit `en`.
+ * That seam had a hole: **a visitor who never clicks the language switcher has no
+ * cookie.** `/` redirects to `DEFAULT_LANGUAGE` without writing it, and landing
+ * directly on `/de/product/x` does not write it either. With no cookie the SDK sends
+ * no `Accept-Language`, Emporix returns the complete locale map, and `localized()` in
+ * examples/shared takes the first hit of its own order — which begins with `en`.
  *
- * Gemessen am 2026-08-05 auf dem `viu`-Tenant: die Produktseite `/de/product/…`
- * zeigte «Just-in-Time Zugriff (JIT)», derselbe Artikel im Warenkorb «Just-in-Time
- * Access (JIT)». Ein Aufruf von `/api/session/language?to=de` drehte den Warenkorb
- * auf Deutsch, ohne dass sonst etwas geaendert wurde — damit ist das fehlende Cookie
- * die Ursache und nicht die Lage der Routen.
+ * Measured on 2026-08-05 against the `viu` tenant: the product page `/de/product/…`
+ * showed «Just-in-Time Zugriff (JIT)» while the same item in the cart showed
+ * «Just-in-Time Access (JIT)». One call to `/api/session/language?to=de` flipped the
+ * cart to German with nothing else changed — which makes the missing cookie the cause,
+ * not where the routes live.
  *
- * Hier ist die Stelle, an der es zu beheben ist: ein Proxy darf Cookies schreiben,
- * ein Server Component nicht. `emporixSiteProxy` — an das `emporixTokenProxy`
- * delegiert — schreibt den Wert zweimal, in die weitergeleiteten Request-Cookies
- * (damit **dieser** Render ihn schon sieht) und als `Set-Cookie`. Genau dieser Fall
- * steht als Beispiel in seinem eigenen Doc-Kommentar.
+ * This is the place to fix it: a proxy may write cookies, a Server Component may not.
+ * `emporixSiteProxy` — which `emporixTokenProxy` delegates to — writes the value
+ * twice, into the forwarded request cookies (so **this** render already sees it) and as
+ * a `Set-Cookie`. This exact case is the example in its own doc comment.
  *
- * Warum das den Katalog-Cache nicht kaputt macht: der Wert ist eine Funktion des
- * Pfads, und der Pfad ist der Cache-Key — `/de/…` setzt immer `de`. Dazu
- * ueberspringt `emporixSiteProxy` den Schreibvorgang, wenn das eingehende Cookie
- * schon passt, sodass nur der erste Aufruf pro Sprache ein `Set-Cookie` traegt und
- * der Dauerzustand keines.
+ * Why it does not break the catalog cache: the value is a function of the path, and
+ * the path is the cache key — `/de/…` always sets `de`. On top of that
+ * `emporixSiteProxy` skips the write when the incoming cookie already matches, so only
+ * the first request per language carries a `Set-Cookie` and the steady state carries
+ * none.
  *
- * Die Alternative waere, die Sitzungsrouten unter `/[lang]/…` zu ziehen und die
- * zweite Quelle ganz zu loeschen. Sie wuerde denselben Fehler beheben, aber acht
- * Routen und jeden internen Link bewegen — und cacheable werden diese Routen davon
- * nicht, sie lesen weiter das Sitzungscookie. Fuer die URL-Gestalt waere es die
- * schoenere Loesung, fuer den Fehler ist es die teurere.
+ * The alternative would be moving the session routes under `/[lang]/…` and deleting
+ * the second source entirely. It would fix the same bug, but it moves eight routes and
+ * every internal link — and those routes do not become cacheable from it, they still
+ * read the session cookie. For URL shape it is the nicer solution; for this bug it is
+ * the more expensive one.
  *
- * KANTE, die auf http nicht auffaellt und deshalb hier steht: dieses Cookie hat
- * jetzt zwei Schreiber mit verschiedenen Namensregeln. `emporixSiteProxy` schreibt
- * `emporix.language` immer unprefixed, `emporixSessionHandle` — und damit
- * `/api/session/language` — schreibt auf https `__Host-emporix.language`. Gelesen
- * wird ueber `readCookie`, das den prefixed Namen **bevorzugt** und auf den bare
- * zurueckfaellt. Auf https gewinnt darum eine frueher getroffene Wahl im Umschalter
- * dauerhaft gegen die URL: wer auf `/cart` DE waehlt und danach `/en/product/x`
- * oeffnet, sieht den Warenkorb weiter deutsch.
+ * AN EDGE that does not show on http and is therefore written down: this cookie now
+ * has two writers with different naming rules. `emporixSiteProxy` always writes
+ * `emporix.language` unprefixed; `emporixSessionHandle` — and with it
+ * `/api/session/language` — writes `__Host-emporix.language` on https. Reads go
+ * through `readCookie`, which **prefers** the prefixed name and falls back to the bare
+ * one. On https an earlier choice made in the switcher therefore wins permanently
+ * against the URL: pick DE on `/cart`, then open `/en/product/x`, and the cart stays
+ * German.
  *
- * Das bleibt bewusst so. Die Reihenfolge ist im Paket festgelegt und nicht in
- * diesem Beispiel korrigierbar, ohne an den Cookie-Namen zu greifen — und das
- * waere schlimmer als die Kante. Sie braucht https, eine vorherige Umschalter-Wahl
- * und danach einen Sprachwechsel per URL statt per Umschalter; auf einer
- * Sitzungsroute ist die Cookie-Wahl ausserdem die einzige, die es gibt, weil dort
- * keine Sprache in der URL steht.
+ * That stays as it is, deliberately. The precedence is fixed in the package and cannot
+ * be corrected from this example without reaching for the cookie names — which would
+ * be worse than the edge. It needs https, a prior switcher choice, and then a language
+ * change by URL rather than by switcher; and on a session route the cookie choice is
+ * the only one there is anyway, because no language appears in the URL there.
  */
 export async function proxy(request: NextRequest) {
-  // `null` auf einer Sitzungsroute: dann bleibt das bestehende Cookie unberuehrt,
-  // weil `emporixSiteProxy` ein fehlendes Feld in Ruhe laesst. Ein `/cart` darf die
-  // Wahl des Besuchers nicht ueberschreiben — es sagt ueber Sprache nichts aus.
+  // `null` on a session route: the existing cookie is then left untouched, because
+  // `emporixSiteProxy` leaves an absent field alone. A `/cart` must not overwrite the
+  // visitor's choice — it says nothing about language.
   const language = pathLanguage(request.nextUrl.pathname);
 
   return emporixTokenProxy(request, {

@@ -54,22 +54,21 @@ export async function siteContext(lang?: string): Promise<{
   const language = handle.get(STORAGE_KEYS.language);
   return {
     ...DEFAULTS,
-    // `DEFAULT_LANGUAGE`, nicht «Feld weglassen».
+    // `DEFAULT_LANGUAGE`, not "leave the field out".
     //
-    // Hier stand: «Absent, not empty: without the field the SDK sends no
+    // This used to read: «Absent, not empty: without the field the SDK sends no
     // `Accept-Language` at all and Emporix falls back to the site's
-    // `defaultLanguage` (`de` on `viu`).» Der erste Teil stimmt, der zweite nicht.
-    // Gemessen am 2026-08-05: ohne Sprache im Kontext kommt die vollstaendige
-    // Sprachkarte zurueck, und `localized()` in examples/shared nimmt daraus den
-    // ersten Treffer seiner Reihenfolge — die mit `en` beginnt. Beobachtet im
-    // Warenkorb als «Just-in-Time Access (JIT)», waehrend `/de/product/…`
-    // «Just-in-Time Zugriff (JIT)» zeigte.
+    // `defaultLanguage` (`de` on `viu`).» The first half is true, the second is not.
+    // Measured 2026-08-05: with no language in the context the complete locale map
+    // comes back, and `localized()` in examples/shared takes the first hit of its
+    // own order — which begins with `en`. Observed in the cart as «Just-in-Time
+    // Access (JIT)» while `/de/product/…` showed «Just-in-Time Zugriff (JIT)».
     //
-    // Der Tenant-Default IST `de` (`sites.get("main")`, gemessen 2026-08-04) — er
-    // wird nur nicht angewandt, wenn niemand danach fragt. Also fragen wir.
+    // The tenant default IS `de` (`sites.get("main")`, measured 2026-08-04) — it
+    // just never gets applied unless somebody asks for it. So we ask.
     //
-    // Greift nur noch, wenn eine Sitzungsroute die erste Anfrage einer Sitzung
-    // ueberhaupt ist; sonst hat `proxy.ts` das Cookie schon aus dem Pfad gesetzt.
+    // Only bites now when a session route is the very first request of a session;
+    // otherwise `proxy.ts` has already set the cookie from the path.
     language: language ?? DEFAULT_LANGUAGE,
   };
 }

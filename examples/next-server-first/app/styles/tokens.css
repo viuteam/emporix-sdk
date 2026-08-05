@@ -1,52 +1,49 @@
-/* «Technische Zeichnung» — die Design-Tokens dieser Demo.
+/* «Technical drawing» — the design tokens of this demo.
    =========================================================================
 
-   Vorher standen hier «Editorial Luxe», kopiert aus examples/storefront-demo.
-   Die Kopie war nicht falsch abgeschrieben, sie war das Kostuem einer anderen
-   App: warmes Papier, hochkontrastige Serif, ein Oxblood-Akzent. Das ist eine
-   Ausstattung fuer einen Shop, der etwas Schoenes verkauft.
+   This used to hold «Editorial Luxe», copied out of examples/storefront-demo. The
+   copy was not mis-transcribed; it was the costume of a different app: warm paper,
+   a high-contrast serif, an oxblood accent. That is a wardrobe for a shop selling
+   something beautiful.
 
-   Diese Demo verkauft nichts. Ihr Gegenstand ist eine Architektur-Entscheidung —
-   der Browser haelt keinen Token — und ihr Publikum sind Entwickler, die
-   entscheiden, ob sie diesen Modus uebernehmen. Entsprechend besteht ihr Inhalt
-   zu einem grossen Teil aus Maschinenwerten: `priceId`, Cart-Hashes,
-   `IN_CHECKOUT`, `revalidate 3600`, «no price in this context». Eine
-   Mode-Serif hat fuer nichts davon einen Platz, also landete das alles als
-   grauer Nebentext dort, wo die Seite ihre Hauptsache haette.
+   This demo sells nothing. Its subject is an architectural decision — the browser
+   holds no token — and its audience is developers deciding whether to adopt the
+   mode. Accordingly, a large share of its content is machine values: `priceId`,
+   cart hashes, `IN_CHECKOUT`, `revalidate 3600`, «no price in this context». A
+   fashion serif has no slot for any of that, so it all ended up as grey secondary
+   text exactly where the page should carry its main point.
 
-   Eine Referenz-Implementierung IST eine annotierte Zeichnung. Daraus kommt
-   alles hier:
+   A reference implementation IS an annotated drawing. Everything here follows from
+   that:
 
-   FARBE   Zeichnungsfilm statt Papier. Der Film der Reissbrett-Aera ist kuehl
-           und leicht gruenstichig, nicht cremefarben. Linien und Text in
-           Zeichentusche-Blauschwarz. Der eine Akzent ist Redline-Rot: die Farbe,
-           in der eine Zeichnung korrigiert und kommentiert wird — «redlining»
-           ist der Fachbegriff dafuer. Er ist deshalb ausschliesslich fuer
-           Annotation und fuer die Server/Client-Grenze reserviert, nie fuer
-           Dekoration.
+   COLOUR  Drafting film instead of paper. The film of the drawing-board era is
+           cool and faintly green, not cream. Lines and text in drafting-ink
+           blue-black. The single accent is redline red: the colour a drawing is
+           corrected and commented in — «redlining» is the term of art. It is
+           therefore reserved exclusively for annotation and for the server/client
+           boundary, never for decoration.
 
-   SCHRIFT Drei Rollen, drei Aufgaben. Archivo mit weit gestellter Breitenachse
-           fuer Display — eine Grotesk mit Breitenkontrast statt Stilkontrast,
-           was die Bewegung einer technischen Plattenschrift ist: Beschriftung
-           breit, Notiz schmal. IBM Plex Sans fuer Text und IBM Plex Mono fuer
-           jeden Maschinenwert. Die zwei Plex sind metrisch verwandte
-           Geschwister, gebaut fuer technische Dokumentation — genau der
-           Wechsel, den diese App auf jeder Seite dutzendfach macht.
+   TYPE    Three roles, three jobs. Archivo with its width axis pushed wide for
+           display — a grotesque using width contrast rather than style contrast,
+           which is the move of a technical plate lettering: labels wide, notes
+           narrow. IBM Plex Sans for prose and IBM Plex Mono for every machine
+           value. The two Plex faces are metrically related siblings built for
+           technical documentation — exactly the switch this app makes dozens of
+           times per page.
 
-   RASTER  Inhaltsspalte plus Annotations-Marginalie. Die rechten 55 % des
-           Fensters standen leer (auf 1440px gemessen), und gleichzeitig
-           verstopfte die Erklaerprosa den Seitenanfang. Beide Probleme sind
-           dasselbe Problem.
+   GRID    Content column plus annotation rail. The right 55 % of the window sat
+           empty (measured at 1440px) while the explanatory prose clogged the top
+           of the page. Both problems are the same problem.
 
-   SIGNATURE  Das Schriftfeld und die Insel-Klammern, siehe
-           `components/sheet.tsx`. Eine Motivik in zwei Auspraegungen, beide mit
-           echten Fakten pro Seite.
+   SIGNATURE  The title block and the island brackets, see
+           `components/sheet.tsx`. One motif in two expressions, both carrying real
+           per-page facts.
 
-   Bewusst NICHT uebernommen aus der Zeichnungssprache: Schraffuren, ein
-   Massstab, eine Blattnummer, Pfeilspitzen an jeder Linie. Das waere Dekoration
-   mit Fachbegriff — eine Blattnummer kodiert hier nichts. */
+   Deliberately NOT taken from the drawing vocabulary: hatching, a scale, a sheet
+   number, arrowheads on every line. That would be decoration with a term of art —
+   a sheet number encodes nothing here. */
 :root {
-  /* Palette — Zeichnungsfilm, Tusche, eine Korrekturfarbe. */
+  /* Palette — drafting film, ink, one correction colour. */
   --film: #eaeeec;
   --film-2: #dee3e0;
   --film-3: #d2d9d5;
@@ -54,18 +51,17 @@
   --ink-2: #4a5c66;
   --redline: #b8301a;
   --redline-2: #8f2413;
-  /* Gemessen, nicht geschaetzt: der erste Wert (#6d7f88) kam auf 3.56 gegen
-     `--film` und fiel damit unter die 4.5 der WCAG-AA fuer normalen Text. Diese
-     Farbe traegt jede Beschriftung der Demo — Eyebrow, Feldbeschriftung, die
-     Schluesselspalte im Schriftfeld —, also ausgerechnet den Text, der Kontrast am
-     dringendsten braucht. #52646d liegt bei 5.27 auf `--film` und 5.28 auf
-     `--film-2`. */
+  /* Measured, not guessed: the first value (#6d7f88) came out at 3.56 against
+     `--film`, below the 4.5 that WCAG AA asks for normal text. This colour carries
+     every label in the demo — eyebrow, field label, the key column of the title
+     block — so precisely the text most in need of contrast. #52646d sits at 5.27 on
+     `--film` and 5.28 on `--film-2`. */
   --muted: #52646d;
   --line: #c3cdc8;
   --line-2: #aab6b1;
   --good: #2f5d4a;
 
-  /* Type — die Familien kommen aus `next/font/google`, siehe layout.tsx. */
+  /* Type — the families come from `next/font/google`, see layout.tsx. */
   --font-display: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
   --font-body: var(--font-plex-sans), system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
@@ -90,17 +86,17 @@
   --s-8: 6rem;
   --gutter: clamp(1.1rem, 0.5rem + 2.6vw, 3rem);
   --maxw: 84rem;
-  /* Breite der Annotations-Marginalie. */
+  /* Width of the annotation rail. */
   --rail: 17rem;
 
-  /* Eine Zeichnung hat keine abgerundeten Ecken und keinen Schlagschatten. Beide
-     Tokens bleiben, weil global.css sie referenziert — auf 0 gesetzt statt
-     entfernt, damit hier eine Entscheidung steht und keine Luecke. */
+  /* A drawing has no rounded corners and no drop shadow. Both tokens stay because
+     global.css references them — set to 0 rather than deleted, so what stands here
+     is a decision and not a gap. */
   --radius: 0;
   --radius-lg: 0;
   --line-w: 1px;
-  /* Die Linie, mit der annotiert wird, ist duenner als die, mit der gezeichnet
-     wird. Unter 1px rendert kein Browser verlaesslich, also ueber die Farbe. */
+  /* The line you annotate with is thinner than the line you draw with. Below 1px no
+     browser renders reliably, so the difference is carried by colour. */
   --line-annot: 1px;
 
   --shadow-1: none;
