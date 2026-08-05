@@ -3,15 +3,25 @@ import { createEmporixPublicRoute } from "../src/public-route";
 import { createProxyTokenProvider, createProxyFetch } from "../src/public-client";
 import { __resetEmporixClients } from "../src/client";
 
-function stubFetch(): { urls: string[]; auths: Array<string | null> } {
+interface NextInit extends RequestInit {
+  next?: { tags?: string[]; revalidate?: number };
+}
+
+function stubFetch(opts: { status?: number } = {}): {
+  urls: string[];
+  auths: Array<string | null>;
+  inits: NextInit[];
+} {
   const urls: string[] = [];
   const auths: Array<string | null> = [];
+  const inits: NextInit[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       urls.push(url);
       auths.push(new Headers(init?.headers).get("authorization"));
+      if (!url.includes("/customerlogin/auth/anonymous/")) inits.push((init ?? {}) as NextInit);
       // `sessionId` camelCase, the rest snake_case — Emporix's own shape.
       const body = url.includes("/customerlogin/auth/anonymous/")
         ? {
@@ -21,13 +31,14 @@ function stubFetch(): { urls: string[]; auths: Array<string | null> } {
             expires_in: 3600,
           }
         : { ok: true };
+      const status = url.includes("/customerlogin/auth/anonymous/") ? 200 : (opts.status ?? 200);
       return new Response(JSON.stringify(body), {
-        status: 200,
+        status,
         headers: { "Content-Type": "application/json" },
       });
     }),
   );
-  return { urls, auths };
+  return { urls, auths, inits };
 }
 
 function req(path: string): { request: Request; ctx: { params: Promise<{ path: string[] }> } } {
@@ -222,5 +233,59 @@ describe("the public-client entry", () => {
       default: { exports: Record<string, unknown> };
     };
     expect(pkg.default.exports["./catalog-client"]).toBeUndefined();
+  });
+});
+
+/**
+ * The route is what a typeahead hits on every debounced keystroke. It used to
+ * call `globalThis.fetch` with no cache options at all and return no
+ * `Cache-Control`, so each keystroke was a billed Emporix call for data every
+ * visitor shares — while its own doc comment claimed the opposite.
+ */
+describe("createEmporixPublicRoute — caching", () => {
+  it("tags the upstream fetch so Next caches it for all visitors", async () => {
+    const f = stubFetch();
+    const route = createEmporixPublicRoute({ revalidate: 600 });
+    const { request, ctx } = req("product/viu/products?q=shirt");
+    await route(request, ctx);
+    expect(f.inits[0]?.next?.revalidate).toBe(600);
+    expect(f.inits[0]?.next?.tags).toContain("emporix:products");
+  });
+
+  it("defaults to the same hour the tagged client uses", async () => {
+    const f = stubFetch();
+    const route = createEmporixPublicRoute();
+    const { request, ctx } = req("product/viu/products/p1");
+    await route(request, ctx);
+    expect(f.inits[0]?.next?.revalidate).toBe(3600);
+  });
+
+  it("lets a CDN cache the response too", async () => {
+    stubFetch();
+    const route = createEmporixPublicRoute({ revalidate: 600 });
+    const { request, ctx } = req("product/viu/products/p1");
+    const res = await route(request, ctx);
+    expect(res.headers.get("Cache-Control")).toBe(
+      "public, s-maxage=600, stale-while-revalidate=60",
+    );
+  });
+
+  it("never lets a CDN cache an upstream error", async () => {
+    // A 502 pinned for an hour would outlive the outage that caused it.
+    stubFetch({ status: 502 });
+    const route = createEmporixPublicRoute();
+    const { request, ctx } = req("product/viu/products/p1");
+    const res = await route(request, ctx);
+    expect(res.status).toBe(502);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("does not cache the 403 it answers a forbidden path with", async () => {
+    stubFetch();
+    const route = createEmporixPublicRoute();
+    const { request, ctx } = req("cart/viu/carts/c1");
+    const res = await route(request, ctx);
+    expect(res.status).toBe(403);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 });

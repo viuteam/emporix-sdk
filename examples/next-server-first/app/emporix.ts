@@ -4,6 +4,17 @@ import { sessionStore } from "./session-store";
 export const SITE = { siteCode: "main" } as const;
 
 /**
+ * What this storefront is willing to wait for.
+ *
+ * The SDK default is 10 s to headers and 60 s to the end of the body. Nobody
+ * waits a minute for a cart page, and at high concurrency that budget is what
+ * turns one slow Emporix minute into a process full of parked requests: 8 s sits
+ * above the p99 of every call this app makes and far below «the visitor already
+ * left».
+ */
+export const TIMEOUTS = { connectMs: 3_000, readMs: 8_000 } as const;
+
+/**
  * The request context used to live here as a module constant, and the session
  * options with it. Both moved to `lib/site-context.ts` and are now **derived per
  * request** — a module constant cannot hold a visitor's language choice, and one

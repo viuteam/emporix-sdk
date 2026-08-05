@@ -13,6 +13,7 @@ import {
 import { pricesFor } from "../../../../lib/prices";
 import { addToCart } from "../../../../actions/cart";
 import { siteContext } from "../../../../lib/site-context";
+import { TIMEOUTS } from "../../../../emporix";
 
 /**
  * A product page whose whole state lives in the URL.
@@ -47,7 +48,7 @@ export default async function ProductPage({
   // make this route dynamic, and a variant is a document worth its own cacheable
   // URL anyway — bookmarkable, crawlable, one cache entry each.
   const chosen = variant?.[0];
-  const client = getEmporixClient({ context: await siteContext(lang) });
+  const client = getEmporixClient({ context: await siteContext(lang), timeouts: TIMEOUTS });
 
   // An unknown id must be a 404, not a 500. A product URL outlives the product:
   // it sits in bookmarks, in search indexes and in other people's links, so this

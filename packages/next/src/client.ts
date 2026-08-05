@@ -59,6 +59,16 @@ export interface GetEmporixClientOptions {
   /** Seconds; becomes `next: { revalidate }` on tagged GETs. Default 3600. */
   revalidate?: number;
   /**
+   * Per-request budgets, forwarded to the SDK.
+   *
+   * The SDK default is 10 s to headers and 60 s to the end of the body.
+   * Generous, and at high concurrency that is the problem: a slow upstream holds
+   * a socket and an event-loop task for a minute per request, so one slow
+   * Emporix minute fills the process with parked work before anything gives up.
+   * Pick something a visitor would actually wait for.
+   */
+  timeouts?: { connectMs?: number; readMs?: number };
+  /**
    * Storefront request context, bound at anonymous login. Needed for
    * `prices.matchByContext`, and for prefetch-key parity with the client-side
    * `EmporixProvider` — the provider binds the same values, and a mismatch
@@ -112,7 +122,7 @@ export function getEmporixClient(opts: GetEmporixClientOptions = {}): EmporixCli
   // combination that actually occurs. Bounded by the configuration, not by
   // traffic, and no state crosses between visitors: the context is part of the
   // key, so two languages cannot share an instance.
-  const key = `${tenant}|${clientId}|${host ?? ""}|${tagged}|${revalidate}|${JSON.stringify(opts.context ?? {})}`;
+  const key = `${tenant}|${clientId}|${host ?? ""}|${tagged}|${revalidate}|${JSON.stringify(opts.context ?? {})}|${JSON.stringify(opts.timeouts ?? {})}`;
   const cached = clients.get(key);
   if (cached) return cached;
 
@@ -126,6 +136,7 @@ export function getEmporixClient(opts: GetEmporixClientOptions = {}): EmporixCli
     },
     logger: false,
     ...(host !== undefined ? { host } : {}),
+    ...(opts.timeouts !== undefined ? { timeouts: opts.timeouts } : {}),
     ...(tagged ? { fetch: createTaggingFetch({ tenant, revalidate }) } : {}),
   });
   clients.set(key, client);

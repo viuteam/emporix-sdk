@@ -192,3 +192,30 @@ describe("getEmporixClient", () => {
     expect(nextOf(token!.init)).toBeUndefined();
   });
 });
+
+/**
+ * The SDK default is 10 s to headers and 60 s to the end of the body. Generous,
+ * and at high concurrency that is the problem: a slow upstream holds a socket and
+ * an event-loop task for a minute per request, so a brownout fills the process
+ * with parked work before anything gives up. Neither entry point could set it.
+ */
+describe("getEmporixClient — request budgets", () => {
+  it("passes timeouts through to the SDK", () => {
+    const c = getEmporixClient({ timeouts: { connectMs: 3_000, readMs: 8_000 } });
+    expect(c.config.timeouts).toEqual({ connectMs: 3_000, readMs: 8_000 });
+  });
+
+  it("keeps the SDK defaults when nothing is passed", () => {
+    const c = getEmporixClient();
+    expect(c.config.timeouts.readMs).toBe(60_000);
+  });
+
+  it("keys the memo on them, so two budgets are two clients", () => {
+    // Without this in the key the second caller would silently get the first
+    // caller's budget — the failure would only show up under load.
+    const fast = getEmporixClient({ timeouts: { readMs: 8_000 } });
+    const slow = getEmporixClient({ timeouts: { readMs: 30_000 } });
+    expect(fast).not.toBe(slow);
+    expect(getEmporixClient({ timeouts: { readMs: 8_000 } })).toBe(fast);
+  });
+});

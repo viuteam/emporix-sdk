@@ -25,6 +25,16 @@ export interface WithEmporixSessionOptions {
    * it in one place and that place silently falls back to cookie mode.
    */
   store?: EmporixSessionStore;
+  /**
+   * Per-request budgets, forwarded to the SDK.
+   *
+   * The SDK default is 10 s to headers and 60 s to the end of the body.
+   * Generous, and at high concurrency that is the problem: a slow upstream holds
+   * a socket and an event-loop task for a minute per request, so one slow
+   * Emporix minute fills the process with parked work before anything gives up.
+   * Pick something a visitor would actually wait for.
+   */
+  timeouts?: { connectMs?: number; readMs?: number };
   /** Bound at anonymous login. Must match what the rest of the app binds. */
   context?: {
     currency?: string;
@@ -121,6 +131,7 @@ function newGuestClient(opts: WithEmporixSessionOptions): EmporixClient {
     },
     logger: false,
     ...(host !== undefined ? { host } : {}),
+    ...(opts.timeouts !== undefined ? { timeouts: opts.timeouts } : {}),
     // No `fetch`: a session-bearing client must never be tagged. Next's fetch
     // cache does not key on Authorization.
   });
