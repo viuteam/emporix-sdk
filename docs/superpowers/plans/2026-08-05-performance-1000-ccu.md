@@ -839,9 +839,11 @@ Im PR-Text die Vorher/Nachher-Tabelle aus «Ausgangsmessung» führen und **expl
 
 ## Bewusst nicht in diesem Plan
 
-**ISR für Katalogseiten — blockiert, nicht vergessen.** Der gewählte Scope war «Header als Suspense-Insel, Katalog auf ISR». Der erste Teil ist Task 5. Der zweite ist mit dem heutigen Code **nicht erreichbar**: jede Katalogseite ruft `siteContext()` (`app/lib/site-context.ts:53`), das die Sprache aus einem Cookie liest, und ein Cookie-Read macht die Route unwiderruflich dynamisch. `revalidate` daraufzusetzen ändert nichts.
+**ISR für Katalogseiten — eigener Plan, eigener PR.** Der gewählte Scope war «Header als Suspense-Insel, Katalog auf ISR». Der erste Teil ist Task 5 hier. Der zweite ist mit dem heutigen Code nicht erreichbar: jede Katalogseite ruft `siteContext()` (`app/lib/site-context.ts:53`), das die Sprache aus einem Cookie liest, und ein Cookie-Read macht die Route unwiderruflich dynamisch. `revalidate` daraufzusetzen ändert nichts.
 
-Echtes ISR braucht die Sprache **in der URL** statt im Cookie — ein `[lang]`-Segment mit `generateStaticParams`. Das ist ein Routing-Umbau mit Auswirkung auf jeden Link, jede Server Action und den Sprachumschalter, also eine eigene Spec und ein eigener Plan. Ich habe es hier nicht als Task aufgenommen, weil ein halber i18n-Umbau schlimmer ist als keiner.
+Echtes ISR braucht die Sprache **in der URL** statt im Cookie — ein `[lang]`-Segment mit `generateStaticParams`, plus einen Header, der die Session nicht mehr serverseitig liest. Das ist ein Routing-Umbau mit Auswirkung auf jeden Link und den Sprachumschalter, deshalb steht er in **[2026-08-05-catalog-isr.md](./2026-08-05-catalog-isr.md)** und wird als **eigener PR** umgesetzt.
+
+Reihenfolge: Task 5 dieses Plans (Suspense-Insel) und der ISR-Plan berühren beide `header.tsx`. Der ISR-Plan macht den Header zu einer Client-Komponente und ersetzt die Suspense-Insel damit. Wer beide umsetzt, baut den ISR-Plan **nach** Task 5 und wirft die Insel dabei weg — oder überspringt Task 5, wenn der ISR-PR ohnehin ansteht.
 
 Was Task 5 stattdessen liefert: die Seiten bleiben dynamisch, aber der Session-Read blockiert das erste Byte nicht mehr, und die Upstream-Daten sind über den Data-Cache ohnehin geteilt. Der CDN-Gewinn von ~60 % der Seitenaufrufe bleibt bis zum i18n-Routing offen.
 
