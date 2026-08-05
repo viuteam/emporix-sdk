@@ -193,6 +193,13 @@ The same applies to anything else that reads the request: `searchParams`,
 read-only handle cannot persist the anonymous session the SDK just obtained, so
 every render would log in again. Use `getEmporixClient()` for those.
 
+**The read-only handle is shared within a request.** A page view asks for it
+several times — the page itself, whatever resolves the site context,
+`withEmporixSession` — for a record that cannot change mid-request. Those resolve
+to one handle now, memoized on the object `await cookies()` returns, so store mode
+makes one round trip instead of several. Mutable handles are **not** shared: the
+login ordering above depends on the second handle reading what the first flushed.
+
 **The mutable variant flushes even when your callback throws.** By then the
 handle can already hold a rotated anonymous refresh token — Emporix rotates it on
 every refresh — or a cleanup you did before failing. Cookie mode always wrote

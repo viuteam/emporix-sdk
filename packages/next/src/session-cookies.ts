@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { requestScoped } from "./request-scope";
 import { cookieName, readCookie, sealCookie } from "./cookie-name";
 import {
   isPublicSessionKey,
@@ -117,6 +118,32 @@ export async function emporixSessionHandle(
   opts: { readOnly?: boolean; store?: EmporixSessionStore } = {},
 ): Promise<EmporixSessionHandle> {
   const jar = await cookies();
+  const readOnly = opts.readOnly ?? false;
+
+  // Only READ-ONLY handles are shared, and that is not a half measure.
+  // `emporixLogin` builds a mutable handle, flushes it, and then lets
+  // `onboardCart` build a SECOND one that must read what the first wrote — the
+  // ordering trap this package's README draws as a sequence diagram. Sharing
+  // mutable handles would collapse those two into one and break login in store
+  // mode, where the record is only written on flush.
+  //
+  // Read-only handles are the many ones: a page view builds several for the same
+  // record — the page, `siteContext`, `withEmporixSession` — and in store mode
+  // each one was a Redis round trip for data that cannot change mid-request.
+  if (!readOnly) return buildHandle(jar, opts);
+
+  // Keyed coarsely (`cookie` vs `store`) because an app has one session store —
+  // `examples/next-server-first` holds it in a module constant. Two different
+  // stores in one process would share an entry; a documented limit, not an
+  // oversight.
+  const key = `ro|${opts.store === undefined ? "cookie" : "store"}`;
+  return requestScoped(jar, key, () => buildHandle(jar, opts));
+}
+
+async function buildHandle(
+  jar: Awaited<ReturnType<typeof cookies>>,
+  opts: { readOnly?: boolean; store?: EmporixSessionStore },
+): Promise<EmporixSessionHandle> {
   const readOnly = opts.readOnly ?? false;
   const secure = await isSecure();
   const store = opts.store;

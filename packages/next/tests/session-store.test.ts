@@ -2,15 +2,32 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import type { EmporixSessionStore } from "../src/session-store";
 
 const bag = new Map<string, { name: string; value: string; opts?: Record<string, unknown> }>();
-const cookieJar = {
-  get: (name: string) => bag.get(name),
-  set: (name: string, value: string, opts?: Record<string, unknown>) => {
-    bag.set(name, { name, value, ...(opts ? { opts } : {}) });
-  },
-  delete: (name: string) => {
-    bag.delete(name);
-  },
-};
+
+/**
+ * A fresh jar object per test, the same one within a test.
+ *
+ * That is exactly what Next does per request, and it is load-bearing since the
+ * read-only handle is memoized on this object's identity: one object for the
+ * whole file would let a handle built in one test answer the next one — which is
+ * the shape of a session leaking between visitors, so the harness has to model
+ * the lifetime rather than paper over it.
+ */
+function makeJar(): {
+  get: (name: string) => { name: string; value: string } | undefined;
+  set: (name: string, value: string, opts?: Record<string, unknown>) => void;
+  delete: (name: string) => void;
+} {
+  return {
+    get: (name: string) => bag.get(name),
+    set: (name: string, value: string, opts?: Record<string, unknown>) => {
+      bag.set(name, { name, value, ...(opts ? { opts } : {}) });
+    },
+    delete: (name: string) => {
+      bag.delete(name);
+    },
+  };
+}
+let cookieJar = makeJar();
 const headerBag = new Map<string, string>();
 
 vi.mock("next/headers", () => ({
@@ -45,6 +62,8 @@ beforeEach(() => {
   bag.clear();
   headerBag.clear();
   headerBag.set("x-forwarded-proto", "https");
+  // New request, new anchor — see makeJar.
+  cookieJar = makeJar();
 });
 
 afterEach(() => {
@@ -273,5 +292,68 @@ describe("the deprecated sessionCookieJar alias", () => {
   it("is re-exported from the /session entry under both names", async () => {
     const entry = await import("../src/session");
     expect(entry.sessionCookieJar).toBe(entry.emporixSessionHandle);
+  });
+});
+
+/**
+ * The handle is built several times per page view — the page, `siteContext`,
+ * `withEmporixSession` — for a record that cannot change mid-request. In store
+ * mode each build was a Redis round trip, so `/cart` cost four reads (one from
+ * the proxy, three from the render). Sharing the read-only ones takes that to
+ * two, and at 1'000 concurrent users it is the difference between ~470 and ~130
+ * store commands per second.
+ */
+describe("read-only handles are shared within one request", () => {
+  it("reads the store once for two read-only handles", async () => {
+    const store = fakeStore();
+    let reads = 0;
+    const counting: EmporixSessionStore = {
+      ...store,
+      read: async (id: string) => {
+        reads += 1;
+        return store.read(id);
+      },
+    };
+    bag.set(SESSION_SID, { name: SESSION_SID, value: "sid-1" });
+
+    const a = await emporixSessionHandle({ readOnly: true, store: counting });
+    const b = await emporixSessionHandle({ readOnly: true, store: counting });
+
+    expect(a).toBe(b);
+    expect(reads).toBe(1);
+  });
+
+  it("builds a fresh handle for every MUTABLE call", async () => {
+    // emporixLogin depends on this: it flushes handle 1 and expects handle 2 to
+    // read the flushed record. Sharing them would break login in store mode.
+    const store = fakeStore();
+    const a = await emporixSessionHandle({ store });
+    const b = await emporixSessionHandle({ store });
+    expect(a).not.toBe(b);
+  });
+
+  it("does not hand a read-only handle to a mutable caller", async () => {
+    // Order matters: the read-only one is built first and memoized. A mutable
+    // call after it must still get a writing handle, not the no-op read-only one.
+    const store = fakeStore();
+    bag.set(SESSION_SID, { name: SESSION_SID, value: "sid-2" });
+    const ro = await emporixSessionHandle({ readOnly: true, store });
+    const rw = await emporixSessionHandle({ store });
+
+    ro.set("emporix.cartId", "ignored", 60);
+    rw.set("emporix.cartId", "written", 60);
+    await rw.flush();
+
+    expect([...store.records.values()][0]?.record["emporix.cartId"]).toBe("written");
+  });
+
+  it("keeps cookie mode and store mode apart", async () => {
+    // Same request, both modes: a cookie-mode handle must not be served from the
+    // store-mode entry. Nobody should mix them, but a mix that silently returns
+    // the wrong backend would be very hard to see.
+    const store = fakeStore();
+    const cookieHandle = await emporixSessionHandle({ readOnly: true });
+    const storeHandle = await emporixSessionHandle({ readOnly: true, store });
+    expect(cookieHandle).not.toBe(storeHandle);
   });
 });
