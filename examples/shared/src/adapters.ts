@@ -18,7 +18,26 @@ import type { Product, Media, PriceMatch } from "@viu/emporix-sdk";
  * {@link stripHtml} and get plain text.
  */
 
-const LOCALE_ORDER = ["en", "en-US", "de", "de-CH", "de-DE"];
+/**
+ * Der Fallback, wenn kein `Accept-Language` gesetzt war.
+ *
+ * **Die erste Sprache dieser Liste ist die Standardsprache deiner Site.** Beim
+ * Kopieren dieser Datei also anpassen — sie ist tenant-spezifisch und sieht nur
+ * aus wie eine allgemeine Wahrheit.
+ *
+ * Warum das ueberhaupt zaehlt: Emporix liefert `name` und `description` als
+ * vollstaendige Sprachkarte, wenn die Anfrage kein `Accept-Language` trug. Der
+ * SDK verengt sie sonst selbst, und dann kommt hier nie eine Karte an. Die Liste
+ * greift also genau im cookielosen Erstkontakt.
+ *
+ * Sie begann bis zum 2026-08-05 mit `en`, obwohl alle Beispiele auf den
+ * `viu`-Tenant zeigen und `client.sites.get("main")` dort `defaultLanguage: "de"`
+ * meldet (gemessen 2026-08-04). Folge: der Katalog unter `/de/…` war deutsch, der
+ * Warenkorb derselben Sitzung englisch — «Just-in-Time Zugriff (JIT)» gegen
+ * «Just-in-Time Access (JIT)», live reproduziert. Jetzt stimmt der Fallback mit
+ * dem ueberein, was der Tenant selbst als Standard angibt.
+ */
+const LOCALE_ORDER = ["de", "de-CH", "de-DE", "en", "en-US"];
 
 /** Pick a string from a localized `{ locale: value }` map. */
 export function localized(map: Record<string, string> | undefined, fallback = ""): string {
