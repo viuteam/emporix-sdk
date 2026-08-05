@@ -1,40 +1,39 @@
-# Session-Cookie-Härtung — Design
+# Session cookie hardening — design
 
-**Status:** approved (2026-08-03) — absolute Obergrenze auf 90 Tage entschieden
-**Datum:** 2026-08-03
-**Betroffen:** `packages/next` (`session-cookies.ts`, `session-auth.ts`, `token-proxy.ts`)
-**Vorgänger:** Security-Review vom 2026-07-30, Findings **F-02** und **F-03**
+**Status:** approved (2026-08-03) — absolute ceiling decided at 90 days
+**Date:** 2026-08-03
+**Affects:** `packages/next` (`session-cookies.ts`, `session-auth.ts`, `token-proxy.ts`)
+**Predecessor:** security review of 2026-07-30, findings **F-02** and **F-03**
 
-## Ziel
+## Goal
 
-Drei Massnahmen an denselben Cookies, in einem Zug, weil zwei davon dieselben
-Sessions invalidieren und niemand zweimal ausgeloggt werden soll:
+Three measures on the same cookies, in one go, because two of them invalidate the same
+sessions and nobody should be logged out twice:
 
-1. Eine **absolute Obergrenze** für die Session-Dauer.
-2. Das **`__Host-`-Präfix** auf allen Session-Cookies.
-3. **Optionale Verschlüsselung** der Cookie-Inhalte.
+1. An **absolute ceiling** on session duration.
+2. The **`__Host-` prefix** on all session cookies.
+3. **Optional encryption** of the cookie contents.
 
-## Gemessene Grundlagen
+## Measured foundations
 
-### Die Session läuft heute nie ab
+### The session never expires today
 
-Das ist der Befund, der die Reihenfolge bestimmt.
+That is the finding which sets the order of everything else.
 
-`SESSION_MAX_AGE.refreshToken` steht auf 30 Tagen
-([session-cookies.ts:10](../../../packages/next/src/session-cookies.ts#L10)),
-aber `persistSession` schreibt das Cookie bei **jedem** Refresh neu — und
-`emporixRefresh` ruft `persistSession`
-([session-auth.ts:162](../../../packages/next/src/session-auth.ts#L162)), während
-der Proxy `emporixRefresh` bei jedem abgelaufenen Access-Token ruft
+`SESSION_MAX_AGE.refreshToken` sits at 30 days
+([session-cookies.ts:10](../../../packages/next/src/session-cookies.ts#L10)), but
+`persistSession` rewrites the cookie on **every** refresh — and `emporixRefresh` calls
+`persistSession` ([session-auth.ts:162](../../../packages/next/src/session-auth.ts#L162)),
+while the proxy calls `emporixRefresh` on every expired access token
 ([token-proxy.ts:63](../../../packages/next/src/token-proxy.ts#L63)).
 
-Die 30 Tage sind also **30 Tage Inaktivität**, nicht 30 Tage Session. Wer alle
-paar Tage vorbeischaut, bleibt unbegrenzt angemeldet. Ein gestohlenes Cookie,
-das jemand aktiv nutzt, verfällt nie von selbst.
+So the 30 days are **30 days of inactivity**, not 30 days of session. Anyone dropping
+by every few days stays signed in indefinitely. A stolen cookie somebody uses actively
+never expires on its own.
 
-### Der Cookie-Jar muss synchron bleiben
+### The cookie jar has to stay synchronous
 
-`AnonymousSessionStore` ist synchron deklariert
+`AnonymousSessionStore` is declared synchronous
 ([core/auth.ts:42-45](../../../packages/sdk/src/core/auth.ts#L42)):
 
 ```ts
@@ -42,124 +41,119 @@ read(): { refreshToken: string; sessionId: string } | null;
 write(session: { refreshToken: string; sessionId: string } | null): void;
 ```
 
-Die SDK ruft ihn mitten im Token-Refresh auf (`auth.ts:195`, `:322`, `:379`),
-synchron. `session-client.ts` bedient ihn aus dem Cookie-Jar. Ein `async`
-`get`/`set` wäre damit nicht mehr anschliessbar.
+The SDK calls it in the middle of the token refresh (`auth.ts:195`, `:322`, `:379`),
+synchronously. `session-client.ts` serves it out of the cookie jar. An `async`
+`get`/`set` could no longer be plugged in.
 
-**Folge: WebCrypto scheidet aus.** `crypto.subtle` ist ausschliesslich
-asynchron. Es muss `node:crypto` mit `createCipheriv`/`createDecipheriv` sein —
-synchron, und damit ohne jede Signaturänderung.
+**Consequence: WebCrypto is out.** `crypto.subtle` is asynchronous only. It has to be
+`node:crypto` with `createCipheriv`/`createDecipheriv` — synchronous, and therefore
+without any signature change.
 
-Das ist tragfähig, nicht nur zulässig:
+That is sustainable, not merely permissible:
 
-- `webhook.ts:1` importiert **bereits** `node:crypto` (`createHmac`,
-  `timingSafeEqual`). Der Präzedenzfall steht im Package.
-- Der Proxy ist Node-Runtime-only, seit Next 16 `middleware` zu `proxy`
-  umbenannt hat — `export const runtime = "edge"` wirft dort
+- `webhook.ts:1` **already** imports `node:crypto` (`createHmac`, `timingSafeEqual`).
+  The precedent is in the package.
+- The proxy is Node-runtime-only since Next 16 renamed `middleware` to `proxy` —
+  `export const runtime = "edge"` throws there
   ([README:441-444](../../../packages/next/README.md)).
-- Das Package bleibt bei **null Runtime-Dependencies**; `node:crypto` ist
-  eingebaut.
+- The package keeps its **zero runtime dependencies**; `node:crypto` is built in.
 
-### Was im Jar steht
+### What is in the jar
 
-| Cookie | Inhalt | Wer vertraut ihm |
+| Cookie | Content | Who trusts it |
 |---|---|---|
-| `emporix.customerToken` | opakes Emporix-Token | Emporix validiert |
-| `emporix.refreshToken` | Refresh-Token | Emporix validiert |
-| `emporix.saasToken` | **JWT** — Payload von Bauart lesbar | Emporix validiert |
-| `emporix.customerTokenExpiresAt` | Epoch-Sekunden | **die App** (Proxy-Entscheidung) |
-| `emporix.cartId` | Cart-Id | **die App** |
-| `emporix.anonymousSession` | `{refreshToken, sessionId}` | Emporix validiert |
-| `emporix.activeLegalEntityId` | Legal-Entity-Id | **die App** — geht an `customers.refresh({legalEntityId})` ([session-auth.ts:150](../../../packages/next/src/session-auth.ts#L150)) |
-| `emporix.siteCode`, `emporix.language` | Site/Sprache | browserlesbar **mit Absicht** |
+| `emporix.customerToken` | opaque Emporix token | Emporix validates |
+| `emporix.refreshToken` | refresh token | Emporix validates |
+| `emporix.saasToken` | **JWT** — payload readable by construction | Emporix validates |
+| `emporix.customerTokenExpiresAt` | epoch seconds | **the app** (proxy decision) |
+| `emporix.cartId` | cart id | **the app** |
+| `emporix.anonymousSession` | `{refreshToken, sessionId}` | Emporix validates |
+| `emporix.activeLegalEntityId` | legal entity id | **the app** — goes to `customers.refresh({legalEntityId})` ([session-auth.ts:150](../../../packages/next/src/session-auth.ts#L150)) |
+| `emporix.siteCode`, `emporix.language` | site/language | browser-readable **on purpose** |
 
-Die drei mit «die App» sind der Grund, warum Integritätsschutz hier nicht
-vakuum ist: es sind app-eigene Werte, die der Server glaubt, keine von Emporix
-gegengeprüften Tokens.
+The three marked «the app» are the reason integrity protection is not vacuous here:
+they are app-owned values the server believes, not tokens Emporix cross-checks.
 
-## 1. Absolute Session-Obergrenze
+## 1. Absolute session ceiling
 
-Das gleitende Fenster bleibt — es ist das UX-Versprechen «du bleibst
-angemeldet». Dazu kommt eine Decke, die nicht mitgleitet.
+The sliding window stays — it is the UX promise «you stay signed in». On top of it
+comes a ceiling that does not slide along.
 
-- `emporixLogin` schreibt `emporix.sessionStartedAt` (Epoch-Sekunden).
-- `emporixRefresh` prüft sie zuerst. Ist die Decke überschritten, räumt es die
-  Session ab wie `emporixLogout` und gibt `null` zurück — der Proxy behandelt
-  das bereits als «nicht angemeldet».
-- `emporixLogout` löscht sie mit.
+- `emporixLogin` writes `emporix.sessionStartedAt` (epoch seconds).
+- `emporixRefresh` checks it first. Past the ceiling it clears the session like
+  `emporixLogout` does and returns `null` — which the proxy already treats as «not
+  signed in».
+- `emporixLogout` deletes it too.
 
-Kein neuer Mechanismus: `SESSION_EXPIRES_AT` ist exakt dasselbe Muster, und der
-Durchsetzungspunkt existiert schon.
+No new mechanism: `SESSION_EXPIRES_AT` is exactly the same pattern, and the enforcement
+point already exists.
 
-**Vorgeschlagene Werte, brauchen deine Freigabe:**
+**Proposed values, need your sign-off:**
 
-| Fenster | Vorschlag | Heute |
+| Window | Proposal | Today |
 |---|---|---|
-| Leerlauf (gleitend) | 30 Tage | 30 Tage |
-| **Absolut (neu)** | **90 Tage** — entschieden | unbegrenzt |
+| Idle (sliding) | 30 days | 30 days |
+| **Absolute (new)** | **90 days** — decided | unlimited |
 
-90 Tage ist keine Ableitung, sondern eine Abwägung. Für einen B2C-Storefront ist das
-bequem und begrenzt die Ausbeute eines gestohlenen Cookies auf ein Quartal. Wenn
-viu B2B-Kunden mit Legal-Entity-Wechsel bedient, wäre 30 Tage angemessener —
-dort hängt an der Session mehr als ein Warenkorb. Sollte viu diesen Fall
-ernsthaft bedienen, gehört der Wert nochmals angeschaut — die Mechanik ist vom
-Wert unabhängig, es ist eine Konstante.
+90 days is not a derivation but a judgement. For a B2C storefront it is comfortable and
+caps the yield of a stolen cookie at one quarter. If viu serves B2B customers with
+legal-entity switching, 30 days would be more appropriate — there a session carries more
+than a shopping cart. Should viu serve that case seriously, the value deserves another
+look — the mechanism is independent of the value, it is a constant.
 
-## 2. `__Host-`-Präfix
+## 2. `__Host-` prefix
 
-`__Host-emporix.customerToken` statt `emporix.customerToken`. Der Browser
-erzwingt dann `Secure`, `Path=/` und **kein `Domain`** — eine kompromittierte
-Subdomain kann kein Cookie für die Parent-Domain unterschieben.
+`__Host-emporix.customerToken` instead of `emporix.customerToken`. The browser then
+enforces `Secure`, `Path=/` and **no `Domain`** — a compromised subdomain cannot slip a
+cookie in for the parent domain.
 
-Wir erfüllen alle drei Bedingungen bereits
-([session-cookies.ts:78-86](../../../packages/next/src/session-cookies.ts#L78)),
-nutzen das Präfix aber nicht.
+We already satisfy all three conditions
+([session-cookies.ts:78-86](../../../packages/next/src/session-cookies.ts#L78)) but do
+not use the prefix.
 
-**Ausnahme, die es braucht:** auf `http://localhost` verweigert der Browser
-`__Host-`-Cookies, weil `Secure` fehlt. Das Präfix hängt deshalb an derselben
-Ableitung wie `secure` heute — kein zweiter Schalter, sonst driften die beiden
-auseinander.
+**The exception it needs:** on `http://localhost` the browser refuses `__Host-` cookies
+because `Secure` is missing. The prefix therefore hangs off the same derivation as
+`secure` does today — not a second switch, otherwise the two drift apart.
 
-**Die browserlesbaren bleiben ohne Präfix.** `emporix.siteCode` und
-`emporix.language` werden vom Site-Proxy geschrieben und sind absichtlich
-JS-lesbar; `__Host-` würde daran nichts ändern, aber der Name steht in
-`STORAGE_KEYS` und wird auch vom React-Package gelesen. Eine Umbenennung dort
-wäre eine Änderung an einem anderen Package für null Sicherheitsgewinn.
+**The browser-readable ones stay unprefixed.** `emporix.siteCode` and
+`emporix.language` are written by the site proxy and are deliberately JS-readable;
+`__Host-` would not change that, but the name is in `STORAGE_KEYS` and is read by the
+React package too. Renaming it there would be a change to another package for zero
+security gain.
 
-## 3. Verschlüsselung — opt-in
+## 3. Encryption — opt-in
 
-### Warum optional
+### Why optional
 
-Der Nutzen ist real, aber eng: Verschlüsselung verhindert **keinen**
-Session-Hijack. Wer das Cookie hat, ist drin, Chiffretext hin oder her. Was sie
-bringt:
+The benefit is real but narrow: encryption prevents **no** session hijack. Whoever has
+the cookie is in, ciphertext or not. What it does buy:
 
-- Ein Klartext-`refreshToken` aus einem Log oder einer HAR-Datei ist direkt
-  gegen `api.emporix.io` einlösbar — an deinem Rate-Limiting und deinen Logs
-  vorbei. Chiffretext funktioniert nur gegen deine App.
-- **Massen-Logout ohne Store:** Schlüssel aus der Liste entfernen, alle Sessions
-  sofort tot. Das kann das zustandslose Design heute überhaupt nicht.
-- Integrität für die drei app-vertrauten Werte oben.
-- Der `saasToken`-JWT ist sonst lesbar, auch nach Ablauf.
+- A plaintext `refreshToken` from a log or a HAR file is directly redeemable against
+  `api.emporix.io` — past your rate limiting and past your logs. Ciphertext only works
+  against your app.
+- **Mass logout without a store:** drop the key from the list and every session is dead
+  instantly. Today's stateless design cannot do that at all.
+- Integrity for the three app-trusted values above.
+- The `saasToken` JWT is otherwise readable, even after expiry.
 
-Das rechtfertigt ein Angebot, keinen Zwang.
+That justifies an offer, not an obligation.
 
-### Aktivierung
+### Activation
 
-`EMPORIX_COOKIE_SECRET` gesetzt → verschlüsselt. Nicht gesetzt → wie heute.
+`EMPORIX_COOKIE_SECRET` set → encrypted. Not set → as today.
 
-Wert ist eine **kommaseparierte Liste** base64url-kodierter 32-Byte-Schlüssel.
-Der erste verschlüsselt, alle entschlüsseln — ohne das loggt jede Rotation
-alle aus, was die Rotation praktisch verhindert.
+The value is a **comma-separated list** of base64url-encoded 32-byte keys. The first
+encrypts, all of them decrypt — without that, every rotation logs everybody out, which
+effectively prevents rotation.
 
 ```
-EMPORIX_COOKIE_SECRET="<neu>,<alt>"
+EMPORIX_COOKIE_SECRET="<new>,<old>"
 ```
 
-Ein zu kurzer oder nicht dekodierbarer Schlüssel wirft beim ersten Zugriff mit
-dem Befehl zum Erzeugen in der Meldung. **Keine Passphrasen und keine KDF:** wer
-eine Passphrase eingeben darf, gibt eine schwache ein, und die KDF-Parameter
-wären eine weitere Sache, die falsch sein kann.
+A key that is too short or not decodable throws on first access, with the command to
+generate one in the message. **No passphrases and no KDF:** anyone allowed to type a
+passphrase types a weak one, and the KDF parameters would be one more thing that can be
+wrong.
 
 ### Format
 
@@ -167,94 +161,88 @@ wären eine weitere Sache, die falsch sein kann.
 v1.<base64url(iv ‖ ciphertext ‖ tag)>
 ```
 
-- **AES-256-GCM**, 12-Byte-IV aus `randomBytes`, 16-Byte-Tag. AEAD, nicht
-  Verschlüsselung allein — CBC ohne MAC wäre hier der klassische Fehler.
-- Das `v1.`-Präfix erlaubt einen späteren Algorithmuswechsel und macht
-  erkennbar, ob ein Wert überhaupt verschlüsselt ist.
-- **AAD ist der Cookie-Name.** Ohne das liesse sich ein `saasToken`-Chiffretext
-  ins `customerToken`-Cookie umhängen.
+- **AES-256-GCM**, 12-byte IV from `randomBytes`, 16-byte tag. AEAD, not encryption
+  alone — CBC without a MAC would be the classic mistake here.
+- The `v1.` prefix allows a later algorithm change and makes it visible whether a value
+  is encrypted at all.
+- **The AAD is the cookie name.** Without it a `saasToken` ciphertext could be moved
+  into the `customerToken` cookie.
 
-### Was verschlüsselt wird
+### What gets encrypted
 
-Alle httpOnly-Cookies aus der Tabelle oben, inklusive
-`customerTokenExpiresAt`. Der Zeitstempel ist kein Geheimnis, aber der Proxy
-*vertraut* ihm, und eine einheitliche Regel ist weniger fehleranfällig als eine
-Ausnahmeliste, die jemand pflegen muss.
+Every httpOnly cookie from the table above, `customerTokenExpiresAt` included. The
+timestamp is not a secret, but the proxy *trusts* it, and one uniform rule is less
+error-prone than an exception list somebody has to maintain.
 
-`siteCode` und `language` bleiben Klartext — sie sind der Zweck des
-Site-Proxys.
+`siteCode` and `language` stay plaintext — they are the purpose of the site proxy.
 
-### Migration: alle werden ausgeloggt
+### Migration: everybody gets logged out
 
-Kein Klartext-Fallback. Wer die Verschlüsselung einschaltet, loggt jede laufende
-Session aus.
+No plaintext fallback. Switching encryption on logs out every running session.
 
-Die Alternative wäre ein Übergangsfenster, in dem auch Klartext akzeptiert wird
-— und weil das Refresh-Cookie 30 Tage lebt, müsste dieses Fenster 30 Tage offen
-bleiben. In dieser ganzen Zeit wäre der Integritätsschutz für `cartId` und
-`activeLegalEntityId` wirkungslos, und der Schalter wäre etwas, das jemand
-danach entfernen muss. Ein einmaliger Logout ist billiger als beides.
+The alternative would be a transition window that also accepts plaintext — and because
+the refresh cookie lives 30 days, that window would have to stay open for 30 days.
+Throughout that whole time integrity protection for `cartId` and `activeLegalEntityId`
+would be ineffective, and the switch would be something somebody has to remove
+afterwards. A one-off logout is cheaper than both.
 
-Dasselbe gilt für das `__Host-`-Präfix: es ändert Cookie-**Namen**, die alten
-werden nicht mehr gefunden. **Deshalb landen alle drei Punkte in einem Release**
-— ein Logout, nicht zwei.
+The same holds for the `__Host-` prefix: it changes cookie **names**, so the old ones
+are no longer found. **That is why all three points land in one release** — one logout,
+not two.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Serverseitige Sessions** (opake Id im Cookie, Tokens im Store). Strikt
-  stärker, weil sie *einzelne* Sessions widerrufen können. Kostet Infrastruktur,
-  die das Package heute nicht braucht, und ist eine eigene Entscheidung.
-- **Refresh-Token-Reuse-Detection.** Braucht Unterstützung von Emporix. Wir
-  haben im Server-First-Zyklus gemessen, dass Emporix *anonyme* Reuse toleriert
-  — was dagegen spricht, aber für Kunden-Tokens nicht geprüft ist. Erst messen,
-  dann planen.
-- **Änderungen am React-Package.** Dessen Storage-Adapter schreiben Cookies im
-  Browser und können per Definition kein serverseitiges Geheimnis halten. F-01
-  bleibt für den SPA-Weg offen.
+- **Server-side sessions** (opaque id in the cookie, tokens in a store). Strictly
+  stronger, because they can revoke *individual* sessions. Costs infrastructure the
+  package does not need today, and is a decision of its own.
+- **Refresh token reuse detection.** Needs support from Emporix. We measured during the
+  server-first cycle that Emporix tolerates *anonymous* reuse — which argues against it,
+  but is unverified for customer tokens. Measure first, then plan.
+- **Changes to the React package.** Its storage adapters write cookies in the browser
+  and by definition cannot hold a server-side secret. F-01 stays open for the SPA route.
 
 ## Tests
 
-**Krypto** — `packages/next/tests/cookie-crypto.test.ts`, neu:
+**Crypto** — `packages/next/tests/cookie-crypto.test.ts`, new:
 
-| # | Erwartung |
+| # | Expectation |
 |---|---|
-| 1 | Round-Trip: `decrypt(encrypt(x)) === x` |
-| 2 | Chiffretext ist bei gleichem Klartext **verschieden** (frisches IV) |
-| 3 | Verändertes Byte im Chiffretext → wirft (Tag-Prüfung) |
-| 4 | Chiffretext von Cookie A unter Namen B → wirft (AAD) |
-| 5 | Zweiter Schlüssel in der Liste entschlüsselt, was der erste nicht kann |
-| 6 | Schlüssel nicht mehr in der Liste → wirft |
-| 7 | Klartextwert ohne `v1.`-Präfix → wirft, nicht «gibt Müll zurück» |
-| 8 | Schlüssel kürzer als 32 Byte → wirft beim Laden, mit Erzeugungsbefehl |
+| 1 | Round trip: `decrypt(encrypt(x)) === x` |
+| 2 | Ciphertext **differs** for identical plaintext (fresh IV) |
+| 3 | A flipped byte in the ciphertext → throws (tag check) |
+| 4 | Ciphertext of cookie A under name B → throws (AAD) |
+| 5 | The second key in the list decrypts what the first cannot |
+| 6 | Key no longer in the list → throws |
+| 7 | A plaintext value without the `v1.` prefix → throws, rather than «returns garbage» |
+| 8 | Key shorter than 32 bytes → throws on load, with the generation command |
 
-Test 4 ist der wertvollste: ohne AAD besteht er trotzdem, und genau das ist die
-Vertauschbarkeit, die er verhindern soll. Er gehört mutationsgeprüft.
+Test 4 is the most valuable one: without AAD it still passes, and that is precisely the
+interchangeability it is meant to prevent. It belongs under mutation testing.
 
-**Jar und Auth** — Ergänzungen an `session-client.test.ts` / `session-auth.test.ts`:
+**Jar and auth** — additions to `session-client.test.ts` / `session-auth.test.ts`:
 
-| # | Erwartung |
+| # | Expectation |
 |---|---|
-| 9 | Ohne `EMPORIX_COOKIE_SECRET` steht Klartext im Cookie — Abwärtspfad |
-| 10 | Mit Secret steht **nicht** der Token-Wert im Cookie |
-| 11 | `siteCode` bleibt in beiden Fällen Klartext |
-| 12 | `__Host-`-Präfix gesetzt, wenn `secure` abgeleitet wahr ist |
-| 13 | Kein `__Host-`-Präfix über plain http |
-| 14 | Refresh nach Überschreiten der Decke gibt `null` und räumt ab |
-| 15 | Refresh knapp unter der Decke rotiert normal |
-| 16 | Die Decke gleitet **nicht** — zehn Refreshes verschieben sie nicht |
+| 9 | Without `EMPORIX_COOKIE_SECRET` the cookie holds plaintext — the downgrade path |
+| 10 | With a secret the token value is **not** in the cookie |
+| 11 | `siteCode` stays plaintext in both cases |
+| 12 | `__Host-` prefix set when the derived `secure` is true |
+| 13 | No `__Host-` prefix over plain http |
+| 14 | A refresh past the ceiling returns `null` and clears up |
+| 15 | A refresh just below the ceiling rotates normally |
+| 16 | The ceiling does **not** slide — ten refreshes do not move it |
 
-Test 16 ist der Test für den Befund ganz oben. Ohne ihn wäre die Decke genauso
-gleitend wie das Fenster, das sie begrenzen soll.
+Test 16 is the test for the finding at the very top. Without it the ceiling would slide
+just like the window it is meant to bound.
 
-## Offene Punkte
+## Open points
 
-1. ~~**Passt der verschlüsselte `saasToken` ins Cookie-Limit?**~~ **Im
-   Store-Modus gegenstandslos** (`2026-08-03-server-side-sessions-design.md`):
-   der Token liegt im Store, wo es keine Grössenbeschränkung gibt. **Im
-   Cookie-Modus weiterhin offen** — dort gilt die Rechnung `1.34 × (n + 28)` und
-   ab etwa 2,9 KB Klartext ist Schluss. Wer den Cookie-Modus mit Verschlüsselung
-   fährt, sollte es einmal messen.
-2. ~~**Was steht im `saasToken`-JWT?**~~ **Im Store-Modus gegenstandslos** — er
-   erreicht den Browser nicht mehr, also ist es unerheblich, was ein Angreifer
-   aus der Payload lesen könnte. Im Cookie-Modus mit Verschlüsselung ebenfalls
-   erledigt; nur im unverschlüsselten Cookie-Modus bleibt die Frage offen.
+1. ~~**Does the encrypted `saasToken` fit the cookie limit?**~~ **Moot in store mode**
+   (`2026-08-03-server-side-sessions-design.md`): the token sits in the store, where
+   there is no size limit. **Still open in cookie mode** — there the arithmetic is
+   `1.34 × (n + 28)` and the ceiling is around 2.9 KB of plaintext. Anyone running
+   cookie mode with encryption should measure it once.
+2. ~~**What is in the `saasToken` JWT?**~~ **Moot in store mode** — it no longer reaches
+   the browser, so what an attacker could read from the payload is irrelevant. Also
+   settled in cookie mode with encryption; the question only stays open in unencrypted
+   cookie mode.

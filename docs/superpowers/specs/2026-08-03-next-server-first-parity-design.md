@@ -1,152 +1,152 @@
-# next-server-first auf Muster-Parität — Design
+# next-server-first to pattern parity — design
 
-**Status:** approved (2026-08-03) — Muster-Parität, `examples/shared`, CSS kopiert, PR 5 drin
-**Datum:** 2026-08-03
-**Betroffen:** `packages/next` (ein Fehler), `examples/next-server-first`,
-`examples/storefront-demo`, neu `examples/shared`
-**Vorgänger:** `2026-08-01-next-server-first-checkout-design.md`,
+**Status:** approved (2026-08-03) — pattern parity, `examples/shared`, CSS copied, PR 5 included
+**Date:** 2026-08-03
+**Affected:** `packages/next` (one bug), `examples/next-server-first`,
+`examples/storefront-demo`, newly `examples/shared`
+**Predecessors:** `2026-08-01-next-server-first-checkout-design.md`,
 `2026-08-03-server-side-sessions-design.md`
 
-## Ziel
+## Goal
 
-`examples/next-server-first` wird die zweite Referenz-Demo: dieselben Flüsse wie
-`examples/storefront-demo`, aber server-first. Nicht Route für Route, sondern
-**Muster für Muster** — jede Route, die eine neue server-first Frage beantwortet,
-kommt rein; dasselbe CRUD-Formular ein viertes Mal nicht.
+`examples/next-server-first` becomes the second reference demo: the same flows as
+`examples/storefront-demo`, but server-first. Not route by route, but
+**pattern by pattern** — every route that answers a new server-first question
+goes in; the same CRUD form a fourth time does not.
 
-## Gemessener Ausgangszustand
+## Measured starting state
 
 | | storefront-demo | next-server-first |
 |---|---|---|
-| Routen | 17 (15 echte, 2 Catch-alls) | 6 |
-| Dateien | 63 | 14 |
-| Zeilen | 3'690 | 722 |
-| React-Hooks benutzt | **39** von 111 | **0** |
-| direkte `client.*`-Aufrufe | 2 (`products`, `tenant`) | alle |
+| Routes | 17 (15 real ones, 2 catch-alls) | 6 |
+| Files | 63 | 14 |
+| Lines | 3'690 | 722 |
+| React hooks used | **39** of 111 | **0** |
+| direct `client.*` calls | 2 (`products`, `tenant`) | all of them |
 
-Die letzte Zeile ist der Kern der Portierungsarbeit. storefront-demo *ist* 39
-Hooks; alles außer Katalog-Lesen läuft über React Query. Server-first wird aus
-jedem Lese-Hook ein Server-Component-Read und aus jedem Mutations-Hook eine
-Server Action — grob 24 Reads und rund 22 Actions.
+The last row is the heart of the porting work. storefront-demo *is* 39
+hooks; everything apart from reading the catalog runs through React Query. Server-first
+turns every read hook into a Server Component read and every mutation hook into a
+Server Action — roughly 24 reads and around 22 actions.
 
-## Nicht-Ziele, mit Begründung
+## Non-goals, with reasoning
 
-Diese vier gehören ins README der Demo als ausdrückliche Nicht-Ziele, nicht als
-Lücke:
+These four belong in the demo's README as explicit non-goals, not as a
+gap:
 
-- **`/account/returns`, `/account/rewards`, `/account/lists`** — dasselbe
-  CRUD-über-Server-Action-Muster wie `addresses`. Nach dem dritten Mal lernt
-  niemand mehr etwas dazu, aber jede SDK-Änderung muss sie nachziehen.
-- **`/reset-password`** — braucht einen echten E-Mail-Umlauf. Nicht
-  verifizierbar heisst nicht behauptbar; die Demo behauptet nur, was gemessen
-  wurde.
-- **B2B** — hat storefront-demo selbst nicht. Grep findet dort nur einen
-  Telemetrie-Event-Namen (`company:switched`), den nichts auslöst, und ein
-  `companyName`-Feld im Adressformular. `examples/README.md:42` behauptet
-  «catalog, cart, checkout, account and B2B» und ist damit falsch.
-- **Optimistische Updates** — es gibt keinen Client-State, der optimistisch sein
-  könnte. Das ist der dokumentierte Preis des Modus, keine offene Aufgabe.
+- **`/account/returns`, `/account/rewards`, `/account/lists`** — the same
+  CRUD-via-Server-Action pattern as `addresses`. After the third time nobody
+  learns anything new from them, but every SDK change has to drag them along.
+- **`/reset-password`** — needs a real email round trip. Not
+  verifiable means not claimable; the demo only claims what has been
+  measured.
+- **B2B** — storefront-demo does not have it itself. Grep finds only a
+  telemetry event name there (`company:switched`) that nothing triggers, and a
+  `companyName` field in the address form. `examples/README.md:42` claims
+  «catalog, cart, checkout, account and B2B» and is therefore wrong.
+- **Optimistic updates** — there is no client state that could be
+  optimistic. That is the documented price of the mode, not an open task.
 
-Zwei falsche Zeilen in `examples/README.md` werden mitkorrigiert: die
-B2B-Behauptung oben und «It states the cost in numbers and shows what a full
-storefront would need» — diesen Abschnitt gibt es im README der Demo nicht.
+Two wrong lines in `examples/README.md` get corrected along with it: the
+B2B claim above and «It states the cost in numbers and shows what a full
+storefront would need» — that section does not exist in the demo's README.
 
-## PR 0 — Ein Fehler im Paket, ausgeliefert in #198
+## PR 0 — one bug in the package, shipped in #198
 
-Blockiert die Konto-Arbeit und gehört deshalb zuerst und allein.
+Blocks the account work and therefore goes first and alone.
 
-`session-auth.ts` konstruiert seinen Jar an drei Stellen ohne Optionen:
-[Zeile 66](../../../packages/next/src/session-auth.ts#L66) (`emporixLogin`),
-[Zeile 151](../../../packages/next/src/session-auth.ts#L151) (`emporixRefresh`),
-[Zeile 229](../../../packages/next/src/session-auth.ts#L229) (`emporixLogout`).
-`opts.store` liegt an jeder Stelle in Reichweite und wird nicht durchgereicht,
-also greift der Cookie-Zweig in
-[session-cookies.ts:120](../../../packages/next/src/session-cookies.ts#L120).
+`session-auth.ts` constructs its jar in three places without options:
+[line 66](../../../packages/next/src/session-auth.ts#L66) (`emporixLogin`),
+[line 151](../../../packages/next/src/session-auth.ts#L151) (`emporixRefresh`),
+[line 229](../../../packages/next/src/session-auth.ts#L229) (`emporixLogout`).
+`opts.store` is within reach in every one of those places and is not passed through,
+so the cookie branch in
+[session-cookies.ts:120](../../../packages/next/src/session-cookies.ts#L120) takes over.
 
-Im Store-Modus:
+In store mode:
 
-1. **`emporixLogin`** schreibt `customerToken`, `refreshToken` und `saasToken`
-   in echte Cookies. Der saasToken-JWT landet im Browser — genau das, was das
-   Feature verhindern soll.
-2. **`emporixSession(STORE_OPT)`** liest danach den Record, in dem kein
-   `customerToken` steht, und meldet **anonym**. Der Kunde ist eingeloggt und
-   jeder Leser sagt «nicht eingeloggt». Kein Degradieren, ein Bruch.
-3. **`emporixLogout`** trifft den No-op in
+1. **`emporixLogin`** writes `customerToken`, `refreshToken` and `saasToken`
+   into real cookies. The saasToken JWT ends up in the browser — exactly what the
+   feature is meant to prevent.
+2. **`emporixSession(STORE_OPT)`** then reads the record, which holds no
+   `customerToken`, and reports **anonymous**. The customer is logged in and
+   every reader says «not logged in». Not a degradation, a break.
+3. **`emporixLogout`** hits the no-op in
    [session-cookies.ts:132](../../../packages/next/src/session-cookies.ts#L132).
-   Der Store-Record überlebt den Logout.
+   The store record survives the logout.
 
-Das Changeset `.changeset/next-session-store.md` behauptet «`emporixLogout`
-destroys the record». Das ist falsch und wird korrigiert.
+The changeset `.changeset/next-session-store.md` claims «`emporixLogout`
+destroys the record». That is wrong and gets corrected.
 
-**Warum die Live-Prüfung das nicht gesehen hat:** alles, was im Store-Modus lief,
-war der Gast-Pfad, und der geht über `withEmporixSessionMutable`, das `opts.store`
-korrekt durchreicht. Die Login-Zeilen im README der Demo sind vom 2026-08-01 —
-vor dem Store. Der Kundenpfad im Store-Modus wurde nie ausgeführt.
+**Why the live check did not see this:** everything that ran in store mode
+was the guest path, and that goes through `withEmporixSessionMutable`, which passes
+`opts.store` through correctly. The login lines in the demo's README are from 2026-08-01 —
+before the store. The customer path in store mode was never exercised.
 
-**Fix:** dieselbe Zeile dreimal.
+**Fix:** the same line three times.
 
 ```ts
 const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
 ```
 
-**Tests, die das gefangen hätten** — je einer pro Funktion, mit einem
-Fake-Store, der Schreibvorgänge mitzählt:
+**Tests that would have caught this** — one per function, with a
+fake store that counts writes:
 
-- `emporixLogin` mit `store` schreibt **keinen** `customerToken` als Cookie und
-  der Record enthält ihn.
-- `emporixRefresh` mit `store` schreibt den rotierten Token in den Record.
-- `emporixLogout` mit `store` ruft `store.destroy(sid)`.
+- `emporixLogin` with `store` writes **no** `customerToken` as a cookie and
+  the record contains it.
+- `emporixRefresh` with `store` writes the rotated token into the record.
+- `emporixLogout` with `store` calls `store.destroy(sid)`.
 
-Die drei Tests müssen ohne den Fix rot sein. Das ist die Abnahmebedingung, nicht
-«die Tests laufen».
+The three tests have to be red without the fix. That is the acceptance criterion, not
+«the tests run».
 
-## Architektur — `examples/shared`
+## Architecture — `examples/shared`
 
-Neues Workspace-Paket `@viu/emporix-examples-shared`. Zwei Dinge sind gratis:
-`pnpm-workspace.yaml` listet `examples/*`, das Paket wird erfasst; und das Glob
-`@viu/emporix-examples-*` in `.changeset/config.json` `ignore` deckt es ab — kein
-Changeset, keine Version, kein Publish.
+New workspace package `@viu/emporix-examples-shared`. Two things come for free:
+`pnpm-workspace.yaml` lists `examples/*`, so the package is picked up; and the glob
+`@viu/emporix-examples-*` in `.changeset/config.json` `ignore` covers it — no
+changeset, no version, no publish.
 
-**Verschoben, nicht kopiert.** storefront-demo importiert danach daraus. Damit
-bleibt der Kommentar «the SINGLE place that reads SDK/generated field names»
-wahr, und es entsteht ein Regressionsbeleg gratis: typecheckt und läuft
-storefront-demo nach dem Verschieben unverändert, war die Extraktion sauber.
+**Moved, not copied.** storefront-demo imports from it afterwards. That keeps
+the comment «the SINGLE place that reads SDK/generated field names»
+true, and a regression proof comes for free: if storefront-demo typechecks and runs
+unchanged after the move, the extraction was clean.
 
-Aus `examples/storefront-demo/src/lib/adapters.ts` (360 Zeilen) und
-`lib/format.ts` (13 Zeilen) wandert alles ins Paket **ausser** zwei Exporten:
+Out of `examples/storefront-demo/src/lib/adapters.ts` (360 lines) and
+`lib/format.ts` (13 lines) everything moves into the package **except** two exports:
 
-| Bleibt in storefront-demo | Warum |
+| Stays in storefront-demo | Why |
 |---|---|
-| `sanitizeHtml` | benutzt `DOMParser` ([adapters.ts:88](../../../examples/storefront-demo/src/lib/adapters.ts#L88)), den es in Node nicht gibt |
-| `productDescription` | baut auf `sanitizeHtml` auf |
+| `sanitizeHtml` | uses `DOMParser` ([adapters.ts:88](../../../examples/storefront-demo/src/lib/adapters.ts#L88)), which does not exist in Node |
+| `productDescription` | builds on `sanitizeHtml` |
 
-`stripHtml` — heute die private No-DOM-Rückfallebene in derselben Datei — wird
-exportiert und wandert mit. Es ist reine String-Arbeit und funktioniert überall.
-Die Next-Demo rendert Produktbeschreibungen damit als **Klartext**, nicht als
-Markup, und sagt das im README. Ein Sanitizer mit Node-Pfad wäre eine
-Abhängigkeit für eine Demo-Zeile.
+`stripHtml` — today the private no-DOM fallback in the same file — gets
+exported and moves along. It is pure string work and works everywhere.
+The Next demo uses it to render product descriptions as **plain text**, not as
+markup, and says so in the README. A sanitizer with a Node path would be a
+dependency for one line of demo.
 
-Hooks wandern nicht: `usePrices` (15 Zeilen) und `useProductNames` (27 Zeilen)
-bleiben in storefront-demo. Ihre Logik steckt schon in den geteilten Helfern; die
-Next-Demo schreibt daraus zwei kleine Server-Funktionen.
+Hooks do not move: `usePrices` (15 lines) and `useProductNames` (27 lines)
+stay in storefront-demo. Their logic already sits in the shared helpers; the
+Next demo turns them into two small server functions.
 
-Das Paket bekommt ein eigenes README mit «copy this» — nach dem Vorbild von
-`examples/next-server-first/app/session-store.ts`, das genauso im Example liegt
-und genau das sagt. Es ist ein geteilter Helfer-Satz, kein Beispiel; die Tabelle
-in `examples/README.md` beschreibt es entsprechend und nicht als sechste Demo.
+The package gets a README of its own saying «copy this» — modelled on
+`examples/next-server-first/app/session-store.ts`, which likewise sits in the example
+and says exactly that. It is a shared set of helpers, not an example; the table
+in `examples/README.md` describes it accordingly and not as a sixth demo.
 
-## Muster 1 — Shell ohne einen einzigen Emporix-Aufruf
+## Pattern 1 — shell without a single Emporix call
 
-Ein Cart-Badge im Layout wäre pro Seitenaufruf ein `withEmporixSession`, und der
-Gast-Pfad baut dort absichtlich einen **neuen** Client pro Aufruf
+A cart badge in the layout would be one `withEmporixSession` per page view, and the
+guest path deliberately builds a **new** client per call there
 ([session-client.ts, `newGuestClient`](../../../packages/next/src/session-client.ts)) —
-ein geteilter Guest-Client wäre ein geteilter Warenkorb. Dazu kommt: ein
-read-only Jar kann eine rotierte anonyme Session nicht persistieren. Die
-dokumentierte Wiederverwendung des Refresh-Tokens würde damit von «drei Reads auf
-`/cart`» auf «jeder Seitenaufruf» skalieren, plus ein Token-Umlauf pro Seite.
+a shared guest client would be a shared cart. On top of that: a
+read-only jar cannot persist a rotated anonymous session. The
+documented reuse of the refresh token would therefore scale from «three reads on
+`/cart`» to «every page view», plus one token round trip per page.
 
-Die Zählung liegt deshalb neben der Cart-Id in der Session, mit genau einem
-Schreiber:
+The count therefore sits next to the cart id in the session, with exactly one
+writer:
 
 ```ts
 // app/lib/cart-session.ts
@@ -155,8 +155,8 @@ import { STORAGE_KEYS, SESSION_MAX_AGE, type SessionCookieJar } from "@viu/empor
 const COUNT = "demo.cartCount";
 
 /**
- * Die EINZIGE Stelle, die die Cart-Id schreibt. Wäre die Zählung woanders
- * schreibbar, könnte sie driften; so kann sie es strukturell nicht.
+ * The ONLY place that writes the cart id. If the count were writable
+ * somewhere else it could drift; this way it structurally cannot.
  */
 export function setCart(
   jar: SessionCookieJar,
@@ -172,39 +172,39 @@ export function setCart(
 }
 
 export function cartCount(jar: SessionCookieJar): number {
-  // Ohne Cart-Id ist eine Zählung bedeutungslos. Das deckt den Logout ab:
-  // SESSION_COOKIES in session-auth.ts ist eine feste Liste, unser Demo-Key
-  // steht nicht drin und würde den Logout sonst überleben.
+  // Without a cart id a count is meaningless. That covers the logout:
+  // SESSION_COOKIES in session-auth.ts is a fixed list, our demo key
+  // is not in it and would otherwise survive the logout.
   if (jar.get(STORAGE_KEYS.cartId) === null) return 0;
   const n = Number(jar.get(COUNT));
   return Number.isInteger(n) && n > 0 ? n : 0;
 }
 ```
 
-Die `cartId`-Prüfung ist nicht Kosmetik, sondern die Logout-Korrektheit. Und
-`Number.isInteger` statt eines Wahrheitstests, weil `Number(null)` **0** ist und
-nicht `NaN` — derselbe Stolperstein wie bei `SESSION_STARTED_AT`.
+The `cartId` check is not cosmetics, it is the logout correctness. And
+`Number.isInteger` instead of a truthiness test, because `Number(null)` is **0** and
+not `NaN` — the same stumbling block as with `SESSION_STARTED_AT`.
 
-Jede Cart-Mutation hat den Warenkorb schon in der Hand (Emporix gibt ihn zurück),
-also kostet `setCart` keinen zusätzlichen Aufruf. Vier Aufrufstellen:
-`addToCart`, `updateItem`/`removeItem`, das Leeren nach dem Checkout, und das
-Cart-Onboarding beim Login.
+Every cart mutation already has the cart in hand (Emporix returns it),
+so `setCart` costs no extra call. Four call sites:
+`addToCart`, `updateItem`/`removeItem`, the clearing after checkout, and the
+cart onboarding at login.
 
-Das Layout liest die Zählung aus dem Jar und macht keinen Emporix-Aufruf. Der
-Key wird über `cookieSet` geschrieben und ist damit `httpOnly` — `/debug` bleibt
-grün.
+The layout reads the count out of the jar and makes no Emporix call. The
+key is written via `cookieSet` and is therefore `httpOnly` — `/debug` stays
+green.
 
-Die Shell bekommt weiter: ein Suchformular als **reines** `<form action="/search"
-method="get">` ohne JavaScript (storefront-demos Header hält den Suchtext in
-`useState`), den Konto-Status aus der Session, und den Site-/Sprach-Umschalter
-als Server Action.
+The shell also gets: a search form as a **pure** `<form action="/search"
+method="get">` without JavaScript (storefront-demo's header keeps the search text in
+`useState`), the account status from the session, and the site/language switcher
+as a Server Action.
 
-## Muster 2 — Pagination über die URL
+## Pattern 2 — pagination via the URL
 
-`client.categories.productsIn(id, { pageNumber, pageSize }, auth)` liefert
-`PaginatedItems<Product>` mit `hasNextPage`
-([category.ts:181](../../../packages/sdk/src/services/category.ts#L181)). Die
-Seite liest `?page=N`, «Weiter» ist ein `<Link>`.
+`client.categories.productsIn(id, { pageNumber, pageSize }, auth)` returns
+`PaginatedItems<Product>` with `hasNextPage`
+([category.ts:181](../../../packages/sdk/src/services/category.ts#L181)). The
+page reads `?page=N`, «Next» is a `<Link>`.
 
 ```tsx
 export default async function CategoryPage({ params, searchParams }: {
@@ -219,23 +219,23 @@ export default async function CategoryPage({ params, searchParams }: {
 }
 ```
 
-`Number(undefined) || 1` ergibt 1, `Number("0") || 1` ergibt 1, `Math.max`
-fängt Negatives. Kein Validierungs-Framework nötig, aber die Grenze wird
-gezogen.
+`Number(undefined) || 1` yields 1, `Number("0") || 1` yields 1, `Math.max`
+catches negatives. No validation framework needed, but the boundary does get
+drawn.
 
-Das **akkumuliert nicht** wie `useProductsInCategoryInfinite`; man blättert,
-statt anzuhängen. Verhaltensdifferenz, die ins README gehört statt übertüncht zu
-werden — Akkumulieren braucht Client-State, und den gibt es in diesem Modus
-nicht.
+This **does not accumulate** the way `useProductsInCategoryInfinite` does; you page
+instead of appending. A behavioural difference that belongs in the README instead of being
+papered over — accumulating needs client state, and there is none in this
+mode.
 
-Gleiches Muster für `/account/orders`.
+Same pattern for `/account/orders`.
 
-## Muster 3 — Fehleranzeige: eine Client-Komponente, nicht acht
+## Pattern 3 — error display: one client component, not eight
 
-storefront-demo hat `Toasts.tsx` (81 Zeilen, Context plus State). `useActionState`
-verlangt eine Client-Komponente. Statt jedes mutierende Formular zu einer zu
-machen, nimmt eine generische den Action als Prop — Server Actions sind als Prop
-serialisierbar, die Kinder bleiben serverseitig gerendert:
+storefront-demo has `Toasts.tsx` (81 lines, context plus state). `useActionState`
+requires a client component. Instead of turning every mutating form into one,
+a generic one takes the action as a prop — Server Actions are serialisable as a
+prop, the children stay server-rendered:
 
 ```tsx
 "use client";
@@ -261,22 +261,22 @@ export function ActionForm({ action, submit, children }: {
 }
 ```
 
-Damit müssen die Actions den Fehler **zurückgeben** statt zu werfen. Das ist
-ohnehin die Form, die eine echte App will, und `describe(e)` aus
-`app/actions/checkout.ts` — das `EmporixError.body` sichtbar macht — ist die
-Stelle, an der die Meldung entsteht.
+That means the actions have to **return** the error instead of throwing it. That is
+the shape a real app wants anyway, and `describe(e)` from
+`app/actions/checkout.ts` — which makes `EmporixError.body` visible — is the
+place where the message comes into being.
 
-Die Alternative, ein Redirect mit `?error=…`, bräuchte null Client-Komponenten,
-schreibt aber Fehlertexte in teilbare URLs. Das ist ein Defekt, nicht nur
-unschön. Die Demo bekommt damit ihre zweite Client-Komponente neben
-`typeahead.tsx`; beide machen keinen Emporix-Aufruf mit einem Token, die These
-des Modus bleibt intakt.
+The alternative, a redirect with `?error=…`, would need zero client components,
+but writes error texts into shareable URLs. That is a defect, not merely
+unsightly. This gives the demo its second client component alongside
+`typeahead.tsx`; neither of them makes an Emporix call with a token, so the thesis
+of the mode stays intact.
 
-## Muster 4 — Auth-Gate pro Seite, nicht als Middleware
+## Pattern 4 — auth gate per page, not as middleware
 
-Next 16 führt Middleware in `proxy.ts` aus, das Node-Runtime ist und kein
-`cookies()` hat — steht schon im README der Demo. Also ein Helfer am Anfang jeder
-Konto-Seite:
+Next 16 runs middleware in `proxy.ts`, which is Node runtime and has no
+`cookies()` — already stated in the demo's README. So a helper at the top of every
+account page:
 
 ```ts
 // app/lib/require-customer.ts
@@ -291,132 +291,132 @@ export async function requireCustomer(next: string): Promise<string> {
 }
 ```
 
-`/login` honoriert `?next=` und akzeptiert **nur** Pfade, die mit `/` und nicht
-mit `//` beginnen:
+`/login` honours `?next=` and accepts **only** paths that begin with `/` and not
+with `//`:
 
 ```ts
 function safeNext(raw: string | undefined): string {
-  // Offene Weiterleitung ist eine Vertrauensgrenze. `//evil.com` ist ein
-  // protokollrelativer Absolutlink, kein Pfad.
+  // An open redirect is a trust boundary. `//evil.com` is a
+  // protocol-relative absolute link, not a path.
   if (raw === undefined || !raw.startsWith("/") || raw.startsWith("//")) return "/";
   return raw;
 }
 ```
 
-Diese Funktion bekommt einen Test mit `//evil.com`, `https://evil.com`,
-`/account` und `undefined`. Sie ist die einzige Stelle in der Demo, an der eine
-Vertrauensgrenze liegt, und ist deshalb nicht «nur eine Demo».
+This function gets a test with `//evil.com`, `https://evil.com`,
+`/account` and `undefined`. It is the only place in the demo where a
+trust boundary sits, and is therefore not «just a demo».
 
-## Routen nach der Arbeit
+## Routes after the work
 
-13 Routen gegen storefront-demos 15 echte.
+13 routes against storefront-demo's 15 real ones.
 
-| Route | Status | Neues Muster |
+| Route | Status | New pattern |
 |---|---|---|
-| `/` | da, bekommt Gitter und Preise | — |
-| `/search` | neu | GET-Formular ohne JS, `client.products.searchByName` ([product.ts:168](../../../packages/sdk/src/services/product.ts#L168)) |
-| `/category/[id]` | neu | Pagination über `?page=N`, Unterkategorien |
-| `/product/[id]` | neu | Varianten über `?variant=`, Beschreibung als Klartext |
-| | | `client.products.listVariantChildren(id, { pageSize }, auth)` liefert die Kinder; jedes wird ein `<Link>` auf `?variant=<childId>`; die gewählte Kind-Id ist, was «In den Warenkorb» benutzt |
-| `/cart` | da, nur lesend | Menge, Entfernen, Coupon, Namen, Summen |
-| `/checkout`, `/checkout/done` | da | — |
-| `/login` | da | `?next=` |
-| `/debug` | da | — |
-| `/account` | neu | Auth-Gate |
-| `/account/profile` | neu | Profil und Passwort |
-| `/account/addresses` | neu | CRUD über Server Actions |
-| `/account/orders` | neu | Pagination |
-| `/account/orders/[id]` | neu | Reorder, Cancel |
+| `/` | there, gets a grid and prices | — |
+| `/search` | new | GET form without JS, `client.products.searchByName` ([product.ts:168](../../../packages/sdk/src/services/product.ts#L168)) |
+| `/category/[id]` | new | pagination via `?page=N`, subcategories |
+| `/product/[id]` | new | variants via `?variant=`, description as plain text |
+| | | `client.products.listVariantChildren(id, { pageSize }, auth)` returns the children; each becomes a `<Link>` to `?variant=<childId>`; the selected child id is what «Add to cart» uses |
+| `/cart` | there, read-only | quantity, remove, coupon, names, totals |
+| `/checkout`, `/checkout/done` | there | — |
+| `/login` | there | `?next=` |
+| `/debug` | there | — |
+| `/account` | new | auth gate |
+| `/account/profile` | new | profile and password |
+| `/account/addresses` | new | CRUD via Server Actions |
+| `/account/orders` | new | pagination |
+| `/account/orders/[id]` | new | reorder, cancel |
 
-Zum Warenkorb zwei Dinge, die storefront-demo schon gelernt hat und die die
-Next-Demo sonst neu erlebt: der Cart-GET liefert ein **leeres** `product`, Namen
-müssen separat aufgelöst werden (dafür existiert `useProductNames`); und ein
-Mengen-Update geht mit `partial: true`, sonst muss die ganze Zeile inklusive
-`itemYrn` und Preiszeile zurückgeschickt werden.
+On the cart, two things storefront-demo has already learned and that the
+Next demo would otherwise learn afresh: the cart GET returns an **empty** `product`, names
+have to be resolved separately (that is what `useProductNames` exists for); and a
+quantity update goes with `partial: true`, otherwise the whole line including
+`itemYrn` and price line has to be sent back.
 
-## PR 5 — Webhook-Route und `revalidateTag`
+## PR 5 — webhook route and `revalidateTag`
 
-`revalidateTag` für Warenkorb, Bestellungen und Kundendaten ist per Design
-unmöglich: `emporixTagsForUrl` gibt für diese Services absichtlich `[]` zurück
-([tags.ts](../../../packages/next/src/tags.ts)). Das `revalidatePath` in den
-Cart-Actions ist damit korrekt und nicht das Grobwerkzeug — es ist das einzige
-Werkzeug.
+`revalidateTag` for cart, orders and customer data is impossible by
+design: `emporixTagsForUrl` deliberately returns `[]` for these services
+([tags.ts](../../../packages/next/src/tags.ts)). The `revalidatePath` in the
+cart actions is therefore correct and not the blunt instrument — it is the only
+instrument.
 
-Wo `revalidateTag` hingehört, ist der Katalog, und die Webhook-Route im Paket
-macht den Zyklus schon
-([webhook.ts:163](../../../packages/next/src/webhook.ts#L163)). Die Lücke ist,
-dass **kein Example sie mountet**: `examples/next-server-first` hat nur die
-Proxy-Route. Der getaggte Client hat seine Hälfte, ihm fehlt der Auslöser.
+Where `revalidateTag` does belong is the catalog, and the webhook route in the package
+already does the cycle
+([webhook.ts:163](../../../packages/next/src/webhook.ts#L163)). The gap is
+that **no example mounts it**: `examples/next-server-first` only has the
+proxy route. The tagged client has its half, what it lacks is the trigger.
 
-PR 5 mountet sie unter `app/api/emporix/webhook/route.ts` und dokumentiert das
-Secret. Verifiziert mit einem selbst signierten Aufruf: ein Produkt ändern, den
-Webhook feuern, und die Katalogseite zeigt den neuen Wert, ohne dass ein Deploy
-oder ein Timeout dazwischen liegt.
+PR 5 mounts it at `app/api/emporix/webhook/route.ts` and documents the
+secret. Verified with a self-signed call: change a product, fire the
+webhook, and the catalog page shows the new value without a deploy
+or a timeout in between.
 
-## Verifikation
+## Verification
 
-Jeder PR endet mit einem Live-Beleg gegen den `viu`-Tenant, nicht mit «Tests
-grün». Nach dem Muster der bisherigen READMEs als Tabelle mit Datum.
+Every PR ends with live evidence against the `viu` tenant, not with «tests
+green». Following the pattern of the READMEs so far, as a table with a date.
 
-| PR | Beleg |
+| PR | Evidence |
 |---|---|
-| 0 | Login im Store-Modus: Tokens **nicht** im Browser-Cookie-Jar, `emporixSession` meldet den Kunden, Logout löscht den Redis-Key. Die drei neuen Tests sind ohne den Fix rot. |
-| 1 | storefront-demo typecheckt und läuft unverändert nach dem Verschieben; `/debug` grün; Badge zeigt die Zählung ohne einen Emporix-Aufruf im Netzwerk-Log |
-| 2 | Kategorie mit mehr als 24 Produkten blättert vor und zurück; Variante wechselt über die URL; Suche findet ein bekanntes Produkt |
-| 3 | Menge ändern, neu laden, neuer Wert steht; Zeile entfernen; Badge stimmt nach jedem Schritt; ein absichtlich fehlerhafter Coupon zeigt die Emporix-Meldung |
-| 4 | Gate leitet ohne Token nach `/login?next=…` um und danach zurück; Adresse angelegt, gelesen, geändert, gelöscht; Bestellliste zeigt die Bestellungen aus dem Checkout-Test |
-| 5 | Signierter Webhook-Aufruf invalidiert ein Produkt; falsche Signatur ergibt 401 und invalidiert nichts |
+| 0 | Login in store mode: tokens **not** in the browser cookie jar, `emporixSession` reports the customer, logout deletes the Redis key. The three new tests are red without the fix. |
+| 1 | storefront-demo typechecks and runs unchanged after the move; `/debug` green; badge shows the count without a single Emporix call in the network log |
+| 2 | a category with more than 24 products pages forward and back; the variant switches via the URL; search finds a known product |
+| 3 | change the quantity, reload, the new value is there; remove a line; the badge is right after every step; a deliberately broken coupon shows the Emporix message |
+| 4 | without a token the gate redirects to `/login?next=…` and back again afterwards; address created, read, changed, deleted; the order list shows the orders from the checkout test |
+| 5 | a signed webhook call invalidates a product; a wrong signature yields 401 and invalidates nothing |
 
-Unit-Tests gibt es nur für das Paket (PR 0) und für `safeNext`. Examples haben
-`test` und `lint` bewusst als No-op; sie werden durch Typecheck, Build und
-Ausführen verifiziert.
+Unit tests exist only for the package (PR 0) and for `safeNext`. Examples have
+`test` and `lint` deliberately as no-ops; they are verified through typecheck, build and
+running them.
 
-## Reihenfolge und Abhängigkeiten
+## Order and dependencies
 
-| PR | Inhalt | Braucht |
+| PR | Content | Needs |
 |---|---|---|
-| 0 | `opts.store` an drei Stellen, drei Tests, Changeset-Korrektur | — |
-| 1 | `examples/shared`, CSS kopiert, Shell mit Badge | — |
+| 0 | `opts.store` in three places, three tests, changeset correction | — |
+| 1 | `examples/shared`, CSS copied, shell with badge | — |
 | 2 | `/search`, `/category/[id]`, `/product/[id]` | 1 |
-| 3 | `/cart` voll, `ActionForm` | 1 |
-| 4 | Konto-Routen | 0, 1, 3 (`ActionForm`) |
-| 5 | Webhook-Route | 1 |
+| 3 | `/cart` in full, `ActionForm` | 1 |
+| 4 | account routes | 0, 1, 3 (`ActionForm`) |
+| 5 | webhook route | 1 |
 
-PR 0 ist kein Teil der Paritätsarbeit und läuft allein, damit die Korrektur des
-Changesets nicht in einer Feature-PR untergeht.
+PR 0 is not part of the parity work and runs alone, so that the correction of the
+changeset does not get lost in a feature PR.
 
-**Nachtrag vom 2026-08-03, beim Planen entstanden:** aus PR 1 wurden **zwei**.
-Der Sprach- und Site-Umschalter, hier in Muster 1 als Nebenklausel geführt, stellt
-den Emporix-Kontext **jeder** Leserstelle von einer Modulkonstante auf die Session
-um und löscht dabei `CONTEXT` und `EMPORIX` aus `app/emporix.ts`. Er muss deshalb
-**zuletzt** laufen, nach PR 5, sonst bricht er jede Seite, die danach noch
-entsteht. Es sind also sieben PRs; der Plan führt ihn als Task 6.1.
+**Addendum from 2026-08-03, arising while planning:** PR 1 turned into **two**.
+The language and site switcher, carried here in pattern 1 as a subordinate clause, moves
+the Emporix context of **every** reading site from a module constant onto the session
+and deletes `CONTEXT` and `EMPORIX` from `app/emporix.ts` in the process. It therefore has to
+run **last**, after PR 5, otherwise it breaks every page that comes into being
+after it. So there are seven PRs; the plan carries it as task 6.1.
 
-Dazu kam eine Messung, die vor der Umsetzung fällig ist: hat der `viu`-Tenant nur
-**eine** Site, demonstriert ein Site-Umschalter nichts und ist nicht
-verifizierbar. Dann bleibt nur der Sprach-Umschalter — nach derselben Regel, die
-`/reset-password` ausschliesst.
+On top of that came a measurement that is due before the implementation: if the `viu` tenant has only
+**one** site, a site switcher demonstrates nothing and is not
+verifiable. Then only the language switcher remains — by the same rule that
+excludes `/reset-password`.
 
-## Risiken
+## Risks
 
-**Die CSS-Kopplung ist bewusst in Kauf genommen.** Die zwei CSS-Dateien werden
-kopiert, nicht geteilt. Damit driften die Demos optisch auseinander, aber nichts
-bricht still — die Alternative, sie zu teilen, hätte bedeutet, dass eine
-Änderung in storefront-demos CSS die Next-Demo kaputt aussehen lässt, ohne dass
-ein Test es merkt.
+**The CSS coupling is deliberately accepted.** The two CSS files are
+copied, not shared. That lets the demos drift apart visually, but nothing
+breaks silently — the alternative, sharing them, would have meant that a
+change in storefront-demo's CSS makes the Next demo look broken without
+a test noticing.
 
-**Das Verschieben der Adapter berührt die Referenz-Demo.** storefront-demo ist
-die Demo, auf die alle Antworten verweisen. Der Regressionsbeleg (typecheckt und
-läuft unverändert) ist deshalb Abnahmebedingung von PR 1, nicht ein
-Nice-to-have.
+**Moving the adapters touches the reference demo.** storefront-demo is
+the demo every answer points to. The regression proof (typechecks and
+runs unchanged) is therefore an acceptance criterion of PR 1, not a
+nice-to-have.
 
-**Die Zählung in der Session ist eine Denormalisierung.** Vier Schreibstellen,
-alle über `setCart`. Bricht jemand diese Regel und schreibt die Cart-Id direkt,
-driftet der Badge. Die Obergrenze ist bekannt und benannt; die Alternative wäre
-ein Emporix-Aufruf pro Seitenaufruf.
+**The count in the session is a denormalisation.** Four write sites,
+all via `setCart`. If somebody breaks that rule and writes the cart id directly,
+the badge drifts. The ceiling is known and named; the alternative would be
+one Emporix call per page view.
 
-**`emporixLogin` in `withEmporixSessionMutable` ist nach PR 0 noch nicht
-vollständig geprüft.** Die drei Tests decken den Jar ab. Was ungemessen bleibt:
-ob zwei gleichzeitige Requests im Store-Modus einander überschreiben können —
-das ist ein offener Punkt aus der Store-Spec und wird von dieser Arbeit nicht
-geschlossen.
+**`emporixLogin` in `withEmporixSessionMutable` is still not fully
+checked after PR 0.** The three tests cover the jar. What stays unmeasured:
+whether two concurrent requests in store mode can overwrite each other —
+that is an open point from the store spec and is not closed by this
+work.

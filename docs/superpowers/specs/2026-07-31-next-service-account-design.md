@@ -1,98 +1,98 @@
-# Service Account im next-Package — Design
+# Service Account in the next Package — Design
 
 **Status:** approved
-**Datum:** 2026-07-31
+**Date:** 2026-07-31
 **Package:** `@viu/emporix-sdk-next`
-**Verwandt:** `2026-07-31-emporix-sdk-next-design.md` (die `tagged`-Regel),
-`2026-07-31-next-proxy-site-detection-design.md` (die Entry-Trennung)
+**Related:** `2026-07-31-emporix-sdk-next-design.md` (the `tagged` rule),
+`2026-07-31-next-proxy-site-detection-design.md` (the entry separation)
 
 ## Problem
 
-Eine Storefront braucht serverseitige Schreibzugriffe mit einem eigenen Service
-Account — Produkt anlegen, Preis setzen, Bestellung nachpflegen — mit `clientId`
-und `secret` und nur den dafür vergebenen Scopes.
+A storefront needs server-side write access with a service account of its own —
+create a product, set a price, retro-fill an order — with a `clientId` and a
+`secret` and only the scopes granted for it.
 
-Die SDK kann das vollständig: `credentials.custom` nimmt beliebig viele benannte
-`ServiceCredentials`, `auth.service("name")` wählt einen davon aus, und das
-Token-Caching ist eingebaut. Das next-Package kann es **nicht**:
-`getEmporixClient` baut ausschliesslich `credentials.storefront` und kennt weder
-`secret` noch `custom`.
+The SDK can do all of that: `credentials.custom` takes any number of named
+`ServiceCredentials`, `auth.service("name")` picks one of them, and token
+caching is built in. The next package **cannot**: `getEmporixClient` only ever
+builds `credentials.storefront` and knows neither `secret` nor `custom`.
 
-Wer es heute selbst baut, trägt zwei Dinge, die still falsch sein können:
+Anyone building it themselves today carries two things that can be silently
+wrong:
 
-1. **Der Token-Cache hängt an der Client-Instanz.** Ein `new EmporixClient(...)`
-   im Body eines Route Handlers wird pro Request neu gebaut, holt pro Request
-   einen Token und macht das Caching wirkungslos.
-2. **Ein Service-Client darf niemals `createTaggingFetch` bekommen.** Nexts
-   Fetch-Cache schlüsselt nicht auf `Authorization`; eine gecachte Antwort auf
-   einen privilegierten GET landet bei anderen Besuchern.
+1. **The token cache is tied to the client instance.** A `new EmporixClient(...)`
+   in the body of a route handler is rebuilt on every request, fetches one token
+   per request and renders the caching useless.
+2. **A service client must never be given `createTaggingFetch`.** Next's fetch
+   cache does not key on `Authorization`; a cached response to a privileged GET
+   ends up with other visitors.
 
-Und ein drittes Risiko, das der Auslöser dieser Spec ist: **das Secret darf
-nicht ins Frontend-Bundle geraten.** `getEmporixClient` liegt im Root-Entry.
-Reicht man dort ein `secret` durch, sitzt es in einem Modul, das eine Client
-Component versehentlich importieren kann — und Next schreibt es beim Build ins
-Browser-Bundle. Kein Fehler, kein Warning, nur ein publiziertes Secret.
+And a third risk, the one that triggered this spec: **the secret must not end up
+in the frontend bundle.** `getEmporixClient` lives in the root entry. Pass a
+`secret` through there and it sits in a module that a client component can
+import by accident — and Next writes it into the browser bundle at build time.
+No error, no warning, just a published secret.
 
-## Gemessene Grundlagen
+## Measured groundwork
 
-Alles an `next@16.2.12` und der SDK im Repo nachgemessen.
+All of it measured against `next@16.2.12` and the SDK in this repo.
 
-### Die SDK-Seite
+### The SDK side
 
-| Fakt | Quelle |
+| Fact | Source |
 |---|---|
-| `credentials.custom?: Record<string, ServiceCredentials>` existiert | `packages/sdk/src/core/config.ts` |
-| `ServiceCredentials = { clientId, secret, scope? }` | dito |
-| `auth.service(name?)` wählt den Set, Default `"backend"` | [auth.ts:95](../../../packages/sdk/src/core/auth.ts#L95), [auth.ts:109](../../../packages/sdk/src/core/auth.ts#L109) |
-| `scope` geht als `scope`-Feld in den `client_credentials`-Body | [auth.ts:270](../../../packages/sdk/src/core/auth.ts#L270) |
-| Token-Cache pro Set, Ablauf `expires_in − expirationBufferSeconds` | [auth.ts:282-286](../../../packages/sdk/src/core/auth.ts#L282) |
-| Buffer-Default 60 s, harte Obergrenze `maxLifetimeSeconds` 3600 s | `config.ts`, [auth.ts:226](../../../packages/sdk/src/core/auth.ts#L226) |
-| Single-Flight-Lock pro Set — N parallele Aufrufe holen **einen** Token | [auth.ts:235-239](../../../packages/sdk/src/core/auth.ts#L235) |
-| Unbekannter Set wirft `Unknown credential set "x"` vor dem Cache-Pfad | [auth.ts:219](../../../packages/sdk/src/core/auth.ts#L219), [auth.ts:231](../../../packages/sdk/src/core/auth.ts#L231) |
-| Token-Requests nutzen bewusst das globale `fetch`, nicht das injizierte | `config.ts`, Kommentar an `EmporixConfig.fetch` |
-| `client.config` ist public (`readonly config: ResolvedConfig`) | `packages/sdk/src/client.ts:117` |
-| `context` hängt an `StorefrontCredentials`, **nicht** an `ServiceCredentials` | `config.ts` |
-| Admin-Writes haben `auth: AuthContext = SERVICE` als Default | `packages/sdk/src/services/product.ts:295-299` |
+| `credentials.custom?: Record<string, ServiceCredentials>` exists | `packages/sdk/src/core/config.ts` |
+| `ServiceCredentials = { clientId, secret, scope? }` | ditto |
+| `auth.service(name?)` picks the set, default `"backend"` | [auth.ts:95](../../../packages/sdk/src/core/auth.ts#L95), [auth.ts:109](../../../packages/sdk/src/core/auth.ts#L109) |
+| `scope` goes into the `client_credentials` body as the `scope` field | [auth.ts:270](../../../packages/sdk/src/core/auth.ts#L270) |
+| Token cache per set, expiry `expires_in − expirationBufferSeconds` | [auth.ts:282-286](../../../packages/sdk/src/core/auth.ts#L282) |
+| Buffer default 60 s, hard upper limit `maxLifetimeSeconds` 3600 s | `config.ts`, [auth.ts:226](../../../packages/sdk/src/core/auth.ts#L226) |
+| Single-flight lock per set — N parallel calls fetch **one** token | [auth.ts:235-239](../../../packages/sdk/src/core/auth.ts#L235) |
+| An unknown set throws `Unknown credential set "x"` before the cache path | [auth.ts:219](../../../packages/sdk/src/core/auth.ts#L219), [auth.ts:231](../../../packages/sdk/src/core/auth.ts#L231) |
+| Token requests deliberately use the global `fetch`, not the injected one | `config.ts`, comment on `EmporixConfig.fetch` |
+| `client.config` is public (`readonly config: ResolvedConfig`) | `packages/sdk/src/client.ts:117` |
+| `context` is attached to `StorefrontCredentials`, **not** to `ServiceCredentials` | `config.ts` |
+| Admin writes have `auth: AuthContext = SERVICE` as their default | `packages/sdk/src/services/product.ts:295-299` |
 
-### Die Bundler-Grenze
+### The bundler boundary
 
-Der Mechanismus stammt von `client-only@0.0.1`, aus dem pnpm-Store gelesen:
+The mechanism comes from `client-only@0.0.1`, read out of the pnpm store:
 
 ```json
 "exports": { ".": { "react-server": "./error.js", "default": "./index.js" } }
 ```
 
-`index.js` ist leer, `error.js` wirft. `server-only` ist die Spiegelung davon.
-`server-only` liegt **nicht** im Store, und `packages/next` hat gar keine
-`dependencies`-Sektion.
+`index.js` is empty, `error.js` throws. `server-only` is the mirror image of it.
+`server-only` is **not** in the store, and `packages/next` has no
+`dependencies` section at all.
 
-Ob die Condition `react-server` in den relevanten Kontexten gesetzt ist, war die
-tragende Unbekannte. Nexts Webpack-Config legt `reactServerConditionNames` nur
-auf drei Layer — RSC, `middleware`, `instrument` — und **nicht** auf `apiNode`,
-also nicht auf Route Handlers. Daraus liesse sich schliessen, der Guard würde
-genau dort brechen, wo man ein Produkt anlegt.
+Whether the `react-server` condition is set in the relevant contexts was the
+load-bearing unknown. Next's webpack config applies `reactServerConditionNames`
+to only three layers — RSC, `middleware`, `instrument` — and **not** to
+`apiNode`, so not to route handlers. From that one could conclude that the guard
+would break in exactly the place where you create a product.
 
-Das ist falsch. Gemessen mit einem Spike (temporäre `exports`-Condition auf
-`packages/next`, zwei Dateien in `dist/`, danach alles gelöscht) gegen einen
-echten `next build` mit Turbopack, dem Default in Next 16:
+That is wrong. Measured with a spike (a temporary `exports` condition on
+`packages/next`, two files in `dist/`, everything deleted afterwards) against a
+real `next build` with Turbopack, the default in Next 16:
 
-| Kontext | Auflösung | Ergebnis |
+| Context | Resolution | Result |
 |---|---|---|
-| Route Handler (`app/*/route.ts`) | `react-server` | Import gelingt, Route liefert den Marker |
-| Server Action (`"use server"`, von einer Client Component importiert) | `react-server` | Build kompiliert, also aufgelöst auf die gültige Datei |
-| Client Component (`"use client"`) | `default` | **Build failt** mit zwei Fehlern, Layer `[app-client]` und `[app-ssr]` |
+| Route handler (`app/*/route.ts`) | `react-server` | The import succeeds, the route returns the marker |
+| Server action (`"use server"`, imported from a client component) | `react-server` | The build compiles, so it resolved to the valid file |
+| Client component (`"use client"`) | `default` | **The build fails** with two errors, layers `[app-client]` and `[app-ssr]` |
 
-Der Client-Fall scheitert damit zur **Build-Zeit**, nicht erst zur Laufzeit im
-Browser. Das ist stärker als eine Laufzeitprüfung: das Secret kann gar nicht
-erst in ein Bundle geschrieben werden.
+The client case therefore fails at **build time**, not only at runtime in the
+browser. That is stronger than a runtime check: the secret cannot be written
+into a bundle in the first place.
 
-Die Webpack-Config war die falsche Quelle — Next 16 nutzt Turbopack, und dessen
-Auflösung folgt der Layer-Aufteilung der Webpack-Config nicht.
+The webpack config was the wrong source — Next 16 uses Turbopack, and its
+resolution does not follow the layer split of the webpack config.
 
-## Entscheidung: eigener Entry mit `exports`-Guard
+## Decision: a dedicated entry with an `exports` guard
 
-Neuer Entry `@viu/emporix-sdk-next/service`, dessen Auflösung ausserhalb des
-Server-Graphen auf eine werfende Datei zeigt.
+A new entry `@viu/emporix-sdk-next/service` whose resolution points at a
+throwing file outside the server graph.
 
 ```json
 "./service": {
@@ -105,10 +105,11 @@ Server-Graphen auf eine werfende Datei zeigt.
 }
 ```
 
-`service-is-server-only.js` liegt im Package-Root, nicht in `dist/`. Der Grund
-ist kein Verdacht gegen Treeshaking, sondern `clean: true` in
-`packages/next/tsup.config.ts`: eine handgelegte Datei in `dist/` wäre nach dem
-nächsten Build weg. Sie braucht deshalb einen eigenen Eintrag im `files`-Array.
+`service-is-server-only.js` lives in the package root, not in `dist/`. The
+reason is not a suspicion about tree shaking but `clean: true` in
+`packages/next/tsup.config.ts`: a hand-placed file in `dist/` would be gone
+after the next build. It therefore needs an entry of its own in the `files`
+array.
 
 ```js
 // service-is-server-only.js
@@ -120,18 +121,18 @@ throw new Error(
 );
 ```
 
-Zwei Gürtel, absichtlich:
+Two belts, on purpose:
 
-- Der Bundler findet den benannten Export nicht und **failt den Build**. Das ist
-  der Pfad, der oben gemessen wurde, und der Dateiname steht in der Meldung.
-- Falls je ein Bundler die Datei doch einbindet, wirft sie beim Laden mit
-  eigenem Text.
+- The bundler does not find the named export and **fails the build**. That is
+  the path measured above, and the file name appears in the message.
+- Should a bundler ever include the file anyway, it throws on load with a text
+  of its own.
 
-**Keine neue Dependency.** `server-only` wäre 1 KB für vier Zeilen und würde die
-Null-Dependency-Eigenschaft von `packages/next` aufgeben. Der Mechanismus ist
-vollständig in der `exports`-Map ausdrückbar.
+**No new dependency.** `server-only` would be 1 KB for four lines and would give
+up the zero-dependency property of `packages/next`. The mechanism is fully
+expressible in the `exports` map.
 
-## Oberfläche
+## Surface
 
 ```ts
 export interface EmporixServiceCredentials {
@@ -151,13 +152,13 @@ export function getEmporixServiceClient(opts: {
 }): EmporixClient;
 ```
 
-Rückgabe ist ein gewöhnlicher `EmporixClient` — jeder Service ist erreichbar,
-kein Wrapper pro Operation. Was der Account darf, begrenzen seine Scopes
-serverseitig; eine Allowlist im Package wäre eine zweite, schwächere Kopie
-derselben Regel und bräuchte für jede neue Operation eine Package-Version.
+The return value is an ordinary `EmporixClient` — every service is reachable, no
+wrapper per operation. What the account may do is bounded by its scopes on the
+server side; an allowlist in the package would be a second, weaker copy of the
+same rule and would need a package version for every new operation.
 
 ```ts
-// lib/emporix-service.ts — Modul-Scope, nicht in einem Handler-Body
+// lib/emporix-service.ts — module scope, not inside a handler body
 import { getEmporixServiceClient } from "@viu/emporix-sdk-next/service";
 
 export const service = getEmporixServiceClient({
@@ -184,139 +185,138 @@ export async function POST(request: Request): Promise<Response> {
 }
 ```
 
-### Drei Entscheidungen in der Signatur
+### Three decisions in the signature
 
-**Kein `tagged`-Parameter.** Untagged ist strukturell, nicht konfigurierbar:
-`getEmporixServiceClient` setzt `fetch` nie. `client.config.fetch` bleibt
-`undefined` und ist damit direkt testbar. Eine Option, die man auf `true`
-stellen kann, wäre eine Option, die irgendwann jemand auf `true` stellt.
+**No `tagged` parameter.** Untagged is structural, not configurable:
+`getEmporixServiceClient` never sets `fetch`. `client.config.fetch` stays
+`undefined` and is therefore directly testable. An option that can be set to
+`true` would be an option that someone sets to `true` eventually.
 
-**Kein `context`-Parameter.** `context` hängt an `StorefrontCredentials` und
-wird beim anonymen Login gebunden. Ein Service-Client hat keine
-Storefront-Credentials, also keinen Ort dafür. Die Option wäre wirkungslos und
-würde suggerieren, sie täte etwas.
+**No `context` parameter.** `context` is attached to `StorefrontCredentials` and
+is bound during the anonymous login. A service client has no storefront
+credentials, so there is no place for it. The option would have no effect and
+would suggest that it did something.
 
-**Memoisierung auf `JSON.stringify(opts)`**, also inklusive der Secrets. Das ist
-kein neues Risiko: der Client hält sie ohnehin in `ResolvedConfig.credentials`
-im Prozess. Ein Key ohne Secrets könnte bei zwei Sets gleichen Namens still den
-Client mit dem falschen Secret zurückgeben — ein Hash dazwischen wäre Zeremonie
-für ein Risiko, das nicht besteht.
+**Memoisation on `JSON.stringify(opts)`**, secrets included. That is not a new
+risk: the client holds them in `ResolvedConfig.credentials` in the process
+anyway. A key without the secrets could silently return the client with the
+wrong secret when two sets share a name — a hash in between would be ceremony
+for a risk that does not exist.
 
-Die Memoisierung ist der Grund, warum die Funktion überhaupt existiert. Sie
-sorgt dafür, dass der Token-Cache der SDK greift: eine Instanz pro Prozess,
-nicht pro Request.
+The memoisation is the reason the function exists at all. It is what makes the
+SDK's token cache take effect: one instance per process, not one per request.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Kein Wrapper pro Operation.** Die Scopes des Accounts sind die Grenze.
-- **Kein Env-Var-Konvention für die Credentials.** `tenant` und `host` dürfen
-  aus `process.env` defaulten wie bei `getEmporixClient`, aber wie die Secrets
-  heissen, entscheidet die Storefront. Eine erzwungene Namenskonvention wäre
-  Policy in einem publizierten Package.
-- **Kein `next/headers`, keine Cookies.** Ein Service Account hat keine Session.
-- **Keine Änderung an `getEmporixClient`.** Der Root-Entry bleibt frei von
-  Secrets — das ist die halbe Sicherheitseigenschaft.
-- **Keine `server-only`-Dependency.**
-- **Keine Änderung am Example.** Ein Service Account im Referenz-Storefront
-  bräuchte echte Credentials in `.env.local` und einen zweiten Client mit
-  Schreibrechten. Verifiziert wird mit temporären, nicht committeten Dateien.
+- **No wrapper per operation.** The account's scopes are the boundary.
+- **No env-var convention for the credentials.** `tenant` and `host` may default
+  from `process.env` the way they do in `getEmporixClient`, but what the secrets
+  are called is the storefront's decision. An enforced naming convention would
+  be policy inside a published package.
+- **No `next/headers`, no cookies.** A service account has no session.
+- **No change to `getEmporixClient`.** The root entry stays free of secrets —
+  that is half the security property.
+- **No `server-only` dependency.**
+- **No change to the example.** A service account in the reference storefront
+  would need real credentials in `.env.local` and a second client with write
+  permissions. Verification happens with temporary, uncommitted files.
 
 ## Tests
 
-In `packages/next/tests/service.test.ts`, sechzehn Tests in vier Gruppen.
+In `packages/next/tests/service.test.ts`, sixteen tests in four groups.
 
-**Instanz und Konfiguration**
+**Instance and configuration**
 
-| # | Fall | Erwartung |
+| # | Case | Expectation |
 |---|---|---|
-| 1 | zweimal mit identischen Optionen | dieselbe Instanz |
-| 2 | zweimal mit verschiedenen Optionen | verschiedene Instanzen |
-| 3 | `client.config.fetch` | `undefined` — kein Tagging-Fetch |
-| 4 | `credentials.custom` durchgereicht | `client.config.credentials.custom.productWriter.clientId` stimmt |
-| 5 | `host`-Override | landet in der Token-URL, nicht nur in der Config |
+| 1 | twice with identical options | the same instance |
+| 2 | twice with different options | different instances |
+| 3 | `client.config.fetch` | `undefined` — no tagging fetch |
+| 4 | `credentials.custom` passed through | `client.config.credentials.custom.productWriter.clientId` is right |
+| 5 | `host` override | ends up in the token URL, not just in the config |
 
-**Token-Verhalten** — alle über gestubbtes `globalThis.fetch`. Token-Requests
-nutzen bewusst das globale `fetch` und nicht das injizierte, also ist das der
-richtige Angriffspunkt.
+**Token behaviour** — all of them through a stubbed `globalThis.fetch`. Token
+requests deliberately use the global `fetch` and not the injected one, so that
+is the right point of attack.
 
-| # | Fall | Erwartung |
+| # | Case | Expectation |
 |---|---|---|
-| 6 | `scope` durchgereicht | steht im `client_credentials`-Body |
-| 7 | Caching, sequenziell | zwei Aufrufe → **ein** Token-Request |
-| 8 | Caching, parallel | zehn gleichzeitige Aufrufe → **ein** Token-Request (Single-Flight-Lock) |
-| 9 | Ablauf | `expires_in: 1` und Buffer 60 → der zweite Aufruf holt neu |
-| 10 | zwei verschiedene Sets | zwei Token-Requests, je mit der richtigen `client_id` |
-| 11 | unbekannter Set | wirft `Unknown credential set "nope"` |
+| 6 | `scope` passed through | appears in the `client_credentials` body |
+| 7 | caching, sequential | two calls → **one** token request |
+| 8 | caching, parallel | ten simultaneous calls → **one** token request (single-flight lock) |
+| 9 | expiry | `expires_in: 1` and buffer 60 → the second call fetches anew |
+| 10 | two different sets | two token requests, each with the right `client_id` |
+| 11 | unknown set | throws `Unknown credential set "nope"` |
 
-**Validierung** — neu gegenüber der ersten Fassung, verlangt Code
+**Validation** — new compared with the first draft, requires code
 
-| # | Fall | Erwartung |
+| # | Case | Expectation |
 |---|---|---|
-| 12 | fehlender Tenant | wirft, Meldung nennt `EMPORIX_TENANT` |
-| 13 | `credentials: {}` | wirft, Meldung sagt, dass mindestens ein Set nötig ist |
-| 14 | Set mit leerem `clientId` oder `secret` | wirft und nennt den Set-Namen |
+| 12 | missing tenant | throws, the message names `EMPORIX_TENANT` |
+| 13 | `credentials: {}` | throws, the message says that at least one set is required |
+| 14 | set with an empty `clientId` or `secret` | throws and names the set |
 
-Test 14 ist der wertvollste der drei. Eine nicht gesetzte Env-Variable ergibt
-heute einen leeren String, der als `client_secret` an Emporix geht und dort als
-401 zurückkommt — ein Fehler, der wie ein Rechteproblem aussieht und keines ist.
-Die Prüfung gehört in `getEmporixServiceClient`, weil sie dort einmal pro Prozess
-statt einmal pro Request läuft.
+Test 14 is the most valuable of the three. An env variable that is not set
+currently yields an empty string, which goes to Emporix as the `client_secret`
+and comes back from there as a 401 — an error that looks like a permissions
+problem and is not one. The check belongs in `getEmporixServiceClient`, because
+there it runs once per process instead of once per request.
 
-**Die Grenze, soweit ohne Bundler prüfbar**
+**The boundary, as far as it is checkable without a bundler**
 
-| # | Fall | Erwartung |
+| # | Case | Expectation |
 |---|---|---|
-| 15 | Import der Guard-Datei | rejectet, Meldung nennt `use client` und den Entry-Namen |
-| 16 | `exports`-Map und `files` | `./service` hat `react-server` und `default`, `default` zeigt auf die Guard-Datei, und die steht in `files` |
+| 15 | importing the guard file | rejects, the message names `use client` and the entry name |
+| 16 | `exports` map and `files` | `./service` has `react-server` and `default`, `default` points at the guard file, and that file is listed in `files` |
 
-Test 15 prüft den zweiten Gürtel wirklich — dass die Datei beim Laden wirft und
-mit einer Meldung, die den Weg nach draussen zeigt. Test 16 fängt den Fall, der
-nur beim Publizieren auffällt: fehlt der `files`-Eintrag, ist die Guard-Datei
-nicht im Tarball und die `default`-Condition zeigt ins Leere.
+Test 15 really does check the second belt — that the file throws on load, and
+with a message that shows the way out. Test 16 catches the case that only
+surfaces on publishing: if the `files` entry is missing, the guard file is not
+in the tarball and the `default` condition points at nothing.
 
-### Was kein Test deckt
+### What no test covers
 
-**Ein Unit-Test kann die Bundler-Condition selbst nicht ausüben.** Test 16 prüft
-die Form der Map, Test 15 das Verhalten der Datei — aber ob Turbopack in einem
-`"use client"`-Modul tatsächlich auf `default` auflöst, zeigt nur ein Build.
+**A unit test cannot exercise the bundler condition itself.** Test 16 checks the
+shape of the map, test 15 the behaviour of the file — but whether Turbopack
+actually resolves to `default` inside a `"use client"` module is shown only by a
+build.
 
-### Was kein Test deckt
+### What no test covers
 
-**Ein Unit-Test kann eine Bundler-Condition nicht ausüben.** Der Guard ist durch den heute gemessenen Spike belegt, nicht durch die Suite. Der
-Plan wiederholt diese Messung gegen das gebaute Package — temporäre Dateien im
-Example, ein `next build`, danach gelöscht:
+**A unit test cannot exercise a bundler condition.** The guard is backed by the spike measured today, not by the suite. The
+plan repeats that measurement against the built package — temporary files in the
+example, one `next build`, deleted afterwards:
 
-1. Import aus einem Route Handler → Build gelingt, Route antwortet.
-2. Import aus einer `"use client"`-Datei → Build **failt** mit
-   `[app-client]` und `[app-ssr]`.
+1. Import from a route handler → the build succeeds, the route responds.
+2. Import from a `"use client"` file → the build **fails** with
+   `[app-client]` and `[app-ssr]`.
 
-Schritt 2 ist der eigentliche Beweis. Ohne ihn ist die Sicherheitseigenschaft
-behauptet, nicht gezeigt.
+Step 2 is the actual proof. Without it the security property is asserted, not
+shown.
 
-## Doku
+## Docs
 
-Ein Abschnitt in `packages/next/README.md` direkt nach «The one rule», weil es
-dieselbe Regel eine Stufe schärfer ist: das Modul-Scope-Muster, die
-`auth.service(name)`-Verwendung, die eingebauten Cache-Zahlen, und was passiert,
-wenn man den Entry aus einer Client Component importiert.
+One section in `packages/next/README.md` directly after «The one rule», because
+it is the same rule one notch sharper: the module-scope pattern, the use of
+`auth.service(name)`, the built-in cache numbers, and what happens when you
+import the entry from a client component.
 
-Der Abschnitt nennt ausdrücklich, dass `tagged` nicht existiert und warum.
+The section states explicitly that `tagged` does not exist, and why.
 
-## Sicherheitsgrenze in der Ausführung
+## Security boundary during execution
 
-Die Credentials des Tenants liegen ausschliesslich in der ungetrackten
-`examples/next-app-router/.env.local` (`.gitignore:7`). Für die Verifikation
-werden **keine** echten Service-Account-Credentials gebraucht: der Guard-Test
-prüft Auflösung und Build, nicht einen erfolgreichen Emporix-Aufruf. Ein
-Platzhalter genügt, und es wird nie ein Credential-Wert in Terminal, Commit,
-Doku oder Plan geschrieben.
+The tenant's credentials live exclusively in the untracked
+`examples/next-app-router/.env.local` (`.gitignore:7`). The verification needs
+**no** real service-account credentials: the guard test checks resolution and
+build, not a successful Emporix call. A placeholder is enough, and no credential
+value is ever written into a terminal, a commit, the docs or the plan.
 
-## Offene Follow-ups danach
+## Open follow-ups afterwards
 
-1. `docs/nextjs.md` mit dem `images.remotePatterns`-Eintrag für `next/image` —
-   weiterhin offen, reine Doku.
-2. Ob `getEmporixClient` selbst einen Guard bekommen soll. Heute liegt es im
-   Root-Entry und ist korrekt dort: es trägt kein Secret, nur eine
-   Storefront-`clientId`, die auch im Browser stehen darf. Erst wenn jemand
-   `backend`-Credentials durchreichen will, wird das eine Frage — und die
-   Antwort wäre, ihn stattdessen auf `./service` zu schicken.
+1. `docs/nextjs.md` with the `images.remotePatterns` entry for `next/image` —
+   still open, pure documentation.
+2. Whether `getEmporixClient` should get a guard of its own. Today it lives in
+   the root entry and is correctly there: it carries no secret, only a
+   storefront `clientId`, which is allowed to appear in the browser too. Only
+   when someone wants to pass `backend` credentials through does that become a
+   question — and the answer would be to send them to `./service` instead.

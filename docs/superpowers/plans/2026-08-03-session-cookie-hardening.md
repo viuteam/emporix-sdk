@@ -1,64 +1,64 @@
-# Session-Cookie-Härtung Implementation Plan
+# Session Cookie Hardening Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Eine absolute Session-Obergrenze, das `__Host-`-Präfix und optionale
-AES-256-GCM-Verschlüsselung der Session-Cookies — in einem Release, weil zwei
-davon dieselben Sessions invalidieren.
+**Goal:** An absolute session ceiling, the `__Host-` prefix and optional
+AES-256-GCM encryption of the session cookies — in one release, because two of
+them invalidate the same sessions.
 
-**Architecture:** Ein Codec-Modul kapselt Präfix, Verschlüsselung und
-Entschlüsselung. Die **drei** Stellen, die Session-Cookies lesen, gehen durch
-ihn — der Cookie-Jar, der Token-Proxy und `emporixSession`. Kein zweiter Pfad,
-sonst driften sie.
+**Architecture:** One codec module encapsulates the prefix, encryption and
+decryption. The **three** places that read session cookies all go through it —
+the cookie jar, the token proxy and `emporixSession`. No second path, otherwise
+they drift apart.
 
-**Tech Stack:** `node:crypto` (synchron, eingebaut, im Package bereits genutzt),
-Vitest.
+**Tech Stack:** `node:crypto` (synchronous, built in, already used inside the
+package), Vitest.
 
 **Spec:** `docs/superpowers/specs/2026-08-03-session-cookie-hardening-design.md`
 
 ## Global Constraints
 
-- **Branch:** neuer Branch `feat/session-hardening` von `main` — **erst nachdem
-  PR #195 gemergt ist**. Diese Arbeit ändert `session-cookies.ts`,
-  `session-auth.ts` und `token-proxy.ts`, die alle aus #195 stammen. Nicht
-  stacken: ein PR mit Feature-Branch als Basis bekommt seine `quality`-Checks
-  nie.
-- **Push:** `git push origin feat/session-hardening` über SSH. Der gh-Token wird
-  für Git-Operationen über HTTPS abgelehnt; nur `gh` als API-Client geht.
-- **Commitlint:** Scope aus `repo, release, sdk, react, core, customer, product,
+- **Branch:** a new branch `feat/session-hardening` off `main` — **only once
+  PR #195 has been merged**. This work changes `session-cookies.ts`,
+  `session-auth.ts` and `token-proxy.ts`, all of which come from #195. Do not
+  stack: a PR that has a feature branch as its base never gets its `quality`
+  checks.
+- **Push:** `git push origin feat/session-hardening` over SSH. The gh token is
+  rejected for git operations over HTTPS; only `gh` as an API client works.
+- **Commitlint:** scope from `repo, release, sdk, react, core, customer, product,
   category, cart, checkout, payment, price, media, segment, availability, auth,
-  http, logger, deps, docs, examples`. Kein `next`-Scope — `repo` nehmen. Erstes
-  Wort nach dem Scope ist ein **kleingeschriebenes Verb**.
-- **`node:crypto`, nicht WebCrypto.** `crypto.subtle` ist ausschliesslich async,
-  und `AnonymousSessionStore` ([core/auth.ts:42-45](../../../packages/sdk/src/core/auth.ts#L42))
-  ist synchron deklariert und wird mitten im Token-Refresh sync gerufen. Ein
-  async Codec wäre dort nicht anschliessbar. **Keine Signatur wird async.**
-- **Null Runtime-Dependencies.** Das Package hat heute keine und behält keine.
-- **`exactOptionalPropertyTypes` ist an.** Optionales Feld bekommt einen Wert
-  oder existiert nicht — `{ ...(x ? { k: x } : {}) }`, nie `{ k: undefined }`.
-- **Schweizer Hochdeutsch in Prosa, kein scharfes S.** Code und Kommentare
-  englisch, wie im Rest des Repos.
-- **Keine echten Schlüssel committen.** Testschlüssel werden im Test erzeugt.
+  http, logger, deps, docs, examples`. No `next` scope — use `repo`. The first
+  word after the scope is a **lowercase verb**.
+- **`node:crypto`, not WebCrypto.** `crypto.subtle` is async-only, and
+  `AnonymousSessionStore` ([core/auth.ts:42-45](../../../packages/sdk/src/core/auth.ts#L42))
+  is declared synchronous and is called synchronously mid token refresh. An
+  async codec could not be plugged in there. **No signature becomes async.**
+- **Zero runtime dependencies.** The package has none today and keeps none.
+- **`exactOptionalPropertyTypes` is on.** An optional field either gets a value
+  or does not exist — `{ ...(x ? { k: x } : {}) }`, never `{ k: undefined }`.
+- **Swiss Standard German in prose, no sharp s.** Code and comments in
+  English, as in the rest of the repo. *(Superseded 2026-08-05: everything committed is English — see `CLAUDE.md`. Kept as the record of the constraint that applied when this plan was written.)*
+- **Do not commit real keys.** Test keys are generated inside the test.
 
 ---
 
-### Task H1: Der Cookie-Codec
+### Task H1: The cookie codec
 
 **Files:**
 - Create: `packages/next/src/cookie-crypto.ts`
 - Test: `packages/next/tests/cookie-crypto.test.ts`
 
 **Interfaces:**
-- Consumes: nichts.
+- Consumes: nothing.
 - Produces:
   - `cookieEncryptionEnabled(): boolean`
   - `encryptCookie(name: string, value: string): string`
-  - `decryptCookie(name: string, value: string): string` — wirft bei jedem
-    Fehlschlag, gibt nie einen unentschlüsselten Wert zurück
+  - `decryptCookie(name: string, value: string): string` — throws on every
+    failure, never returns an undecrypted value
 
-- [ ] **Step 1: Den Testfile schreiben**
+- [ ] **Step 1: Write the test file**
 
-Erstelle `packages/next/tests/cookie-crypto.test.ts`:
+Create `packages/next/tests/cookie-crypto.test.ts`:
 
 ```ts
 import { describe, expect, it, afterEach } from "vitest";
@@ -143,18 +143,18 @@ describe("cookie encryption", () => {
 });
 ```
 
-- [ ] **Step 2: Testlauf — muss fehlschlagen**
+- [ ] **Step 2: Test run — must fail**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next test -- cookie-crypto
 ```
 
-Erwartung: Import schlägt fehl, `../src/cookie-crypto` gibt es nicht. Notiere
-die Testzahl **vor** dieser Task, sie kommt später in die PR-Beschreibung.
+Expectation: the import fails, `../src/cookie-crypto` does not exist. Note the
+test count **before** this task, it goes into the PR description later.
 
-- [ ] **Step 3: Den Codec schreiben**
+- [ ] **Step 3: Write the codec**
 
-Erstelle `packages/next/src/cookie-crypto.ts`:
+Create `packages/next/src/cookie-crypto.ts`:
 
 ```ts
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
@@ -265,29 +265,29 @@ export function decryptCookie(name: string, value: string): string {
 }
 ```
 
-- [ ] **Step 4: Testlauf — muss durchlaufen**
+- [ ] **Step 4: Test run — must pass**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next test -- cookie-crypto
 ```
 
-Erwartung: 9 Tests grün.
+Expectation: 9 tests green.
 
-- [ ] **Step 5: Mutation testen**
+- [ ] **Step 5: Mutation testing**
 
-Zwei Mutationen, jede einzeln, jeweils zurückdrehen:
+Two mutations, each one on its own, each reverted afterwards:
 
-1. Beide `setAAD`-Zeilen entfernen → «rejects a ciphertext moved to a different
-   cookie name» **muss** rot werden. Das ist der Test, der ohne Mutation nichts
-   beweist: Round-Trip und Tamper bestehen auch ohne AAD.
-2. In `decryptCookie` die Präfix-Prüfung durch `return value` ersetzen →
-   «rejects a plaintext value rather than passing it through» **muss** rot
-   werden.
+1. Remove both `setAAD` lines → «rejects a ciphertext moved to a different
+   cookie name» **must** turn red. That is the test which proves nothing
+   without a mutation: round-trip and tamper pass without the AAD as well.
+2. In `decryptCookie`, replace the prefix check with `return value` →
+   «rejects a plaintext value rather than passing it through» **must** turn
+   red.
 
-Wird eine nicht gefangen, ist der Test wertlos — dann den Test reparieren, nicht
-die Mutation behalten.
+If one of them is not caught, the test is worthless — then fix the test, do not
+keep the mutation.
 
-- [ ] **Step 6: Typecheck, Lint, Commit**
+- [ ] **Step 6: Typecheck, lint, commit**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next typecheck && pnpm -F @viu/emporix-sdk-next lint
@@ -299,27 +299,27 @@ git add packages/next/src/cookie-crypto.ts packages/next/tests/cookie-crypto.tes
 
 ---
 
-### Task H2: Präfix und Codec an allen drei Lesestellen
+### Task H2: Prefix and codec at all three read sites
 
 **Files:**
 - Create: `packages/next/src/cookie-name.ts`
 - Modify: `packages/next/src/session-cookies.ts:70-93`
 - Modify: `packages/next/src/token-proxy.ts:49-72`
 - Modify: `packages/next/src/server-session.ts:50-90`
-- Test: `packages/next/tests/session-client.test.ts` (ergänzen)
+- Test: `packages/next/tests/session-client.test.ts` (extend)
 
 **Interfaces:**
 - Consumes: `encryptCookie`, `decryptCookie`, `cookieEncryptionEnabled` (Task H1).
 - Produces:
-  - `cookieName(base: string, secure: boolean): string` — hängt `__Host-` an,
-    wenn `secure`
+  - `cookieName(base: string, secure: boolean): string` — prepends `__Host-`
+    when `secure`
   - `sealCookie(name: string, value: string): string`
   - `openCookie(name: string, raw: string | undefined): string | null` — `null`
-    statt Wurf, damit ein unlesbares Cookie wie ein fehlendes wirkt
+    instead of a throw, so an unreadable cookie behaves like a missing one
 
-- [ ] **Step 1: Das Namens- und Codec-Modul schreiben**
+- [ ] **Step 1: Write the name and codec module**
 
-Erstelle `packages/next/src/cookie-name.ts`:
+Create `packages/next/src/cookie-name.ts`:
 
 ```ts
 import { cookieEncryptionEnabled, decryptCookie, encryptCookie } from "./cookie-crypto";
@@ -363,15 +363,15 @@ export function openCookie(name: string, raw: string | undefined): string | null
 }
 ```
 
-**Wichtig:** die AAD ist der **Basisname ohne Präfix**. Sonst würde ein Wechsel
-von http auf https jedes Cookie unlesbar machen, weil sich die AAD mit dem
-Präfix ändert. Alle Aufrufer übergeben deshalb den Basisnamen aus
-`STORAGE_KEYS`, nicht das Ergebnis von `cookieName`.
+**Important:** the AAD is the **base name without the prefix**. Otherwise a
+switch from http to https would make every cookie unreadable, because the AAD
+changes along with the prefix. That is why every caller passes the base name
+from `STORAGE_KEYS`, not the result of `cookieName`.
 
-- [ ] **Step 2: Den Cookie-Jar umstellen**
+- [ ] **Step 2: Switch the cookie jar over**
 
-In `packages/next/src/session-cookies.ts`, den Rückgabewert von
-`sessionCookieJar` ersetzen:
+In `packages/next/src/session-cookies.ts`, replace the return value of
+`sessionCookieJar`:
 
 ```ts
   return {
@@ -393,18 +393,18 @@ In `packages/next/src/session-cookies.ts`, den Rückgabewert von
   };
 ```
 
-Imports oben ergänzen:
+Add the imports at the top:
 
 ```ts
 import { cookieName, openCookie, sealCookie } from "./cookie-name";
 ```
 
-- [ ] **Step 3: Den Token-Proxy umstellen**
+- [ ] **Step 3: Switch the token proxy over**
 
-`token-proxy.ts` liest `request.cookies` direkt, nicht über den Jar — es läuft
-im Proxy, wo `cookies()` nicht verfügbar ist. Es braucht dieselbe Ableitung.
+`token-proxy.ts` reads `request.cookies` directly, not through the jar — it runs
+in the proxy, where `cookies()` is not available. It needs the same derivation.
 
-In `packages/next/src/token-proxy.ts`, den Block ab `const token = …` ersetzen:
+In `packages/next/src/token-proxy.ts`, replace the block from `const token = …`:
 
 ```ts
   // Same derivation emporixSiteProxy uses; there is no headers() in a proxy.
@@ -431,22 +431,22 @@ In `packages/next/src/token-proxy.ts`, den Block ab `const token = …` ersetzen
   }
 ```
 
-`storedExpiry` nimmt `string | undefined`; `openCookie` gibt `string | null`.
-Das `?? undefined` überbrückt das — nicht die Signatur von `storedExpiry`
-ändern, sie wird von Tests direkt gefahren.
+`storedExpiry` takes `string | undefined`; `openCookie` returns `string | null`.
+The `?? undefined` bridges that — do not change the signature of `storedExpiry`,
+it is driven directly by tests.
 
-Imports ergänzen:
+Add the imports:
 
 ```ts
 import { cookieName, openCookie, sealCookie } from "./cookie-name";
 ```
 
-- [ ] **Step 4: `emporixSession` umstellen**
+- [ ] **Step 4: Switch `emporixSession` over**
 
-`server-session.ts` baut zwei `ServerCookieJar`-Shims, die direkt an `cookies()`
-gehen. Beide bekommen dieselbe Behandlung.
+`server-session.ts` builds two `ServerCookieJar` shims that go straight to
+`cookies()`. Both get the same treatment.
 
-In `emporixSession` (der Read-Pfad, ca. Zeile 51):
+In `emporixSession` (the read path, around line 51):
 
 ```ts
   const jar = await cookies();
@@ -456,7 +456,7 @@ In `emporixSession` (der Read-Pfad, ca. Zeile 51):
   };
 ```
 
-In `emporixSessionMutable` (ca. Zeile 82) derselbe `get`, plus:
+In `emporixSessionMutable` (around line 82) the same `get`, plus:
 
 ```ts
     set: (name, value) => {
@@ -465,21 +465,21 @@ In `emporixSessionMutable` (ca. Zeile 82) derselbe `get`, plus:
     },
 ```
 
-`attrs.secure` statt einer eigenen Ableitung, weil diese Funktion `secure` als
-Option entgegennimmt und der Name zum geschriebenen Attribut passen muss.
+`attrs.secure` rather than a derivation of its own, because this function takes
+`secure` as an option and the name has to match the attribute being written.
 
-`headers` aus `next/headers` importieren, falls noch nicht vorhanden.
+Import `headers` from `next/headers` if it is not there yet.
 
-- [ ] **Step 5: `emporixSiteProxy` NICHT anfassen**
+- [ ] **Step 5: Do NOT touch `emporixSiteProxy`**
 
-`proxy.ts:71-74` schreibt `emporix.siteCode` und `emporix.language`. Die sind
-absichtlich browserlesbar — das ist der Zweck des Site-Proxys — und bleiben
-ohne Präfix und ohne Verschlüsselung. Kein Änderungsbedarf. Dieser Schritt
-existiert, damit niemand es «der Vollständigkeit halber» doch macht.
+`proxy.ts:71-74` writes `emporix.siteCode` and `emporix.language`. Those are
+deliberately browser-readable — that is the purpose of the site proxy — and
+stay without a prefix and without encryption. No change needed. This step
+exists so that nobody goes ahead and does it «for completeness».
 
-- [ ] **Step 6: Tests ergänzen**
+- [ ] **Step 6: Extend the tests**
 
-An `packages/next/tests/session-client.test.ts` anhängen:
+Append to `packages/next/tests/session-client.test.ts`:
 
 ```ts
 describe("cookie hardening", () => {
@@ -544,21 +544,21 @@ describe("cookie hardening", () => {
 });
 ```
 
-`randomBytes` oben im File importieren: `import { randomBytes } from "node:crypto";`
+Import `randomBytes` at the top of the file: `import { randomBytes } from "node:crypto";`
 
-Achtung: die bestehenden Tests in dieser Datei erwarten `emporix.anonymousSession`
-**ohne** Präfix und setzen kein `x-forwarded-proto`. Ohne den Header ist `secure`
-ausserhalb von production `false`, also bleibt der Name unpräfixt und sie laufen
-weiter. Falls doch welche fehlschlagen: den Header in jenen Tests **nicht**
-ergänzen, sondern prüfen, ob sie unbeabsichtigt von `secure: true` ausgingen.
+Careful: the existing tests in this file expect `emporix.anonymousSession`
+**without** a prefix and set no `x-forwarded-proto`. Without that header `secure`
+is `false` outside production, so the name stays unprefixed and they keep
+passing. Should some fail anyway: do **not** add the header to those tests,
+check instead whether they were unintentionally assuming `secure: true`.
 
-- [ ] **Step 7: Volle Suite, Typecheck, Commit**
+- [ ] **Step 7: Full suite, typecheck, commit**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next test && pnpm -F @viu/emporix-sdk-next typecheck
 ```
 
-Erwartung: alles grün, 5 Tests mehr als nach H1.
+Expectation: all green, 5 tests more than after H1.
 
 ```bash
 git add packages/next/src packages/next/tests && git commit -m "feat(repo): seal session cookies and add the __Host- prefix"
@@ -566,23 +566,23 @@ git add packages/next/src packages/next/tests && git commit -m "feat(repo): seal
 
 ---
 
-### Task H3: Absolute Session-Obergrenze
+### Task H3: Absolute session ceiling
 
 **Files:**
-- Modify: `packages/next/src/session-cookies.ts:8-15` (Konstanten)
-- Modify: `packages/next/src/session-auth.ts:50-72` (Login), `:143-164` (Refresh), `:173-197` (Logout)
-- Test: `packages/next/tests/session-auth.test.ts` (ergänzen)
+- Modify: `packages/next/src/session-cookies.ts:8-15` (constants)
+- Modify: `packages/next/src/session-auth.ts:50-72` (login), `:143-164` (refresh), `:173-197` (logout)
+- Test: `packages/next/tests/session-auth.test.ts` (extend)
 
 **Interfaces:**
-- Consumes: den Jar aus H2.
+- Consumes: the jar from H2.
 - Produces:
   - `SESSION_ABSOLUTE_MAX = 90 * 24 * 60 * 60`
   - `SESSION_STARTED_AT = "emporix.sessionStartedAt"`
-  - `emporixRefresh` gibt `null` zurück, sobald die Decke überschritten ist
+  - `emporixRefresh` returns `null` as soon as the ceiling is passed
 
-- [ ] **Step 1: Konstanten ergänzen**
+- [ ] **Step 1: Add the constants**
 
-In `packages/next/src/session-cookies.ts`, neben `SESSION_EXPIRES_AT`:
+In `packages/next/src/session-cookies.ts`, next to `SESSION_EXPIRES_AT`:
 
 ```ts
 /**
@@ -598,9 +598,9 @@ export const SESSION_STARTED_AT = "emporix.sessionStartedAt";
 export const SESSION_ABSOLUTE_MAX = 90 * 24 * 60 * 60;
 ```
 
-- [ ] **Step 2: Den Test für die Decke schreiben**
+- [ ] **Step 2: Write the test for the ceiling**
 
-An `packages/next/tests/session-auth.test.ts` anhängen:
+Append to `packages/next/tests/session-auth.test.ts`:
 
 ```ts
 describe("the absolute session ceiling", () => {
@@ -658,22 +658,22 @@ describe("the absolute session ceiling", () => {
 });
 ```
 
-- [ ] **Step 3: Testlauf — muss fehlschlagen**
+- [ ] **Step 3: Test run — must fail**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next test -- session-auth
 ```
 
-Erwartung: mindestens «stamps the start at login» und «refuses and clears once
-the ceiling is passed» sind rot.
+Expectation: at least «stamps the start at login» and «refuses and clears once
+the ceiling is passed» are red.
 
-- [ ] **Step 4: Die Löschliste extrahieren**
+- [ ] **Step 4: Extract the deletion list**
 
-`emporixLogout` hat heute eine Inline-Liste der zu löschenden Cookies. Die
-Decke braucht dieselbe Liste — zwei Kopien würden driften, sobald jemand ein
-Cookie ergänzt.
+`emporixLogout` today has an inline list of the cookies to delete. The ceiling
+needs that same list — two copies would drift apart the moment somebody adds a
+cookie.
 
-In `packages/next/src/session-auth.ts`, oberhalb von `emporixLogout`:
+In `packages/next/src/session-auth.ts`, above `emporixLogout`:
 
 ```ts
 /** Every cookie a session owns. One list, because logout and the absolute
@@ -694,17 +694,17 @@ function clearSession(jar: SessionCookieJar): void {
 }
 ```
 
-Und in `emporixLogout` die `for`-Schleife durch `clearSession(jar);` ersetzen.
+And in `emporixLogout`, replace the `for` loop with `clearSession(jar);`.
 
-- [ ] **Step 5: Login stempelt, Refresh prüft**
+- [ ] **Step 5: Login stamps, refresh checks**
 
-In `emporixLogin`, direkt nach `persistSession(jar, session);`:
+In `emporixLogin`, directly after `persistSession(jar, session);`:
 
 ```ts
   jar.set(SESSION_STARTED_AT, String(Math.floor(Date.now() / 1000)), SESSION_ABSOLUTE_MAX);
 ```
 
-In `emporixRefresh`, als **erstes** nach `const jar = await sessionCookieJar();`:
+In `emporixRefresh`, as the **first** thing after `const jar = await sessionCookieJar();`:
 
 ```ts
   const startedAt = Number(jar.get(SESSION_STARTED_AT));
@@ -722,26 +722,26 @@ In `emporixRefresh`, als **erstes** nach `const jar = await sessionCookieJar();`
   }
 ```
 
-`SESSION_STARTED_AT` und `SESSION_ABSOLUTE_MAX` oben importieren.
+Import `SESSION_STARTED_AT` and `SESSION_ABSOLUTE_MAX` at the top.
 
-- [ ] **Step 6: Testlauf — muss durchlaufen**
+- [ ] **Step 6: Test run — must pass**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next test -- session-auth
 ```
 
-Erwartung: alle grün, 5 Tests mehr als nach H2.
+Expectation: all green, 5 tests more than after H2.
 
-- [ ] **Step 7: Mutation testen**
+- [ ] **Step 7: Mutation testing**
 
-`persistSession` um `jar.set(SESSION_STARTED_AT, String(Math.floor(Date.now()/1000)), SESSION_ABSOLUTE_MAX)`
-erweitern — also die Decke gleitend machen. Test «does not slide the ceiling
-across repeated refreshes» **muss** rot werden. Danach zurückdrehen.
+Extend `persistSession` with `jar.set(SESSION_STARTED_AT, String(Math.floor(Date.now()/1000)), SESSION_ABSOLUTE_MAX)`
+— that is, make the ceiling slide. The test «does not slide the ceiling across
+repeated refreshes» **must** turn red. Revert afterwards.
 
-Ohne diese Mutation ist der Test die Behauptung, dass etwas nicht passiert, was
-niemand programmiert hat — er beweist erst etwas, wenn er das Gegenteil fängt.
+Without this mutation the test is the claim that something does not happen which
+nobody programmed — it only proves anything once it catches the opposite.
 
-- [ ] **Step 8: Volle Suite, Typecheck, Commit**
+- [ ] **Step 8: Full suite, typecheck, commit**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next test && pnpm typecheck
@@ -753,7 +753,7 @@ git add packages/next/src packages/next/tests && git commit -m "feat(repo): cap 
 
 ---
 
-### Task H4: Doku, Changeset und Live-Verifikation
+### Task H4: Docs, changeset and live verification
 
 **Files:**
 - Modify: `packages/next/README.md`
@@ -762,12 +762,12 @@ git add packages/next/src packages/next/tests && git commit -m "feat(repo): cap 
 - Create: `.changeset/next-session-hardening.md`
 
 **Interfaces:**
-- Consumes: alles aus H1-H3.
-- Produces: nichts im Code.
+- Consumes: everything from H1-H3.
+- Produces: nothing in the code.
 
 - [ ] **Step 1: Changeset**
 
-Erstelle `.changeset/next-session-hardening.md`:
+Create `.changeset/next-session-hardening.md`:
 
 ```markdown
 ---
@@ -804,9 +804,9 @@ it would have to stay open for 30 days, and integrity protection would be
 worthless for that whole window.
 ```
 
-- [ ] **Step 2: README-Abschnitt**
+- [ ] **Step 2: README section**
 
-In `packages/next/README.md`, nach dem Abschnitt über den Server-First-Modus:
+In `packages/next/README.md`, after the section on server-first mode:
 
 ```markdown
 ## Session cookie hardening
@@ -838,9 +838,9 @@ bypassing your rate limits and your logs. Turning it on invalidates every
 running session.
 ```
 
-- [ ] **Step 3: Example-Konfiguration**
+- [ ] **Step 3: Example configuration**
 
-An `examples/next-server-first/.env.example` anhängen:
+Append to `examples/next-server-first/.env.example`:
 
 ```
 # Optional. Set to enable cookie encryption; generate with:
@@ -848,17 +848,17 @@ An `examples/next-server-first/.env.example` anhängen:
 # EMPORIX_COOKIE_SECRET=
 ```
 
-Und in `examples/next-server-first/README.md` eine Zeile in der Checkliste
-«What each page proves», dass `/debug` auch mit gesetztem Secret grün bleibt.
+And in `examples/next-server-first/README.md` a line in the «What each page
+proves» checklist saying that `/debug` stays green with the secret set too.
 
-- [ ] **Step 4: Volle Suite über alles**
+- [ ] **Step 4: Full suite over everything**
 
 ```bash
 pnpm -r --filter "./packages/*" build && pnpm -r test && pnpm typecheck && pnpm lint
 ```
 
-Erwartung: alles grün. Die Testzahl notieren — geratene Zahlen waren in diesem
-Repo schon dreimal falsch.
+Expectation: all green. Note the test count — guessed numbers have already been
+wrong three times in this repo.
 
 - [ ] **Step 5: Commit**
 
@@ -866,44 +866,44 @@ Repo schon dreimal falsch.
 git add .changeset packages/next/README.md examples/next-server-first && git commit -m "docs(repo): document the session cookie hardening"
 ```
 
-- [ ] **Step 6: Live-Verifikation ohne Secret**
+- [ ] **Step 6: Live verification without a secret**
 
 ```bash
 pnpm -F @viu/emporix-examples-next-server-first build
 ```
 
-Server starten, dann im Browser:
+Start the server, then in the browser:
 
-1. `/` → Produkt in den Warenkorb, `/cart` zeigt es.
-2. In den DevTools: die Cookies heissen **ohne** `__Host-`-Präfix, weil
-   localhost über http läuft. Werte im Klartext.
-3. `/debug` ist grün.
+1. `/` → product into the cart, `/cart` shows it.
+2. In the DevTools: the cookies are named **without** the `__Host-` prefix,
+   because localhost runs over http. Values in plaintext.
+3. `/debug` is green.
 
-- [ ] **Step 7: Live-Verifikation mit Secret**
+- [ ] **Step 7: Live verification with a secret**
 
-Schlüssel erzeugen, in `.env.local` eintragen, Server neu starten.
+Generate a key, put it into `.env.local`, restart the server.
 
-1. `/cart` zeigt **«No cart yet»** — die alte Session ist ungültig, wie
-   dokumentiert.
-2. Neues Produkt in den Warenkorb.
-3. In den DevTools: `emporix.cartId` beginnt mit `v1.` und enthält die Cart-Id
-   nicht mehr im Klartext.
-4. `/debug` ist grün.
-5. Schlüssel in `.env.local` durch einen neuen ersetzen, Server neu starten →
-   `/cart` sagt wieder «No cart yet». Das ist der Massen-Logout.
+1. `/cart` shows **«No cart yet»** — the old session is invalid, as
+   documented.
+2. New product into the cart.
+3. In the DevTools: `emporix.cartId` starts with `v1.` and no longer holds the
+   cart id in plaintext.
+4. `/debug` is green.
+5. Replace the key in `.env.local` with a new one, restart the server →
+   `/cart` says «No cart yet» again. That is the mass logout.
 
-Punkt 5 ist der Beleg für die Fähigkeit, die das Feature eigentlich rechtfertigt.
+Point 5 is the evidence for the capability that actually justifies the feature.
 
-- [ ] **Step 8: Den `saasToken` messen**
+- [ ] **Step 8: Measure the `saasToken`**
 
-Offener Punkt 2 der Spec. Beim eingeloggten Lauf einmal die Länge des
-`saasToken`-Cookies notieren. Verschlüsselt kostet er rund
-`1.34 × (n + 28)` Bytes; ab etwa 2,9 KB Klartext reisst das 4-KB-Limit pro
-Cookie. Passt es, in die README schreiben; passt es nicht, ist das ein Blocker
-und gehört gemeldet, nicht umschifft.
+Open point 2 of the spec. During the logged-in run, note the length of the
+`saasToken` cookie once. Encrypted it costs roughly
+`1.34 × (n + 28)` bytes; from about 2.9 KB of plaintext onward it breaks the
+4 KB per-cookie limit. If it fits, write that into the README; if it does not,
+that is a blocker and belongs reported, not worked around.
 
-Dieser Schritt braucht einen Login und damit die Hand der Nutzerin am
-Passwortfeld.
+This step needs a login and therefore the user's own hand on the password
+field.
 
 - [ ] **Step 9: PR**
 
@@ -911,47 +911,47 @@ Passwortfeld.
 git push origin feat/session-hardening
 ```
 
-PR gegen `main` öffnen. Beschreibung: die drei Massnahmen, der Befund zur nie
-ablaufenden Session, die gemessene Testzahl, und ausdrücklich der Hinweis, dass
-das Deployment alle ausloggt.
+Open a PR against `main`. Description: the three measures, the finding about the
+never-expiring session, the measured test count, and explicitly the note that
+the deployment logs everybody out.
 
-**Nicht mergen.** Das ist die Entscheidung der Nutzerin.
+**Do not merge.** That is the user's decision.
 
 ---
 
 ## Self-Review
 
-**Spec-Abdeckung:**
+**Spec coverage:**
 
-| Spec-Abschnitt | Task |
+| Spec section | Task |
 |---|---|
-| Absolute Obergrenze, 90 Tage | H3 |
-| Stempel bei Login, Prüfung bei Refresh, Löschen bei Logout | H3 Steps 4-5 |
-| `__Host-`-Präfix, an `secure` gekoppelt | H2 Steps 1-2 |
-| Browserlesbare Cookies bleiben unpräfixt | H2 Step 5 |
-| AES-256-GCM, `node:crypto`, synchron | H1 Step 3 |
-| Schlüsselliste mit Rotation | H1 Step 3, Tests 5-6 |
-| AAD = Cookie-Name | H1 Step 3, Test 4 |
-| `v1.`-Präfix, kein Klartext-Fallback | H1 Step 3, Test 7 |
-| Alle httpOnly-Cookies inkl. `customerTokenExpiresAt` | H2 Steps 2-4 |
-| Migration loggt alle aus | H4 Steps 1-2, Live-Check Step 7 |
-| Tests 1-16 der Spec | H1 Step 1 (1-8), H2 Step 6 (9-13), H3 Step 2 (14-16) |
+| Absolute ceiling, 90 days | H3 |
+| Stamp at login, check at refresh, clear at logout | H3 Steps 4-5 |
+| `__Host-` prefix, tied to `secure` | H2 Steps 1-2 |
+| Browser-readable cookies stay unprefixed | H2 Step 5 |
+| AES-256-GCM, `node:crypto`, synchronous | H1 Step 3 |
+| Key list with rotation | H1 Step 3, Tests 5-6 |
+| AAD = cookie name | H1 Step 3, Test 4 |
+| `v1.` prefix, no plaintext fallback | H1 Step 3, Test 7 |
+| All httpOnly cookies incl. `customerTokenExpiresAt` | H2 Steps 2-4 |
+| Migration logs everybody out | H4 Steps 1-2, live check Step 7 |
+| Tests 1-16 of the spec | H1 Step 1 (1-8), H2 Step 6 (9-13), H3 Step 2 (14-16) |
 
-**Nicht abgedeckt, bewusst:** die Nicht-Ziele der Spec — serverseitige Sessions,
-Reuse-Detection, Änderungen am React-Package.
+**Not covered, deliberately:** the non-goals of the spec — server-side sessions,
+reuse detection, changes to the React package.
 
-**Über die Spec hinaus, mit Grund:** die Spec nennt drei Lesestellen nicht
-einzeln. Der Plan tut es, weil `token-proxy.ts` und `server-session.ts` den
-Cookie-Jar **umgehen** — ohne H2 Steps 3-4 wäre die Verschlüsselung dort
-wirkungslos und der Proxy würde jeden Wert für unlesbar halten. `proxy.ts`
-bekommt einen eigenen Schritt, der sagt, dass es *nicht* angefasst wird.
+**Beyond the spec, with reason:** the spec does not name the three read sites
+individually. The plan does, because `token-proxy.ts` and `server-session.ts`
+**bypass** the cookie jar — without H2 Steps 3-4 the encryption would have no
+effect there and the proxy would take every value for unreadable. `proxy.ts`
+gets a step of its own that says it is *not* touched.
 
-**Typ-Konsistenz:** `cookieName`, `sealCookie`, `openCookie` werden in H2
-definiert und in H2 Steps 2-4 mit genau diesen Signaturen konsumiert.
-`clearSession` wird in H3 Step 4 definiert und in Step 5 genutzt.
-`SESSION_STARTED_AT` und `SESSION_ABSOLUTE_MAX` kommen aus H3 Step 1.
+**Type consistency:** `cookieName`, `sealCookie`, `openCookie` are defined in H2
+and consumed in H2 Steps 2-4 with exactly these signatures. `clearSession` is
+defined in H3 Step 4 and used in Step 5. `SESSION_STARTED_AT` and
+`SESSION_ABSOLUTE_MAX` come from H3 Step 1.
 
-**Eine Annahme, die H2 Step 6 prüft:** dass die bestehenden Tests in
-`session-client.test.ts` ohne `x-forwarded-proto` laufen und damit unpräfixte
-Namen erwarten. Der Schritt sagt, was zu tun ist, falls nicht — und ausdrücklich,
-was nicht zu tun ist.
+**One assumption that H2 Step 6 checks:** that the existing tests in
+`session-client.test.ts` run without `x-forwarded-proto` and therefore expect
+unprefixed names. The step says what to do if not — and explicitly what not to
+do.

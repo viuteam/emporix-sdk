@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** `examples/next-server-first` bekommt einen funktionierenden Checkout,
-und die zwei pure Funktionen, die er dafür braucht, ziehen aus dem
-Storefront-Demo in die SDK — mit Tests, die es dort noch nie gab.
+**Goal:** `examples/next-server-first` gets a working checkout, and the two pure
+functions it needs for that move out of the storefront demo and into the SDK —
+with tests that never existed there.
 
-**Architecture:** Eine Server Component liest Cart, Zahlungsarten, Versandzonen
-und gespeicherte Adressen in **einer** `withEmporixSession` parallel. Ein
-natives Formular postet an eine Server Action, die die `CheckoutInput`-Nutzlast
-zusammenbaut, den `saasToken` aus dem httpOnly-Cookie zieht und
-`client.checkout.placeOrder` ruft. Kein Client-JS, kein Client-State.
+**Architecture:** One Server Component reads the cart, the payment modes, the
+shipping zones and the saved addresses in parallel inside **one**
+`withEmporixSession`. A native form posts to a Server Action that assembles the
+`CheckoutInput` payload, pulls the `saasToken` out of the httpOnly cookie and
+calls `client.checkout.placeOrder`. No client JS, no client state.
 
 **Tech Stack:** Next 16 (App Router, Server Actions), `@viu/emporix-sdk`,
 `@viu/emporix-sdk-next/bff`, Vitest.
@@ -19,46 +19,46 @@ zusammenbaut, den `saasToken` aus dem httpOnly-Cookie zieht und
 
 ## Global Constraints
 
-- **Branch:** `feat/next-bff-mode`. Diese Arbeit hängt an **PR #195** an. Nicht
-  stacken, keinen neuen Branch ziehen.
-- **Push:** `git push origin feat/next-bff-mode` über SSH. Der gh-Token wird für
-  Git-Operationen über HTTPS abgelehnt — nur die API-Nutzung von `gh` geht.
-- **Commitlint:** Scope aus `repo, release, sdk, react, core, customer, product,
+- **Branch:** `feat/next-bff-mode`. This work attaches to **PR #195**. Do not
+  stack, do not cut a new branch.
+- **Push:** `git push origin feat/next-bff-mode` over SSH. The gh token is
+  rejected for Git operations over HTTPS — only the API use of `gh` works.
+- **Commitlint:** Scope out of `repo, release, sdk, react, core, customer, product,
   category, cart, checkout, payment, price, media, segment, availability, auth,
-  http, logger, deps, docs, examples`. Es gibt **keinen** `next`-Scope — für
-  Package-Arbeit `repo` nehmen. Erstes Wort nach dem Scope ist ein
-  **kleingeschriebenes Verb**.
-- **Keine Credentials in den Code.** Tenant `viu`, Site `main`, Currency `CHF`,
-  Country `CH` stehen in `examples/next-server-first/.env.local`, das
-  `.gitignore` über `.env.*` ausschliesst. Nie hardcoden, nie ins Terminal
-  echoen, nie committen.
-- **Examples typechecken gegen `dist/`.** Nach jeder SDK-Änderung
-  `pnpm -F @viu/emporix-sdk build`, bevor ein Example typecheckt.
-- **Schweizer Hochdeutsch in Prosa, kein scharfes S.** Code und Kommentare
-  bleiben englisch, wie im Rest des Repos.
-- **`exactOptionalPropertyTypes` ist an.** Ein optionales Feld bekommt entweder
-  einen Wert oder existiert nicht — `{ ...(x ? { k: x } : {}) }`, nie
+  http, logger, deps, docs, examples`. There is **no** `next` scope — use `repo`
+  for package work. The first word after the scope is a
+  **lowercase verb**.
+- **No credentials in the code.** Tenant `viu`, site `main`, currency `CHF`,
+  country `CH` live in `examples/next-server-first/.env.local`, which
+  `.gitignore` excludes via `.env.*`. Never hardcode them, never echo them into
+  the terminal, never commit them.
+- **Examples typecheck against `dist/`.** After every SDK change run
+  `pnpm -F @viu/emporix-sdk build` before an example typechecks.
+- **Swiss Standard German in prose, no sharp s.** Code and comments stay
+  English, as in the rest of the repo. *(Superseded 2026-08-05: everything committed is English — see `CLAUDE.md`. Kept as the record of the constraint that applied when this plan was written.)*
+- **`exactOptionalPropertyTypes` is on.** An optional field either gets a value
+  or does not exist — `{ ...(x ? { k: x } : {}) }`, never
   `{ k: undefined }`.
 
 ---
 
-### Task C1: `resolveZone` und `pickFee` in die SDK
+### Task C1: `resolveZone` and `pickFee` into the SDK
 
 **Files:**
-- Modify: `packages/sdk/src/services/shipping-types.ts` (Re-Export von `ShippingFee`)
-- Modify: `packages/sdk/src/services/shipping.ts` (die zwei Funktionen)
-- Test: `packages/sdk/tests/shipping-helpers.test.ts` (neu)
+- Modify: `packages/sdk/src/services/shipping-types.ts` (re-export of `ShippingFee`)
+- Modify: `packages/sdk/src/services/shipping.ts` (the two functions)
+- Test: `packages/sdk/tests/shipping-helpers.test.ts` (new)
 
 **Interfaces:**
-- Consumes: nichts.
+- Consumes: nothing.
 - Produces:
   - `resolveZone(zones: ZoneList | undefined, country: string): Zone | undefined`
   - `pickFee(fees: ShippingFee[] | undefined, cartTotal: number): ShippingFee | undefined`
-  - `ShippingFee` als öffentlicher Typ aus `@viu/emporix-sdk`
+  - `ShippingFee` as a public type out of `@viu/emporix-sdk`
 
-- [ ] **Step 1: Den Testfile schreiben**
+- [ ] **Step 1: Write the test file**
 
-Erstelle `packages/sdk/tests/shipping-helpers.test.ts`:
+Create `packages/sdk/tests/shipping-helpers.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -149,19 +149,19 @@ describe("pickFee", () => {
 });
 ```
 
-- [ ] **Step 2: Testlauf — muss fehlschlagen**
+- [ ] **Step 2: Test run — must fail**
 
 ```bash
 pnpm -F @viu/emporix-sdk test -- shipping-helpers
 ```
 
-Erwartung: Fehler beim Import — `resolveZone`, `pickFee` und `ShippingFee` gibt
-es noch nicht in `../src/index`. Gemessene Baseline vorher: 837 SDK-Tests.
+Expectation: an import error — `resolveZone`, `pickFee` and `ShippingFee` do not
+exist in `../src/index` yet. Measured baseline beforehand: 837 SDK tests.
 
-- [ ] **Step 3: `ShippingFee` re-exportieren**
+- [ ] **Step 3: Re-export `ShippingFee`**
 
-In `packages/sdk/src/services/shipping-types.ts` den Import-Block um `Fee as
-GenFee` ergänzen und darunter re-exportieren, direkt neben `MinimumFee`:
+In `packages/sdk/src/services/shipping-types.ts`, extend the import block with
+`Fee as GenFee` and re-export it below, right next to `MinimumFee`:
 
 ```ts
 /**
@@ -174,18 +174,18 @@ GenFee` ergänzen und darunter re-exportieren, direkt neben `MinimumFee`:
 export type ShippingFee = GenFee;
 ```
 
-**Nicht `Fee` nennen.** Der Fee-Service exportiert diesen Namen schon aus
-`./fee`; `tsc` meldet sonst TS2308 in `src/index.ts`. Die Tests laufen trotzdem
-grün durch — Typen sind zur Laufzeit weg — also fällt das erst im Typecheck
-auf.
+**Do not call it `Fee`.** The Fee service already exports that name from
+`./fee`; otherwise `tsc` reports TS2308 in `src/index.ts`. The tests still pass
+green anyway — types are gone at runtime — so this only shows up in the
+typecheck.
 
-- [ ] **Step 4: Die zwei Funktionen ergänzen**
+- [ ] **Step 4: Add the two functions**
 
-In `packages/sdk/src/services/shipping.ts`, **oberhalb** der
-`ShippingService`-Klasse (sie sind pure und gehören nicht in die Klasse).
-`ShippingFee` muss im bestehenden `import type { ... } from
-"./shipping-types"`-Block ergänzt und im `export type { ... }`-Block mit
-re-exportiert werden, damit `@viu/emporix-sdk` ihn nach aussen gibt:
+In `packages/sdk/src/services/shipping.ts`, **above** the `ShippingService`
+class (they are pure and do not belong in the class). `ShippingFee` has to be
+added to the existing `import type { ... } from "./shipping-types"` block and
+re-exported along with the others in the `export type { ... }` block, so that
+`@viu/emporix-sdk` hands it outward:
 
 ```ts
 /**
@@ -220,48 +220,48 @@ export function pickFee(fees: ShippingFee[] | undefined, cartTotal: number): Shi
 }
 ```
 
-- [ ] **Step 5: Den Export bestätigen**
+- [ ] **Step 5: Confirm the export**
 
-`packages/sdk/src/index.ts:254` ist `export * from "./shipping"` — gemessen, kein
-namentlicher Block. Die zwei Funktionen und `ShippingFee` sind damit automatisch
-öffentlich, sobald sie in `shipping.ts` exportiert sind. Nur bestätigen:
+`packages/sdk/src/index.ts:254` is `export * from "./shipping"` — measured, not a
+named block. The two functions and `ShippingFee` are therefore public
+automatically as soon as they are exported in `shipping.ts`. Just confirm it:
 
 ```bash
 pnpm -F @viu/emporix-sdk build && grep -c "resolveZone\|pickFee" packages/sdk/dist/index.d.ts
 ```
 
-Erwartung: mindestens 2.
+Expectation: at least 2.
 
-- [ ] **Step 6: Testlauf — muss durchlaufen**
+- [ ] **Step 6: Test run — must pass**
 
 ```bash
 pnpm -F @viu/emporix-sdk test -- shipping-helpers
 ```
 
-Erwartung: 10 Tests grün.
+Expectation: 10 tests green.
 
-- [ ] **Step 7: Mutation testen — der Punkt der Übung**
+- [ ] **Step 7: Mutation testing — the point of the exercise**
 
-Ein Guard, der nie fehlgeschlagen ist, ist nicht als funktionierend bekannt.
-Zwei Mutationen, jede einzeln, jeweils zurückdrehen:
+A guard that has never failed is not known to work.
+Two mutations, each one on its own, each one reverted afterwards:
 
-1. In `pickFee` `<=` durch `<` ersetzen → Test «includes a threshold the total
-   exactly meets» **muss** rot werden.
-2. In `resolveZone` das `.toUpperCase()` auf `s.country` entfernen → Test
-   «matches case-insensitively in both directions» **muss** rot werden.
+1. In `pickFee`, replace `<=` with `<` → the test «includes a threshold the total
+   exactly meets» **must** turn red.
+2. In `resolveZone`, remove the `.toUpperCase()` on `s.country` → the test
+   «matches case-insensitively in both directions» **must** turn red.
 
-Wird eine Mutation nicht gefangen, ist der zugehörige Test wertlos — dann den
-Test reparieren, nicht die Mutation behalten.
+If a mutation is not caught, the corresponding test is worthless — then repair
+the test, do not keep the mutation.
 
-- [ ] **Step 8: Volle Suite und Typecheck**
+- [ ] **Step 8: Full suite and typecheck**
 
 ```bash
 pnpm -F @viu/emporix-sdk test && pnpm -F @viu/emporix-sdk typecheck
 ```
 
-Erwartung: alles grün. Notiere die Gesamtzahl der Tests — sie kommt in die
-PR-Beschreibung, und geratene Zahlen sind in diesem Zyklus schon dreimal falsch
-gewesen.
+Expectation: everything green. Note down the total number of tests — it goes into
+the PR description, and guessed numbers have already been wrong three times in
+this cycle.
 
 - [ ] **Step 9: Commit**
 
@@ -271,36 +271,36 @@ git add packages/sdk/src/services/shipping.ts packages/sdk/src/services/shipping
 
 ---
 
-### Task C2: Storefront-Demo importiert aus der SDK
+### Task C2: The storefront demo imports from the SDK
 
 **Files:**
 - Modify: `examples/storefront-demo/src/checkout/ShippingSelector.tsx:1-36`
-- Modify: `examples/storefront-demo/src/pages/Checkout.tsx:120` (toter Cast)
+- Modify: `examples/storefront-demo/src/pages/Checkout.tsx:120` (dead cast)
 
 **Interfaces:**
-- Consumes: `resolveZone`, `pickFee`, `Fee`, `Zone` aus `@viu/emporix-sdk` (Task C1).
-- Produces: nichts Neues. `SelectedShipping` bleibt lokal exportiert — es ist die
-  Form, die *dieser* React-State braucht.
+- Consumes: `resolveZone`, `pickFee`, `Fee`, `Zone` from `@viu/emporix-sdk` (Task C1).
+- Produces: nothing new. `SelectedShipping` stays exported locally — it is the
+  shape *this* React state needs.
 
-- [ ] **Step 1: SDK bauen**
+- [ ] **Step 1: Build the SDK**
 
-Examples typechecken gegen `dist/`, nicht gegen `src/`.
+Examples typecheck against `dist/`, not against `src/`.
 
 ```bash
 pnpm -F @viu/emporix-sdk build
 ```
 
-- [ ] **Step 2: Lokale Definitionen durch den Import ersetzen**
+- [ ] **Step 2: Replace the local definitions with the import**
 
 In `examples/storefront-demo/src/checkout/ShippingSelector.tsx`:
 
-Die Import-Zeile ersetzen:
+Replace the import line:
 
 ```ts
 import type { ZoneList, ShippingMethod } from "@viu/emporix-sdk";
 ```
 
-durch:
+with:
 
 ```ts
 import {
@@ -313,29 +313,29 @@ import {
 } from "@viu/emporix-sdk";
 ```
 
-Dann ersatzlos löschen:
+Then delete outright:
 
-- `type ShippingZone = ZoneList[number];` — das **ist** `Zone`, weil
+- `type ShippingZone = ZoneList[number];` — that **is** `Zone`, because
   `Zones = Array<Zone>`.
-- `type Fee = ShippingMethod["fees"][number];` — heisst in der SDK
-  `ShippingFee`; die lokalen Verwendungen mit umbenennen.
-- die ganze Funktion `resolveZone` (Zeilen 20-27)
-- die ganze Funktion `pickFee` (Zeilen 29-36)
+- `type Fee = ShippingMethod["fees"][number];` — in the SDK it is called
+  `ShippingFee`; rename the local usages along with it.
+- the whole `resolveZone` function (lines 20-27)
+- the whole `pickFee` function (lines 29-36)
 
-Und die verbliebenen Verwendungen von `ShippingZone` im File auf `Zone` umbenennen
-— in `toSelected(method, zone: ShippingZone, …)` und wo sonst der Alias auftaucht:
+And rename the remaining usages of `ShippingZone` in the file to `Zone`
+— in `toSelected(method, zone: ShippingZone, …)` and wherever else the alias shows up:
 
 ```bash
 grep -n "ShippingZone" examples/storefront-demo/src/checkout/ShippingSelector.tsx
 ```
 
-- [ ] **Step 3: Den toten Cast in Checkout.tsx entfernen**
+- [ ] **Step 3: Remove the dead cast in Checkout.tsx**
 
-In `examples/storefront-demo/src/pages/Checkout.tsx` wird das Objekt als
-`input: input as never` übergeben. Der Cast ist überflüssig — gemessen: der
-Demo typecheckt sauber ohne ihn, weil `useCheckout` den Parameter bereits als
-`CheckoutInput` deklariert. Ein `as never` an genau der Stelle, die der
-Server-First-Checkout nachbaut, würde sonst mitkopiert.
+In `examples/storefront-demo/src/pages/Checkout.tsx` the object is passed as
+`input: input as never`. The cast is superfluous — measured: the demo typechecks
+cleanly without it, because `useCheckout` already declares the parameter as
+`CheckoutInput`. An `as never` at exactly the spot the server-first checkout
+rebuilds would otherwise be copied along.
 
 ```ts
       const r = await placeOrder.mutateAsync({
@@ -348,16 +348,16 @@ Server-First-Checkout nachbaut, würde sonst mitkopiert.
 pnpm -F @viu/emporix-examples-storefront-demo typecheck
 ```
 
-Erwartung: keine Ausgabe ausser dem Kommando-Echo.
+Expectation: no output apart from the command echo.
 
-- [ ] **Step 5: Prüfen, dass nichts zurückblieb**
+- [ ] **Step 5: Check that nothing was left behind**
 
 ```bash
 grep -rn "resolveZone\|pickFee\|ShippingZone" examples/storefront-demo/src
 ```
 
-Erwartung: nur noch Aufrufe (`resolveZone(zones, country)`, `pickFee(m.fees, …)`)
-und der Import — keine `function`- oder `type`-Definitionen mehr.
+Expectation: only calls (`resolveZone(zones, country)`, `pickFee(m.fees, …)`)
+and the import — no more `function` or `type` definitions.
 
 - [ ] **Step 6: Commit**
 
@@ -367,25 +367,25 @@ git add examples/storefront-demo/src && git commit -m "refactor(examples): impor
 
 ---
 
-### Task C3: Checkout-Seite, Server Action und Done-Seite
+### Task C3: Checkout page, Server Action and done page
 
 **Files:**
 - Create: `examples/next-server-first/app/actions/checkout.ts`
 - Create: `examples/next-server-first/app/checkout/page.tsx`
 - Create: `examples/next-server-first/app/checkout/done/page.tsx`
-- Modify: `examples/next-server-first/app/cart/page.tsx` (Link zum Checkout)
+- Modify: `examples/next-server-first/app/cart/page.tsx` (link to the checkout)
 
 **Interfaces:**
-- Consumes: `resolveZone`, `pickFee` aus `@viu/emporix-sdk` (Task C1);
-  `withEmporixSession`, `withEmporixSessionMutable`, `STORAGE_KEYS` aus
-  `@viu/emporix-sdk-next/bff`; `SITE`, `CONTEXT`, `EMPORIX` aus `../emporix`.
-- Produces: `submitCheckout(formData: FormData): Promise<void>` — eine Server
-  Action, die bei Erfolg auf `/checkout/done?orderId=…` weiterleitet und bei
-  Fehler auf `/checkout?error=…`.
+- Consumes: `resolveZone`, `pickFee` from `@viu/emporix-sdk` (Task C1);
+  `withEmporixSession`, `withEmporixSessionMutable`, `STORAGE_KEYS` from
+  `@viu/emporix-sdk-next/bff`; `SITE`, `CONTEXT`, `EMPORIX` from `../emporix`.
+- Produces: `submitCheckout(formData: FormData): Promise<void>` — a Server
+  Action that on success redirects to `/checkout/done?orderId=…` and on failure
+  to `/checkout?error=…`.
 
-- [ ] **Step 1: Die Server Action schreiben**
+- [ ] **Step 1: Write the Server Action**
 
-Erstelle `examples/next-server-first/app/actions/checkout.ts`:
+Create `examples/next-server-first/app/actions/checkout.ts`:
 
 ```ts
 "use server";
@@ -500,15 +500,15 @@ export async function submitCheckout(formData: FormData): Promise<void> {
 }
 ```
 
-**Achtung bei `redirect()` im `try`:** Next implementiert `redirect()` als
-geworfene Ausnahme. Ein `redirect()` **innerhalb** eines `try` mit `catch` wird
-vom eigenen `catch` gefangen. Deshalb stehen hier alle Erfolgs-Redirects
-**ausserhalb** des `try`-Blocks, und der einzige `redirect()` im `catch` ist der
-Fehlerfall selbst.
+**Watch out for `redirect()` inside `try`:** Next implements `redirect()` as a
+thrown exception. A `redirect()` **inside** a `try` that has a `catch` gets
+caught by that very `catch`. That is why all success redirects here sit
+**outside** the `try` block, and the only `redirect()` in the `catch` is the
+error case itself.
 
-- [ ] **Step 2: Die Checkout-Seite schreiben**
+- [ ] **Step 2: Write the checkout page**
 
-Erstelle `examples/next-server-first/app/checkout/page.tsx`:
+Create `examples/next-server-first/app/checkout/page.tsx`:
 
 ```tsx
 import { cookies } from "next/headers";
@@ -618,12 +618,12 @@ export default async function CheckoutPage({
 }
 ```
 
-Wenn `PaymentMode` andere Felder hat als `id`, beim Typecheck korrigieren —
-`m.id` ist die Annahme, die der Typecheck in Step 4 bestätigt oder widerlegt.
+If `PaymentMode` has fields other than `id`, fix it during the typecheck —
+`m.id` is the assumption the typecheck in Step 4 confirms or refutes.
 
-- [ ] **Step 3: Die Done-Seite schreiben**
+- [ ] **Step 3: Write the done page**
 
-Erstelle `examples/next-server-first/app/checkout/done/page.tsx`:
+Create `examples/next-server-first/app/checkout/done/page.tsx`:
 
 ```tsx
 export default async function CheckoutDonePage({
@@ -651,10 +651,10 @@ export default async function CheckoutDonePage({
 }
 ```
 
-- [ ] **Step 4: Link vom Cart zum Checkout**
+- [ ] **Step 4: Link from the cart to the checkout**
 
-In `examples/next-server-first/app/cart/page.tsx`, im `else`-Zweig unterhalb der
-Item-Liste:
+In `examples/next-server-first/app/cart/page.tsx`, in the `else` branch below the
+item list:
 
 ```tsx
           <a href="/checkout">Checkout</a>
@@ -666,10 +666,10 @@ Item-Liste:
 pnpm -F @viu/emporix-examples-next-server-first typecheck
 ```
 
-Erwartung: sauber. Wahrscheinliche Treffer, die hier auffallen: die Felder von
-`PaymentMode`, und `exactOptionalPropertyTypes` bei den Adressfeldern. Beides an
-Ort und Stelle reparieren, nicht mit `as` wegcasten — dieser Zyklus hat gerade
-erst einen toten `as never` entfernt.
+Expectation: clean. Likely hits that show up here: the fields of `PaymentMode`,
+and `exactOptionalPropertyTypes` on the address fields. Repair both on the spot,
+do not cast them away with `as` — this cycle has just removed a dead
+`as never`.
 
 - [ ] **Step 6: Commit**
 
@@ -679,19 +679,19 @@ git add examples/next-server-first/app && git commit -m "feat(examples): add a s
 
 ---
 
-### Task C4: Changeset, README und Live-Verifikation
+### Task C4: Changeset, README and live verification
 
 **Files:**
 - Create: `.changeset/sdk-shipping-helpers.md`
 - Modify: `examples/next-server-first/README.md`
 
 **Interfaces:**
-- Consumes: alles aus C1-C3.
-- Produces: nichts im Code.
+- Consumes: everything out of C1-C3.
+- Produces: nothing in the code.
 
-- [ ] **Step 1: Changeset für die SDK**
+- [ ] **Step 1: Changeset for the SDK**
 
-Erstelle `.changeset/sdk-shipping-helpers.md`:
+Create `.changeset/sdk-shipping-helpers.md`:
 
 ```markdown
 ---
@@ -708,13 +708,13 @@ picks the highest `minOrderValue` at or below the total, falling back to the
 first fee.
 ```
 
-Kein Changeset für die Examples — `@viu/emporix-examples-*` stehen in
-`.changeset/config.json` unter `ignore`.
+No changeset for the examples — `@viu/emporix-examples-*` are listed in
+`.changeset/config.json` under `ignore`.
 
-- [ ] **Step 2: README-Abschnitt**
+- [ ] **Step 2: README section**
 
-In `examples/next-server-first/README.md` einen Abschnitt ergänzen, der die
-Checkout-Route beschreibt und den einen Punkt macht, den dieser Demo belegt:
+In `examples/next-server-first/README.md`, add a section that describes the
+checkout route and makes the one point this demo proves:
 
 ```markdown
 ## Checkout
@@ -732,13 +732,13 @@ which Emporix documents as creating the order in the `IN_CHECKOUT` status — a
 real order waiting for payment, not a paid one.
 ```
 
-- [ ] **Step 3: Volle Suite und Typecheck über alles**
+- [ ] **Step 3: Full suite and typecheck across everything**
 
 ```bash
 pnpm -r test && pnpm typecheck
 ```
 
-Erwartung: alles grün. Die Testzahl notieren.
+Expectation: everything green. Note down the test count.
 
 - [ ] **Step 4: Commit**
 
@@ -746,78 +746,78 @@ Erwartung: alles grün. Die Testzahl notieren.
 git add .changeset examples/next-server-first/README.md && git commit -m "docs(repo): document the server-first checkout and changeset the sdk helpers"
 ```
 
-- [ ] **Step 5: Live-Verifikation — Gast**
+- [ ] **Step 5: Live verification — guest**
 
 ```bash
 pnpm -F @viu/emporix-examples-next-server-first dev
 ```
 
-Im Browser:
+In the browser:
 
-1. `/` öffnen, ein Produkt aus der Kategorie hinzufügen, die die README nennt
-   (nicht jedes Produkt hat einen Preis).
-2. `/cart` — die Position erscheint.
-3. `/checkout` — Formular ausfüllen, Land `CH` lassen, absenden.
-4. `/checkout/done` zeigt eine `orderId`.
-5. In den DevTools prüfen: `emporix.cartId` ist weg.
-6. `/cart` zeigt wieder «No cart yet».
+1. Open `/`, add a product from the category the README names
+   (not every product has a price).
+2. `/cart` — the line item appears.
+3. `/checkout` — fill in the form, leave the country as `CH`, submit.
+4. `/checkout/done` shows an `orderId`.
+5. Check in the DevTools: `emporix.cartId` is gone.
+6. `/cart` shows «No cart yet» again.
 
-- [ ] **Step 6: Live-Verifikation — eingeloggt**
+- [ ] **Step 6: Live verification — logged in**
 
-Dieser Schritt braucht das Passwort im Formular. **Das tippt die Nutzerin
-selbst** — Zugangsdaten in Felder einzugeben ist eine Grenze, die auch mit
-Freigabe steht. Alles davor und danach läuft ohne.
+This step needs the password in the form. **The user types that
+themselves** — entering credentials into fields is a boundary that holds even
+with approval. Everything before and after it runs without.
 
-1. Nutzerin loggt sich auf `/login` ein.
-2. `/checkout` — die Adressfelder sind aus dem Konto vorbefüllt.
-3. Bestellung absenden → `orderId` auf der Done-Seite.
-4. `/debug` ist **grün**: kein Token für JavaScript sichtbar, obwohl der
-   `saasToken` gerade an einem Checkout beteiligt war.
+1. The user logs in at `/login`.
+2. `/checkout` — the address fields are prefilled from the account.
+3. Submit the order → `orderId` on the done page.
+4. `/debug` is **green**: no token visible to JavaScript, even though the
+   `saasToken` was just involved in a checkout.
 
-Punkt 4 ist der eigentliche Beleg dieses ganzen Modus.
+Point 4 is the actual proof of this whole mode.
 
-- [ ] **Step 7: Push zu PR #195**
+- [ ] **Step 7: Push to PR #195**
 
 ```bash
 git push origin feat/next-bff-mode
 ```
 
-Dann die PR-Beschreibung um den Checkout ergänzen: die neuen SDK-Exports mit
-ihren zehn Tests, die Checkout-Route, und die gemessene Gesamt-Testzahl.
+Then extend the PR description with the checkout: the new SDK exports with their
+ten tests, the checkout route, and the measured total test count.
 
-**Nicht mergen.** Das ist die Entscheidung der Nutzerin.
+**Do not merge.** That is the user's decision.
 
 ---
 
 ## Self-Review
 
-**Spec-Abdeckung** — jede Anforderung der Spec hat eine Task:
+**Spec coverage** — every requirement of the spec has a task:
 
-| Spec-Abschnitt | Task |
+| Spec section | Task |
 |---|---|
-| `resolveZone`/`pickFee` in die SDK, `Fee` re-exportieren | C1 |
-| Zehn Tests inklusive der `≤`-Grenze und des Cast-Falls | C1 Step 1 |
-| `storefront-demo` importiert aus der SDK | C2 |
-| Vier parallele Reads in **einer** Session | C3 Step 2 |
-| Adress-Read mit `.catch(() => [])` | C3 Step 2 |
-| Natives Formular ohne Client-State | C3 Step 2 |
-| Server Action ist die Autorität für die Versandzone | C3 Step 1 |
-| `saasToken` aus dem httpOnly-Cookie | C3 Step 1 |
-| `emporix.cartId` löschen, weil der Cart CLOSED ist | C3 Step 1 |
-| Done-Seite sagt ehrlich `IN_CHECKOUT` | C3 Step 3 |
-| Fehler zurück auf `/checkout?error=` | C3 Step 1 + Step 2 |
-| Changeset für `@viu/emporix-sdk` (minor) | C4 Step 1 |
-| Live-Checks Gast, eingeloggt, `/debug` grün | C4 Steps 5-6 |
+| `resolveZone`/`pickFee` into the SDK, re-export `Fee` | C1 |
+| Ten tests including the `≤` boundary and the cast case | C1 Step 1 |
+| `storefront-demo` imports from the SDK | C2 |
+| Four parallel reads in **one** session | C3 Step 2 |
+| Address read with `.catch(() => [])` | C3 Step 2 |
+| Native form without client state | C3 Step 2 |
+| The Server Action is the authority for the shipping zone | C3 Step 1 |
+| `saasToken` out of the httpOnly cookie | C3 Step 1 |
+| Delete `emporix.cartId`, because the cart is CLOSED | C3 Step 1 |
+| The done page honestly says `IN_CHECKOUT` | C3 Step 3 |
+| Errors back to `/checkout?error=` | C3 Step 1 + Step 2 |
+| Changeset for `@viu/emporix-sdk` (minor) | C4 Step 1 |
+| Live checks as guest, logged in, `/debug` green | C4 Steps 5-6 |
 
-**Nicht abgedeckt und bewusst so:** die Nicht-Ziele der Spec
-(`payments.initialize`, Provider-Rückkehr, Quote-Checkout, Adressverwaltung).
+**Not covered, and deliberately so:** the non-goals of the spec
+(`payments.initialize`, provider return, quote checkout, address management).
 
-**Typ-Konsistenz:** `submitCheckout` heisst in C3 Step 1 und Step 2 gleich. Die
-in C1 produzierten Signaturen (`resolveZone`, `pickFee`, `Fee`) werden in C2 und
-C3 mit genau diesen Namen konsumiert. `SITE.siteCode` ist `"main"` aus
-`app/emporix.ts:4`, `CONTEXT.targetLocation` ist `"CH"` aus Zeile 12.
+**Type consistency:** `submitCheckout` has the same name in C3 Step 1 and Step 2.
+The signatures produced in C1 (`resolveZone`, `pickFee`, `Fee`) are consumed in C2
+and C3 under exactly those names. `SITE.siteCode` is `"main"` from
+`app/emporix.ts:4`, `CONTEXT.targetLocation` is `"CH"` from line 12.
 
-**Zwei Annahmen, die der Typecheck in C3 Step 5 bestätigt oder widerlegt:** die
-Feldnamen von `PaymentMode` (angenommen: `id`), und dass `Address` die Felder
-`street`, `streetNumber`, `zipCode`, `city`, `country` trägt. Beide sind im Plan
-als Prüfpunkt markiert statt als Tatsache behauptet.
+**Two assumptions the typecheck in C3 Step 5 confirms or refutes:** the field
+names of `PaymentMode` (assumed: `id`), and that `Address` carries the fields
+`street`, `streetNumber`, `zipCode`, `city`, `country`. Both are marked in the
+plan as a check point instead of being claimed as fact.
