@@ -97,11 +97,11 @@ encryption looked like it had done nothing.
 
 | Page | Proves |
 |---|---|
-| `/` | catalog rendered on the server with the memoized tagged client |
+| `/[lang]` | catalog rendered on the server with the memoized tagged client — **prerendered, `revalidate 3600`** |
 | `/search` | a form GET as the whole state container — no `useState`, back button works |
-| `/categories` | all 21 category-tree roots from one cached call |
-| `/category/[id]` | breadcrumb and children from the tree, pagination as a URL, an over-range page that says so |
-| `/product/[id]` | `notFound()` on an unknown id instead of a 500 |
+| `/[lang]/categories` | all 21 category-tree roots from one cached call — **prerendered** |
+| `/[lang]/category/[id]/[[...page]]` | breadcrumb and children from the tree, pagination as a path segment, an over-range page that says so — **ISR** |
+| `/[lang]/product/[id]/[[...variant]]` | `notFound()` on an unknown id instead of a 500, variant as a path segment — **ISR** |
 | `/login` | `emporixLogin` / `emporixLogout` via Server Actions, session in httpOnly cookies |
 | `/cart` | `withEmporixSession*`, a guest cart bound to a server-managed anonymous session |
 | `/checkout` | four reads in one session, and a `saasToken` that authorizes an order without ever reaching the browser |
@@ -112,6 +112,70 @@ encryption looked like it had done nothing.
 | `/debug` | **what the browser can actually read** — green only when no secret is reachable from JavaScript |
 | `POST /api/emporix/webhook` | the backend invalidating tagged catalog reads, verified by HMAC |
 | typeahead on `/` | a client-side catalog read with no token, through `/api/emporix` |
+
+## Why the catalog lives under `/[lang]/…`
+
+Because a route that reads a cookie can never be cached, and the catalog is the
+same for every visitor.
+
+The language used to come from the session (`lib/site-context.ts`). One
+`cookies()` call marks a route dynamic for good — `revalidate` is ignored, no CDN
+can hold the answer, and every visitor pays a full server render for HTML that is
+byte-identical to the last one. Measured against `next start` before the change:
+
+```
+Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate
+```
+
+Three things had to move for that to change:
+
+1. **The language went into the URL.** `/de/category/x`, not a cookie. The
+   segment is validated against the tenant's list in `app/[lang]/layout.tsx` —
+   `/fr/…` 404s rather than sending an unknown `Accept-Language` to Emporix.
+2. **Pagination and variant selection became path segments**, not `?page=` and
+   `?variant=`. Reading `searchParams` opts a route out of static rendering just
+   as thoroughly as a cookie does. `/de/category/x/2` is cacheable,
+   `/de/category/x?page=2` is not — and page 3 stays a URL you can link, which is
+   what the old comment claimed for the query string.
+3. **The header stopped reading the session.** It sits in the root layout, so its
+   one `cookies()` call made all eighteen routes dynamic. The two personalised
+   bits are client islands now: `SessionNav` fetches `/api/session/nav` after the
+   page is served, `LanguageSwitcher` reads `usePathname()`.
+
+What `next build` says now, and what `next start` answers:
+
+| Route | Build | First request | Second request |
+|---|---|---|---|
+| `/[lang]` | ● prerendered, 1h | — | — |
+| `/[lang]/categories` | ● prerendered, 1h | — | — |
+| `/[lang]/category/[id]/[[...page]]` | ● | `x-nextjs-cache: MISS` | `HIT`, `s-maxage=3600` |
+| `/[lang]/product/[id]/[[...variant]]` | ● | `MISS` | `HIT`, `s-maxage=3600` |
+| `/cart` | ƒ | `private, no-cache, no-store` | same — and that is correct |
+
+**The empty `generateStaticParams` is load-bearing.** A dynamic segment without
+one is rendered on demand and *not* cached; `revalidate` alone did nothing, which
+the header above is the receipt for. Returning `[]` means «prerender nothing,
+treat every path as cacheable» — the right answer for 1'631 categories nobody
+wants to enumerate at build time.
+
+### The seam this leaves, and who holds it
+
+Catalog routes read the language from the URL. Session routes (`/cart`,
+`/checkout`, `/account/…`) still read the cookie, because they are per-visitor
+anyway and have nothing to gain from a prefix. Exactly one thing writes both:
+`/api/session/language`, which the switcher links to. It sets the cookie and
+redirects to the prefixed path.
+
+`/` and `/categories` stay unprefixed and redirect to the visitor's language.
+They are dynamic and make no Emporix call — one cookie read, then a static page.
+
+### What it costs
+
+The cart badge arrives one round trip after the page, and with JavaScript
+disabled it never arrives — the fallback is a plain `Cart` link without the
+count. Everything that *changes* state is still a `<form>` posting to a Server
+Action, so the demo keeps working without JS; only the badge and the active
+language marker are poorer.
 
 ## Checkout
 

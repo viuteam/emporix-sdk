@@ -10,9 +10,9 @@ import {
   stripHtml,
 } from "@viu/emporix-examples-shared";
 
-import { pricesFor } from "../../lib/prices";
-import { addToCart } from "../../actions/cart";
-import { siteContext } from "../../lib/site-context";
+import { pricesFor } from "../../../../lib/prices";
+import { addToCart } from "../../../../actions/cart";
+import { siteContext } from "../../../../lib/site-context";
 
 /**
  * A product page whose whole state lives in the URL.
@@ -21,16 +21,33 @@ import { siteContext } from "../../lib/site-context";
  * survives a reload. storefront-demo's `VariantPicker` holds it in a hook; here
  * each variant is a link and the page re-renders on the server.
  */
+export const revalidate = 3600;
+
+/**
+ * Empty on purpose, and load-bearing.
+ *
+ * A dynamic segment with **no** `generateStaticParams` is rendered on demand and
+ * NOT cached — verified against `next start`: the route answered
+ * `Cache-Control: private, no-cache, no-store` and `revalidate` was ignored.
+ * Returning an empty list says «prerender nothing, but treat every path as
+ * cacheable», which is ISR for a catalogue too large to enumerate at build time
+ * (1'631 categories on this tenant).
+ */
+export function generateStaticParams(): { id: string }[] {
+  return [];
+}
+
 export default async function ProductPage({
   params,
-  searchParams,
 }: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ variant?: string }>;
+  params: Promise<{ lang: string; id: string; variant?: string[] }>;
 }): Promise<React.JSX.Element> {
-  const { id } = await params;
-  const chosen = (await searchParams).variant;
-  const client = getEmporixClient({ context: await siteContext() });
+  const { lang, id, variant } = await params;
+  // The chosen variant is a PATH segment, not `?variant=`: `searchParams` would
+  // make this route dynamic, and a variant is a document worth its own cacheable
+  // URL anyway — bookmarkable, crawlable, one cache entry each.
+  const chosen = variant?.[0];
+  const client = getEmporixClient({ context: await siteContext(lang) });
 
   // An unknown id must be a 404, not a 500. A product URL outlives the product:
   // it sits in bookmarks, in search indexes and in other people's links, so this
@@ -69,7 +86,7 @@ export default async function ProductPage({
   return (
     <main className="container pdp" style={{ paddingBlock: "var(--s-6)" }}>
       <p style={{ marginBottom: "var(--s-5)" }}>
-        <a href="/" className="eyebrow u-underline">
+        <a href={`/${lang}`} className="eyebrow u-underline">
           ← Catalogue
         </a>
       </p>
@@ -108,7 +125,7 @@ export default async function ProductPage({
                 return (
                   <a
                     key={cid}
-                    href={`/product/${encodeURIComponent(id)}?variant=${encodeURIComponent(cid)}`}
+                    href={`/${lang}/product/${encodeURIComponent(id)}/${encodeURIComponent(cid)}`}
                     className={cid === selectedId ? "tag tag--accent" : "tag"}
                   >
                     {productName(c)}

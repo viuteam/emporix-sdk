@@ -1,26 +1,27 @@
-import { emporixSession, emporixSessionHandle } from "@viu/emporix-sdk-next/session";
-import { STORE_OPT } from "../emporix";
-import { cartCount } from "../lib/cart-session";
-import { logout } from "../actions/auth";
 import { LanguageSwitcher } from "./language-switcher";
+import { SessionNav } from "./session-nav";
 
 /**
- * A Server Component that makes **zero** Emporix calls.
+ * A Server Component that makes zero Emporix calls **and reads no cookies**.
  *
- * That is the point worth copying: the badge count comes from the session (see
- * `lib/cart-session.ts`), and «am I logged in» comes from whether a token is
- * stored. Neither needs the network, so putting the header in the root layout
- * costs nothing per page view.
+ * The second half is newer than the first and it is what makes the catalog
+ * cacheable. This header sits in the root layout, so anything it reads, every
+ * route reads: one `cookies()` call here marked all eighteen routes dynamic,
+ * including four catalog pages whose HTML is identical for every visitor.
+ *
+ * The two personalised bits are client islands now — `SessionNav` fetches
+ * `/api/session/nav` after the page is served, `LanguageSwitcher` derives the
+ * active language from `usePathname()`. A Server Component may render a Client
+ * Component without becoming dynamic, which is the whole trick.
+ *
+ * The catalog links stay unprefixed (`/`, `/categories`). Both redirect to the
+ * visitor's language, which costs one cheap hop and keeps this file free of
+ * routing logic it would otherwise have to duplicate per route.
  *
  * The search box is a plain GET form. storefront-demo's header keeps the query
- * in `useState` and navigates programmatically; here the browser does it, so
- * this file needs no `"use client"` at all.
+ * in `useState` and navigates programmatically; here the browser does it.
  */
-export async function Header(): Promise<React.JSX.Element> {
-  const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
-  const { customerToken } = await emporixSession(STORE_OPT);
-  const count = cartCount(handle);
-
+export function Header(): React.JSX.Element {
   return (
     <header style={{ borderBottom: "1px solid var(--line)" }}>
       <div
@@ -52,25 +53,7 @@ export async function Header(): Promise<React.JSX.Element> {
           <a href="/categories" className="u-underline">
             Categories
           </a>
-          <a href="/cart" className="u-underline">
-            Cart{count > 0 ? ` (${count})` : ""}
-          </a>
-          {customerToken === null ? (
-            <a href="/login" className="u-underline">
-              Login
-            </a>
-          ) : (
-            <>
-              <a href="/account" className="u-underline">
-                Account
-              </a>
-              <form action={logout} style={{ display: "inline" }}>
-                <button type="submit" className="btn btn--ghost btn--sm">
-                  Log out
-                </button>
-              </form>
-            </>
-          )}
+          <SessionNav />
           <a href="/debug" className="u-underline">
             Debug
           </a>

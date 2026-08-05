@@ -2,11 +2,11 @@ import { notFound } from "next/navigation";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { catId, catLabel } from "@viu/emporix-examples-shared";
 
-import { ProductGrid } from "../../components/product-grid";
-import { pricesFor } from "../../lib/prices";
-import { siteContext } from "../../lib/site-context";
-import { categoryTree } from "../../lib/category-tree";
-import { findCategory } from "../../lib/category-walk";
+import { ProductGrid } from "../../../../components/product-grid";
+import { pricesFor } from "../../../../lib/prices";
+import { siteContext } from "../../../../lib/site-context";
+import { categoryTree } from "../../../../lib/category-tree";
+import { findCategory } from "../../../../lib/category-walk";
 
 const PAGE_SIZE = 24;
 
@@ -21,27 +21,46 @@ const PAGE_SIZE = 24;
  * The upside: page 3 is a URL. It can be linked, bookmarked and crawled, which an
  * accumulating list cannot.
  */
+export const revalidate = 3600;
+
+/**
+ * Empty on purpose, and load-bearing.
+ *
+ * A dynamic segment with **no** `generateStaticParams` is rendered on demand and
+ * NOT cached — verified against `next start`: the route answered
+ * `Cache-Control: private, no-cache, no-store` and `revalidate` was ignored.
+ * Returning an empty list says «prerender nothing, but treat every path as
+ * cacheable», which is ISR for a catalogue too large to enumerate at build time
+ * (1'631 categories on this tenant).
+ */
+export function generateStaticParams(): { id: string }[] {
+  return [];
+}
+
 export default async function CategoryPage({
   params,
-  searchParams,
 }: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ page?: string }>;
+  params: Promise<{ lang: string; id: string; page?: string[] }>;
 }): Promise<React.JSX.Element> {
-  const { id } = await params;
+  const { lang, id, page: segments } = await params;
+  // The page number is a PATH segment, not `?page=`. Reading `searchParams` opts
+  // a route out of static rendering entirely, and this is the busiest route in
+  // the demo — `/de/category/x/2` is cacheable, `/de/category/x?page=2` is not.
+  // It also keeps the property the old comment claimed: page 3 is a URL.
+  //
   // `Number(undefined) || 1` is 1, `Number("abc") || 1` is 1, `Number("0") || 1`
   // is 1, and Math.max catches a negative. A page number arrives from the URL, so
   // the bound is drawn even though no framework is doing it.
-  const page = Math.max(1, Number((await searchParams).page) || 1);
+  const page = Math.max(1, Number(segments?.[0]) || 1);
 
-  const client = getEmporixClient({ context: await siteContext() });
+  const client = getEmporixClient({ context: await siteContext(lang) });
 
   // Sequential, and NOT a Promise.all — measured 2026-08-04:
   // `productsIn("does-not-exist")` throws `EmporixNotFoundError`, so running both
   // in parallel lets that rejection win the race and the page 500s before
   // `notFound()` can run. The tree is cached for an hour, so awaiting it first
   // costs a cache read on all but the first request of the hour.
-  const roots = await categoryTree();
+  const roots = await categoryTree(lang);
 
   // The label and the hierarchy both come out of the tree, so `categories.get()`
   // is not called at all — one request fewer, and both are cached under the same
@@ -62,7 +81,13 @@ export default async function CategoryPage({
     undefined,
   );
   const priceOf = await pricesFor(client, undefined, products.items);
-  const href = (n: number): string => `/category/${encodeURIComponent(id)}?page=${n}`;
+  // Page one has no segment, so the canonical URL of a category is one URL and
+  // not two — `/de/category/x` and `/de/category/x/1` would otherwise both
+  // exist and split the cache.
+  const href = (n: number): string =>
+    n <= 1
+      ? `/${lang}/category/${encodeURIComponent(id)}`
+      : `/${lang}/category/${encodeURIComponent(id)}/${n}`;
 
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
@@ -71,13 +96,13 @@ export default async function CategoryPage({
           «Building & Construction» is six levels deep on this tenant, and without
           it level 4 gives a shopper no idea where they are. */}
       <p className="eyebrow">
-        <a href="/categories" className="u-underline">
+        <a href={`/${lang}/categories`} className="u-underline">
           Categories
         </a>
         {found.ancestors.map((a) => (
           <span key={catId(a)}>
             {" / "}
-            <a href={`/category/${encodeURIComponent(catId(a))}`} className="u-underline">
+            <a href={`/${lang}/category/${encodeURIComponent(catId(a))}`} className="u-underline">
               {catLabel(a)}
             </a>
           </span>
@@ -107,7 +132,7 @@ export default async function CategoryPage({
           {children.map((s) => (
             <a
               key={catId(s)}
-              href={`/category/${encodeURIComponent(catId(s))}`}
+              href={`/${lang}/category/${encodeURIComponent(catId(s))}`}
               className="u-underline"
             >
               {catLabel(s)}
@@ -133,7 +158,7 @@ export default async function CategoryPage({
         )
       ) : (
         <>
-          <ProductGrid products={products.items} priceOf={priceOf} />
+          <ProductGrid products={products.items} priceOf={priceOf} lang={lang} />
           <nav
             className="cluster"
             aria-label="Pagination"
