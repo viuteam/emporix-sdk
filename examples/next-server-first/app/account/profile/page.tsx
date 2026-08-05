@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { pickText } from "@viu/emporix-examples-shared";
 
@@ -27,9 +28,9 @@ export default async function ProfilePage(): Promise<React.JSX.Element> {
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">
-        <a href="/account" className="u-underline">
+        <Link href="/account" className="u-underline">
           ← Account
-        </a>
+        </Link>
       </p>
       <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
         Profile

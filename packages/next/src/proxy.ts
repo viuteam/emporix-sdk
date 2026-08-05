@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { STORAGE_KEYS } from "@viu/emporix-sdk";
+import { isTopLevelNavigation } from "./navigation";
 
 /**
  * The site and language a proxy resolved for one request.
@@ -82,6 +83,20 @@ export function emporixSiteProxy(
     rewriteTo === undefined
       ? NextResponse.next(init)
       : NextResponse.rewrite(new URL(rewriteTo, request.url), init);
+
+  // Only a real navigation by the visitor persists anything.
+  //
+  // A `<Link>` prefetch is a request like any other, and without this line it wrote
+  // `emporix.language` from the path — so a link to the other language switched the
+  // visitor's language as soon as it entered the viewport. Reproduced on 2026-08-05
+  // with a real Chrome prefetch. See `./navigation.ts` for the measurement showing
+  // why "is a prefetch" cannot be checked in middleware and why this opposite
+  // direction is what remains.
+  //
+  // The forwarded request-cookie injection above is untouched by this: it is
+  // per-request, persists nothing, and a speculative render should use the language
+  // of the URL it was asked for.
+  if (!isTopLevelNavigation(request)) return response;
 
   for (const [name, value] of changed) {
     response.cookies.set(name, value, {

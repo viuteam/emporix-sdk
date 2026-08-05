@@ -38,6 +38,20 @@ decision, not by style.
 | `pnpm changeset` | author a release entry |
 | `pnpm -F <pkg> <script>` | run a script in one package only |
 
+## Everything written into the repo is English
+
+Code comments, JSDoc, changesets, commit messages, PR descriptions, README and
+docs prose, test names, and user-facing strings in the examples — **all English**,
+without exception. The packages are published publicly; a German changeset lands
+verbatim in the CHANGELOG of an English package, and a German comment blocks the
+next reader who isn't a German speaker.
+
+This is about artefacts, not conversation: chat with the team happens in whatever
+language they use. The rule is that nothing which gets committed carries it.
+
+Where the repo currently deviates, it is drift to be fixed when you touch the file,
+not a precedent — the shared style is English.
+
 ## Commitlint rules (enforced by husky)
 
 - **Allowed scopes** (one of): `repo, release, sdk, react, core, customer, product, category, cart, checkout, payment, price, media, segment, availability, auth, http, logger, deps, docs, examples`.

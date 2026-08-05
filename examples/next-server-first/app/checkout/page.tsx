@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EmporixNotFoundError, pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
 import { money, pickText } from "@viu/emporix-examples-shared";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
@@ -14,9 +15,9 @@ function NoCart(): React.JSX.Element {
       <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Checkout</h1>
       <p className="muted">
         No cart yet. Add something from the{" "}
-        <a href="/" className="u-underline">
+        <Link href="/" className="u-underline">
           catalog
-        </a>
+        </Link>
         .
       </p>
     </main>
@@ -24,13 +25,12 @@ function NoCart(): React.JSX.Element {
 }
 
 /**
- * Ein Feld mit echtem `<label>`.
+ * A field with a real `<label>`.
  *
- * Vorher trugen alle acht Felder nur einen `placeholder`. Ein Placeholder ist
- * keine Beschriftung: er verschwindet beim Tippen, Screenreader lesen ihn nicht
- * zuverlaessig vor, und wer nach dem Ausfuellen prueft, sieht nicht mehr, was in
- * welchem Feld steht. `.field__label` stand fuer genau diesen Zweck schon in
- * global.css.
+ * All eight fields used to carry nothing but a `placeholder`. A placeholder is not a
+ * label: it disappears as soon as you type, screen readers do not announce it
+ * reliably, and anyone checking their entries afterwards can no longer see what goes
+ * in which field. `.field__label` already existed in global.css for exactly this.
  */
 function Field({
   name,
@@ -161,8 +161,8 @@ export default async function CheckoutPage({
           <span className="price">{money(total, currency)}</span>
         </p>
 
-      {/* `.form-col` begrenzt die Spalte. Ohne das waren die Felder so breit wie
-          der Viewport — auf 1440px gemessen 1'190px fuer eine Postleitzahl. */}
+      {/* `.form-col` bounds the column. Without it the fields were as wide as the
+          viewport — measured at 1440px, that is 1'190px for a postcode. */}
       <form action={submitCheckout} className="form-col form-col--wide">
         <fieldset className="fgroup">
           <legend className="fgroup__title serif">Contact</legend>
@@ -250,8 +250,8 @@ export default async function CheckoutPage({
           )}
         </fieldset>
 
-        {/* «Place order» heisst auf der Zielseite «Order placed» — dieselbe Vokabel
-            durch den ganzen Ablauf. */}
+        {/* «Place order» becomes «Order placed» on the page it leads to — the same
+            word through the whole flow. */}
         <button
           type="submit"
           className="btn btn--accent btn--block"
