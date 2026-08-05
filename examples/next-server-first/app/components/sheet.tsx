@@ -1,42 +1,40 @@
 /**
- * Das Blatt und sein Schriftfeld — das Signature-Element dieser Demo.
+ * The sheet and its title block — the signature element of this demo.
  *
- * Eine Referenz-Implementierung ist eine annotierte Zeichnung, und eine Zeichnung
- * hat in der Blattecke eine Tabelle, die sagt, was man vor sich hat. Hier sagt sie,
- * **wie diese Route gerendert wurde**: statisch oder pro Anfrage, mit welcher
- * Revalidierung, und wie viele Stellen der Seite im Browser hydrieren.
+ * A reference implementation is an annotated drawing, and a drawing carries a table in
+ * the corner of the sheet saying what you are looking at. Here it says **how this route
+ * was rendered**: static or per request, with which revalidation, and how many parts of
+ * the page hydrate in the browser.
  *
- * Das ist die interessanteste Information, die diese Demo hat, und sie stand bisher
- * nirgends — nur auf `/debug`, also ausgerechnet nicht dort, wo man sie sehen will.
+ * That is the most interesting information this demo holds, and until now it appeared
+ * nowhere — only on `/debug`, which is precisely not where you want to see it.
  *
- * **Die Angaben sind Handarbeit, und das ist eine Entscheidung.** Man koennte den
- * Render-Modus zur Laufzeit erraten, aber jeder Weg dorthin faelscht das Ergebnis:
- * `cookies()` oder `headers()` zu lesen, um herauszufinden, ob eine Route statisch
- * ist, macht sie dynamisch. Eine Zeile pro Seite, die die Wahrheit aus dem
- * `next build` wiederholt, ist ehrlicher als eine Ableitung, die ihren eigenen
- * Gegenstand kaputt macht — und `next build` ist der Test dafuer: steht dort ein
- * `●` und hier `DYNAMIC`, ist eines von beiden falsch.
+ * **The values are hand-written, and that is a decision.** One could guess the render
+ * mode at runtime, but every route there falsifies the answer: reading `cookies()` or
+ * `headers()` to find out whether a route is static makes it dynamic. One line per page
+ * repeating the truth from `next build` is more honest than a derivation that breaks its
+ * own subject — and `next build` is the test for it: a `●` there against a `DYNAMIC`
+ * here means one of the two is wrong.
  */
 
-/** Wie Next diese Route gebaut hat — die Spalte «Route» aus `next build`. */
+/** How Next built this route — the «Route» column of `next build`. */
 export type RenderMode = "static" | "dynamic";
 
 export interface SheetMeta {
-  /** Das Routen-Muster, nicht die aufgeloeste URL. */
+  /** The route pattern, not the resolved URL. */
   route: string;
   render: RenderMode;
-  /** Sekunden, wie in `export const revalidate`. Fehlt bei dynamischen Routen. */
+  /** Seconds, as in `export const revalidate`. Absent on dynamic routes. */
   revalidate?: number;
-  /** Warum diese Route pro Anfrage rendert. Nur bei `dynamic` sinnvoll. */
+  /** Why this route renders per request. Only meaningful with `dynamic`. */
   because?: string;
   /**
-   * Die Client-Inseln DIESER Seite, als Phrasen und nicht als Zahl.
+   * The client islands of THIS page, as phrases rather than as a number.
    *
-   * Hier stand zuerst eine Liste von Namen, und das Schriftfeld rechnete
-   * `laenge + 2` daraus. Auf dem Warenkorb war das Ergebnis falsch: jedes
-   * Mutations-Formular ist ein `ActionForm` und damit eine eigene Insel, die Zahl
-   * waechst also mit den Positionen. Ein Schriftfeld, das rechnet, kann falsch
-   * rechnen — dieses zaehlt nicht mehr, es nennt.
+   * This started out as a list of names, and the title block computed `length + 2` from
+   * it. On the cart the result was false: every mutation form is an `ActionForm` and
+   * therefore its own island, so the number grows with the number of lines. A title
+   * block that computes can compute wrongly — this one no longer counts, it names.
    */
   islands?: string[];
 }
@@ -47,7 +45,7 @@ function seconds(s: number): string {
   return `${s}s`;
 }
 
-/** Eine Zeile im Schriftfeld. */
+/** One row of the title block. */
 function Row({
   k,
   children,
@@ -68,8 +66,8 @@ function Row({
 }
 
 /**
- * Das Schriftfeld allein. Steht in der Marginalie, kann aber auch ohne sie stehen —
- * `/debug` benutzt es so.
+ * The title block on its own. It lives in the rail but works without one — `/debug`
+ * uses it that way.
  */
 export function TitleBlock({ meta }: { meta: SheetMeta }): React.JSX.Element {
   const islands = meta.islands ?? [];
@@ -84,9 +82,9 @@ export function TitleBlock({ meta }: { meta: SheetMeta }): React.JSX.Element {
       ) : null}
       {meta.because !== undefined ? <Row k="Reason">{meta.because}</Row> : null}
       <Row k="Islands">
-        {/* Der Header steckt im Root-Layout, seine zwei Inseln — Sprachwahl und
-            Sitzungs-Navigation — hydrieren also auf jeder Seite. Sie stehen als
-            «2 shell» da, weil sie nicht zur Seite gehoeren. */}
+        {/* The header sits in the root layout, so its two islands — language picker and
+            session nav — hydrate on every page. They appear as «2 shell», because they
+            do not belong to the page. */}
         {["2 shell", ...islands].join(" + ")}
       </Row>
       <Row k="Token">none in browser</Row>
@@ -95,10 +93,10 @@ export function TitleBlock({ meta }: { meta: SheetMeta }): React.JSX.Element {
 }
 
 /**
- * Inhaltsspalte plus Annotations-Marginalie.
+ * Content column plus annotation rail.
  *
- * Ohne `children` in `rail` steht dort nur das Schriftfeld — das ist der haeufige
- * Fall und der Grund, warum die Marginalie kein Prop dafuer braucht.
+ * With no `children` in `rail` only the title block stands there — that is the common
+ * case, and the reason the rail needs no prop for it.
  */
 export function Sheet({
   meta,
@@ -120,7 +118,7 @@ export function Sheet({
   );
 }
 
-/** Eine Randnotiz mit Hinweislinie. */
+/** A margin note with a leader line. */
 export function Note({
   title,
   children,
@@ -137,14 +135,14 @@ export function Note({
 }
 
 /**
- * Die Massklammer um eine Client-Insel.
+ * The dimension bracket around a client island.
  *
- * `label` ist optional: im Header ist neben der Klammer kein Platz, dort traegt sie
- * die Aussage allein und die Legende steht im Schriftfeld.
+ * `label` is optional: in the header there is no room beside the bracket, so there the
+ * bracket carries the statement alone and the legend sits in the title block.
  *
- * `aria-hidden` auf der Beschriftung, weil sie eine Anmerkung fuer das Auge ist und
- * nicht Teil des Bedienelements, um das sie steht. Ein Screenreader-Nutzer hoert
- * sonst «client island» vor jedem Suchfeld.
+ * `aria-hidden` on the label, because it is a note for the eye and not part of the
+ * control it stands around. Otherwise a screen-reader user hears «client island» before
+ * every search field.
  */
 export function Island({
   label,

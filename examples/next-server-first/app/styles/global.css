@@ -1,11 +1,10 @@
-/* «Technische Zeichnung» — Reset, Basistypografie, Primitives, Bewegung.
-   Die Begruendung der Richtung steht in tokens.css.
+/* «Technical drawing» — reset, base typography, primitives, motion.
+   The reasoning behind the direction lives in tokens.css.
 
-   Bis zum 2026-08-05 war diese Datei eine Kopie aus storefront-demo. Sie ist
-   keine mehr: die zwei Demos haben verschiedene Aufgaben, und eine Kopie, die
-   nicht mehr wie ihre Vorlage aussehen soll, ist keine Kopie. Was von dort
-   uebernommen bleibt, sind die Klassennamen — das Markup benutzt sie, und ein
-   Umbenennen haette nichts verbessert. */
+   Until 2026-08-05 this file was a copy from storefront-demo. It is not one any
+   more: the two demos have different jobs, and a copy that is no longer meant to
+   look like its source is not a copy. What is still carried over are the class
+   names — the markup uses them, and renaming would have improved nothing. */
 
 *,
 *::before,
@@ -62,9 +61,9 @@ samp {
   outline-offset: 2px;
 }
 
-/* Ueberschriften — Archivo mit weit gestellter Breitenachse. Das ist die einzige
-   Stelle, an der `wdth` hochgedreht wird: breit gesetzte Beschriftung gegen schmal
-   gesetzte Notiz ist der Kontrast, auf dem diese Typografie beruht. */
+/* Headings — Archivo with its width axis pushed wide. This is the only place `wdth`
+   is turned up: wide-set label against narrow-set note is the contrast this
+   typography rests on. */
 h1,
 h2,
 h3,
@@ -100,9 +99,9 @@ h3 {
   border-top: var(--line-w) solid var(--line);
 }
 
-/* Zeichnungs-Beschriftung: das kleine gesperrte Etikett an einer Linie. Bleibt
-   `.eyebrow`, weil das Markup den Namen benutzt — die Stimme ist jetzt Mono, denn
-   auf einer Zeichnung ist jede Beschriftung technisch geschrieben. */
+/* A drawing label: the small letterspaced tag against a line. Stays `.eyebrow`
+   because the markup uses the name — the voice is mono now, since on a drawing every
+   label is written technically. */
 .eyebrow {
   font-family: var(--font-mono);
   font-size: var(--step--2);
@@ -111,8 +110,8 @@ h3 {
   color: var(--muted);
   font-weight: 500;
 }
-/* Jeder Maschinenwert: Betraege, IDs, Zustaende, Zeitangaben. Der Grund fuer die
-   Mono im Token-Set — diese Demo ist voll davon. */
+/* Every machine value: amounts, ids, states, durations. The reason the token set has
+   a mono at all — this demo is full of them. */
 .price,
 .mono {
   font-family: var(--font-mono);
@@ -123,11 +122,10 @@ h3 {
 .muted {
   color: var(--muted);
 }
-/* `.serif` hiess so, als die Display-Schrift eine Serif war. Auf Ueberschriften ist
-   die Klasse jetzt ueberfluessig — `h1..h4` holen die Familie vom Element-Selektor —
-   und wurde dort entfernt. Sie bleibt als Alias, damit ein `.display` an einer
-   Stelle steht, wo Display-Schrift auf etwas anderem als einer Ueberschrift
-   gebraucht wird (die Wortmarke im Header). */
+/* `.serif` got its name when the display face was a serif. On headings the class is
+   redundant now — `h1..h4` take the family from the element selector — and was removed
+   there. It stays as an alias so that `.display` can sit where display type is needed
+   on something other than a heading (the wordmark in the header). */
 .display,
 .serif {
   font-family: var(--font-display);
@@ -136,7 +134,7 @@ h3 {
   letter-spacing: -0.02em;
 }
 
-/* Unterstreichung, die aus der Linie herauswaechst */
+/* An underline that grows out of the line */
 .u-underline {
   background-image: linear-gradient(var(--redline), var(--redline));
   background-size: 0% var(--line-w);
@@ -150,8 +148,8 @@ h3 {
   background-size: 100% var(--line-w);
 }
 
-/* Knoepfe — rechtwinklig, mit Mono-Beschriftung wie ein Bedienelement auf einer
-   Anlage, nicht wie eine Schaltflaeche in einem Schaufenster. */
+/* Buttons — square, with a mono label like a control on a machine rather than a
+   button in a shop window. */
 .btn {
   --bg: var(--ink);
   --fg: var(--film);
@@ -213,8 +211,7 @@ h3 {
   width: 100%;
 }
 
-/* Felder — die Eingabe sitzt auf einer Linie, wie ein ausgefuellter Wert in einem
-   Formularfeld auf Papier. */
+/* Fields — the input sits on a line, like a filled-in value on a paper form. */
 .field {
   display: flex;
   flex-direction: column;
@@ -255,7 +252,7 @@ select.field__control {
   color: var(--redline);
 }
 
-/* Etikett / Zustand */
+/* Tag / state */
 .tag {
   display: inline-flex;
   align-items: center;
@@ -274,14 +271,14 @@ select.field__control {
   color: var(--redline);
 }
 
-/* Flaeche */
+/* Surface */
 .surface {
   background: var(--film);
   border: var(--line-w) solid var(--line);
   border-radius: var(--radius-lg);
 }
 
-/* Bewegung — ein gestaffelter Seitenaufbau, sonst nichts. */
+/* Motion — a staggered page build-up, nothing else. */
 @keyframes rise {
   from {
     opacity: 0;
@@ -297,9 +294,9 @@ select.field__control {
   animation-delay: calc(var(--i, 0) * 55ms);
 }
 
-/* Die Redline-Klammer einer Client-Insel zeichnet sich einmal ein. Das ist die
-   einzige Animation neben dem Seitenaufbau, und sie lehrt etwas: man sieht, welche
-   Stellen der Seite im Browser hydriert wurden. */
+/* The redline bracket of a client island draws itself in once. It is the only
+   animation besides the page build-up, and it teaches something: you can see which
+   parts of the page hydrated in the browser. */
 @keyframes draw-in {
   from {
     transform: scaleY(0);
@@ -321,7 +318,7 @@ select.field__control {
   }
 }
 
-/* Ladeanzeige — ein rotierender Bogen */
+/* Loading indicator — a rotating arc */
 @keyframes spin {
   to {
     transform: rotate(1turn);
@@ -336,7 +333,7 @@ select.field__control {
   animation: spin 0.7s linear infinite;
 }
 
-/* Werkzeuge */
+/* Utilities */
 .stack > * + * {
   margin-top: var(--s-4);
 }

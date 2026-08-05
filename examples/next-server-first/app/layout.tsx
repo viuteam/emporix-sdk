@@ -8,19 +8,17 @@ import { Header } from "./components/header";
 export const metadata = { title: "Emporix SDK — server-first example" };
 
 /**
- * Drei Schriften, drei Aufgaben — siehe die Begruendung in `styles/tokens.css`.
+ * Three faces, three jobs — the reasoning lives in `styles/tokens.css`.
  *
- * `next/font/google` statt eines @fontsource-Pakets wie in storefront-demo: keine
- * neue Dependency, die Dateien werden zur Build-Zeit selbst gehostet, und next
- * erzeugt eine metrik-angepasste Fallback-Familie, womit der Wechsel ohne
- * Layout-Sprung passiert. `--font-*` landet als CSS-Variable auf `<html>`, wo
- * `tokens.css` sie abholt.
+ * `next/font/google` rather than an @fontsource package as storefront-demo uses: no
+ * new dependency, the files are self-hosted at build time, and next generates a
+ * metric-matched fallback family so the swap happens without a layout shift.
+ * `--font-*` lands as a CSS variable on `<html>`, where `tokens.css` picks it up.
  */
 const archivo = Archivo({
   subsets: ["latin"],
-  // Die Breitenachse ist der Grund fuer diese Familie. `.display` stellt sie auf
-  // 112 — Breitenkontrast statt Stilkontrast, die Bewegung einer technischen
-  // Plattenschrift.
+  // The width axis is the reason for this family. `.display` sets it to 112 — width
+  // contrast instead of style contrast, the move of a technical plate lettering.
   axes: ["wdth"],
   display: "swap",
   variable: "--font-archivo",

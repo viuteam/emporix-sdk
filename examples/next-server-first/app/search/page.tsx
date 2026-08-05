@@ -49,9 +49,8 @@ export default async function SearchPage({
         }
       >
         <p className="eyebrow">Search</p>
-        {/* `<h1>`, nicht `<h2>`: das ist die Ueberschrift dieser Seite, und darueber
-            steht keine. Eine Seite, die bei h2 anfaengt, hat fuer einen
-            Screenreader-Nutzer kein Thema. */}
+        {/* `<h1>`, not `<h2>`: this is the heading of the page and there is none above
+            it. A page that starts at h2 has no subject for a screen-reader user. */}
         <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
           {q === "" ? "Search the catalogue" : `«${q}»`}
         </h1>

@@ -692,7 +692,7 @@ ones carry a product — the tenant's catalogue, not a defect here.
 | `Cycling` | breadcrumb `Categories / Sports & Outdoor`, three child tiles |
 | `Bicycles` (level 3) | breadcrumb `Categories / Sports & Outdoor / Cycling`, **17 products** |
 | a leaf under «Building & Construction» | four-level breadcrumb, «No products in this category.» |
-| `/category/gibt-es-nicht` | **404 in 48 ms** — `notFound()` runs before any product call |
+| `/category/does-not-exist` | **404 in 48 ms** — `notFound()` runs before any product call |
 
 Timings from the dev log, `application-code` only: `/categories` **207 ms** on a
 cache miss, a warm category page **38 ms** — and that 38 ms includes reading 378 KiB
