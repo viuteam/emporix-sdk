@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 
@@ -95,15 +96,15 @@ export default async function CategoryPage({
           «Building & Construction» is six levels deep on this tenant, and without
           it level 4 gives a shopper no idea where they are. */}
       <p className="eyebrow">
-        <a href={`/${lang}/categories`} className="u-underline">
+        <Link href={`/${lang}/categories`} className="u-underline">
           Categories
-        </a>
+        </Link>
         {entry.path.map((a) => (
           <span key={a.id}>
             {" / "}
-            <a href={`/${lang}/category/${encodeURIComponent(a.id)}`} className="u-underline">
+            <Link href={`/${lang}/category/${encodeURIComponent(a.id)}`} className="u-underline">
               {a.label}
-            </a>
+            </Link>
           </span>
         ))}
       </p>
@@ -127,14 +128,19 @@ export default async function CategoryPage({
             marginBottom: "var(--s-6)",
           }}
         >
+          {/* `prefetch={false}` wie auf der Wurzelliste: bis zu 30 Unterkategorien,
+              jede ein eigener Render mit `productsIn` plus `pricesFor`. Brotkrumen
+              und Paginierung unten prefetchen weiter — die sind wenige und werden
+              wirklich geklickt. */}
           {children.map((s) => (
-            <a
+            <Link
               key={s.id}
               href={`/${lang}/category/${encodeURIComponent(s.id)}`}
               className="u-underline"
+              prefetch={false}
             >
               {s.label}
-            </a>
+            </Link>
           ))}
         </nav>
       ) : null}
@@ -145,7 +151,7 @@ export default async function CategoryPage({
           // would be a lie about the category — and a page number in a URL is
           // exactly the kind of thing that goes stale in a bookmark.
           <p className="muted">
-            Nothing on page {page}. <a href={href(1)} className="u-underline">Back to page 1</a>.
+            Nothing on page {page}. <Link href={href(1)} className="u-underline">Back to page 1</Link>.
           </p>
         ) : children.length > 0 ? (
           // A pure parent category holds only subcategories, so the tiles above
@@ -163,15 +169,15 @@ export default async function CategoryPage({
             style={{ gap: "var(--s-4)", marginTop: "var(--s-6)", alignItems: "center" }}
           >
             {page > 1 ? (
-              <a href={href(page - 1)} className="btn btn--outline">
+              <Link href={href(page - 1)} className="btn btn--outline">
                 ← Previous
-              </a>
+              </Link>
             ) : null}
             <span className="muted">Page {page}</span>
             {products.hasNextPage ? (
-              <a href={href(page + 1)} className="btn btn--outline">
+              <Link href={href(page + 1)} className="btn btn--outline">
                 Next →
-              </a>
+              </Link>
             ) : null}
           </nav>
         </>

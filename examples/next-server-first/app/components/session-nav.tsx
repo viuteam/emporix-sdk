@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState } from "react";
 import { logout } from "../actions/auth";
 
@@ -43,14 +45,14 @@ export function SessionNav(): React.JSX.Element {
 
   return (
     <>
-      <a href="/cart" className="u-underline">
+      <Link href="/cart" className="u-underline">
         Cart{nav !== null && nav.cartCount > 0 ? ` (${nav.cartCount})` : ""}
-      </a>
+      </Link>
       {nav?.loggedIn === true ? (
         <>
-          <a href="/account" className="u-underline">
+          <Link href="/account" className="u-underline">
             Account
-          </a>
+          </Link>
           <form action={logout} style={{ display: "inline" }}>
             <button type="submit" className="btn btn--ghost btn--sm">
               Log out
@@ -58,9 +60,9 @@ export function SessionNav(): React.JSX.Element {
           </form>
         </>
       ) : (
-        <a href="/login" className="u-underline">
+        <Link href="/login" className="u-underline">
           Login
-        </a>
+        </Link>
       )}
     </>
   );

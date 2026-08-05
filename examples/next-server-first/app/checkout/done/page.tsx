@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Note, Sheet } from "../../components/sheet";
 
 export default async function CheckoutDonePage({
@@ -41,12 +42,12 @@ export default async function CheckoutDonePage({
         </div>
 
         <p className="cluster" style={{ marginTop: "var(--s-6)" }}>
-          <a href="/" className="btn btn--outline">
+          <Link href="/" className="btn btn--outline">
             Back to the catalog
-          </a>
-          <a href="/debug" className="u-underline">
+          </Link>
+          <Link href="/debug" className="u-underline">
             Inspect the session →
-          </a>
+          </Link>
         </p>
       </Sheet>
     </main>

@@ -60,10 +60,15 @@ export function LanguageSwitcher(): React.JSX.Element {
       {LANGUAGES.map((l) => {
         const next = swapLanguage(pathname, l) + query;
         const href = `/api/session/language?to=${l}&next=${encodeURIComponent(next)}`;
-        // Die aktive Sprache ist umrahmt, nicht mit einem Punkt markiert. Auf einer
-        // Zeichnung ist der geltende Stand eingerahmt, und ein Rahmen ist — anders
-        // als eine Farbe allein — ein Unterschied, den auch sieht, wer Rot nicht von
-        // Grau unterscheiden kann. `aria-current` sagt dasselbe fuer Screenreader.
+        // The active language is boxed, not marked with a dot. On a drawing the
+        // current revision is boxed, and a box is — unlike colour alone — a difference
+        // that also reads for someone who cannot tell red from grey. `aria-current`
+        // says the same thing for screen readers.
+        //
+        // **The only `<a>` in this app, and it has to stay one.** The target is a route
+        // handler that answers with a 303 — not a page. The Next router cannot navigate
+        // there client-side, it expects an RSC payload. `<Link>` would not be uglier
+        // here, it would be broken.
         return (
           <a
             key={l}
