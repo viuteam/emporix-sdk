@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: umgesetzt** in [#221](https://github.com/viuteam/emporix-sdk/pull/221).
+> Der Plan bleibt als Begründungsdokument stehen — die Reihenfolge der drei
+> Blocker und der Fund zu `generateStaticParams` sind das, was beim nächsten Mal
+> Zeit spart. Abweichungen gegenüber dem Plan stehen unten unter «Beim Bauen
+> gelernt».
+
 **Goal:** Die vier Katalogrouten von `examples/next-server-first` statisch rendern und per ISR cachen, damit bei 1'000 CCU rund 60 % der Seitenaufrufe den Node-Prozess gar nicht mehr erreichen.
 
 **Architecture:** Zwei Dinge machen heute jede Route dynamisch, und beide müssen weg: die Sprache kommt aus einem Cookie (`app/lib/site-context.ts:53`) und der Header liest die Session (`app/components/header.tsx:20-21`). Die Sprache wandert in ein `[lang]`-Routensegment, der Header wird eine Client-Komponente, die den personalisierten Teil über einen eigenen Route Handler nachlädt. Danach greifen `export const revalidate` und `generateStaticParams`.
@@ -130,3 +136,27 @@ Betroffene Links: `page.tsx:48,53`, `categories/page.tsx:32`, `category/[id]/pag
 Die Session-Routen (`/cart`, `/checkout`, `/account/*`) bleiben dynamisch und cookie-basiert. Das ist kein Rest, sondern richtig: sie sind pro Besucher, dürfen nie geteilt werden, und ein `[lang]`-Präfix brächte ihnen nichts.
 
 Die daraus folgende Naht — Katalog liest die Sprache aus der URL, Session aus dem Cookie — hält der Sprachumschalter zusammen, indem er beides schreibt. Das ist die einzige Stelle, an der die zwei Quellen auseinanderlaufen können, und sie ist genau eine Datei gross.
+
+## Beim Bauen gelernt
+
+Drei Dinge kamen anders als geplant, alle drei sind im PR belegt:
+
+**`categoryTree()` las selbst das Cookie.** Der Plan sah nur `siteContext()` als
+Blocker. Nach dem Umbau war `/[lang]/categories` trotzdem `ƒ`, weil der Helfer
+intern `siteContext()` ohne Argument rief. Ein Blocker kann in einer Hilfsfunktion
+zwei Ebenen tiefer sitzen — die Build-Tabelle sagt, *dass* eine Route dynamisch
+ist, nie *warum*.
+
+**`searchParams` ist derselbe Blocker wie ein Cookie.** Im Plan stand nur die
+Sprache. `?page=` und `?variant=` warfen die zwei `[id]`-Routen genauso aus dem
+statischen Rendering. Beide wurden zu Pfadsegmenten über optionale Catch-alls
+(`[[...page]]`, `[[...variant]]`), was die URLs zusätzlich linkbar und einzeln
+cachebar macht.
+
+**Ein leeres `generateStaticParams` ist Pflicht, nicht Kosmetik.** Nach den ersten
+zwei Fixes zeigte `next build` die `[id]`-Routen weiter als `ƒ`. Der Prod-Server
+antwortete `Cache-Control: private, no-cache, no-store` — `revalidate = 3600`
+wurde schlicht ignoriert. Ein dynamisches Segment ohne `generateStaticParams`
+wird on demand gerendert und **gar nicht** gecacht. `[]` zurückzugeben heisst
+«nichts vorrendern, alles als cachebar behandeln». Gefunden nur, weil Build-Tabelle
+und Laufzeit-Header sich widersprachen: der Build allein hätte nicht gereicht.

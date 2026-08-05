@@ -841,7 +841,7 @@ Im PR-Text die Vorher/Nachher-Tabelle aus «Ausgangsmessung» führen und **expl
 
 **ISR für Katalogseiten — eigener Plan, eigener PR.** Der gewählte Scope war «Header als Suspense-Insel, Katalog auf ISR». Der erste Teil ist Task 5 hier. Der zweite ist mit dem heutigen Code nicht erreichbar: jede Katalogseite ruft `siteContext()` (`app/lib/site-context.ts:53`), das die Sprache aus einem Cookie liest, und ein Cookie-Read macht die Route unwiderruflich dynamisch. `revalidate` daraufzusetzen ändert nichts.
 
-Echtes ISR braucht die Sprache **in der URL** statt im Cookie — ein `[lang]`-Segment mit `generateStaticParams`, plus einen Header, der die Session nicht mehr serverseitig liest. Das ist ein Routing-Umbau mit Auswirkung auf jeden Link und den Sprachumschalter, deshalb steht er in **[2026-08-05-catalog-isr.md](./2026-08-05-catalog-isr.md)** und wird als **eigener PR** umgesetzt.
+Echtes ISR braucht die Sprache **in der URL** statt im Cookie — ein `[lang]`-Segment mit `generateStaticParams`, plus einen Header, der die Session nicht mehr serverseitig liest. Das ist ein Routing-Umbau mit Auswirkung auf jeden Link und den Sprachumschalter, deshalb steht er in **[2026-08-05-catalog-isr.md](./2026-08-05-catalog-isr.md)** und ist als eigener PR umgesetzt: [#221](https://github.com/viuteam/emporix-sdk/pull/221).
 
 Reihenfolge: Task 5 dieses Plans (Suspense-Insel) und der ISR-Plan berühren beide `header.tsx`. Der ISR-Plan macht den Header zu einer Client-Komponente und ersetzt die Suspense-Insel damit. Wer beide umsetzt, baut den ISR-Plan **nach** Task 5 und wirft die Insel dabei weg — oder überspringt Task 5, wenn der ISR-PR ohnehin ansteht.
 
