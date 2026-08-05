@@ -4,6 +4,7 @@ import {
   type WithEmporixSessionOptions,
 } from "@viu/emporix-sdk-next/session";
 import { SESSION_STORE, STORE_OPT, TIMEOUTS } from "../emporix";
+import { DEFAULT_LANGUAGE } from "./languages";
 
 /**
  * What a visitor who has chosen nothing gets. This was the module constant
@@ -53,9 +54,23 @@ export async function siteContext(lang?: string): Promise<{
   const language = handle.get(STORAGE_KEYS.language);
   return {
     ...DEFAULTS,
-    // Absent, not empty: without the field the SDK sends no `Accept-Language` at
-    // all and Emporix falls back to the site's `defaultLanguage` (`de` on `viu`).
-    ...(language !== null ? { language } : {}),
+    // `DEFAULT_LANGUAGE`, nicht «Feld weglassen».
+    //
+    // Hier stand: «Absent, not empty: without the field the SDK sends no
+    // `Accept-Language` at all and Emporix falls back to the site's
+    // `defaultLanguage` (`de` on `viu`).» Der erste Teil stimmt, der zweite nicht.
+    // Gemessen am 2026-08-05: ohne Sprache im Kontext kommt die vollstaendige
+    // Sprachkarte zurueck, und `localized()` in examples/shared nimmt daraus den
+    // ersten Treffer seiner Reihenfolge — die mit `en` beginnt. Beobachtet im
+    // Warenkorb als «Just-in-Time Access (JIT)», waehrend `/de/product/…`
+    // «Just-in-Time Zugriff (JIT)» zeigte.
+    //
+    // Der Tenant-Default IST `de` (`sites.get("main")`, gemessen 2026-08-04) — er
+    // wird nur nicht angewandt, wenn niemand danach fragt. Also fragen wir.
+    //
+    // Greift nur noch, wenn eine Sitzungsroute die erste Anfrage einer Sitzung
+    // ueberhaupt ist; sonst hat `proxy.ts` das Cookie schon aus dem Pfad gesetzt.
+    language: language ?? DEFAULT_LANGUAGE,
   };
 }
 
