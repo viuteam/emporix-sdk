@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { PRICED_CATEGORY, TIMEOUTS } from "../emporix";
 import { Typeahead } from "../typeahead";
@@ -53,9 +54,9 @@ export default async function Home({
         }}
         rail={
           <>
-            {/* Diese vier Zeilen standen bis zum 2026-08-05 unter dem Titel und
-                waren das Erste, was ein Besucher lesen musste. Eine Fussnote am
-                Anfang des Textes ist keine Fussnote. */}
+            {/* Until 2026-08-05 these four lines sat under the title and were the
+                first thing a visitor had to read. A footnote at the start of the text
+                is not a footnote. */}
             <Note title="Why one category">
               Adding needs a price — Emporix requires a <code>priceId</code>{" "}
               on internal cart items, so a product without one shows no button. Most
@@ -76,12 +77,12 @@ export default async function Home({
           Products from the priced category
         </h1>
         <p className="cluster">
-          <a href={`/${lang}/categories`} className="u-underline">
+          <Link href={`/${lang}/categories`} className="u-underline">
             Browse all categories →
-          </a>
-          <a href={`/${lang}/category/${PRICED_CATEGORY}`} className="u-underline">
+          </Link>
+          <Link href={`/${lang}/category/${PRICED_CATEGORY}`} className="u-underline">
             Browse this category with pagination →
-          </a>
+          </Link>
         </p>
         <Island label="client island · typeahead">
           <Typeahead />

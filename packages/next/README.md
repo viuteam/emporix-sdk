@@ -805,6 +805,32 @@ Pass a third argument to rewrite instead of passing through —
 the request URL. Redirects do not need the function: there is no render to
 inject headers into, and the `Set-Cookie` travels with the redirect.
 
+### Only a real navigation persists the cookies
+
+`emporixSiteProxy` emits `Set-Cookie` only when the request is a **top-level
+navigation** (`sec-fetch-mode: navigate`, or no such header at all). A
+fetch-based request — a `<Link>` prefetch or a client-side navigation — still gets
+the values injected into its forwarded request cookies, so its render uses the
+language of the URL it asked for, but nothing is persisted.
+
+Without this, a prefetch wrote the visitor's language: hovering a link to
+`/en/…` while browsing `/de/…` flipped `emporix.language` to `en`, and the
+session routes rendered in a language nobody chose. Reproduced with a real Chrome
+prefetch against a production build.
+
+Checking for "is this a prefetch" instead would be the direct signal, and it is not
+available. Measured on Next 16.2.12 — the browser sends these, middleware sees
+`null` for every one: `next-router-prefetch`, `rsc`,
+`next-router-segment-prefetch`, and the `_rsc` query parameter. Next strips its own
+router signals before middleware runs, so a prefetch is indistinguishable there
+from a genuine client-side navigation; both are `sec-fetch-mode: cors`. The
+navigation check is the surviving direction, and it is enough, because writing from
+the path only matters on first contact — which is always a document navigation.
+
+**Token rotation is deliberately not gated this way.** `emporixTokenProxy` keeps
+rotating on fetch-based requests: a visitor who navigates client-side for an hour
+would otherwise never rotate, since the proxy is the only rotation point.
+
 ### Three things that will bite you
 
 **The `matcher` cannot come from this package.** Next requires a statically

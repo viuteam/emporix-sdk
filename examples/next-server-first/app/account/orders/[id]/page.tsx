@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmporixNotFoundError } from "@viu/emporix-sdk";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
@@ -39,9 +40,9 @@ export default async function OrderDetailPage({
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">
-        <a href="/account/orders" className="u-underline">
+        <Link href="/account/orders" className="u-underline">
           ← Orders
-        </a>
+        </Link>
       </p>
       <h1 style={{ marginBlock: "var(--s-2) var(--s-2)" }}>
         {vm.number}

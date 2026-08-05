@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { categoryIndex } from "../../lib/category-tree";
 import { Note, Sheet } from "../../components/sheet";
 
@@ -48,18 +49,23 @@ export default async function CategoriesPage({
         {roots.length === 0 ? (
           <p className="muted">This tenant publishes no category trees.</p>
         ) : (
-          // Zuvor trug jeder Eintrag `.cart__line` — eine Warenkorb-Klasse auf einer
-          // Kategorieliste, uebrig aus einem Copy-Paste, und ohne Definition ohnehin
-          // wirkungslos. `.catnav` ist die Klasse fuer eine Reihe Kategorielinks.
+          // Each entry used to carry `.cart__line` — a cart class on a category list,
+          // left over from a copy-paste, and with no definition anywhere it did nothing
+          // regardless. `.catnav` is the class for a row of category links.
           <nav className="catnav" aria-label="Category roots">
+            {/* `prefetch={false}`: 21 roots on this page, and every category renders
+                `productsIn` plus `pricesFor` on its first request. They all enter the
+                viewport together — that would be over 40 Emporix calls for a page from
+                which one category gets clicked. */}
             {roots.map((c) => (
-              <a
+              <Link
                 key={c.id}
                 href={`/${lang}/category/${encodeURIComponent(c.id)}`}
                 className="u-underline"
+                prefetch={false}
               >
                 {c.label}
-              </a>
+              </Link>
             ))}
           </nav>
         )}

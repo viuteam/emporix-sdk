@@ -99,4 +99,43 @@ describe("emporixSiteProxy", () => {
     expect(cookie).toContain(`${LANG}=de`);
     expect(cookie).not.toContain(`${LANG}=fr`);
   });
+
+  it("persists on a real document navigation", () => {
+    const request = new NextRequest("https://shop.test/de/x", {
+      headers: { "Sec-Fetch-Mode": "navigate" },
+    });
+    const response = emporixSiteProxy(request, { siteCode: "main", language: "de" });
+    expect(response.cookies.get(LANG)?.value).toBe("de");
+    expect(response.cookies.get(SITE)?.value).toBe("main");
+  });
+
+  it("persists NOTHING on a fetch-based request", () => {
+    // The case this is about: a `<Link>` prefetch of a route in the other language
+    // must not switch the visitor's language. A prefetch and a client-side
+    // navigation are both `cors`.
+    const request = new NextRequest("https://shop.test/en/x", {
+      headers: { cookie: `${LANG}=de`, "Sec-Fetch-Mode": "cors" },
+    });
+    const response = emporixSiteProxy(request, { siteCode: "main", language: "en" });
+    expect(response.cookies.get(LANG)).toBeUndefined();
+    expect(response.cookies.get(SITE)).toBeUndefined();
+  });
+
+  it("still injects into the forwarded request cookies", () => {
+    // Only persistence drops away. This request's render should still see the
+    // language of its own URL — that is per-request and does not stick.
+    const request = new NextRequest("https://shop.test/en/x", {
+      headers: { cookie: `${LANG}=de`, "Sec-Fetch-Mode": "cors" },
+    });
+    emporixSiteProxy(request, { siteCode: "main", language: "en" });
+    expect(request.headers.get("cookie") ?? "").toContain(`${LANG}=en`);
+  });
+
+  it("keeps persisting when the client sends no Sec-Fetch-Mode", () => {
+    // Fail-open: old clients, curl and bots send none. A prefetch always comes from
+    // a browser that sets it, so the assumption costs nothing.
+    const request = new NextRequest("https://shop.test/de/x");
+    const response = emporixSiteProxy(request, { language: "de" });
+    expect(response.cookies.get(LANG)?.value).toBe("de");
+  });
 });
