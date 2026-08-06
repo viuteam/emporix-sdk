@@ -242,8 +242,42 @@ you find out — not a cache wrapper added on suspicion.
 **What is still missing.** `<html lang>` says `en` on every page: only the root layout
 may render `<html>` and it cannot see the `[lang]` segment, so the language sits on a
 wrapper inside it — correct for assistive technology, which honours the nearest
-ancestor, and honest about the English shell around it. No JSON-LD, and no products in
-the sitemap.
+ancestor, and honest about the English shell around it.
+
+### Structured data
+
+The product page emits a `Product` with a nested `Offer` when there is a price, and the
+category page a `BreadcrumbList` built from the same prebuilt index the visible
+breadcrumb uses — so the markup cannot drift from the page. Page one only: on page 3 the
+trail would describe a document its last crumb does not point at.
+
+`lib/json-ld.ts` carries no SDK types and no server imports, which is what keeps it
+testable and what would let it move into `@viu/emporix-sdk-next` unchanged if a second
+server-rendered consumer wants it. Today there is one, so it stays here.
+
+**What it deliberately does not claim.** No `availability`: measured 2026-08-06, this
+tenant carries no availability records at all — `availability.get` answers 404 and
+`getMany` synthesises `available: false` for every priced product. `InStock` would be
+invented, `OutOfStock` would contradict an «Add to cart» button that works, and
+structured data disagreeing with the page is worse than none. A tenant that keeps records
+should call `availability.getMany` — one batched request per grid — and pass the result
+in. No `image` either: `media` is `[]` on every product here. `sku` comes from `code`,
+because an Emporix product has no `gtin`, `sku` or `ean` field.
+
+**The payload is escaped, not just stringified.** Merchant text goes into a `<script>`
+body, so a description containing `</script>` would close the element and everything
+after it would be parsed as HTML. `jsonLdScript` replaces every `<` with `<`.
+Measured: 0 of 200 descriptions on this tenant contain `<` — which is exactly why the
+unescaped version would have passed every test written against today's data, and why this
+one has a test that feeds it a closing script tag.
+
+The sitemap holds the products too: **5'018 URLs** on this tenant — two languages × (2
+entry pages + 1'631 categories + 876 products) — each product with the `modifiedAt` from
+its metadata. One catalogue walk serves both languages, because a product URL differs
+only in its prefix, and a sitemap request costs **no** Emporix call: the five product
+pages and the tree all come from the tag cache. The walk stops at 20'000 products and
+says so — one sitemap file holds 50'000 URLs, and past that it needs `generateSitemaps`
+and shards.
 
 ### One URL per document
 
