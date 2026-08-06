@@ -599,6 +599,11 @@ echo "pages outside [lang] (expect none):"
 find app -name 'page.tsx' -not -path 'app/\[lang\]/*'
 ```
 
+**The backslashes are load-bearing.** In a `find -path` glob, `[lang]` is a character class
+matching one of `l`, `a`, `n`, `g` — so the unescaped form silently matches nothing and the
+guard reports every page as an offender while looking like it ran. Verified by getting it
+wrong once: unescaped printed all 15 pages, escaped printed none.
+
 ```bash
 echo "every route must ship an <html> element:"
 for u in /de /de/categories /de/cart /de/checkout /de/login /de/search /de/debug /de/account; do
