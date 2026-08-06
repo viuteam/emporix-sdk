@@ -6,9 +6,10 @@ import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { ProductGrid } from "../../../../components/product-grid";
 import { pricesFor } from "../../../../lib/prices";
 import { isLanguage } from "../../../../lib/languages";
+import { breadcrumbJsonLd, jsonLdScript } from "../../../../lib/json-ld";
 import { parsePageSegment } from "../../../../lib/page-segment";
 import { alternatesFor } from "../../../../lib/seo";
-import { SITE_NAME } from "../../../../lib/site-url";
+import { SITE_NAME, absoluteUrl } from "../../../../lib/site-url";
 import { siteContext } from "../../../../lib/site-context";
 import { categoryIndex } from "../../../../lib/category-tree";
 import { TIMEOUTS } from "../../../../emporix";
@@ -155,8 +156,29 @@ export default async function CategoryPage({
       ? `/${lang}/category/${encodeURIComponent(id)}`
       : `/${lang}/category/${encodeURIComponent(id)}/${n}`;
 
+  // The same trail the visible breadcrumb below renders, from the same prebuilt index —
+  // so the markup and the page cannot drift apart. `/categories` leads it because that is
+  // where the visible trail starts.
+  const crumbs = breadcrumbJsonLd([
+    { name: "Categories", url: absoluteUrl(`/${lang}/categories`) },
+    ...entry.path.map((a) => ({
+      name: a.label,
+      url: absoluteUrl(`/${lang}/category/${encodeURIComponent(a.id)}`),
+    })),
+    { name: entry.label, url: absoluteUrl(`/${lang}/category/${encodeURIComponent(id)}`) },
+  ]);
+
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
+      {/* Page one only. On page 3 the trail would describe a document the last crumb does
+          not point at, and a paginated page self-canonicalises rather than folding into
+          page one. */}
+      {page === 1 ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(crumbs) }}
+        />
+      ) : null}
       {/* The breadcrumb comes out of the index entry, prebuilt: no walk per
           render. It is not parity with storefront-demo — it has none — but
           «Building & Construction» is six levels deep on this tenant, and without
