@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
@@ -14,6 +15,9 @@ import {
 import { Note, Sheet } from "../../../../components/sheet";
 import { pricesFor } from "../../../../lib/prices";
 import { addToCart } from "../../../../actions/cart";
+import { isLanguage } from "../../../../lib/languages";
+import { alternatesFor } from "../../../../lib/seo";
+import { SITE_NAME } from "../../../../lib/site-url";
 import { siteContext } from "../../../../lib/site-context";
 import { TIMEOUTS } from "../../../../emporix";
 
@@ -38,6 +42,60 @@ export const revalidate = 3600;
  */
 export function generateStaticParams(): { id: string }[] {
   return [];
+}
+
+/**
+ * Free, measured. 2026-08-06 with a `diagnostics_channel` probe on
+ * `undici:request:create`: a cold product page made four upstream calls with this
+ * function present and four without it, and `GET /product/viu/products/<id>`
+ * appeared exactly **once** although both this function and the page body ask for
+ * it. Next memoizes identical fetches within a request, so no memo layer is needed
+ * here — and if that ever changes, the probe is how you find out.
+ *
+ * **The canonical drops the variant segment.** `/de/product/x/anything` renders 200
+ * today, and a self-referencing canonical would bless every one of those as its own
+ * document. Every variant points at the parent instead: one line, no extra call, and
+ * the right answer for near-identical variant pages regardless. It does not remove
+ * the junk URLs — that needs the segment validation this demo has not done yet — it
+ * stops them competing with the real one.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string; id: string }>;
+}): Promise<Metadata> {
+  const { lang, id } = await params;
+  if (!isLanguage(lang)) return {};
+  const client = getEmporixClient({ context: await siteContext(lang), timeouts: TIMEOUTS });
+
+  let product: Product;
+  try {
+    product = await client.products.get(id, undefined, undefined);
+  } catch (e) {
+    // The page renders `notFound()` for this same case a moment later. Returning the
+    // empty object leaves the 404 page its own title instead of throwing twice.
+    if (e instanceof EmporixNotFoundError) return {};
+    throw e;
+  }
+
+  const name = productName(product);
+  const description = stripHtml(pickText((product as { description?: unknown }).description, ""));
+  // 160 characters is where search engines cut a description. Truncated at a word
+  // boundary, and only when there is something to truncate.
+  const short =
+    description.length > 160 ? `${description.slice(0, 157).replace(/\s+\S*$/, "")}…` : description;
+
+  return {
+    title: name,
+    ...(short !== "" ? { description: short } : {}),
+    alternates: alternatesFor(lang, `/product/${encodeURIComponent(id)}`),
+    openGraph: {
+      type: "website",
+      title: name,
+      siteName: SITE_NAME,
+      ...(short !== "" ? { description: short } : {}),
+    },
+  };
 }
 
 export default async function ProductPage({
