@@ -3,7 +3,9 @@
 import Link from "next/link";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { logout } from "../actions/auth";
+import { onSessionChanged } from "../lib/session-changed";
 
 interface Nav {
   cartCount: number;
@@ -28,21 +30,45 @@ interface Nav {
  */
 export function SessionNav({ lang }: { lang: string }): React.JSX.Element {
   const [nav, setNav] = useState<Nav | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     const abort = new AbortController();
-    // Unprefixed on purpose: this route answers with JSON and has no language.
-    fetch("/api/session/nav", { signal: abort.signal })
-      .then((r) => (r.ok ? (r.json() as Promise<Nav>) : null))
-      .then((data) => {
-        if (data !== null) setNav(data);
-      })
-      .catch(() => {
-        // A failed nav fetch must not break the page. The fallback links below
-        // stay, which is exactly what a visitor without JS gets.
-      });
-    return () => abort.abort();
-  }, []);
+    const read = (): void => {
+      // Unprefixed on purpose: this route answers with JSON and has no language.
+      fetch("/api/session/nav", { signal: abort.signal, cache: "no-store" })
+        .then((r) => (r.ok ? (r.json() as Promise<Nav>) : null))
+        .then((data) => {
+          if (data !== null) setNav(data);
+        })
+        .catch(() => {
+          // A failed nav fetch must not break the page. The fallback links below
+          // stay, which is exactly what a visitor without JS gets.
+        });
+    };
+
+    read();
+    // Two triggers, because the session changes in two ways this component cannot
+    // see. `pathname` in the deps covers a navigation — logging in redirects to
+    // `/[lang]/account`, and the layout survives that, so without this the header
+    // still offered «Login» on the account page. The event covers a mutation with no
+    // navigation, which is what adding to the cart is.
+    //
+    // Measured before this existed: server `{cartCount: 1}`, header `Cart`, exactly one
+    // `/api/session/nav` request in the whole session. `revalidatePath` cannot help —
+    // React keeps the state of a client component that stays where it was.
+    //
+    // `cache: "no-store"` because the answer is per visitor and changes under us; the
+    // route already sends `Cache-Control: no-store`, and this says the same on the way
+    // out.
+    const unsubscribe = onSessionChanged(read);
+    return () => {
+      // Both, and in this order: stop any in-flight read before dropping the listener
+      // that could start another.
+      abort.abort();
+      unsubscribe();
+    };
+  }, [pathname]);
 
   return (
     <>

@@ -136,6 +136,6 @@ export async function submitCheckout(formData: FormData): Promise<void> {
     redirect(`/${lang}/checkout?error=${encodeURIComponent(describeError(e))}`);
   }
 
-  revalidatePath("/cart");
+  revalidatePath("/[lang]/cart", "page");
   redirect(`/${lang}/checkout/done?orderId=${encodeURIComponent(orderId ?? "")}`);
 }

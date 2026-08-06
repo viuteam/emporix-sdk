@@ -46,7 +46,7 @@ export async function login(formData: FormData): Promise<void> {
       if (cartId !== null) setCart(handle, cartId, await client.carts.get(cartId, ctx));
     }, await emporixOptions());
   }
-  revalidatePath("/", "layout");
+  revalidatePath("/[lang]", "layout");
   // The fallback is the visitor's language home, not `/`: `/` is a proxy redirect now,
   // so returning it would cost a hop after every login that arrived without a `next`.
   //
@@ -62,5 +62,5 @@ export async function login(formData: FormData): Promise<void> {
 
 export async function logout(): Promise<void> {
   await emporixLogout(await emporixOptions());
-  revalidatePath("/", "layout");
+  revalidatePath("/[lang]", "layout");
 }
