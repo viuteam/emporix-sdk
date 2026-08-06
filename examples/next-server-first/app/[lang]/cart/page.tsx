@@ -3,12 +3,12 @@ import Link from "next/link";
 import { EmporixNotFoundError } from "@viu/emporix-sdk";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { cartCoupons, cartLines, cartTotal, money } from "@viu/emporix-examples-shared";
-import { STORE_OPT } from "../emporix";
-import { ActionForm } from "../components/action-form";
-import { Note, TitleBlock } from "../components/sheet";
-import { namesFor } from "../lib/product-names";
-import { applyCoupon, removeCoupon, removeLine, setQuantity } from "../actions/cart";
-import { emporixOptions } from "../lib/site-context";
+import { STORE_OPT } from "../../emporix";
+import { ActionForm } from "../../components/action-form";
+import { Note, TitleBlock } from "../../components/sheet";
+import { namesFor } from "../../lib/product-names";
+import { applyCoupon, removeCoupon, removeLine, setQuantity } from "../../actions/cart";
+import { emporixOptions } from "../../lib/site-context";
 
 /**
  * `noindex, follow`: this page is per visitor, so an index entry for it is either
@@ -35,14 +35,14 @@ export const metadata: Metadata = {
  * be — nothing in the browser holds cart state to update optimistically. That is
  * the documented cost of this mode, not an omission.
  */
-function EmptyBag(): React.JSX.Element {
+function EmptyBag({ lang }: { lang: string }): React.JSX.Element {
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">Session</p>
       <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Your bag</h1>
       <p className="muted">
         No cart yet. Add something from the{" "}
-        <Link href="/" className="u-underline">
+        <Link href={`/${lang}`} className="u-underline">
           catalog
         </Link>
         .
@@ -51,14 +51,19 @@ function EmptyBag(): React.JSX.Element {
   );
 }
 
-export default async function CartPage(): Promise<React.JSX.Element> {
+export default async function CartPage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<React.JSX.Element> {
+  const { lang } = await params;
   // emporixSessionHandle, not cookies(): it applies the __Host- prefix and the codec.
   // Reading raw would hand back ciphertext once EMPORIX_COOKIE_SECRET is set — a
   // cart id Emporix has never heard of.
   const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
   const cartId = handle.get(STORAGE_KEYS.cartId);
 
-  if (cartId === null) return <EmptyBag />;
+  if (cartId === null) return <EmptyBag lang={lang} />;
 
   // ONE session for the cart and the names. A second `withEmporixSession` would
   // build its own guest client and redeem the same anonymous refresh token again.
@@ -77,7 +82,7 @@ export default async function CartPage(): Promise<React.JSX.Element> {
           l.map((x) => x.productId),
         ),
       };
-    }, await emporixOptions());
+    }, await emporixOptions(lang));
   } catch (e) {
     // The same customer checked out on another device, which closed this cart.
     // Show the empty bag rather than an error boundary — the cart is gone, and
@@ -88,7 +93,7 @@ export default async function CartPage(): Promise<React.JSX.Element> {
     // and `addToCart` recovers on its own. Until then the header badge keeps the
     // stale count — the price of not spending a cart call per page view.
     if (!(e instanceof EmporixNotFoundError)) throw e;
-    return <EmptyBag />;
+    return <EmptyBag lang={lang} />;
   }
   const { lines, total, coupons, names } = page;
 
@@ -180,7 +185,7 @@ export default async function CartPage(): Promise<React.JSX.Element> {
             </div>
             {lines.length > 0 ? (
               <Link
-                href="/checkout"
+                href={`/${lang}/checkout`}
                 className="btn btn--accent btn--block"
                 style={{ marginTop: "var(--s-5)" }}
               >
@@ -195,7 +200,7 @@ export default async function CartPage(): Promise<React.JSX.Element> {
               distinguishes something, so in the header and around the typeahead. */}
           <TitleBlock
             meta={{
-              route: "/cart",
+              route: "/[lang]/cart",
               render: "dynamic",
               because: "session cookie",
               islands: ["one per mutation form"],

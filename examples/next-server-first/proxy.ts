@@ -1,81 +1,57 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { emporixTokenProxy } from "@viu/emporix-sdk-next/session";
 import { STORE_OPT } from "./app/emporix";
-import { pathLanguage } from "./app/lib/path-language";
+import { DEFAULT_LANGUAGE, LANGUAGES } from "./app/lib/languages";
+import { negotiateLanguage } from "./app/lib/negotiate-language";
 
 /**
- * Rotates the customer token, pins the site — and **closes the seam between the two
- * language sources**.
+ * Rotates the customer token, and answers `/`.
  *
- * The catalog reads its language from the URL (`/de/category/…`), because a cookie
- * read would make the route dynamic and therefore uncacheable. The session routes
- * (`/cart`, `/checkout`, `/account/…`) read the cookie, because they render per
- * visitor anyway. Two sources, and `/api/session/language` was documented as the only
- * writer.
+ * It used to hold the seam between two language sources: the catalog read the language
+ * from the URL, the session routes from a cookie, and this proxy wrote that cookie from
+ * the path so the two agreed. There is one source now — the URL — so the write is gone
+ * and with it the whole class of failure it caused: a `<Link>` prefetch of another
+ * language switching the visitor's language with no click, and on https a switcher
+ * choice outranking the URL permanently because two writers disagreed about the
+ * `__Host-` prefix.
  *
- * That seam had a hole: **a visitor who never clicks the language switcher has no
- * cookie.** `/` redirects to `DEFAULT_LANGUAGE` without writing it, and landing
- * directly on `/de/product/x` does not write it either. With no cookie the SDK sends
- * no `Accept-Language`, Emporix returns the complete locale map, and `localized()` in
- * examples/shared takes the first hit of its own order — which begins with `en`.
+ * Note what the call below no longer passes: **no `site`**. `emporixSiteProxy` therefore
+ * writes nothing, and a cacheable catalog response carries no `Set-Cookie` at all —
+ * which it did on every crawl before, because a crawler keeps no cookies.
  *
- * Measured on 2026-08-05 against the `viu` tenant: the product page `/de/product/…`
- * showed «Just-in-Time Zugriff (JIT)» while the same item in the cart showed
- * «Just-in-Time Access (JIT)». One call to `/api/session/language?to=de` flipped the
- * cart to German with nothing else changed — which makes the missing cookie the cause,
- * not where the routes live.
+ * What is left is token rotation, which stays ungated for the reason its own changeset
+ * gives: a visitor who navigates client-side for an hour would otherwise never rotate.
  *
- * This is the place to fix it: a proxy may write cookies, a Server Component may not.
- * `emporixSiteProxy` — which `emporixTokenProxy` delegates to — writes the value
- * twice, into the forwarded request cookies (so **this** render already sees it) and as
- * a `Set-Cookie`. This exact case is the example in its own doc comment.
- *
- * Why it does not break the catalog cache: the value is a function of the path, and
- * the path is the cache key — `/de/…` always sets `de`. On top of that
- * `emporixSiteProxy` skips the write when the incoming cookie already matches, so only
- * the first request per language carries a `Set-Cookie` and the steady state carries
- * none.
- *
- * The alternative would be moving the session routes under `/[lang]/…` and deleting
- * the second source entirely. It would fix the same bug, but it moves eight routes and
- * every internal link — and those routes do not become cacheable from it, they still
- * read the session cookie. For URL shape it is the nicer solution; for this bug it is
- * the more expensive one.
- *
- * AN EDGE that does not show on http and is therefore written down: this cookie now
- * has two writers with different naming rules. `emporixSiteProxy` always writes
- * `emporix.language` unprefixed; `emporixSessionHandle` — and with it
- * `/api/session/language` — writes `__Host-emporix.language` on https. Reads go
- * through `readCookie`, which **prefers** the prefixed name and falls back to the bare
- * one. On https an earlier choice made in the switcher therefore wins permanently
- * against the URL: pick DE on `/cart`, then open `/en/product/x`, and the cart stays
- * German.
- *
- * That stays as it is, deliberately. The precedence is fixed in the package and cannot
- * be corrected from this example without reaching for the cookie names — which would
- * be worse than the edge. It needs https, a prior switcher choice, and then a language
- * change by URL rather than by switcher; and on a session route the cookie choice is
- * the only one there is anyway, because no language appears in the URL there.
+ * See `docs/superpowers/specs/2026-08-06-session-routes-under-lang-design.md`.
  */
 export async function proxy(request: NextRequest) {
-  // `null` on a session route: the existing cookie is then left untouched, because
-  // `emporixSiteProxy` leaves an absent field alone. A `/cart` must not overwrite the
-  // visitor's choice — it says nothing about language.
-  const language = pathLanguage(request.nextUrl.pathname);
+  // `/` cannot be a page any more: with no `app/layout.tsx` there is no root layout to
+  // render one into, and a page without one answers 200 with no `<html>` at all —
+  // measured 2026-08-06. So the proxy answers it, which is also the only place left
+  // that can.
+  //
+  // 307, not 308: a permanent redirect would be cached by the browser, and which
+  // language `/` prefers is configuration plus a request header — not a fact about the
+  // URL.
+  if (request.nextUrl.pathname === "/") {
+    const lang = negotiateLanguage(
+      request.headers.get("accept-language"),
+      LANGUAGES,
+      DEFAULT_LANGUAGE,
+    );
+    const redirect = NextResponse.redirect(new URL(`/${lang}`, request.url), 307);
+    // The target depends on a request header, so say so. This response is not cached,
+    // but a shared cache in front must not pin one visitor's negotiation for everybody.
+    redirect.headers.set("Vary", "Accept-Language");
+    return redirect;
+  }
 
-  return emporixTokenProxy(request, {
-    site: {
-      siteCode: "main",
-      ...(language !== null ? { language } : {}),
-    },
-    ...STORE_OPT,
-  });
+  return emporixTokenProxy(request, STORE_OPT);
 }
 
 export const config = {
-  // `sitemap.xml` and `icon.svg` join `robots.txt`: they are files for machines,
-  // they carry no session and no language, and rotating a token for them is work
-  // for nobody.
+  // `sitemap.xml` and `icon.svg` join `robots.txt`: they are files for machines, they
+  // carry no session and no language, and rotating a token for them is work for nobody.
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|icon.svg).*)",
   ],

@@ -3,8 +3,8 @@ import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { pickText } from "@viu/emporix-examples-shared";
 
-import { requireCustomer } from "../lib/require-customer";
-import { emporixOptions } from "../lib/site-context";
+import { requireCustomer } from "../../lib/require-customer";
+import { emporixOptions } from "../../lib/site-context";
 
 /** Per visitor — see the reasoning on `app/cart/page.tsx`. */
 export const metadata: Metadata = {
@@ -20,9 +20,17 @@ export const metadata: Metadata = {
  * that redirects from the client — which means it renders once, unauthenticated,
  * before deciding. This never does.
  */
-export default async function AccountPage(): Promise<React.JSX.Element> {
-  await requireCustomer("/account");
-  const customer = await withEmporixSession((client, ctx) => client.customers.me(ctx), await emporixOptions());
+export default async function AccountPage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<React.JSX.Element> {
+  const { lang } = await params;
+  await requireCustomer(lang, `/${lang}/account`);
+  const customer = await withEmporixSession(
+    (client, ctx) => client.customers.me(ctx),
+    await emporixOptions(lang),
+  );
   // `contactEmail`, not `email` — the latter is empty on this shape. Checked
   // against `storefront-demo/src/account/ProfileForm.tsx`, which reads the same
   // four fields against the real tenant.
@@ -44,13 +52,13 @@ export default async function AccountPage(): Promise<React.JSX.Element> {
       </p>
 
       <nav className="cluster" style={{ gap: "var(--s-4)" }}>
-        <Link href="/account/profile" className="u-underline">
+        <Link href={`/${lang}/account/profile`} className="u-underline">
           Profile
         </Link>
-        <Link href="/account/addresses" className="u-underline">
+        <Link href={`/${lang}/account/addresses`} className="u-underline">
           Addresses
         </Link>
-        <Link href="/account/orders" className="u-underline">
+        <Link href={`/${lang}/account/orders`} className="u-underline">
           Orders
         </Link>
       </nav>

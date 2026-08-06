@@ -16,9 +16,10 @@ import { Island } from "./sheet";
  * active language from `usePathname()`. A Server Component may render a Client
  * Component without becoming dynamic, which is the whole trick.
  *
- * The catalog links stay unprefixed (`/`, `/categories`). Both redirect to the
- * visitor's language, which costs one cheap hop and keeps this file free of
- * routing logic it would otherwise have to duplicate per route.
+ * Every link carries the language, because the shell renders inside `/[lang]/…` and
+ * therefore always knows it. Until 2026-08-06 the catalog links were unprefixed and
+ * relied on a redirect to the visitor's language — one hop per link, on every page, and
+ * one whose target depended on a cookie a crawler does not keep.
  *
  * The search box is a plain GET form. storefront-demo's header keeps the query
  * in `useState` and navigates programmatically; here the browser does it.
@@ -49,10 +50,11 @@ import { Island } from "./sheet";
  * not render the page and costs no Emporix call. Anyone "cleaning this up" would take
  * away speed and save nothing.
  *
- * The **only** exception to `<Link>` is the language switcher — it points at a route
- * handler rather than a page. Reasoning lives there in the code.
+ * There is no exception to `<Link>` any more. The language switcher used to be the one
+ * `<a>` in this app because its target was a route handler that wrote a cookie; the
+ * language lives in the URL now, so it points at a page like everything else.
  */
-export function Header(): React.JSX.Element {
+export function Header({ lang }: { lang: string }): React.JSX.Element {
   return (
     <header style={{ borderBottom: "1px solid var(--line)" }}>
       <div
@@ -60,7 +62,7 @@ export function Header(): React.JSX.Element {
         style={{ gap: "var(--s-5)", paddingBlock: "var(--s-4)", alignItems: "center" }}
       >
         <Link
-          href="/"
+          href={`/${lang}`}
           className="display"
           style={{ fontSize: "var(--step-1)", whiteSpace: "nowrap", fontWeight: 600 }}
         >
@@ -72,7 +74,7 @@ export function Header(): React.JSX.Element {
             bound plus a growth basis solves both: when it does not fit beside the logo
             and the nav, `.cluster` breaks it onto a line of its own. */}
         <form
-          action="/search"
+          action={`/${lang}/search`}
           method="get"
           style={{ flex: "1 1 14rem", minWidth: "12rem", maxWidth: "26rem" }}
         >
@@ -99,7 +101,7 @@ export function Header(): React.JSX.Element {
           {/* A link, deliberately, and not a dropdown. Rendering the category tree here
               would put an Emporix call in the shell and break the invariant this file's
               doc comment claims — /categories carries that cost instead. */}
-          <Link href="/categories" className="u-underline">
+          <Link href={`/${lang}/categories`} className="u-underline">
             Categories
           </Link>
           <Island>
@@ -107,10 +109,10 @@ export function Header(): React.JSX.Element {
                 children of their own `div` and lose the gap the nav sets outside it —
                 the `.cluster` here gives it back. */}
             <span className="cluster" style={{ gap: "var(--s-4)" }}>
-              <SessionNav />
+              <SessionNav lang={lang} />
             </span>
           </Island>
-          <Link href="/debug" className="u-underline">
+          <Link href={`/${lang}/debug`} className="u-underline">
             Debug
           </Link>
         </nav>

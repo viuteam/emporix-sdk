@@ -5,10 +5,10 @@ import { EmporixNotFoundError } from "@viu/emporix-sdk";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { money, orderItems, orderVM } from "@viu/emporix-examples-shared";
 
-import { requireCustomer } from "../../../lib/require-customer";
-import { ActionForm } from "../../../components/action-form";
-import { cancelOrder, reorder } from "../../../actions/account";
-import { emporixOptions } from "../../../lib/site-context";
+import { requireCustomer } from "../../../../lib/require-customer";
+import { ActionForm } from "../../../../components/action-form";
+import { cancelOrder, reorder } from "../../../../actions/account";
+import { emporixOptions } from "../../../../lib/site-context";
 
 /** Per visitor — see the reasoning on `app/cart/page.tsx`. */
 export const metadata: Metadata = {
@@ -26,14 +26,14 @@ export const metadata: Metadata = {
 export default async function OrderDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ lang: string; id: string }>;
 }): Promise<React.JSX.Element> {
-  const { id } = await params;
-  await requireCustomer(`/account/orders/${id}`);
+  const { lang, id } = await params;
+  await requireCustomer(lang, `/${lang}/account/orders/${id}`);
 
   let order: unknown;
   try {
-    order = await withEmporixSession((client, ctx) => client.orders.get(id, ctx), await emporixOptions());
+    order = await withEmporixSession((client, ctx) => client.orders.get(id, ctx), await emporixOptions(lang));
   } catch (e) {
     // An order id in a URL outlives nothing, but a wrong one is still a 404 rather
     // than a server error — same reasoning as the product page.
@@ -47,7 +47,7 @@ export default async function OrderDetailPage({
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">
-        <Link href="/account/orders" className="u-underline">
+        <Link href={`/${lang}/account/orders`} className="u-underline">
           ← Orders
         </Link>
       </p>

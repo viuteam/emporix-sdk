@@ -98,18 +98,18 @@ encryption looked like it had done nothing.
 | Page | Proves |
 |---|---|
 | `/[lang]` | catalog rendered on the server with the memoized tagged client — **prerendered, `revalidate 3600`** |
-| `/search` | a form GET as the whole state container — no `useState`, back button works |
+| `/[lang]/search` | a form GET as the whole state container — no `useState`, back button works |
 | `/[lang]/categories` | all 21 category-tree roots from one cached call — **prerendered** |
 | `/[lang]/category/[id]/[[...page]]` | breadcrumb and children from the tree, pagination as a path segment, an over-range page that says so — **ISR** |
 | `/[lang]/product/[id]/[[...variant]]` | `notFound()` on an unknown id instead of a 500, variant as a path segment — **ISR** |
-| `/login` | `emporixLogin` / `emporixLogout` via Server Actions, session in httpOnly cookies |
-| `/cart` | `withEmporixSession*`, a guest cart bound to a server-managed anonymous session |
-| `/checkout` | four reads in one session, and a `saasToken` that authorizes an order without ever reaching the browser |
-| `/account` | a per-page auth gate, because Next 16 middleware cannot read cookies |
-| `/account/profile` | a form that owns every field it shows, so clearing one works |
-| `/account/addresses` | CRUD through three Server Actions and one `ActionForm` |
-| `/account/orders[/id]` | the two order shapes Emporix returns, read by one adapter |
-| `/debug` | **what the browser can actually read** — green only when no secret is reachable from JavaScript |
+| `/[lang]/login` | `emporixLogin` / `emporixLogout` via Server Actions, session in httpOnly cookies |
+| `/[lang]/cart` | `withEmporixSession*`, a guest cart bound to a server-managed anonymous session |
+| `/[lang]/checkout` | four reads in one session, and a `saasToken` that authorizes an order without ever reaching the browser |
+| `/[lang]/account` | a per-page auth gate, because Next 16 middleware cannot read cookies |
+| `/[lang]/account/profile` | a form that owns every field it shows, so clearing one works |
+| `/[lang]/account/addresses` | CRUD through three Server Actions and one `ActionForm` |
+| `/[lang]/account/orders[/id]` | the two order shapes Emporix returns, read by one adapter |
+| `/[lang]/debug` | **what the browser can actually read** — green only when no secret is reachable from JavaScript |
 | `POST /api/emporix/webhook` | the backend invalidating tagged catalog reads, verified by HMAC |
 | typeahead on `/` | a client-side catalog read with no token, through `/api/emporix` |
 
@@ -150,7 +150,7 @@ What `next build` says now, and what `next start` answers:
 | `/[lang]/categories` | ● prerendered, 1h | — | — |
 | `/[lang]/category/[id]/[[...page]]` | ● | `x-nextjs-cache: MISS` | `HIT`, `s-maxage=3600` |
 | `/[lang]/product/[id]/[[...variant]]` | ● | `MISS` | `HIT`, `s-maxage=3600` |
-| `/cart` | ƒ | `private, no-cache, no-store` | same — and that is correct |
+| `/[lang]/cart` | ƒ | `private, no-cache, no-store` | same — and that is correct |
 
 **The empty `generateStaticParams` is load-bearing.** A dynamic segment without
 one is rendered on demand and *not* cached; `revalidate` alone did nothing, which
@@ -158,16 +158,55 @@ the header above is the receipt for. Returning `[]` means «prerender nothing,
 treat every path as cacheable» — the right answer for 1'631 categories nobody
 wants to enumerate at build time.
 
-### The seam this leaves, and who holds it
+### One language, and it is in the URL
 
-Catalog routes read the language from the URL. Session routes (`/cart`,
-`/checkout`, `/account/…`) still read the cookie, because they are per-visitor
-anyway and have nothing to gain from a prefix. Exactly one thing writes both:
-`/api/session/language`, which the switcher links to. It sets the cookie and
-redirects to the prefixed path.
+**Every** route lives under `/[lang]/…` — the catalog and the session routes alike — and
+`app/[lang]/layout.tsx` is **the** root layout, so `<html lang>` finally says what the
+page is written in. Next 16 calls a dynamic segment above the root layout a *root param*;
+it is a supported shape, not a trick.
 
-`/` and `/categories` stay unprefixed and redirect to the visitor's language.
-They are dynamic and make no Emporix call — one cookie read, then a static page.
+There used to be a second source. The catalog read the language from the URL because a
+`cookies()` read makes a route dynamic for good; the session routes read a cookie because
+they render per visitor anyway. Holding those two in agreement cost:
+
+- a proxy that wrote the cookie from the path, which a `<Link>` prefetch could trigger —
+  so a link to another language switched the visitor's language on scroll, with no click;
+- a `sec-fetch-mode` gate in `@viu/emporix-sdk-next` to stop that;
+- an https edge where two writers disagreed about the `__Host-` prefix, so a switcher
+  choice outranked the URL permanently;
+- a `<div lang={lang}>` wrapper, because the root layout could not see the segment;
+- two `Set-Cookie` fields on cacheable catalog HTML — measured, on every crawl, since a
+  crawler keeps no cookies.
+
+All five are gone. `/de/product/…` now answers with **zero** `Set-Cookie` fields while
+still reporting `x-nextjs-cache`.
+
+`/` is not a page any more — without `app/layout.tsx` there is no layout to render one
+into. The proxy answers it with a **307** to the language the visitor asked for,
+negotiated from `Accept-Language` by `lib/negotiate-language.ts`; `Vary: Accept-Language`
+says so. A 307 rather than a 308 because which language `/` prefers is configuration plus
+a request header, not a fact about the URL.
+
+Unprefixed `/cart`, `/login` and `/account/…` are 404s now. No legacy-redirect list: a
+general «prefix anything unprefixed» rule would turn clean 404s into redirect-then-404
+chains, and an allowlist is exactly the kind of thing that outlives its reason.
+
+**The one compromise, named.** `siteContext(lang?)` still takes an optional language and
+falls back to `DEFAULT_LANGUAGE`, because 23 call sites asked for the context without one
+and most are Server Actions that mutate and redirect rather than render. Every page that
+renders localized content passes its `lang`. What that leaves: an Emporix error surfaced
+by a cart or account action can arrive in the default language on a page in the other one.
+
+**The dated verification records below keep their original URLs.** A table headed
+«Verified 2026-08-03» measured `/cart` and `/account`, because that is what those routes
+were called that day. Rewriting them to `/de/cart` would make the record say something
+that was never run. The paths moved on 2026-08-06; the measurements did not change.
+
+**A warning for anyone adding a route.** A page outside `[lang]` does **not** fail the
+build. It answers 200 with no `<html>` and no `<body>` — measured, 6'381 bytes of fragment
+against 30'789 for `/de`. There is no safety net; the check is
+`find app -name 'page.tsx' -not -path 'app/\[lang\]/*'`, and the backslashes matter
+because `[lang]` is otherwise a character class.
 
 ### What it costs
 
@@ -229,7 +268,7 @@ pages probed.
   Disallow stops the fetch, a noindex stops the indexing, and an inbound link from
   another site defeats only the first.
 - `/debug` is a Client Component, and a Client Component cannot export `metadata` — so
-  its `noindex` sits in `app/debug/layout.tsx`. A layout is a Server Component and
+  its `noindex` sits in `app/[lang]/debug/layout.tsx`. A layout is a Server Component and
   metadata resolves down the segment chain.
 
 **`generateMetadata` costs no extra Emporix call.** Measured with a
@@ -313,7 +352,7 @@ earlier build was served for a page whose code had already changed.
 
 ## Checkout
 
-`/checkout` reads the cart, the payment modes, the shipping zones and — for a
+`/[lang]/checkout` reads the cart, the payment modes, the shipping zones and — for a
 logged-in customer — the saved addresses in **one** `withEmporixSession` with
 four parallel calls, then posts a native form to a Server Action. No client
 state: in this mode there is no client to hold any.
@@ -715,9 +754,12 @@ by every visitor of the process, so «my language» would be «the last person's
 language». Both are gone, replaced by `lib/site-context.ts`:
 
 ```ts
-const client = getEmporixClient({ context: await siteContext() }); // catalog
-await withEmporixSession(fn, await emporixOptions());              // session
+const client = getEmporixClient({ context: await siteContext(lang) }); // catalog
+await withEmporixSession(fn, await emporixOptions(lang));              // session
 ```
+
+`lang` comes from `params` in both cases — every page has it, because every page lives
+under `[lang]`.
 
 Fifteen call sites moved. `CONTEXT` and `EMPORIX` were deleted rather than
 deprecated, so nothing can quietly fall back to the shared value.
@@ -729,15 +771,17 @@ configuration, not by traffic. The comment in `client.ts` claimed the context is
 «written once per app, in one place»; this demo breaks that assumption, and the
 comment now says what actually holds.
 
-The switcher is `components/language-switcher.tsx`: one `ActionForm` per language,
-so it works without JavaScript. It adds **no** Emporix call to the header — the
-list is a literal, and the invariant above is worth more than a self-configuring
-dropdown. It does add one cookie read per render (three in store mode, next to the
-two the header already does).
+The switcher is `components/language-switcher.tsx`, and since 2026-08-06 it is two
+`<Link>`s and nothing else. It had three other jobs before: write a cookie through
+`/api/session/language`, read that cookie back to know which chip to box, and be an `<a>`
+rather than a `<Link>` because its target was a route handler. All three went away when
+the language moved into the URL for every route — the active chip comes from
+`usePathname()` and the target is a page. It adds **no** Emporix call and no cookie read
+at all.
 
-`LANGUAGES` lives in `lib/site-context.ts` and not next to `switchLanguage`,
-because a `"use server"` file may only export async functions — an exported array
-there fails the build with «can only export async functions, found object».
+It stays a client island for one reason: `usePathname()`. A Server Component would need
+`headers()` to learn the current path, and that would make every route dynamic — the thing
+this whole demo is arranged to avoid.
 
 ### Verified 2026-08-03 against the `viu` tenant, in store mode
 
@@ -772,7 +816,7 @@ Naming the cause beats a fix that poisons a shared cache.
 
 ## Category browsing, and the navigation that was dead
 
-`/categories` lists every root the tenant publishes; `/category/[id]` shows that
+`/[lang]/categories` lists every root the tenant publishes; `/[lang]/category/[id]` shows that
 category's children, its breadcrumb and its products. All of it comes from **one**
 call — `categories.tree()` — which returns every category nested, is tagged
 `emporix:categories` and cached for an hour.

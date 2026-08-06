@@ -1,86 +1,55 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { LANGUAGES, isLanguage, type Language } from "../lib/languages";
+import { LANGUAGES, isLanguage } from "../lib/languages";
 import { swapLanguage } from "../lib/swap-language";
 
 /**
- * Plain links, not a form — so switching the language works with JavaScript off
- * and, more importantly, so the header contains no Server Action and no session
- * read. A `cookies()` call in the header would make every route dynamic; keeping
- * the switcher a client island is what lets the catalog stay cacheable.
+ * Two links, and that is all it is now.
  *
- * The active marker has two sources, mirroring the two the whole app has:
+ * It used to have three jobs beyond this: write a cookie through
+ * `/api/session/language`, read that cookie back to know which chip to box, and be an
+ * `<a>` rather than a `<Link>` because its target was a route handler. All three went
+ * away with the cookie — the language is in the URL, so the active chip comes from
+ * `usePathname()` and the target is a page.
  *
- * - **Catalog routes** carry the language in the URL (`/de/category/…`). It is
- *   read from `usePathname()` — no request, and the cached pages pay nothing.
- * - **Session routes** (`/cart`, `/account/…`) carry it in an `httpOnly` cookie
- *   the client cannot read. So the switcher asks the server once, via the read
- *   mode of `/api/session/language`. This fetch runs only when the URL has no
- *   language — never on a catalog page.
+ * Still a client island, and only for `usePathname()`: a Server Component would need
+ * `headers()` to learn the current path, and that would make every route dynamic — which
+ * is the thing this whole demo is arranged to avoid.
  *
- * `useSearchParams()` is deliberately avoided: it would deopt the statically
- * rendered catalog pages out of ISR. The query string is read from
- * `window.location` in an effect instead, which never runs during prerender.
+ * `useSearchParams()` is deliberately avoided for the same reason: it would deopt the
+ * statically rendered catalog pages out of ISR. The query is read from `window.location`
+ * in an effect instead, which never runs during prerender.
  */
 export function LanguageSwitcher(): React.JSX.Element {
   const pathname = usePathname();
   const segment = pathname.split("/")[1] ?? "";
-  const urlActive = isLanguage(segment) ? segment : null;
+  const active = isLanguage(segment) ? segment : null;
 
-  // Filled only on a session route, and only after the page is interactive.
-  const [cookieActive, setCookieActive] = useState<Language | null>(null);
-  useEffect(() => {
-    if (urlActive !== null) return; // catalog route — the URL already answers
-    const abort = new AbortController();
-    fetch("/api/session/language", { signal: abort.signal, cache: "no-store" })
-      .then((r) => (r.ok ? (r.json() as Promise<{ language: string | null }>) : null))
-      .then((d) => {
-        if (d !== null && d.language !== null && isLanguage(d.language)) {
-          setCookieActive(d.language);
-        }
-      })
-      .catch(() => {
-        // A failed read just leaves both chips unframed. The links still work.
-      });
-    return () => abort.abort();
-  }, [urlActive]);
-
-  const active = urlActive ?? cookieActive;
-
-  // Carry the query across a switch. `usePathname()` drops it, so without this a
-  // switch on `/search?q=sso` would land on an empty `/search`. Read from the
-  // browser, not `useSearchParams()`, to keep the catalog out of client-render.
+  // Carry the query across a switch. `usePathname()` drops it, so without this a switch
+  // on `/de/search?q=sso` would land on an empty search page.
   const [query, setQuery] = useState("");
   useEffect(() => setQuery(window.location.search), [pathname]);
 
   return (
     <span className="cluster" style={{ gap: "var(--s-2)" }} aria-label="Language">
-      {LANGUAGES.map((l) => {
-        const next = swapLanguage(pathname, l) + query;
-        const href = `/api/session/language?to=${l}&next=${encodeURIComponent(next)}`;
-        // The active language is boxed, not marked with a dot. On a drawing the
-        // current revision is boxed, and a box is — unlike colour alone — a difference
-        // that also reads for someone who cannot tell red from grey. `aria-current`
-        // says the same thing for screen readers.
-        //
-        // **The only `<a>` in this app, and it has to stay one.** The target is a route
-        // handler that answers with a 303 — not a page. The Next router cannot navigate
-        // there client-side, it expects an RSC payload. `<Link>` would not be uglier
-        // here, it would be broken.
-        return (
-          <a
-            key={l}
-            href={href}
-            className={l === active ? "tag tag--accent" : "tag"}
-            hrefLang={l}
-            {...(l === active ? { "aria-current": "true" as const } : {})}
-          >
-            {l}
-          </a>
-        );
-      })}
+      {LANGUAGES.map((l) => (
+        // The active language is boxed, not marked with a dot. On a drawing the current
+        // revision is boxed, and a box is — unlike colour alone — a difference that also
+        // reads for someone who cannot tell red from grey. `aria-current` says the same
+        // thing for screen readers.
+        <Link
+          key={l}
+          href={swapLanguage(pathname, l) + query}
+          className={l === active ? "tag tag--accent" : "tag"}
+          hrefLang={l}
+          {...(l === active ? { "aria-current": "true" as const } : {})}
+        >
+          {l}
+        </Link>
+      ))}
     </span>
   );
 }

@@ -26,11 +26,12 @@ interface Nav {
  * which is the whole navigation, just without the count. Everything that
  * *changes* state in this demo is still a `<form>` posting to a Server Action.
  */
-export function SessionNav(): React.JSX.Element {
+export function SessionNav({ lang }: { lang: string }): React.JSX.Element {
   const [nav, setNav] = useState<Nav | null>(null);
 
   useEffect(() => {
     const abort = new AbortController();
+    // Unprefixed on purpose: this route answers with JSON and has no language.
     fetch("/api/session/nav", { signal: abort.signal })
       .then((r) => (r.ok ? (r.json() as Promise<Nav>) : null))
       .then((data) => {
@@ -45,12 +46,12 @@ export function SessionNav(): React.JSX.Element {
 
   return (
     <>
-      <Link href="/cart" className="u-underline">
+      <Link href={`/${lang}/cart`} className="u-underline">
         Cart{nav !== null && nav.cartCount > 0 ? ` (${nav.cartCount})` : ""}
       </Link>
       {nav?.loggedIn === true ? (
         <>
-          <Link href="/account" className="u-underline">
+          <Link href={`/${lang}/account`} className="u-underline">
             Account
           </Link>
           <form action={logout} style={{ display: "inline" }}>
@@ -60,7 +61,7 @@ export function SessionNav(): React.JSX.Element {
           </form>
         </>
       ) : (
-        <Link href="/login" className="u-underline">
+        <Link href={`/${lang}/login`} className="u-underline">
           Login
         </Link>
       )}

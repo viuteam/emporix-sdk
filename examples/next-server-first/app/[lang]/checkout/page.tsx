@@ -3,10 +3,10 @@ import Link from "next/link";
 import { EmporixNotFoundError, pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
 import { money, pickText } from "@viu/emporix-examples-shared";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
-import { SITE, STORE_OPT } from "../emporix";
-import { Note, Sheet } from "../components/sheet";
-import { submitCheckout } from "../actions/checkout";
-import { siteContext, emporixOptions } from "../lib/site-context";
+import { SITE, STORE_OPT } from "../../emporix";
+import { Note, Sheet } from "../../components/sheet";
+import { submitCheckout } from "../../actions/checkout";
+import { siteContext, emporixOptions } from "../../lib/site-context";
 
 /** Per visitor — see the reasoning on `app/cart/page.tsx`. */
 export const metadata: Metadata = {
@@ -15,14 +15,14 @@ export const metadata: Metadata = {
 };
 
 /** No cart, or one that Emporix no longer has. Same dead end for the shopper. */
-function NoCart(): React.JSX.Element {
+function NoCart({ lang }: { lang: string }): React.JSX.Element {
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">Step 2 of 2</p>
       <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Checkout</h1>
       <p className="muted">
         No cart yet. Add something from the{" "}
-        <Link href="/" className="u-underline">
+        <Link href={`/${lang}`} className="u-underline">
           catalog
         </Link>
         .
@@ -77,18 +77,21 @@ function label(name: string | Record<string, string> | undefined, fallback: stri
 }
 
 export default async function CheckoutPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ lang: string }>;
   searchParams: Promise<{ error?: string }>;
 }): Promise<React.JSX.Element> {
+  const { lang } = await params;
   const { error } = await searchParams;
   // The shipping country comes from the session context now, not a module
   // constant — same source the Emporix calls below bind.
-  const { targetLocation } = await siteContext();
+  const { targetLocation } = await siteContext(lang);
   const cartId = (await emporixSessionHandle({ readOnly: true, ...STORE_OPT })).get(
     STORAGE_KEYS.cartId,
   );
-  if (cartId === null) return <NoCart />;
+  if (cartId === null) return <NoCart lang={lang} />;
 
   // ONE session, five parallel calls. Five separate withEmporixSession calls
   // would build five guest clients and redeem the same anonymous refresh token
@@ -109,13 +112,13 @@ export default async function CheckoutPage({
         c.customers.me(ctx).catch(() => undefined),
       ]);
       return { cart, modes, zones, addresses, me };
-    }, await emporixOptions());
+    }, await emporixOptions(lang));
   } catch (e) {
     // Checked out on another device: that closed this cart, and the id in this
     // session died with it. Offering a checkout form for a cart that no longer
     // exists is worse than saying so — the submit would 404 anyway.
     if (!(e instanceof EmporixNotFoundError)) throw e;
-    return <NoCart />;
+    return <NoCart lang={lang} />;
   }
   const { cart, modes, zones, addresses, me } = data;
 
@@ -134,7 +137,7 @@ export default async function CheckoutPage({
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <Sheet
         meta={{
-          route: "/checkout",
+          route: "/[lang]/checkout",
           render: "dynamic",
           because: "session cookie · searchParams",
         }}
@@ -171,6 +174,9 @@ export default async function CheckoutPage({
       {/* `.form-col` bounds the column. Without it the fields were as wide as the
           viewport — measured at 1440px, that is 1'190px for a postcode. */}
       <form action={submitCheckout} className="form-col form-col--wide">
+        {/* A Server Action gets no route params, so the language rides along — it is
+            what the three redirects out of `submitCheckout` prefix themselves with. */}
+        <input type="hidden" name="lang" value={lang} />
         <fieldset className="fgroup">
           <legend className="fgroup__title serif">Contact</legend>
           <div className="stack">
