@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { emporixSession } from "@viu/emporix-sdk-next";
 import { STORE_OPT } from "../emporix";
 import { Note, Sheet } from "../components/sheet";
 import { login, logout } from "../actions/auth";
 import { safeNext } from "../lib/safe-next";
+
+/** Per visitor — see the reasoning on `app/cart/page.tsx`. */
+export const metadata: Metadata = {
+  title: "Sign in",
+  robots: { index: false, follow: true },
+};
 
 export default async function LoginPage({
   searchParams,

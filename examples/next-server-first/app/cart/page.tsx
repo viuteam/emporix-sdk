@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { EmporixNotFoundError } from "@viu/emporix-sdk";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
@@ -8,6 +9,24 @@ import { Note, TitleBlock } from "../components/sheet";
 import { namesFor } from "../lib/product-names";
 import { applyCoupon, removeCoupon, removeLine, setQuantity } from "../actions/cart";
 import { emporixOptions } from "../lib/site-context";
+
+/**
+ * `noindex, follow`: this page is per visitor, so an index entry for it is either
+ * wrong or somebody else's data. `follow` stays on so the catalog links on it still
+ * pass through.
+ *
+ * `robots.txt` disallows the path as well, and that is not redundant — a `Disallow`
+ * stops the fetch, a `noindex` stops the indexing, and an inbound link from another
+ * site defeats only the first of the two.
+ *
+ * The other per-visitor pages carry the same export with a one-line comment pointing
+ * here. `/debug` is the exception: it is a Client Component and cannot export
+ * metadata, so its `noindex` lives in `app/debug/layout.tsx`.
+ */
+export const metadata: Metadata = {
+  title: "Your bag",
+  robots: { index: false, follow: true },
+};
 
 /**
  * The cart, read in a Server Component and mutated through Server Actions.

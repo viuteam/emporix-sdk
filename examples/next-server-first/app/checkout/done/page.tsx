@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Note, Sheet } from "../../components/sheet";
+
+/** Per visitor — see the reasoning on `app/cart/page.tsx`. */
+export const metadata: Metadata = {
+  title: "Order placed",
+  robots: { index: false, follow: true },
+};
 
 export default async function CheckoutDonePage({
   searchParams,

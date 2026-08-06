@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmporixNotFoundError } from "@viu/emporix-sdk";
@@ -8,6 +9,12 @@ import { requireCustomer } from "../../../lib/require-customer";
 import { ActionForm } from "../../../components/action-form";
 import { cancelOrder, reorder } from "../../../actions/account";
 import { emporixOptions } from "../../../lib/site-context";
+
+/** Per visitor — see the reasoning on `app/cart/page.tsx`. */
+export const metadata: Metadata = {
+  title: "Order",
+  robots: { index: false, follow: true },
+};
 
 /**
  * One order, with the two things a shopper does with one.

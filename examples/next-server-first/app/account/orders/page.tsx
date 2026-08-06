@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { money, orderVM } from "@viu/emporix-examples-shared";
 
 import { requireCustomer } from "../../lib/require-customer";
 import { emporixOptions } from "../../lib/site-context";
+
+/** Per visitor — see the reasoning on `app/cart/page.tsx`. */
+export const metadata: Metadata = {
+  title: "Orders",
+  robots: { index: false, follow: true },
+};
 
 const PAGE_SIZE = 10;
 
