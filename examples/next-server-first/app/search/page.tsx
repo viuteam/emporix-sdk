@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 
 import { ProductGrid } from "../components/product-grid";
@@ -6,6 +7,12 @@ import { pricesFor } from "../lib/prices";
 import { siteContext } from "../lib/site-context";
 import { DEFAULT_LANGUAGE } from "../lib/languages";
 import { TIMEOUTS } from "../emporix";
+
+/** Per visitor, and an unbounded query space — see the reasoning on `app/cart/page.tsx`. */
+export const metadata: Metadata = {
+  title: "Search",
+  robots: { index: false, follow: true },
+};
 
 /**
  * Search without a line of client-side state.

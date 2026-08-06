@@ -1,5 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { categoryIndex } from "../../lib/category-tree";
+import { isLanguage } from "../../lib/languages";
+import { alternatesFor } from "../../lib/seo";
+import { SITE_NAME } from "../../lib/site-url";
 import { Note, Sheet } from "../../components/sheet";
 
 /**
@@ -15,6 +19,25 @@ import { Note, Sheet } from "../../components/sheet";
  * the one thing a reader would want it for.
  */
 export const revalidate = 3600;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<Metadata> {
+  const { lang } = await params;
+  if (!isLanguage(lang)) return {};
+  // The same cached index the page renders from, so this is a cache read rather than
+  // a second tree fetch. The count is the one honest thing there is to say about a
+  // list of category names.
+  const { roots } = await categoryIndex(lang);
+  return {
+    title: "Categories",
+    description: `${roots.length} category trees, drillable down to every leaf the tenant publishes.`,
+    alternates: alternatesFor(lang, "/categories"),
+    openGraph: { type: "website", title: "Categories", siteName: SITE_NAME },
+  };
+}
 
 export default async function CategoriesPage({
   params,

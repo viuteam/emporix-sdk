@@ -208,6 +208,45 @@ costs no Emporix call at all. Products are not in it yet.
 back to `http://localhost:3000`, because a wrong absolute URL points crawlers at
 somebody else's site and an obviously local one is the lesser failure.
 
+### Per-page metadata
+
+Every route used to share one `<title>`, and there was no description, canonical,
+hreflang or Open Graph tag anywhere — measured 2026-08-06, zero of each on all six
+pages probed.
+
+- `metadataBase` comes from `SITE_BASE_URL`. Without it Next warns and emits relative
+  hrefs, which a crawler resolves against whatever host it happened to use.
+- `title.template` in the root layout appends the site name, so each page returns
+  only its own half.
+- `lib/seo.ts` builds the canonical and the `hreflang` set in one place, because
+  `hreflang` is only useful when every page agrees about it. `x-default` points at the
+  default language rather than at the emitting page.
+- A product canonical **drops the variant segment**, so `/de/product/x/anything`
+  stops competing with `/de/product/x`. A paginated category **self-canonicalises**
+  from page 2 on, because page 3 is its own document and pointing it at page 1 would
+  hide its products entirely — only the `/1` alias folds back to the bare URL.
+- The per-visitor routes carry `noindex, follow` *and* a `Disallow` in `robots.txt`. A
+  Disallow stops the fetch, a noindex stops the indexing, and an inbound link from
+  another site defeats only the first.
+- `/debug` is a Client Component, and a Client Component cannot export `metadata` — so
+  its `noindex` sits in `app/debug/layout.tsx`. A layout is a Server Component and
+  metadata resolves down the segment chain.
+
+**`generateMetadata` costs no extra Emporix call.** Measured with a
+`diagnostics_channel` probe on `undici:request:create`: a cold product page makes four
+upstream calls whether or not `generateMetadata` repeats the page's own
+`products.get`, and `GET /product/viu/products/<id>` appears exactly once. Next
+memoizes identical fetches within a request. If that ever changes, the probe is how
+you find out — not a cache wrapper added on suspicion.
+
+**What is still missing.** `<html lang>` says `en` on every page: only the root layout
+may render `<html>` and it cannot see the `[lang]` segment, so the language sits on a
+wrapper inside it — correct for assistive technology, which honours the nearest
+ancestor, and honest about the English shell around it. No JSON-LD, and no products in
+the sitemap. The junk URLs (`/de/category/x/0`, `/2/3/4`, `/99999`,
+`/de/product/x/bogus`) still answer 200 and still buy an ISR entry; the canonical stops
+them competing, segment validation would remove them.
+
 ## Checkout
 
 `/checkout` reads the cart, the payment modes, the shipping zones and — for a

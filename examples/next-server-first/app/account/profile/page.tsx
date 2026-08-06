@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { pickText } from "@viu/emporix-examples-shared";
@@ -6,6 +7,12 @@ import { requireCustomer } from "../../lib/require-customer";
 import { ActionForm } from "../../components/action-form";
 import { changePassword, updateProfile } from "../../actions/account";
 import { emporixOptions } from "../../lib/site-context";
+
+/** Per visitor — see the reasoning on `app/cart/page.tsx`. */
+export const metadata: Metadata = {
+  title: "Profile",
+  robots: { index: false, follow: true },
+};
 
 /**
  * Two forms, no client state.

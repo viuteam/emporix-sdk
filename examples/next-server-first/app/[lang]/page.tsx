@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { PRICED_CATEGORY, TIMEOUTS } from "../emporix";
@@ -5,6 +6,9 @@ import { Typeahead } from "../typeahead";
 import { ProductGrid } from "../components/product-grid";
 import { Island, Note, Sheet } from "../components/sheet";
 import { pricesFor } from "../lib/prices";
+import { isLanguage } from "../lib/languages";
+import { alternatesFor } from "../lib/seo";
+import { SITE_NAME } from "../lib/site-url";
 import { siteContext } from "../lib/site-context";
 
 /**
@@ -30,6 +34,36 @@ import { siteContext } from "../lib/site-context";
  * and `/categories` covers the browse-everything case a link away.
  */
 export const revalidate = 3600;
+
+/**
+ * Costs no extra Emporix call — measured 2026-08-06 with a `diagnostics_channel`
+ * probe on `undici:request:create`: a cold product page made four upstream calls
+ * with a `generateMetadata` that repeats the page's own read, and four without it,
+ * because Next memoizes identical fetches within a request. This page reads nothing
+ * here at all, so the question does not even arise; it is written down because the
+ * product and category pages rely on it.
+ *
+ * The title carries no site name — `title.template` in the root layout appends it.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<Metadata> {
+  const { lang } = await params;
+  // `generateMetadata` runs BEFORE the page body, so this is the first place a junk
+  // segment can arrive — `siteContext` has not had its turn yet. It is also what
+  // narrows `lang` from `string` to `Language` for the call below, which is why no
+  // cast appears there.
+  if (!isLanguage(lang)) return {};
+  return {
+    title: "Catalog",
+    description:
+      "Products from one priced category of the viu tenant, rendered once and served from the cache.",
+    alternates: alternatesFor(lang, ""),
+    openGraph: { type: "website", title: "Catalog", siteName: SITE_NAME },
+  };
+}
 
 export default async function Home({
   params,

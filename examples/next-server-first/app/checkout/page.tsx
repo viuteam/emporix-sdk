@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { EmporixNotFoundError, pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
 import { money, pickText } from "@viu/emporix-examples-shared";
@@ -6,6 +7,12 @@ import { SITE, STORE_OPT } from "../emporix";
 import { Note, Sheet } from "../components/sheet";
 import { submitCheckout } from "../actions/checkout";
 import { siteContext, emporixOptions } from "../lib/site-context";
+
+/** Per visitor — see the reasoning on `app/cart/page.tsx`. */
+export const metadata: Metadata = {
+  title: "Checkout",
+  robots: { index: false, follow: true },
+};
 
 /** No cart, or one that Emporix no longer has. Same dead end for the shopper. */
 function NoCart(): React.JSX.Element {

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 
@@ -6,6 +7,12 @@ import { ActionForm } from "../../components/action-form";
 import { ADDRESS_FIELDS } from "../../lib/address-fields";
 import { addAddress, deleteAddress, updateAddress } from "../../actions/account";
 import { emporixOptions } from "../../lib/site-context";
+
+/** Per visitor — see the reasoning on `app/cart/page.tsx`. */
+export const metadata: Metadata = {
+  title: "Addresses",
+  robots: { index: false, follow: true },
+};
 
 /**
  * Address CRUD through Server Actions — the pattern the returns, rewards and

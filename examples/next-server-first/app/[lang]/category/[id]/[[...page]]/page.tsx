@@ -1,9 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 
 import { ProductGrid } from "../../../../components/product-grid";
 import { pricesFor } from "../../../../lib/prices";
+import { isLanguage } from "../../../../lib/languages";
+import { alternatesFor } from "../../../../lib/seo";
+import { SITE_NAME } from "../../../../lib/site-url";
 import { siteContext } from "../../../../lib/site-context";
 import { categoryIndex } from "../../../../lib/category-tree";
 import { TIMEOUTS } from "../../../../emporix";
@@ -35,6 +39,48 @@ export const revalidate = 3600;
  */
 export function generateStaticParams(): { id: string }[] {
   return [];
+}
+
+/**
+ * The page number is part of the title and part of the canonical, and both matter.
+ *
+ * A paginated list **self-canonicalises**: page 3 is its own document, not a
+ * duplicate of page 1, and pointing it at page 1 would hide its products from search
+ * entirely. The one exception is the page-1 alias — `/de/category/x/1` renders the
+ * same HTML as `/de/category/x`, so it canonicalises to the bare URL. The same
+ * `page <= 1` rule the `href()` helper below uses, for the same reason.
+ *
+ * Reads the cached index, so no extra Emporix call: the page body asks for the same
+ * entry a moment later and gets the memoized answer.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string; id: string; page?: string[] }>;
+}): Promise<Metadata> {
+  const { lang, id, page: segments } = await params;
+  if (!isLanguage(lang)) return {};
+  const page = Math.max(1, Number(segments?.[0]) || 1);
+
+  const { byId } = await categoryIndex(lang);
+  const entry = byId[id];
+  // The page renders `notFound()` for this case; an empty object leaves the 404 page
+  // its own title.
+  if (entry === undefined) return {};
+
+  const title = page > 1 ? `${entry.label} — page ${page}` : entry.label;
+  const where = entry.path.length > 0 ? ` in ${entry.path.map((a) => a.label).join(" / ")}` : "";
+  const suffix =
+    page > 1
+      ? `/category/${encodeURIComponent(id)}/${page}`
+      : `/category/${encodeURIComponent(id)}`;
+
+  return {
+    title,
+    description: `${entry.label}${where}${entry.children.length > 0 ? ` · ${entry.children.length} subcategories` : ""}.`,
+    alternates: alternatesFor(lang, suffix),
+    openGraph: { type: "website", title, siteName: SITE_NAME },
+  };
 }
 
 export default async function CategoryPage({
