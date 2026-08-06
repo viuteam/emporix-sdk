@@ -196,7 +196,7 @@ export default async function CategoryPage({
           </span>
         ))}
       </p>
-      {/* `<h1>`, nicht `<h2>`: der Kategoriename ist das Thema dieser Seite. */}
+      {/* `<h1>`, not `<h2>`: the category name is the subject of this page. */}
       <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>{entry.label}</h1>
 
       {/* Children from the TREE, not from `categories.subcategories()`. That call
@@ -216,10 +216,10 @@ export default async function CategoryPage({
             marginBottom: "var(--s-6)",
           }}
         >
-          {/* `prefetch={false}` wie auf der Wurzelliste: bis zu 30 Unterkategorien,
-              jede ein eigener Render mit `productsIn` plus `pricesFor`. Brotkrumen
-              und Paginierung unten prefetchen weiter — die sind wenige und werden
-              wirklich geklickt. */}
+          {/* `prefetch={false}` as on the root list: up to 30 subcategories, each
+              one its own render with `productsIn` plus `pricesFor`. The breadcrumb
+              and the pagination below keep prefetching — there are few of them and
+              they really do get clicked. */}
           {children.map((s) => (
             <Link
               key={s.id}
