@@ -8,7 +8,7 @@ export function CompanyBadge(): React.JSX.Element {
       ? (activeCompany?.name ?? "")
       : mode === "b2c"
         ? "B2C"
-        : "Bitte Firma wählen";
+        : "Select a company";
   return (
     <span
       style={{
