@@ -16,8 +16,9 @@ import { Note, Sheet } from "../../../../components/sheet";
 import { pricesFor } from "../../../../lib/prices";
 import { addToCart } from "../../../../actions/cart";
 import { isLanguage } from "../../../../lib/languages";
+import { jsonLdScript, productJsonLd } from "../../../../lib/json-ld";
 import { alternatesFor } from "../../../../lib/seo";
-import { SITE_NAME } from "../../../../lib/site-url";
+import { SITE_NAME, absoluteUrl } from "../../../../lib/site-url";
 import { siteContext } from "../../../../lib/site-context";
 import { TIMEOUTS } from "../../../../emporix";
 
@@ -160,6 +161,25 @@ export default async function ProductPage({
     .map((m) => imageOf([m]))
     .filter((u): u is string => u !== undefined);
 
+  // The CANONICAL url, not the requested one: a variant page canonicalises to its parent,
+  // and structured data claiming a different URL would be a second, contradicting
+  // statement about the same document.
+  const canonical = absoluteUrl(`/${lang}/product/${encodeURIComponent(id)}`);
+  // `code` is the merchant code — `iam-jit-access` on this tenant. An Emporix product has
+  // no `gtin`, `sku` or `ean` field, so this is what `sku` gets.
+  const code = (parent as { code?: unknown }).code;
+  const ld = productJsonLd({
+    name,
+    url: canonical,
+    description,
+    // Spread rather than `sku: undefined`: `exactOptionalPropertyTypes` is on in this
+    // repo, so an explicit undefined is not assignable to an optional property.
+    ...(typeof code === "string" ? { sku: code } : {}),
+    ...(price !== undefined
+      ? { price: { amount: price.amount, currency: price.currency } }
+      : {}),
+  });
+
   async function add(formData: FormData): Promise<void> {
     "use server";
     await addToCart(String(formData.get("productId")));
@@ -167,6 +187,12 @@ export default async function ProductPage({
 
   return (
     <main className="container pdp" style={{ paddingBlock: "var(--s-6)" }}>
+      <script
+        type="application/ld+json"
+        // `jsonLdScript`, not `JSON.stringify`: merchant text in a script body needs `<`
+        // escaped, or a description containing `</script>` closes the element.
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(ld) }}
+      />
       <Sheet
         meta={{
           route: "/[lang]/product/[id]/[[...variant]]",
