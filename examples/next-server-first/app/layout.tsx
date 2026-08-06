@@ -1,11 +1,31 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./styles/tokens.css";
 import "./styles/global.css";
 import "./styles/catalog.css";
 import { Header } from "./components/header";
+import { SITE_BASE_URL, SITE_NAME } from "./lib/site-url";
 
-export const metadata = { title: "Emporix SDK — server-first example" };
+/**
+ * The shell's metadata, and the template every page title goes through.
+ *
+ * Until 2026-08-06 this was one line with one title, and all 22 routes shared it —
+ * measured: the product page, the cart and the category listing all said «Emporix
+ * SDK — server-first example». A `template` means each page returns only its own
+ * half and the site name is written once.
+ *
+ * `metadataBase` is what turns the relative `canonical` and `hreflang` values from
+ * `lib/seo.ts` into the absolute URLs those tags have to carry. Without it Next
+ * warns on every build and emits relative hrefs, which a crawler resolves against
+ * whatever host it happened to use.
+ */
+export const metadata: Metadata = {
+  metadataBase: SITE_BASE_URL,
+  title: { default: SITE_NAME, template: `%s — ${SITE_NAME}` },
+  description:
+    "A server-first Emporix storefront: the catalogue is static and cached, the session never reaches the browser.",
+};
 
 /**
  * Three faces, three jobs — the reasoning lives in `styles/tokens.css`.

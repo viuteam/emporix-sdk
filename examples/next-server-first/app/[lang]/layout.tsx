@@ -32,5 +32,19 @@ export default async function LangLayout({
   // language the tenant does not have — and the value goes straight into
   // `Accept-Language` on every Emporix call the page makes.
   if (!isLanguage(lang)) notFound();
-  return <>{children}</>;
+  // `lang` on a wrapper, because only the ROOT layout may render `<html>` and it
+  // cannot see this segment's params. `lang` is valid on any element and the
+  // nearest ancestor wins, so this is correct for assistive technology and for the
+  // crawlers that read the attribute at all — while `<html lang="en">` stays true
+  // of the shell around it, whose UI text really is English.
+  //
+  // The two proper fixes both cost more than this demo should spend here: two root
+  // layouts via route groups turns every navigation between the catalog and a
+  // session route into a full document load, and moving the session routes under
+  // `/[lang]/…` is option B in
+  // docs/superpowers/specs/2026-08-05-language-write-from-proxy.md.
+  //
+  // The wrapper is layout-neutral: global.css styles `html` and `body` only, with
+  // no `body > *` rule and no flex or grid on `body`.
+  return <div lang={lang}>{children}</div>;
 }
