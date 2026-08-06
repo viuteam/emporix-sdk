@@ -29,7 +29,7 @@ export default async function OrderDetailPage({
   params: Promise<{ lang: string; id: string }>;
 }): Promise<React.JSX.Element> {
   const { lang, id } = await params;
-  await requireCustomer(`/account/orders/${id}`);
+  await requireCustomer(lang, `/${lang}/account/orders/${id}`);
 
   let order: unknown;
   try {
@@ -47,7 +47,7 @@ export default async function OrderDetailPage({
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">
-        <Link href="/account/orders" className="u-underline">
+        <Link href={`/${lang}/account/orders`} className="u-underline">
           ← Orders
         </Link>
       </p>

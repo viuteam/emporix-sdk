@@ -36,7 +36,7 @@ export default async function LoginPage({
             The token is in an httpOnly cookie. This page read it on the server.
           </p>
           <p className="cluster" style={{ marginTop: "var(--s-5)" }}>
-            <Link href="/account" className="btn btn--outline">
+            <Link href={`/${lang}/account`} className="btn btn--outline">
               Your account →
             </Link>
             <form action={logout}>
@@ -73,6 +73,8 @@ export default async function LoginPage({
             field was 1'190px wide in a 1440px window. */}
         <form action={login} className="form-col stack" style={{ marginTop: "var(--s-5)" }}>
           <input type="hidden" name="next" value={next} />
+          {/* A Server Action gets no route params, so the language rides along. */}
+          <input type="hidden" name="lang" value={lang} />
           <p className="field">
             <label className="field__label" htmlFor="email">
               Email

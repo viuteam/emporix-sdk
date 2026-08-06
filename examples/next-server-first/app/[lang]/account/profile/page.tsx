@@ -28,7 +28,7 @@ export default async function ProfilePage({
   params: Promise<{ lang: string }>;
 }): Promise<React.JSX.Element> {
   const { lang } = await params;
-  await requireCustomer("/account/profile");
+  await requireCustomer(lang, `/${lang}/account/profile`);
   const customer = await withEmporixSession(
     (client, ctx) => client.customers.me(ctx),
     await emporixOptions(lang),
@@ -43,7 +43,7 @@ export default async function ProfilePage({
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">
-        <Link href="/account" className="u-underline">
+        <Link href={`/${lang}/account`} className="u-underline">
           ← Account
         </Link>
       </p>

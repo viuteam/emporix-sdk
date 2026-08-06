@@ -105,7 +105,7 @@ export default async function LangLayout({
       className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}
     >
       <body>
-        <Header />
+        <Header lang={lang} />
         {children}
       </body>
     </html>

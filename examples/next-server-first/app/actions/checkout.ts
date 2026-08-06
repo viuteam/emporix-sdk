@@ -11,6 +11,7 @@ import {
 import { SITE, STORE_OPT } from "../emporix";
 import { clearCart } from "../lib/cart-session";
 import { describeError } from "../lib/describe-error";
+import { DEFAULT_LANGUAGE, isLanguage } from "../lib/languages";
 import { siteContext, emporixOptions } from "../lib/site-context";
 
 function field(form: FormData, name: string): string {
@@ -32,15 +33,20 @@ function label(name: string | Record<string, string> | undefined, fallback: stri
  * be readable by JavaScript, because the checkout runs in the browser.
  */
 export async function submitCheckout(formData: FormData): Promise<void> {
+  // A Server Action gets FormData, not route params, so the language travels as a hidden
+  // field. Not the referer: it is optional, spoofable, and absent on the first POST after
+  // a redirect. Guarded, because a form post is whatever the client sent.
+  const rawLang = String(formData.get("lang") ?? "");
+  const lang = isLanguage(rawLang) ? rawLang : DEFAULT_LANGUAGE;
   // Read-only here: this handle only answers the early-exit question. The writes
   // happen on the handle the wrapper hands over, which it also flushes.
   const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
   const cartId = handle.get(STORAGE_KEYS.cartId);
-  if (cartId === null) redirect("/checkout?error=No+cart");
+  if (cartId === null) redirect(`/${lang}/checkout?error=No+cart`);
   const saasToken = handle.get(STORAGE_KEYS.saasToken);
   const loggedIn = handle.get(STORAGE_KEYS.customerToken) !== null;
 
-  const country = field(formData, "country") || (await siteContext()).targetLocation;
+  const country = field(formData, "country") || (await siteContext(lang)).targetLocation;
   const firstName = field(formData, "firstName");
   const lastName = field(formData, "lastName");
   const modeId = field(formData, "modeId");
@@ -122,14 +128,14 @@ export async function submitCheckout(formData: FormData): Promise<void> {
       // so it is part of the one flush rather than a write nobody persists.
       clearCart(handle);
       return placed;
-    }, await emporixOptions());
+    }, await emporixOptions(lang));
     orderId = result.orderId;
   } catch (e) {
     // `redirect()` works by throwing. Every success redirect therefore lives
     // OUTSIDE this try — catching one's own redirect would swallow it.
-    redirect(`/checkout?error=${encodeURIComponent(describeError(e))}`);
+    redirect(`/${lang}/checkout?error=${encodeURIComponent(describeError(e))}`);
   }
 
   revalidatePath("/cart");
-  redirect(`/checkout/done?orderId=${encodeURIComponent(orderId ?? "")}`);
+  redirect(`/${lang}/checkout/done?orderId=${encodeURIComponent(orderId ?? "")}`);
 }

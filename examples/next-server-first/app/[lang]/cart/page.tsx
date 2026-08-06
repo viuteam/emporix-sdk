@@ -35,14 +35,14 @@ export const metadata: Metadata = {
  * be — nothing in the browser holds cart state to update optimistically. That is
  * the documented cost of this mode, not an omission.
  */
-function EmptyBag(): React.JSX.Element {
+function EmptyBag({ lang }: { lang: string }): React.JSX.Element {
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">Session</p>
       <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Your bag</h1>
       <p className="muted">
         No cart yet. Add something from the{" "}
-        <Link href="/" className="u-underline">
+        <Link href={`/${lang}`} className="u-underline">
           catalog
         </Link>
         .
@@ -63,7 +63,7 @@ export default async function CartPage({
   const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
   const cartId = handle.get(STORAGE_KEYS.cartId);
 
-  if (cartId === null) return <EmptyBag />;
+  if (cartId === null) return <EmptyBag lang={lang} />;
 
   // ONE session for the cart and the names. A second `withEmporixSession` would
   // build its own guest client and redeem the same anonymous refresh token again.
@@ -93,7 +93,7 @@ export default async function CartPage({
     // and `addToCart` recovers on its own. Until then the header badge keeps the
     // stale count — the price of not spending a cart call per page view.
     if (!(e instanceof EmporixNotFoundError)) throw e;
-    return <EmptyBag />;
+    return <EmptyBag lang={lang} />;
   }
   const { lines, total, coupons, names } = page;
 
@@ -185,7 +185,7 @@ export default async function CartPage({
             </div>
             {lines.length > 0 ? (
               <Link
-                href="/checkout"
+                href={`/${lang}/checkout`}
                 className="btn btn--accent btn--block"
                 style={{ marginTop: "var(--s-5)" }}
               >

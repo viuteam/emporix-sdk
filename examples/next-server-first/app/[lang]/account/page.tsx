@@ -26,7 +26,7 @@ export default async function AccountPage({
   params: Promise<{ lang: string }>;
 }): Promise<React.JSX.Element> {
   const { lang } = await params;
-  await requireCustomer("/account");
+  await requireCustomer(lang, `/${lang}/account`);
   const customer = await withEmporixSession(
     (client, ctx) => client.customers.me(ctx),
     await emporixOptions(lang),
@@ -52,13 +52,13 @@ export default async function AccountPage({
       </p>
 
       <nav className="cluster" style={{ gap: "var(--s-4)" }}>
-        <Link href="/account/profile" className="u-underline">
+        <Link href={`/${lang}/account/profile`} className="u-underline">
           Profile
         </Link>
-        <Link href="/account/addresses" className="u-underline">
+        <Link href={`/${lang}/account/addresses`} className="u-underline">
           Addresses
         </Link>
-        <Link href="/account/orders" className="u-underline">
+        <Link href={`/${lang}/account/orders`} className="u-underline">
           Orders
         </Link>
       </nav>

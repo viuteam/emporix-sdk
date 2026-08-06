@@ -15,14 +15,14 @@ export const metadata: Metadata = {
 };
 
 /** No cart, or one that Emporix no longer has. Same dead end for the shopper. */
-function NoCart(): React.JSX.Element {
+function NoCart({ lang }: { lang: string }): React.JSX.Element {
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">Step 2 of 2</p>
       <h1 style={{ marginBlock: "var(--s-2) var(--s-4)" }}>Checkout</h1>
       <p className="muted">
         No cart yet. Add something from the{" "}
-        <Link href="/" className="u-underline">
+        <Link href={`/${lang}`} className="u-underline">
           catalog
         </Link>
         .
@@ -91,7 +91,7 @@ export default async function CheckoutPage({
   const cartId = (await emporixSessionHandle({ readOnly: true, ...STORE_OPT })).get(
     STORAGE_KEYS.cartId,
   );
-  if (cartId === null) return <NoCart />;
+  if (cartId === null) return <NoCart lang={lang} />;
 
   // ONE session, five parallel calls. Five separate withEmporixSession calls
   // would build five guest clients and redeem the same anonymous refresh token
@@ -118,7 +118,7 @@ export default async function CheckoutPage({
     // session died with it. Offering a checkout form for a cart that no longer
     // exists is worse than saying so — the submit would 404 anyway.
     if (!(e instanceof EmporixNotFoundError)) throw e;
-    return <NoCart />;
+    return <NoCart lang={lang} />;
   }
   const { cart, modes, zones, addresses, me } = data;
 
@@ -174,6 +174,9 @@ export default async function CheckoutPage({
       {/* `.form-col` bounds the column. Without it the fields were as wide as the
           viewport — measured at 1440px, that is 1'190px for a postcode. */}
       <form action={submitCheckout} className="form-col form-col--wide">
+        {/* A Server Action gets no route params, so the language rides along — it is
+            what the three redirects out of `submitCheckout` prefix themselves with. */}
+        <input type="hidden" name="lang" value={lang} />
         <fieldset className="fgroup">
           <legend className="fgroup__title serif">Contact</legend>
           <div className="stack">

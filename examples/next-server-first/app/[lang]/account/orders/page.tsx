@@ -31,7 +31,7 @@ export default async function OrdersPage({
   searchParams: Promise<{ page?: string }>;
 }): Promise<React.JSX.Element> {
   const { lang } = await params;
-  await requireCustomer("/account/orders");
+  await requireCustomer(lang, `/${lang}/account/orders`);
   const page = Math.max(1, Number((await searchParams).page) || 1);
   const result = await withEmporixSession(
     (client, ctx) => client.orders.listMine(ctx, { pageNumber: page, pageSize: PAGE_SIZE }),
@@ -41,7 +41,7 @@ export default async function OrdersPage({
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <p className="eyebrow">
-        <Link href="/account" className="u-underline">
+        <Link href={`/${lang}/account`} className="u-underline">
           ← Account
         </Link>
       </p>
@@ -54,7 +54,7 @@ export default async function OrdersPage({
           {page > 1 ? (
             <>
               Nothing on page {page}.{" "}
-              <Link href="/account/orders" className="u-underline">
+              <Link href={`/${lang}/account/orders`} className="u-underline">
                 Back to page 1
               </Link>
               .
@@ -78,7 +78,7 @@ export default async function OrdersPage({
                       call. A list of 20 orders would fire 20 of them while
                       scrolling. */}
                   <Link
-                    href={`/account/orders/${encodeURIComponent(vm.id)}`}
+                    href={`/${lang}/account/orders/${encodeURIComponent(vm.id)}`}
                     className="u-underline serif"
                     prefetch={false}
                   >
@@ -100,13 +100,13 @@ export default async function OrdersPage({
             style={{ gap: "var(--s-4)", marginTop: "var(--s-6)", alignItems: "center" }}
           >
             {page > 1 ? (
-              <Link href={`/account/orders?page=${page - 1}`} className="btn btn--outline">
+              <Link href={`/${lang}/account/orders?page=${page - 1}`} className="btn btn--outline">
                 ← Previous
               </Link>
             ) : null}
             <span className="muted">Page {page}</span>
             {result.hasNextPage ? (
-              <Link href={`/account/orders?page=${page + 1}`} className="btn btn--outline">
+              <Link href={`/${lang}/account/orders?page=${page + 1}`} className="btn btn--outline">
                 Next →
               </Link>
             ) : null}

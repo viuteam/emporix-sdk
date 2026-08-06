@@ -11,6 +11,7 @@ import {
 } from "@viu/emporix-sdk-next/session";
 import { STORE_OPT } from "../emporix";
 import { setCart } from "../lib/cart-session";
+import { DEFAULT_LANGUAGE, isLanguage } from "../lib/languages";
 import { safeNext } from "../lib/safe-next";
 import { emporixOptions } from "../lib/site-context";
 
@@ -46,9 +47,17 @@ export async function login(formData: FormData): Promise<void> {
     }, await emporixOptions());
   }
   revalidatePath("/", "layout");
+  // The fallback is the visitor's language home, not `/`: `/` is a proxy redirect now,
+  // so returning it would cost a hop after every login that arrived without a `next`.
+  //
+  // A Server Action gets FormData, not route params, so the language travels as a hidden
+  // field — and it is guarded, because a form post is whatever the client sent. Same
+  // reason `safeNext` is applied twice in this file.
+  const raw = String(formData.get("lang") ?? "");
+  const fallback = `/${isLanguage(raw) ? raw : DEFAULT_LANGUAGE}`;
   // safeNext again, not just when the field was rendered: the value arrives in a
   // form post and a form post is whatever the client sent.
-  redirect(safeNext(String(formData.get("next") ?? "/")));
+  redirect(safeNext(String(formData.get("next") ?? fallback)));
 }
 
 export async function logout(): Promise<void> {

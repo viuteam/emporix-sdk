@@ -52,10 +52,10 @@ export default async function CheckoutDonePage({
         </div>
 
         <p className="cluster" style={{ marginTop: "var(--s-6)" }}>
-          <Link href="/" className="btn btn--outline">
+          <Link href={`/${lang}`} className="btn btn--outline">
             Back to the catalog
           </Link>
-          <Link href="/debug" className="u-underline">
+          <Link href={`/${lang}/debug`} className="u-underline">
             Inspect the session →
           </Link>
         </p>
