@@ -73,5 +73,10 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|robots.txt).*)"],
+  // `sitemap.xml` and `icon.svg` join `robots.txt`: they are files for machines,
+  // they carry no session and no language, and rotating a token for them is work
+  // for nobody.
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|icon.svg).*)",
+  ],
 };
