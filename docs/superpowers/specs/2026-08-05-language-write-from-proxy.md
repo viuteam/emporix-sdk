@@ -1,6 +1,7 @@
 # May middleware write the language cookie from the path?
 
-**Status:** analysis. Options 1 and 2 shipped, option B still open.
+**Status:** analysis. Options 1 and 2 shipped; **option B shipped 2026-08-06** — see
+[`2026-08-06-session-routes-under-lang-design.md`](./2026-08-06-session-routes-under-lang-design.md).
 **Date:** 2026-08-05
 **Affects:** `packages/next/src/proxy.ts` (`emporixSiteProxy`), `examples/next-server-first/proxy.ts`
 **Origin:** found while measuring for the discarded prefetch guard — see [`../plans/2026-08-05-prefetch-guard-proxy.md`](../plans/2026-08-05-prefetch-guard-proxy.md).
@@ -97,6 +98,11 @@ language change in this app goes through the switcher, which writes its cookie i
 via the route handler. The middleware write only matters for *first contact* — and a
 first contact is always a document navigation.
 
+**No longer exercised by this example.** Option B removed the language cookie, so
+`examples/next-server-first` passes the proxy no `site` at all and never reaches this
+gate. The gate stays in the package for other consumers, and
+`packages/next/tests/proxy.test.ts` plus `navigation.test.ts` are now its only coverage.
+
 A missing `sec-fetch-mode` (old browsers, curl, bots) counts as a navigation:
 fail-open, because the absent header shows up on a bot whose cookie nobody cares
 about, and because it keeps the ten existing `proxy.test.ts` cases valid.
@@ -110,7 +116,7 @@ request fell back to English against the tenant's own default.
 Does **not** fix the prefetch defect — a wrongly set cookie stays wrong. But it is a
 defect in its own right in shared code, and it makes the cookie-less state harmless.
 
-### B — Move the session routes under `/[lang]/…` ⏳ open
+### B — Move the session routes under `/[lang]/…` ✅ shipped 2026-08-06
 
 Then **every** route reads the language from the URL and the cookie is not needed for
 language at all. The middleware write disappears, and the whole class of failure with

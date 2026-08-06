@@ -57,7 +57,13 @@ export async function generateMetadata({
   // cast appears there.
   if (!isLanguage(lang)) return {};
   return {
-    title: "Catalog",
+    // The site name is spelled out here, and that is not an oversight.
+    // `title.template` applies to **child** segments only, and since the root layout
+    // moved to `app/[lang]/layout.tsx` this page is in the *same* segment as the layout
+    // that owns the template — so it no longer inherits it. Measured 2026-08-06: `/de`
+    // answered `<title>Catalog</title>` while `/de/categories`, a real child, still
+    // answered `<title>Categories — Server/First</title>`.
+    title: `Catalog — ${SITE_NAME}`,
     description:
       "Products from one priced category of the viu tenant, rendered once and served from the cache.",
     alternates: alternatesFor(lang, ""),
