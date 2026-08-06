@@ -3,8 +3,8 @@ import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { money, orderVM } from "@viu/emporix-examples-shared";
 
-import { requireCustomer } from "../../lib/require-customer";
-import { emporixOptions } from "../../lib/site-context";
+import { requireCustomer } from "../../../lib/require-customer";
+import { emporixOptions } from "../../../lib/site-context";
 
 /** Per visitor — see the reasoning on `app/cart/page.tsx`. */
 export const metadata: Metadata = {
@@ -24,15 +24,18 @@ const PAGE_SIZE = 10;
  * detail page the second, and neither has to know.
  */
 export default async function OrdersPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ lang: string }>;
   searchParams: Promise<{ page?: string }>;
 }): Promise<React.JSX.Element> {
+  const { lang } = await params;
   await requireCustomer("/account/orders");
   const page = Math.max(1, Number((await searchParams).page) || 1);
   const result = await withEmporixSession(
     (client, ctx) => client.orders.listMine(ctx, { pageNumber: page, pageSize: PAGE_SIZE }),
-    await emporixOptions(),
+    await emporixOptions(lang),
   );
 
   return (

@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 
-import { requireCustomer } from "../../lib/require-customer";
-import { ActionForm } from "../../components/action-form";
-import { ADDRESS_FIELDS } from "../../lib/address-fields";
-import { addAddress, deleteAddress, updateAddress } from "../../actions/account";
-import { emporixOptions } from "../../lib/site-context";
+import { requireCustomer } from "../../../lib/require-customer";
+import { ActionForm } from "../../../components/action-form";
+import { ADDRESS_FIELDS } from "../../../lib/address-fields";
+import { addAddress, deleteAddress, updateAddress } from "../../../actions/account";
+import { emporixOptions } from "../../../lib/site-context";
 
 /** Per visitor — see the reasoning on `app/cart/page.tsx`. */
 export const metadata: Metadata = {
@@ -22,11 +22,16 @@ export const metadata: Metadata = {
  * Each address is its own `ActionForm`, so an error on one does not clear the
  * others: `useActionState` keeps its state per component instance.
  */
-export default async function AddressesPage(): Promise<React.JSX.Element> {
+export default async function AddressesPage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<React.JSX.Element> {
+  const { lang } = await params;
   await requireCustomer("/account/addresses");
   const addresses = await withEmporixSession(
     (client, ctx) => client.customers.addresses.list(ctx),
-    await emporixOptions(),
+    await emporixOptions(lang),
   );
 
   return (

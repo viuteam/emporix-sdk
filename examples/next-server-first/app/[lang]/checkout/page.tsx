@@ -3,10 +3,10 @@ import Link from "next/link";
 import { EmporixNotFoundError, pickFee, resolveZone, type Address } from "@viu/emporix-sdk";
 import { money, pickText } from "@viu/emporix-examples-shared";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
-import { SITE, STORE_OPT } from "../emporix";
-import { Note, Sheet } from "../components/sheet";
-import { submitCheckout } from "../actions/checkout";
-import { siteContext, emporixOptions } from "../lib/site-context";
+import { SITE, STORE_OPT } from "../../emporix";
+import { Note, Sheet } from "../../components/sheet";
+import { submitCheckout } from "../../actions/checkout";
+import { siteContext, emporixOptions } from "../../lib/site-context";
 
 /** Per visitor — see the reasoning on `app/cart/page.tsx`. */
 export const metadata: Metadata = {
@@ -77,14 +77,17 @@ function label(name: string | Record<string, string> | undefined, fallback: stri
 }
 
 export default async function CheckoutPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ lang: string }>;
   searchParams: Promise<{ error?: string }>;
 }): Promise<React.JSX.Element> {
+  const { lang } = await params;
   const { error } = await searchParams;
   // The shipping country comes from the session context now, not a module
   // constant — same source the Emporix calls below bind.
-  const { targetLocation } = await siteContext();
+  const { targetLocation } = await siteContext(lang);
   const cartId = (await emporixSessionHandle({ readOnly: true, ...STORE_OPT })).get(
     STORAGE_KEYS.cartId,
   );
@@ -109,7 +112,7 @@ export default async function CheckoutPage({
         c.customers.me(ctx).catch(() => undefined),
       ]);
       return { cart, modes, zones, addresses, me };
-    }, await emporixOptions());
+    }, await emporixOptions(lang));
   } catch (e) {
     // Checked out on another device: that closed this cart, and the id in this
     // session died with it. Offering a checkout form for a cart that no longer
@@ -134,7 +137,7 @@ export default async function CheckoutPage({
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <Sheet
         meta={{
-          route: "/checkout",
+          route: "/[lang]/checkout",
           render: "dynamic",
           because: "session cookie · searchParams",
         }}

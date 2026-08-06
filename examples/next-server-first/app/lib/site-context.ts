@@ -93,9 +93,9 @@ export async function siteContext(lang?: string): Promise<{
 }
 
 /** The same thing for the session calls. Replaces the exported `EMPORIX`. */
-export async function emporixOptions(): Promise<WithEmporixSessionOptions> {
+export async function emporixOptions(lang?: string): Promise<WithEmporixSessionOptions> {
   return {
-    context: await siteContext(),
+    context: await siteContext(lang),
     timeouts: TIMEOUTS,
     ...(SESSION_STORE !== undefined ? { store: SESSION_STORE } : {}),
   };

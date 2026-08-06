@@ -3,12 +3,12 @@ import Link from "next/link";
 import { EmporixNotFoundError } from "@viu/emporix-sdk";
 import { STORAGE_KEYS, emporixSessionHandle, withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { cartCoupons, cartLines, cartTotal, money } from "@viu/emporix-examples-shared";
-import { STORE_OPT } from "../emporix";
-import { ActionForm } from "../components/action-form";
-import { Note, TitleBlock } from "../components/sheet";
-import { namesFor } from "../lib/product-names";
-import { applyCoupon, removeCoupon, removeLine, setQuantity } from "../actions/cart";
-import { emporixOptions } from "../lib/site-context";
+import { STORE_OPT } from "../../emporix";
+import { ActionForm } from "../../components/action-form";
+import { Note, TitleBlock } from "../../components/sheet";
+import { namesFor } from "../../lib/product-names";
+import { applyCoupon, removeCoupon, removeLine, setQuantity } from "../../actions/cart";
+import { emporixOptions } from "../../lib/site-context";
 
 /**
  * `noindex, follow`: this page is per visitor, so an index entry for it is either
@@ -51,7 +51,12 @@ function EmptyBag(): React.JSX.Element {
   );
 }
 
-export default async function CartPage(): Promise<React.JSX.Element> {
+export default async function CartPage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<React.JSX.Element> {
+  const { lang } = await params;
   // emporixSessionHandle, not cookies(): it applies the __Host- prefix and the codec.
   // Reading raw would hand back ciphertext once EMPORIX_COOKIE_SECRET is set — a
   // cart id Emporix has never heard of.
@@ -77,7 +82,7 @@ export default async function CartPage(): Promise<React.JSX.Element> {
           l.map((x) => x.productId),
         ),
       };
-    }, await emporixOptions());
+    }, await emporixOptions(lang));
   } catch (e) {
     // The same customer checked out on another device, which closed this cart.
     // Show the empty bag rather than an error boundary — the cart is gone, and
@@ -195,7 +200,7 @@ export default async function CartPage(): Promise<React.JSX.Element> {
               distinguishes something, so in the header and around the typeahead. */}
           <TitleBlock
             meta={{
-              route: "/cart",
+              route: "/[lang]/cart",
               render: "dynamic",
               because: "session cookie",
               islands: ["one per mutation form"],

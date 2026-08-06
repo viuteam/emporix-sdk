@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 
-import { ProductGrid } from "../components/product-grid";
-import { Note, Sheet } from "../components/sheet";
-import { pricesFor } from "../lib/prices";
-import { siteContext } from "../lib/site-context";
-import { DEFAULT_LANGUAGE } from "../lib/languages";
-import { TIMEOUTS } from "../emporix";
+import { ProductGrid } from "../../components/product-grid";
+import { Note, Sheet } from "../../components/sheet";
+import { pricesFor } from "../../lib/prices";
+import { siteContext } from "../../lib/site-context";
+import { TIMEOUTS } from "../../emporix";
 
 /** Per visitor, and an unbounded query space — see the reasoning on `app/cart/page.tsx`. */
 export const metadata: Metadata = {
@@ -26,15 +25,18 @@ export const metadata: Metadata = {
  * «The catalog/cart split» in the README.
  */
 export default async function SearchPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ lang: string }>;
   searchParams: Promise<{ q?: string }>;
 }): Promise<React.JSX.Element> {
+  // The language comes from the URL like everywhere else. This page used to derive it
+  // from the context and fall back to `DEFAULT_LANGUAGE`, because it lived outside
+  // `/[lang]/…` and had nothing better to read.
+  const { lang } = await params;
   const q = ((await searchParams).q ?? "").trim();
-  const ctx = await siteContext();
-  // Search reads `searchParams`, so it is dynamic no matter what — it keeps the
-  // cookie language. The grid still needs a prefix for its product links.
-  const lang = ctx.language ?? DEFAULT_LANGUAGE;
+  const ctx = await siteContext(lang);
   const client = getEmporixClient({ context: ctx, timeouts: TIMEOUTS });
 
   // `searchByName` builds the Emporix `name:(~…)` filter and escapes the regex
@@ -45,7 +47,7 @@ export default async function SearchPage({
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <Sheet
-        meta={{ route: "/search", render: "dynamic", because: "searchParams" }}
+        meta={{ route: "/[lang]/search", render: "dynamic", because: "searchParams" }}
         rail={
           <Note title="No client state">
             The header&rsquo;s search box is a plain <code>GET</code> form, so the

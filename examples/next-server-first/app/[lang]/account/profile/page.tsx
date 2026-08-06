@@ -3,10 +3,10 @@ import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { pickText } from "@viu/emporix-examples-shared";
 
-import { requireCustomer } from "../../lib/require-customer";
-import { ActionForm } from "../../components/action-form";
-import { changePassword, updateProfile } from "../../actions/account";
-import { emporixOptions } from "../../lib/site-context";
+import { requireCustomer } from "../../../lib/require-customer";
+import { ActionForm } from "../../../components/action-form";
+import { changePassword, updateProfile } from "../../../actions/account";
+import { emporixOptions } from "../../../lib/site-context";
 
 /** Per visitor — see the reasoning on `app/cart/page.tsx`. */
 export const metadata: Metadata = {
@@ -22,9 +22,17 @@ export const metadata: Metadata = {
  * the same fields in `useState` and syncs them — which is the reason its form has
  * to think about stale state after a save, and this one does not.
  */
-export default async function ProfilePage(): Promise<React.JSX.Element> {
+export default async function ProfilePage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<React.JSX.Element> {
+  const { lang } = await params;
   await requireCustomer("/account/profile");
-  const customer = await withEmporixSession((client, ctx) => client.customers.me(ctx), await emporixOptions());
+  const customer = await withEmporixSession(
+    (client, ctx) => client.customers.me(ctx),
+    await emporixOptions(lang),
+  );
   const c = customer as {
     firstName?: unknown;
     lastName?: unknown;

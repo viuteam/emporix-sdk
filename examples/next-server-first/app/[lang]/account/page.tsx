@@ -3,8 +3,8 @@ import Link from "next/link";
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
 import { pickText } from "@viu/emporix-examples-shared";
 
-import { requireCustomer } from "../lib/require-customer";
-import { emporixOptions } from "../lib/site-context";
+import { requireCustomer } from "../../lib/require-customer";
+import { emporixOptions } from "../../lib/site-context";
 
 /** Per visitor — see the reasoning on `app/cart/page.tsx`. */
 export const metadata: Metadata = {
@@ -20,9 +20,17 @@ export const metadata: Metadata = {
  * that redirects from the client — which means it renders once, unauthenticated,
  * before deciding. This never does.
  */
-export default async function AccountPage(): Promise<React.JSX.Element> {
+export default async function AccountPage({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<React.JSX.Element> {
+  const { lang } = await params;
   await requireCustomer("/account");
-  const customer = await withEmporixSession((client, ctx) => client.customers.me(ctx), await emporixOptions());
+  const customer = await withEmporixSession(
+    (client, ctx) => client.customers.me(ctx),
+    await emporixOptions(lang),
+  );
   // `contactEmail`, not `email` — the latter is empty on this shape. Checked
   // against `storefront-demo/src/account/ProfileForm.tsx`, which reads the same
   // four fields against the real tenant.

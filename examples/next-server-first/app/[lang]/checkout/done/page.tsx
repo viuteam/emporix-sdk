@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Note, Sheet } from "../../components/sheet";
+import { Note, Sheet } from "../../../components/sheet";
 
 /** Per visitor — see the reasoning on `app/cart/page.tsx`. */
 export const metadata: Metadata = {
@@ -9,15 +9,18 @@ export const metadata: Metadata = {
 };
 
 export default async function CheckoutDonePage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ lang: string }>;
   searchParams: Promise<{ orderId?: string }>;
 }): Promise<React.JSX.Element> {
+  const { lang } = await params;
   const { orderId } = await searchParams;
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <Sheet
-        meta={{ route: "/checkout/done", render: "dynamic", because: "searchParams" }}
+        meta={{ route: "/[lang]/checkout/done", render: "dynamic", because: "searchParams" }}
         rail={
           <Note title="Not paid">
             With the <code>custom</code> payment provider Emporix creates the order in
