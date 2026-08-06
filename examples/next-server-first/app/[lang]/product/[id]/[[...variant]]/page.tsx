@@ -107,6 +107,10 @@ export default async function ProductPage({
   // The chosen variant is a PATH segment, not `?variant=`: `searchParams` would
   // make this route dynamic, and a variant is a document worth its own cacheable
   // URL anyway — bookmarkable, crawlable, one cache entry each.
+  //
+  // More than one segment is not a variant URL. `/de/product/x/a/b/c` answered 200
+  // before — measured 2026-08-06.
+  if (variant !== undefined && variant.length > 1) notFound();
   const chosen = variant?.[0];
   const client = getEmporixClient({ context: await siteContext(lang), timeouts: TIMEOUTS });
 
@@ -129,7 +133,21 @@ export default async function ProductPage({
   // type-narrowing the five shapes of Emporix's Product union to find out first.
   const children = await client.products.listVariantChildren(id, { pageSize: 50 }, undefined);
 
-  const selected = children.find((c) => (c as { id?: string }).id === chosen) ?? children[0] ?? parent;
+  let selected = children[0] ?? parent;
+  if (chosen !== undefined) {
+    const match = children.find((c) => (c as { id?: string }).id === chosen);
+    // A variant segment that names nothing is not a document. On this tenant that is
+    // *every* variant segment, because `children` is always empty — correct rather
+    // than a regression: `/de/product/x/bogus` answered 200 before and was never a
+    // page.
+    //
+    // A statement rather than `children.find(…) ?? notFound()`, although the latter
+    // type-checks because `notFound()` returns `never`: every other guard in this file
+    // is a statement, and a control-flow jump hidden inside a `??` is the kind of line
+    // somebody reads twice.
+    if (match === undefined) notFound();
+    selected = match;
+  }
   const selectedId = (selected as { id?: string }).id ?? id;
 
   const priceOf = await pricesFor(client, undefined, [selected]);
