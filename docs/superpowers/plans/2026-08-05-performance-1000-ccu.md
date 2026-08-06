@@ -2,61 +2,61 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Die drei Code-Befunde aus der 1'000-CCU-Analyse beheben, die bei diesem Lastprofil zuerst greifen — Session-Read-Verstärkung, nicht gecachte Public-Route, Session-Read im TTFB-Pfad — plus die HTTP-Timeouts konfigurierbar machen.
+**Goal:** Fix the three code findings from the 1'000-CCU analysis that bite first under this load profile — session-read amplification, uncached public route, session read in the TTFB path — plus make the HTTP timeouts configurable.
 
-**Architecture:** Drei der vier Fixes liegen im `@viu/emporix-sdk-next`-Package, damit jeder Konsument sie bekommt und nicht nur das Beispiel. Das Per-Request-Memo benutzt eine `WeakMap`, verankert am request-scoped Objekt aus `await cookies()` — kein `react`-Import, damit die in [#216](https://github.com/viuteam/emporix-sdk/pull/216) entfernte React-Abhängigkeit entfernt bleibt. Nur **read-only** Handles werden geteilt; mutable Handles bleiben pro Aufruf, weil `emporixLogin` bewusst zwei baut und dazwischen flusht.
+**Architecture:** Three of the four fixes live in the `@viu/emporix-sdk-next` package so that every consumer gets them and not just the example. The per-request memo uses a `WeakMap` anchored on the request-scoped object from `await cookies()` — no `react` import, so that the React dependency removed in [#216](https://github.com/viuteam/emporix-sdk/pull/216) stays removed. Only **read-only** handles are shared; mutable handles stay per call, because `emporixLogin` deliberately builds two and flushes in between.
 
 **Tech Stack:** TypeScript, Next 16 (App Router, Node runtime), Vitest + MSW, pnpm workspace, Changesets.
 
 ## Global Constraints
 
-- `@viu/emporix-sdk-next` importiert **kein** `react` und **kein** `@tanstack/react-query` — gepinnt durch `packages/next/tests/no-react-dependency.test.ts`. Jede Lösung, die das bricht, ist falsch.
-- Node-Runtime-only im next-Package (`node:crypto` in `cookie-crypto.ts`). Kein Edge.
-- Commitlint-Scopes: nur `repo, release, sdk, react, core, customer, product, category, cart, checkout, payment, price, media, segment, availability, auth, http, logger, deps, docs, examples`. **`next` ist kein erlaubter Scope.** Erstes Wort nach dem Scope kleingeschrieben.
-- Jeder PR gegen `main` braucht einen Changeset — der Gate läuft unkonditioniert (`changeset-check.yml:26`).
-- Feature-Branch pro Task-Gruppe, PR gegen `main`, kein Merge ohne Freigabe.
-- **Keine Lasttests ausführen.** Verifikation erfolgt über Unit-Tests und, wo nötig, manuelles Zählen im Dev-Server-Log.
-- Examples typechecken gegen `dist/`: nach SDK-/next-Änderungen `pnpm -F @viu/emporix-sdk build && pnpm -F @viu/emporix-sdk-next build` vor dem Example-Typecheck.
+- `@viu/emporix-sdk-next` imports **no** `react` and **no** `@tanstack/react-query` — pinned by `packages/next/tests/no-react-dependency.test.ts`. Any solution that breaks that is wrong.
+- Node-runtime-only in the next package (`node:crypto` in `cookie-crypto.ts`). No Edge.
+- Commitlint scopes: only `repo, release, sdk, react, core, customer, product, category, cart, checkout, payment, price, media, segment, availability, auth, http, logger, deps, docs, examples`. **`next` is not an allowed scope.** First word after the scope in lowercase.
+- Every PR against `main` needs a changeset — the gate runs unconditionally (`changeset-check.yml:26`).
+- Feature branch per task group, PR against `main`, no merge without approval.
+- **Do not run load tests.** Verification happens through unit tests and, where necessary, manual counting in the dev-server log.
+- Examples typecheck against `dist/`: after SDK/next changes, `pnpm -F @viu/emporix-sdk build && pnpm -F @viu/emporix-sdk-next build` before the example typecheck.
 
-## Ausgangsmessung (aus der Analyse, nicht neu erheben)
+## Baseline measurement (from the analysis, do not re-measure)
 
-| Pfad | Ist | Soll nach diesem Plan |
+| Path | Current | Target after this plan |
 |---|---|---|
-| Session-Reads pro Seitenaufruf `/cart` | 7 | **2** (Proxy + ein Render-Read) |
-| Emporix-Calls pro Typeahead-Tastendruck | 1 | **0** bei Cache-Hit |
-| TTFB-Blocker durch Session/Redis | ja | nein (Suspense-Insel) |
-| `readMs` | 60 s | 8 s im Beispiel, Default unverändert |
+| Session reads per `/cart` page view | 7 | **2** (proxy + one render read) |
+| Emporix calls per typeahead keystroke | 1 | **0** on a cache hit |
+| TTFB blocked by session/Redis | yes | no (Suspense island) |
+| `readMs` | 60 s | 8 s in the example, default unchanged |
 
 ## File Structure
 
-| Datei | Verantwortung | Task |
+| File | Responsibility | Task |
 |---|---|---|
-| `packages/next/src/request-scope.ts` | **neu.** Per-Request-Memo über `WeakMap`, verankert an einem beliebigen request-scoped Objekt. Kennt keine Session-Semantik. | 1 |
-| `packages/next/src/session-cookies.ts` | `emporixSessionHandle` teilt read-only Handles über das Memo; Body nach `buildHandle` extrahiert. | 1 |
-| `packages/next/src/public-route.ts` | Upstream-`fetch` bekommt Tags + `revalidate`, Response bekommt `Cache-Control`. | 2 |
-| `packages/next/src/client.ts` | `GetEmporixClientOptions.timeouts` inkl. Memo-Key. | 3 |
-| `packages/next/src/session-client.ts` | `WithEmporixSessionOptions.timeouts` an `newGuestClient`. | 3 |
-| `examples/next-server-first/app/emporix.ts` | Zentrale Timeout-Werte für das Beispiel. | 3 |
-| `examples/next-server-first/app/lib/category-index.ts` | **neu.** Vorverarbeiteter Index (id → Label/Pfad/Kinder) in `unstable_cache`, statt 378 KiB Rohbaum pro Render. | 4 |
-| `examples/next-server-first/app/components/header.tsx` | Statische Shell; der session-lesende Teil wandert in `session-nav.tsx`. | 5 |
-| `examples/next-server-first/app/components/session-nav.tsx` | **neu.** Der einzige Teil des Headers, der die Session liest — hinter `Suspense`. | 5 |
+| `packages/next/src/request-scope.ts` | **new.** Per-request memo via `WeakMap`, anchored on an arbitrary request-scoped object. Knows nothing about session semantics. | 1 |
+| `packages/next/src/session-cookies.ts` | `emporixSessionHandle` shares read-only handles via the memo; body extracted into `buildHandle`. | 1 |
+| `packages/next/src/public-route.ts` | The upstream `fetch` gets tags + `revalidate`, the response gets `Cache-Control`. | 2 |
+| `packages/next/src/client.ts` | `GetEmporixClientOptions.timeouts` including the memo key. | 3 |
+| `packages/next/src/session-client.ts` | `WithEmporixSessionOptions.timeouts` passed to `newGuestClient`. | 3 |
+| `examples/next-server-first/app/emporix.ts` | Central timeout values for the example. | 3 |
+| `examples/next-server-first/app/lib/category-index.ts` | **new.** Pre-processed index (id → label/path/children) in `unstable_cache`, instead of a 378 KiB raw tree per render. | 4 |
+| `examples/next-server-first/app/components/header.tsx` | Static shell; the session-reading part moves into `session-nav.tsx`. | 5 |
+| `examples/next-server-first/app/components/session-nav.tsx` | **new.** The only part of the header that reads the session — behind `Suspense`. | 5 |
 
 ---
 
-### Task 1: Per-Request-Memo für read-only Session-Handles
+### Task 1: Per-request memo for read-only session handles
 
-Der Kern. Auf `/cart` werden heute sieben Handles gebaut, sechs davon read-only, jedes mit eigenem `await cookies()`, `await headers()`, Cookie-Parsing plus AES-GCM — und im Store-Modus mit eigenem Redis-`read`. Belegt: `token-proxy.ts:75`, `header.tsx:20`, `header.tsx:21`, `language-switcher.tsx:16`, `cart/page.tsx:20`, `site-context.ts:53`, `session-client.ts:102`.
+The core. On `/cart`, seven handles are built today, six of them read-only, each with its own `await cookies()`, `await headers()`, cookie parsing plus AES-GCM — and in store mode with its own Redis `read`. Evidence: `token-proxy.ts:75`, `header.tsx:20`, `header.tsx:21`, `language-switcher.tsx:16`, `cart/page.tsx:20`, `site-context.ts:53`, `session-client.ts:102`.
 
 **Files:**
 - Create: `packages/next/src/request-scope.ts`
-- Modify: `packages/next/src/session-cookies.ts:112-221` (Body von `emporixSessionHandle`)
-- Test: `packages/next/tests/request-scope.test.ts` (neu), `packages/next/tests/session-store.test.ts` (bestehende Erwartungen prüfen)
+- Modify: `packages/next/src/session-cookies.ts:112-221` (body of `emporixSessionHandle`)
+- Test: `packages/next/tests/request-scope.test.ts` (new), `packages/next/tests/session-store.test.ts` (check the existing expectations)
 
 **Interfaces:**
-- Produces: `requestScoped<T>(anchor: object, key: string, build: () => Promise<T>): Promise<T>` — memoisiert das **Promise**, damit parallele Aufrufer denselben Bau teilen.
-- Consumes: nichts aus anderen Tasks.
+- Produces: `requestScoped<T>(anchor: object, key: string, build: () => Promise<T>): Promise<T>` — memoizes the **promise**, so that concurrent callers share the same build.
+- Consumes: nothing from other tasks.
 
-- [ ] **Step 1: Failing test für das Memo schreiben**
+- [ ] **Step 1: Write a failing test for the memo**
 
 `packages/next/tests/request-scope.test.ts`:
 
@@ -122,12 +122,12 @@ describe("requestScoped", () => {
 });
 ```
 
-- [ ] **Step 2: Test laufen lassen, Fehlschlag bestätigen**
+- [ ] **Step 2: Run the test, confirm it fails**
 
 Run: `cd packages/next && npx vitest run tests/request-scope.test.ts`
 Expected: FAIL — «Failed to resolve import "../src/request-scope"».
 
-- [ ] **Step 3: `request-scope.ts` implementieren**
+- [ ] **Step 3: Implement `request-scope.ts`**
 
 ```ts
 /**
@@ -173,14 +173,14 @@ export function requestScoped<T>(
 }
 ```
 
-- [ ] **Step 4: Test laufen lassen, grün bestätigen**
+- [ ] **Step 4: Run the test, confirm it is green**
 
 Run: `cd packages/next && npx vitest run tests/request-scope.test.ts`
-Expected: PASS (5 Tests).
+Expected: PASS (5 tests).
 
-- [ ] **Step 5: `emporixSessionHandle` auf das Memo umstellen**
+- [ ] **Step 5: Switch `emporixSessionHandle` over to the memo**
 
-In `packages/next/src/session-cookies.ts` den bestehenden Funktionsbody nach `buildHandle` verschieben und die öffentliche Funktion so ersetzen:
+In `packages/next/src/session-cookies.ts`, move the existing function body into `buildHandle` and replace the public function with this:
 
 ```ts
 export async function emporixSessionHandle(
@@ -208,13 +208,13 @@ export async function emporixSessionHandle(
 }
 ```
 
-`buildHandle` bekommt die Signatur `async function buildHandle(jar: Awaited<ReturnType<typeof cookies>>, opts: { readOnly?: boolean; store?: EmporixSessionStore }): Promise<EmporixSessionHandle>` und enthält den heutigen Code ab `const readOnly = opts.readOnly ?? false;` unverändert — inklusive `await isSecure()` und der Store-Hydration.
+`buildHandle` gets the signature `async function buildHandle(jar: Awaited<ReturnType<typeof cookies>>, opts: { readOnly?: boolean; store?: EmporixSessionStore }): Promise<EmporixSessionHandle>` and contains today's code from `const readOnly = opts.readOnly ?? false;` onwards unchanged — including `await isSecure()` and the store hydration.
 
-Import ergänzen: `import { requestScoped } from "./request-scope";`
+Add the import: `import { requestScoped } from "./request-scope";`
 
-- [ ] **Step 6: Failing test für das geteilte Handle schreiben**
+- [ ] **Step 6: Write a failing test for the shared handle**
 
-In `packages/next/tests/session-store.test.ts` ergänzen (der `fakeStore` dort zählt Reads bereits nicht — deshalb ein eigener Zähler):
+Add to `packages/next/tests/session-store.test.ts` (the `fakeStore` there already does not count reads — hence a dedicated counter):
 
 ```ts
 it("reads the store ONCE for two read-only handles in the same request", async () => {
@@ -240,28 +240,28 @@ it("still builds a fresh handle for every MUTABLE call", async () => {
 });
 ```
 
-- [ ] **Step 7: Tests laufen lassen**
+- [ ] **Step 7: Run the tests**
 
 Run: `cd packages/next && npx vitest run tests/session-store.test.ts tests/session-client.test.ts tests/session-auth.test.ts`
-Expected: PASS. Falls `session-auth.test.ts` bricht, ist die read-only-Abgrenzung falsch implementiert — nicht den Test anpassen, den Code prüfen.
+Expected: PASS. If `session-auth.test.ts` breaks, the read-only boundary is implemented wrongly — do not adjust the test, check the code.
 
-- [ ] **Step 8: Volle Suite plus Typecheck**
+- [ ] **Step 8: Full suite plus typecheck**
 
 Run: `pnpm -F @viu/emporix-sdk-next test && pnpm -F @viu/emporix-sdk-next build && pnpm typecheck`
-Expected: alles grün, 10/10 Projekte.
+Expected: everything green, 10/10 projects.
 
-- [ ] **Step 9: Anker-Identität manuell verifizieren**
+- [ ] **Step 9: Verify the anchor identity manually**
 
-Die Unit-Tests beweisen das Memo, nicht dass Next pro Request dasselbe `cookies()`-Objekt liefert — das ist ein Implementierungsdetail und muss einmal am laufenden Server geprüft werden.
+The unit tests prove the memo, not that Next hands out the same `cookies()` object per request — that is an implementation detail and has to be checked once against a running server.
 
 ```bash
 cd examples/next-server-first
-# In app/session-store.ts temporär: console.log("[redis] GET", id) in read() einfügen.
+# Temporarily in app/session-store.ts: add console.log("[redis] GET", id) inside read().
 EMPORIX_SESSION_REDIS_URL=redis://localhost:6379 pnpm dev
-# Dann /cart aufrufen und die GET-Zeilen pro Request zählen.
+# Then hit /cart and count the GET lines per request.
 ```
 
-Erwartet: **2** Zeilen pro Seitenaufruf (Proxy plus ein Render-Read), vorher 7. Kommen weiterhin 7, ist die Anker-Annahme falsch — dann Task 1 auf `react`'s `cache()` umstellen und die peerDependency-Frage neu stellen (siehe «Offener Entscheidungspunkt»). Den `console.log` danach entfernen.
+Expected: **2** lines per page view (proxy plus one render read), 7 before. If 7 still show up, the anchor assumption is wrong — then switch Task 1 over to `react`'s `cache()` and re-open the peerDependency question (see «Open decision point»). Remove the `console.log` afterwards.
 
 - [ ] **Step 10: Commit**
 
@@ -272,21 +272,21 @@ git commit -m "perf(repo): share the read-only session handle within one request
 
 ---
 
-### Task 2: Public-Route cachen
+### Task 2: Cache the public route
 
-`public-route.ts:71-77` ruft `globalThis.fetch` ohne `next: { tags, revalidate }` und setzt keinen `Cache-Control`. Der Doc-Kommentar bei `:25-26` behauptet das Gegenteil («cached by Next once for all visitors»). Das ist die Route, die der Typeahead pro Tastendruck trifft.
+`public-route.ts:71-77` calls `globalThis.fetch` without `next: { tags, revalidate }` and sets no `Cache-Control`. The doc comment at `:25-26` claims the opposite («cached by Next once for all visitors»). This is the route the typeahead hits on every keystroke.
 
 **Files:**
 - Modify: `packages/next/src/public-route.ts:34-83`
 - Test: `packages/next/tests/public-route.test.ts`
 
 **Interfaces:**
-- Consumes: `emporixTagsForUrl(url: string, tenant: string): string[]` (unverändert).
-- Produces: `createEmporixPublicRoute(opts?: { tenant?: string; revalidate?: number })` — Signatur unverändert, Verhalten gecacht.
+- Consumes: `emporixTagsForUrl(url: string, tenant: string): string[]` (unchanged).
+- Produces: `createEmporixPublicRoute(opts?: { tenant?: string; revalidate?: number })` — signature unchanged, behavior cached.
 
-- [ ] **Step 1: Failing test schreiben**
+- [ ] **Step 1: Write a failing test**
 
-In `packages/next/tests/public-route.test.ts` ergänzen:
+Add to `packages/next/tests/public-route.test.ts`:
 
 ```ts
 it("tags the upstream fetch so Next caches it for all visitors", async () => {
@@ -319,16 +319,16 @@ it("lets a CDN cache the response too", async () => {
 });
 ```
 
-`sameOriginRequest` und `routeWithStubbedUpstream` als lokale Helper in der Datei anlegen; `sameOriginRequest` setzt `Origin` und `Host` auf denselben Wert, damit `assertSameOrigin` passiert — die bestehende Datei hat dafür bereits ein Muster, das wiederverwendet wird.
+Create `sameOriginRequest` and `routeWithStubbedUpstream` as local helpers in the file; `sameOriginRequest` sets `Origin` and `Host` to the same value so that `assertSameOrigin` passes — the existing file already has a pattern for this, which gets reused.
 
-- [ ] **Step 2: Test laufen lassen, Fehlschlag bestätigen**
+- [ ] **Step 2: Run the test, confirm it fails**
 
 Run: `cd packages/next && npx vitest run tests/public-route.test.ts`
-Expected: FAIL — `seenInit?.next` ist `undefined`, `Cache-Control` ist `null`.
+Expected: FAIL — `seenInit?.next` is `undefined`, `Cache-Control` is `null`.
 
-- [ ] **Step 3: Implementieren**
+- [ ] **Step 3: Implement**
 
-In `public-route.ts` den `fetch`-Aufruf und die Response ersetzen:
+In `public-route.ts`, replace the `fetch` call and the response:
 
 ```ts
     const tags = emporixTagsForUrl(upstream, tenant);
@@ -367,16 +367,16 @@ In `public-route.ts` den `fetch`-Aufruf und die Response ersetzen:
     });
 ```
 
-Dazu den falschen Kommentar bei `:25-26` und `:61-62` korrigieren — er darf jetzt stimmen.
+Along with that, fix the wrong comment at `:25-26` and `:61-62` — it is now allowed to be true.
 
-- [ ] **Step 4: Tests laufen lassen**
+- [ ] **Step 4: Run the tests**
 
 Run: `cd packages/next && npx vitest run tests/public-route.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Kein Cache für Fehlerantworten prüfen**
+- [ ] **Step 5: Check that error responses are not cached**
 
-Ergänzender Test, damit ein 500 vom Upstream nicht eine Stunde im CDN klebt:
+An additional test, so that a 500 from upstream does not stick in the CDN for an hour:
 
 ```ts
 it("does not let a CDN cache an upstream error", async () => {
@@ -386,7 +386,7 @@ it("does not let a CDN cache an upstream error", async () => {
 });
 ```
 
-Implementierung: `const cacheable = res.status >= 200 && res.status < 300;` und den Header entsprechend setzen.
+Implementation: `const cacheable = res.status >= 200 && res.status < 300;` and set the header accordingly.
 
 - [ ] **Step 6: Commit**
 
@@ -397,20 +397,20 @@ git commit -m "perf(repo): cache the public catalog route instead of passing it 
 
 ---
 
-### Task 3: Timeouts konfigurierbar machen und im Beispiel setzen
+### Task 3: Make the timeouts configurable and set them in the example
 
-`readMs` ist 60 s (`packages/sdk/src/core/config.ts:93`). Bei 1'000 CCU hält ein langsamer Upstream damit eine Minute lang Sockets und Event-Loop-Tasks pro Request. Der Default bleibt (Änderung wäre breaking für bestehende Konsumenten), aber er muss von aussen setzbar sein — heute nimmt weder `getEmporixClient` noch `withEmporixSession` Timeouts an.
+`readMs` is 60 s (`packages/sdk/src/core/config.ts:93`). At 1'000 CCU that lets a slow upstream hold sockets and event-loop tasks for a minute per request. The default stays (changing it would be breaking for existing consumers), but it has to be settable from the outside — today neither `getEmporixClient` nor `withEmporixSession` accepts timeouts.
 
 **Files:**
-- Modify: `packages/next/src/client.ts:47-133` (Option plus Memo-Key)
-- Modify: `packages/next/src/session-client.ts:12-34` und `:105-127` (Option an `newGuestClient`)
-- Modify: `examples/next-server-first/app/emporix.ts` (Werte), `app/lib/site-context.ts:64-69` (durchreichen)
+- Modify: `packages/next/src/client.ts:47-133` (option plus memo key)
+- Modify: `packages/next/src/session-client.ts:12-34` and `:105-127` (option passed to `newGuestClient`)
+- Modify: `examples/next-server-first/app/emporix.ts` (values), `app/lib/site-context.ts:64-69` (pass through)
 - Test: `packages/next/tests/client.test.ts`, `packages/next/tests/session-client.test.ts`
 
 **Interfaces:**
-- Produces: `GetEmporixClientOptions.timeouts?: { connectMs?: number; readMs?: number }` und `WithEmporixSessionOptions.timeouts?: { connectMs?: number; readMs?: number }`.
+- Produces: `GetEmporixClientOptions.timeouts?: { connectMs?: number; readMs?: number }` and `WithEmporixSessionOptions.timeouts?: { connectMs?: number; readMs?: number }`.
 
-- [ ] **Step 1: Failing test schreiben**
+- [ ] **Step 1: Write a failing test**
 
 In `packages/next/tests/client.test.ts`:
 
@@ -426,12 +426,12 @@ it("passes timeouts through and keys the memo on them", () => {
 });
 ```
 
-- [ ] **Step 2: Test laufen lassen, Fehlschlag bestätigen**
+- [ ] **Step 2: Run the test, confirm it fails**
 
 Run: `cd packages/next && npx vitest run tests/client.test.ts`
-Expected: FAIL — `timeouts` ist kein bekanntes Feld (TS-Fehler bzw. `readMs` bleibt 60000).
+Expected: FAIL — `timeouts` is not a known field (TS error, or `readMs` stays 60000).
 
-- [ ] **Step 3: Option in `client.ts` ergänzen**
+- [ ] **Step 3: Add the option in `client.ts`**
 
 ```ts
   /**
@@ -443,24 +443,24 @@ Expected: FAIL — `timeouts` ist kein bekanntes Feld (TS-Fehler bzw. `readMs` b
   timeouts?: { connectMs?: number; readMs?: number };
 ```
 
-Im Memo-Key ergänzen (sonst teilen zwei Budgets eine Instanz):
+Add it to the memo key (otherwise two budgets share one instance):
 
 ```ts
   const key = `${tenant}|${clientId}|${host ?? ""}|${tagged}|${revalidate}|${JSON.stringify(opts.context ?? {})}|${JSON.stringify(opts.timeouts ?? {})}`;
 ```
 
-Und beim Konstruieren durchreichen: `...(opts.timeouts !== undefined ? { timeouts: opts.timeouts } : {}),`
+And pass it through when constructing: `...(opts.timeouts !== undefined ? { timeouts: opts.timeouts } : {}),`
 
-- [ ] **Step 4: Dasselbe in `session-client.ts`**
+- [ ] **Step 4: The same in `session-client.ts`**
 
-`WithEmporixSessionOptions` bekommt dasselbe Feld mit demselben Kommentar, `newGuestClient` reicht es an `new EmporixClient` durch, und der Customer-Pfad gibt es via `getEmporixClient({ ...opts, tagged: false })` automatisch weiter (spreadet bereits alles).
+`WithEmporixSessionOptions` gets the same field with the same comment, `newGuestClient` passes it through to `new EmporixClient`, and the customer path forwards it automatically via `getEmporixClient({ ...opts, tagged: false })` (which already spreads everything).
 
-- [ ] **Step 5: Tests laufen lassen**
+- [ ] **Step 5: Run the tests**
 
 Run: `cd packages/next && npx vitest run tests/client.test.ts tests/session-client.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Im Beispiel setzen**
+- [ ] **Step 6: Set them in the example**
 
 `examples/next-server-first/app/emporix.ts`:
 
@@ -476,9 +476,9 @@ Expected: PASS.
 export const TIMEOUTS = { connectMs: 3_000, readMs: 8_000 } as const;
 ```
 
-In `app/lib/site-context.ts` in `emporixOptions()` ergänzen: `timeouts: TIMEOUTS,` — und an jeder `getEmporixClient({ context: … })`-Stelle mitgeben. Betroffen: `app/page.tsx:31`, `app/search/page.tsx`, `app/product/[id]/page.tsx:33`, `app/category/[id]/page.tsx:37`, `app/lib/category-tree.ts:27`.
+In `app/lib/site-context.ts`, add to `emporixOptions()`: `timeouts: TIMEOUTS,` — and pass it at every `getEmporixClient({ context: … })` site. Affected: `app/page.tsx:31`, `app/search/page.tsx`, `app/product/[id]/page.tsx:33`, `app/category/[id]/page.tsx:37`, `app/lib/category-tree.ts:27`.
 
-- [ ] **Step 7: Typecheck über das Beispiel**
+- [ ] **Step 7: Typecheck across the example**
 
 Run: `pnpm -F @viu/emporix-sdk-next build && pnpm -F @viu/emporix-examples-next-server-first typecheck`
 Expected: PASS.
@@ -492,9 +492,9 @@ git commit -m "perf(repo): make the request budgets configurable and pick sane o
 
 ---
 
-### Task 4: Kategoriebaum als vorverarbeiteter Index
+### Task 4: The category tree as a pre-processed index
 
-`category-tree.ts:20` dokumentiert 1'631 Knoten / 378 KiB. Der Data-Cache spart den Netzwerk-Call, nicht das `JSON.parse` pro Render (`http.ts:154`) und nicht den Walk über 1'631 Knoten in `findCategory` (`category/[id]/page.tsx:55`). Bei ~40 Kategorie-Renders/s sind das ~15 MB/s Parsing.
+`category-tree.ts:20` documents 1'631 nodes / 378 KiB. The data cache saves the network call, not the `JSON.parse` per render (`http.ts:154`) and not the walk over 1'631 nodes in `findCategory` (`category/[id]/page.tsx:55`). At ~40 category renders/s that comes to ~15 MB/s of parsing.
 
 **Files:**
 - Create: `examples/next-server-first/app/lib/category-index.ts`
@@ -507,9 +507,9 @@ git commit -m "perf(repo): make the request budgets configurable and pick sane o
   interface CategoryEntry { id: string; label: string; path: { id: string; label: string }[]; children: { id: string; label: string }[]; }
   function categoryIndex(): Promise<{ roots: { id: string; label: string }[]; byId: Record<string, CategoryEntry> }>
   ```
-- Consumes: `categoryTree()` aus `app/lib/category-tree.ts`, `findCategory` aus `app/lib/category-walk.ts` (letzteres wird durch den Index ersetzt, bleibt aber für `categories/page.tsx` bestehen, bis Step 5 es entfernt).
+- Consumes: `categoryTree()` from `app/lib/category-tree.ts`, `findCategory` from `app/lib/category-walk.ts` (the latter is replaced by the index, but stays around for `categories/page.tsx` until Step 5 removes it).
 
-- [ ] **Step 1: Failing test schreiben**
+- [ ] **Step 1: Write a failing test**
 
 `examples/next-server-first/tests/category-index.test.ts`:
 
@@ -557,12 +557,12 @@ describe("buildIndex", () => {
 });
 ```
 
-- [ ] **Step 2: Test laufen lassen, Fehlschlag bestätigen**
+- [ ] **Step 2: Run the test, confirm it fails**
 
 Run: `cd examples/next-server-first && npx vitest run tests/category-index.test.ts`
-Expected: FAIL — Modul fehlt.
+Expected: FAIL — module missing.
 
-- [ ] **Step 3: `category-index.ts` implementieren**
+- [ ] **Step 3: Implement `category-index.ts`**
 
 ```ts
 import { unstable_cache } from "next/cache";
@@ -632,14 +632,14 @@ export const categoryIndex = unstable_cache(
 );
 ```
 
-- [ ] **Step 4: Tests laufen lassen**
+- [ ] **Step 4: Run the tests**
 
 Run: `cd examples/next-server-first && npx vitest run tests/category-index.test.ts`
-Expected: PASS (5 Tests).
+Expected: PASS (5 tests).
 
-- [ ] **Step 5: Kategorieseite auf den Index umstellen**
+- [ ] **Step 5: Switch the category page over to the index**
 
-In `app/category/[id]/page.tsx` `categoryTree()` plus `findCategory` ersetzen:
+In `app/category/[id]/page.tsx`, replace `categoryTree()` plus `findCategory`:
 
 ```ts
   const index = await categoryIndex();
@@ -648,9 +648,9 @@ In `app/category/[id]/page.tsx` `categoryTree()` plus `findCategory` ersetzen:
   const children = entry.children;
 ```
 
-Breadcrumb kommt aus `entry.path`. In `app/categories/page.tsx` `categoryTree()` durch `categoryIndex()` und `roots` ersetzen. Danach prüfen, ob `app/lib/category-walk.ts` noch Verwendung hat — wenn nicht, samt Test löschen (`tests/category-tree.test.ts` prüfen, nicht blind entfernen).
+The breadcrumb comes from `entry.path`. In `app/categories/page.tsx`, replace `categoryTree()` with `categoryIndex()` and `roots`. Afterwards, check whether `app/lib/category-walk.ts` is still used anywhere — if not, delete it along with its test (check `tests/category-tree.test.ts`, do not remove it blindly).
 
-- [ ] **Step 6: Typecheck plus Beispiel-Tests**
+- [ ] **Step 6: Typecheck plus example tests**
 
 Run: `pnpm -F @viu/emporix-examples-next-server-first typecheck && cd examples/next-server-first && npx vitest run`
 Expected: PASS.
@@ -664,20 +664,20 @@ git commit -m "perf(examples): flatten the category tree into a cached index"
 
 ---
 
-### Task 5: Header als Suspense-Insel
+### Task 5: The header as a Suspense island
 
-Der Header liest in `header.tsx:20-21` die Session und sitzt im Root-Layout. Damit wartet die TTFB **jeder** Seite auf den Session-Read — nach Task 1 nur noch einer, aber im Store-Modus immer noch ein Redis-Round-Trip vor dem ersten Byte.
+The header reads the session in `header.tsx:20-21` and sits in the root layout. That makes **every** page's TTFB wait on the session read — after Task 1 only one of them, but in store mode still a Redis round trip before the first byte.
 
 **Files:**
 - Create: `examples/next-server-first/app/components/session-nav.tsx`
 - Modify: `examples/next-server-first/app/components/header.tsx`
-- Test: manuelle Prüfung (Step 5) — kein Unit-Test, weil der Nutzen Streaming-Verhalten ist und kein Rückgabewert.
+- Test: manual check (Step 5) — no unit test, because the benefit is streaming behavior and not a return value.
 
 **Interfaces:**
-- Produces: `SessionNav(): Promise<React.JSX.Element>` — der session-abhängige Teil (Cart-Badge, Login/Account/Logout).
-- Consumes: `cartCount(handle)` aus `app/lib/cart-session.ts`, `emporixSessionHandle`, `emporixSession`.
+- Produces: `SessionNav(): Promise<React.JSX.Element>` — the session-dependent part (cart badge, login/account/logout).
+- Consumes: `cartCount(handle)` from `app/lib/cart-session.ts`, `emporixSessionHandle`, `emporixSession`.
 
-- [ ] **Step 1: `session-nav.tsx` anlegen**
+- [ ] **Step 1: Create `session-nav.tsx`**
 
 ```tsx
 import { emporixSession, emporixSessionHandle } from "@viu/emporix-sdk-next/session";
@@ -728,9 +728,9 @@ export async function SessionNav(): Promise<React.JSX.Element> {
 }
 ```
 
-- [ ] **Step 2: `header.tsx` zur statischen Shell machen**
+- [ ] **Step 2: Turn `header.tsx` into the static shell**
 
-`async` entfällt, die zwei Session-Reads verschwinden, und der navigationsseitige Teil wird:
+`async` goes away, the two session reads disappear, and the navigation part becomes:
 
 ```tsx
         <nav
@@ -753,28 +753,28 @@ export async function SessionNav(): Promise<React.JSX.Element> {
         </nav>
 ```
 
-Imports: `import { Suspense } from "react";` und `import { SessionNav } from "./session-nav";`. Der Doc-Kommentar oben in der Datei muss mitwandern — er behauptet «zero Emporix calls», was weiterhin stimmt, aber die Begründung «putting the header in the root layout costs nothing per page view» braucht den Zusatz, dass der Session-Teil jetzt streamt.
+Imports: `import { Suspense } from "react";` and `import { SessionNav } from "./session-nav";`. The doc comment at the top of the file has to move along with it — it claims «zero Emporix calls», which still holds, but the reasoning «putting the header in the root layout costs nothing per page view» needs the addition that the session part now streams.
 
-Hinweis: `LanguageSwitcher` liest in `language-switcher.tsx:16` ebenfalls die Session. Nach Task 1 teilt er das Handle mit `SessionNav`, blockiert aber weiterhin die Shell. Ihn in dieselbe `Suspense`-Grenze zu ziehen ist der nächste Schritt, wenn die Messung in Step 5 ihn als Blocker zeigt.
+Note: `LanguageSwitcher` also reads the session, in `language-switcher.tsx:16`. After Task 1 it shares the handle with `SessionNav`, but it still blocks the shell. Pulling it into the same `Suspense` boundary is the next step, once the measurement in Step 5 shows it to be a blocker.
 
 - [ ] **Step 3: Typecheck**
 
 Run: `pnpm -F @viu/emporix-examples-next-server-first typecheck`
 Expected: PASS.
 
-- [ ] **Step 4: Beispiel-Tests**
+- [ ] **Step 4: Example tests**
 
 Run: `cd examples/next-server-first && npx vitest run`
-Expected: PASS (unverändert — keiner der drei Tests berührt den Header).
+Expected: PASS (unchanged — none of the three tests touches the header).
 
-- [ ] **Step 5: Streaming manuell prüfen**
+- [ ] **Step 5: Check the streaming manually**
 
 ```bash
 cd examples/next-server-first && pnpm dev
 curl -N -s -o /dev/null -w "TTFB %{time_starttransfer}s total %{time_total}s\n" http://localhost:3000/categories
 ```
 
-Erwartet: `time_starttransfer` deutlich kleiner als `time_total` — die Shell kommt vor dem Session-Teil. Sind beide gleich, greift das Streaming nicht (häufigste Ursache: ein `await` oberhalb der `Suspense`-Grenze im Layout).
+Expected: `time_starttransfer` clearly smaller than `time_total` — the shell arrives before the session part. If the two are equal, the streaming is not taking effect (most common cause: an `await` above the `Suspense` boundary in the layout).
 
 - [ ] **Step 6: Commit**
 
@@ -785,18 +785,18 @@ git commit -m "perf(examples): stream the session part of the header"
 
 ---
 
-### Task 6: Doku, Changesets, PR
+### Task 6: Docs, changesets, PR
 
 **Files:**
-- Modify: `packages/next/README.md` (Abschnitt «How the session is managed» plus die Public-Route-Doku)
-- Modify: `docs/nextjs.md` — existiert nicht; stattdessen `packages/next/README.md` und `examples/next-server-first/README.md`
+- Modify: `packages/next/README.md` (the «How the session is managed» section plus the public-route docs)
+- Modify: `docs/nextjs.md` — does not exist; instead `packages/next/README.md` and `examples/next-server-first/README.md`
 - Create: `.changeset/session-handle-request-scope.md`, `.changeset/public-route-caching.md`, `.changeset/configurable-timeouts.md`
 
-- [ ] **Step 1: next-README ergänzen**
+- [ ] **Step 1: Extend the next README**
 
-Unter «How the session is managed» einen Absatz, der die neue Invariante nennt: read-only Handles sind pro Request geteilt, mutable nicht, und warum (Login-Ordering). Plus im Public-Route-Abschnitt: die Antwort ist jetzt getaggt und CDN-cachebar, Fehler sind `no-store`.
+Under «How the session is managed», a paragraph that names the new invariant: read-only handles are shared per request, mutable ones are not, and why (login ordering). Plus, in the public-route section: the response is now tagged and CDN-cacheable, errors are `no-store`.
 
-- [ ] **Step 2: Changesets schreiben**
+- [ ] **Step 2: Write the changesets**
 
 ```markdown
 ---
@@ -817,55 +817,55 @@ No React: `cache()` would have been the obvious tool and would have re-added the
 dependency this package removed in 0.7.0.
 ```
 
-Analog für die Public-Route (`patch` reicht nicht — Verhalten ändert sich sichtbar, also `minor`) und die Timeouts (`minor`, neue Option).
+The same for the public route (`patch` is not enough — the behavior changes visibly, so `minor`) and the timeouts (`minor`, new option).
 
-- [ ] **Step 3: Volle Verifikation**
+- [ ] **Step 3: Full verification**
 
 ```bash
 pnpm -r build && pnpm typecheck && pnpm -r test && pnpm lint
 ```
-Expected: alles grün. Zahlen im PR-Text nennen, nicht «alles grün» behaupten.
+Expected: everything green. Name the numbers in the PR text, do not claim «everything green».
 
-- [ ] **Step 4: PR öffnen**
+- [ ] **Step 4: Open the PR**
 
 ```bash
 git push -u origin perf/1000-ccu
-gh pr create --base main --title "perf(repo): the four fixes the 1'000-CCU analysis found" --body-file <pfad>
+gh pr create --base main --title "perf(repo): the four fixes the 1'000-CCU analysis found" --body-file <path>
 ```
 
-Im PR-Text die Vorher/Nachher-Tabelle aus «Ausgangsmessung» führen und **explizit** vermerken, was **nicht** verifiziert ist: kein Lasttest gelaufen, die Zahlen stammen aus Code-Analyse plus dem manuellen Zählen in Task 1 Step 9 und Task 5 Step 5.
+Carry the before/after table from «Baseline measurement» in the PR text and note **explicitly** what is **not** verified: no load test was run, the numbers come from code analysis plus the manual counting in Task 1 Step 9 and Task 5 Step 5.
 
 ---
 
-## Bewusst nicht in diesem Plan
+## Deliberately not in this plan
 
-**ISR für Katalogseiten — eigener Plan, eigener PR.** Der gewählte Scope war «Header als Suspense-Insel, Katalog auf ISR». Der erste Teil ist Task 5 hier. Der zweite ist mit dem heutigen Code nicht erreichbar: jede Katalogseite ruft `siteContext()` (`app/lib/site-context.ts:53`), das die Sprache aus einem Cookie liest, und ein Cookie-Read macht die Route unwiderruflich dynamisch. `revalidate` daraufzusetzen ändert nichts.
+**ISR for catalog pages — its own plan, its own PR.** The chosen scope was «header as a Suspense island, catalog on ISR». The first part is Task 5 here. The second is not reachable with today's code: every catalog page calls `siteContext()` (`app/lib/site-context.ts:53`), which reads the language from a cookie, and a cookie read makes the route irrevocably dynamic. Putting `revalidate` on top of that changes nothing.
 
-Echtes ISR braucht die Sprache **in der URL** statt im Cookie — ein `[lang]`-Segment mit `generateStaticParams`, plus einen Header, der die Session nicht mehr serverseitig liest. Das ist ein Routing-Umbau mit Auswirkung auf jeden Link und den Sprachumschalter, deshalb steht er in **[2026-08-05-catalog-isr.md](./2026-08-05-catalog-isr.md)** und ist als eigener PR umgesetzt: [#221](https://github.com/viuteam/emporix-sdk/pull/221).
+Real ISR needs the language **in the URL** instead of in the cookie — a `[lang]` segment with `generateStaticParams`, plus a header that no longer reads the session server-side. That is a routing rebuild with an effect on every link and on the language switcher, which is why it lives in **[2026-08-05-catalog-isr.md](./2026-08-05-catalog-isr.md)** and has been implemented as its own PR: [#221](https://github.com/viuteam/emporix-sdk/pull/221).
 
-Reihenfolge: Task 5 dieses Plans (Suspense-Insel) und der ISR-Plan berühren beide `header.tsx`. Der ISR-Plan macht den Header zu einer Client-Komponente und ersetzt die Suspense-Insel damit. Wer beide umsetzt, baut den ISR-Plan **nach** Task 5 und wirft die Insel dabei weg — oder überspringt Task 5, wenn der ISR-PR ohnehin ansteht.
+Ordering: Task 5 of this plan (the Suspense island) and the ISR plan both touch `header.tsx`. The ISR plan turns the header into a client component and thereby replaces the Suspense island. Anyone implementing both builds the ISR plan **after** Task 5 and throws the island away in the process — or skips Task 5 if the ISR PR is coming up anyway.
 
-Was Task 5 stattdessen liefert: die Seiten bleiben dynamisch, aber der Session-Read blockiert das erste Byte nicht mehr, und die Upstream-Daten sind über den Data-Cache ohnehin geteilt. Der CDN-Gewinn von ~60 % der Seitenaufrufe bleibt bis zum i18n-Routing offen.
+What Task 5 delivers instead: the pages stay dynamic, but the session read no longer blocks the first byte, and the upstream data is shared through the data cache anyway. The CDN gain on ~60 % of the page views stays open until the i18n routing lands.
 
-**49 HttpClients pro Gast-Request** (`client.ts:128-179` × `create-core.ts:71`). Real, aber nicht belegt als Flaschenhals — ~2'500 Allokationen/s sind für V8 wenig. Der Fix (Lazy-Getter statt 49 Felder) berührt die öffentliche Form von `EmporixClient` und gehört erst gebaut, wenn ein Profil ihn zeigt. Ohne Lasttest gibt es dieses Profil nicht, also steht er hier als Notiz und nicht als Task.
+**49 HttpClients per guest request** (`client.ts:128-179` × `create-core.ts:71`). Real, but not proven to be a bottleneck — ~2'500 allocations/s is little for V8. The fix (lazy getters instead of 49 fields) touches the public shape of `EmporixClient` and should only be built once a profile shows it. Without a load test that profile does not exist, so it stands here as a note and not as a task.
 
-**Circuit Breaker im SDK.** Bei einem Emporix-Brownout verdreifachen die drei Retry-Versuche die Last (`http.ts:213-231`). Ein Breaker ist die richtige Antwort, aber er braucht eine Entscheidung über Fehlerbudget, Halb-offen-Verhalten und ob er pro Origin oder pro Service greift — eine eigene Spec, kein Task in einem Performance-Plan.
+**Circuit breaker in the SDK.** During an Emporix brownout, the three retry attempts triple the load (`http.ts:213-231`). A breaker is the right answer, but it needs a decision about the error budget, the half-open behavior and whether it applies per origin or per service — its own spec, not a task in a performance plan.
 
-**Emporix-Rate-Limit.** Im Repo nicht dokumentiert (`grep` über `packages/` und `docs/`: nur reaktive 429-Behandlung). Muss bei Emporix erfragt werden, bevor 1'000 CCU zugesagt werden — das ist eine Vertrags-, keine Code-Frage.
+**Emporix rate limit.** Not documented in the repo (`grep` across `packages/` and `docs/`: only reactive 429 handling). Has to be asked of Emporix before 1'000 CCU is promised — that is a contractual question, not a code one.
 
-**Bilder.** `<img>` statt `next/image` (`product-grid.tsx:34`, `product/[id]/page.tsx:81`). Kostet keine Serverkapazität, deshalb nicht in diesem Plan; für LCP und Emporix-Egress trotzdem offen.
+**Images.** `<img>` instead of `next/image` (`product-grid.tsx:34`, `product/[id]/page.tsx:81`). Costs no server capacity, hence not in this plan; still open for LCP and Emporix egress.
 
-## Offener Entscheidungspunkt
+## Open decision point
 
-Task 1 Step 9 verifiziert die Annahme, dass `await cookies()` pro Request dasselbe Objekt liefert. Fällt sie durch, gibt es zwei Auswege, und beide brauchen eine Entscheidung:
+Task 1 Step 9 verifies the assumption that `await cookies()` hands out the same object per request. If it does not hold, there are two ways out, and both need a decision:
 
-1. `react`'s `cache()` im next-Package — funktioniert garantiert, holt aber `react` als peerDependency zurück, das 0.7.0 gerade entfernt hat.
-2. Das Memo in die App verschieben — Package bleibt React-frei, jeder Konsument muss den Fix selbst bauen.
+1. `react`'s `cache()` in the next package — guaranteed to work, but brings back `react` as a peerDependency, which 0.7.0 has just removed.
+2. Move the memo into the app — the package stays React-free, every consumer has to build the fix themselves.
 
 ## Self-Review
 
-**Spec-Abdeckung:** Session-Verstärkung → Task 1. Public-Route → Task 2. Timeouts → Task 3. Baum-Parsing → Task 4. TTFB/Streaming → Task 5. Doku/Release → Task 6. ISR, Lazy-Services, Breaker, Rate-Limit, Bilder → explizit ausgeschlossen mit Begründung. Keine Lücke gegenüber der Top-5-Liste der Analyse.
+**Spec coverage:** session amplification → Task 1. Public route → Task 2. Timeouts → Task 3. Tree parsing → Task 4. TTFB/streaming → Task 5. Docs/release → Task 6. ISR, lazy services, breaker, rate limit, images → explicitly excluded with a justification. No gap against the top-5 list of the analysis.
 
-**Placeholder-Scan:** Kein «TBD», kein «add error handling», jeder Code-Step enthält den tatsächlichen Code. Task 5 hat bewusst keinen Unit-Test, mit Begründung und einem verifizierbaren manuellen Check statt eines leeren Test-Steps.
+**Placeholder scan:** no «TBD», no «add error handling», every code step contains the actual code. Task 5 deliberately has no unit test, with a justification and a verifiable manual check instead of an empty test step.
 
-**Typkonsistenz:** `requestScoped(anchor, key, build)` in Task 1 wird in `session-cookies.ts` mit genau dieser Signatur benutzt. `CategoryIndex.byId[id]` in Task 4 Step 5 entspricht dem in Step 3 definierten Typ. `SessionNav` in Task 5 Step 1 wird in Step 2 unter demselben Namen importiert. `TIMEOUTS` aus Task 3 Step 6 wird in `emporixOptions()` und an fünf `getEmporixClient`-Stellen verwendet, alle namentlich genannt.
+**Type consistency:** `requestScoped(anchor, key, build)` from Task 1 is used in `session-cookies.ts` with exactly that signature. `CategoryIndex.byId[id]` in Task 4 Step 5 matches the type defined in Step 3. `SessionNav` from Task 5 Step 1 is imported under the same name in Step 2. `TIMEOUTS` from Task 3 Step 6 is used in `emporixOptions()` and at five `getEmporixClient` sites, all of them named explicitly.

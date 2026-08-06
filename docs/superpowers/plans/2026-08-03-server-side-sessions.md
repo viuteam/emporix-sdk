@@ -1,56 +1,56 @@
-# Serverseitige Sessions Implementation Plan
+# Server-Side Sessions Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Die Session-Werte wandern in einen vom Consumer gestellten Store, im
-Cookie bleibt eine opake `sid`. Damit wird der Widerruf einer **einzelnen**
-Session möglich.
+**Goal:** The session values move into a store the consumer provides; what stays
+in the cookie is an opaque `sid`. That is what makes revoking a **single**
+session possible.
 
-**Architecture:** Der Store ist eine *Implementierung* von `SessionCookieJar`,
-kein zweiter Codepfad. `sessionCookieJar()` hydriert den Record einmal (async),
-gibt einen synchronen Jar darüber zurück, und die vier Aufrufer flushen einmal.
-Oberhalb des Jars ändert sich nichts.
+**Architecture:** The store is an *implementation* of `SessionCookieJar`, not a
+second code path. `sessionCookieJar()` hydrates the record once (async), returns
+a synchronous jar on top of it, and the four callers flush once. Above the jar
+nothing changes.
 
-**Tech Stack:** `node:crypto` für die `sid`, `redis` (node-redis) **nur** im
-Example, Vitest.
+**Tech Stack:** `node:crypto` for the `sid`, `redis` (node-redis) **only** in the
+example, Vitest.
 
 **Spec:** `docs/superpowers/specs/2026-08-03-server-side-sessions-design.md`
 
 ## Global Constraints
 
-- **Branch:** `feat/session-store`, bereits von `main` gezogen (enthält den
-  gemergten PR #197). Die Spec liegt schon drauf.
-- **Push:** `git push origin feat/session-store` über SSH. Der gh-Token wird für
-  Git-Operationen über HTTPS abgelehnt.
-- **Commitlint:** Scope aus `repo, release, sdk, react, core, customer, product,
+- **Branch:** `feat/session-store`, already branched off `main` (contains the
+  merged PR #197). The spec is already on it.
+- **Push:** `git push origin feat/session-store` over SSH. The gh token is
+  rejected for Git operations over HTTPS.
+- **Commitlint:** scope out of `repo, release, sdk, react, core, customer, product,
   category, cart, checkout, payment, price, media, segment, availability, auth,
-  http, logger, deps, docs, examples`. Kein `next`-Scope — `repo` nehmen. Erstes
-  Wort nach dem Scope ist ein **kleingeschriebenes Verb**.
-- **Das Package behält null Runtime-Dependencies.** Es definiert das Interface,
-  keine Implementierung. `redis` geht in `examples/next-server-first`.
-- **Keine Signatur wird async, die es nicht schon ist.**
-  `AnonymousSessionStore` ist synchron und wird mitten im Token-Refresh gerufen
+  http, logger, deps, docs, examples`. No `next` scope — take `repo`. The first
+  word after the scope is a **lowercase verb**.
+- **The package keeps zero runtime dependencies.** It defines the interface, not
+  an implementation. `redis` goes into `examples/next-server-first`.
+- **No signature becomes async that is not already.**
+  `AnonymousSessionStore` is synchronous and is called in the middle of the token refresh
   ([core/auth.ts:42-45](../../../packages/sdk/src/core/auth.ts#L42)).
-- **Der Cookie-Modus bleibt unangetastet.** Ohne `store` muss sich alles
-  verhalten wie heute, inklusive Verschlüsselung und `__Host-`-Präfix. Ein Test
-  hält das fest.
-- **`exactOptionalPropertyTypes` ist an.** Optionales Feld bekommt einen Wert
-  oder existiert nicht.
-- **Schweizer Hochdeutsch in Prosa, kein scharfes S.** Code und Kommentare
-  englisch.
-- **Redis läuft in Podman auf 6379**, mit `+PONG` verifiziert.
+- **The cookie mode stays untouched.** Without `store`, everything has to behave
+  the way it does today, encryption and the `__Host-` prefix included. A test
+  holds that down.
+- **`exactOptionalPropertyTypes` is on.** An optional field either gets a value
+  or does not exist.
+- **Swiss Standard German in prose, no sharp S.** Code and comments in
+  English. *(Superseded 2026-08-05: everything committed is English — see `CLAUDE.md`. Kept as the record of the constraint that applied when this plan was written.)*
+- **Redis runs in Podman on 6379**, verified with `+PONG`.
 
 ---
 
-### Task S1: Interface, `sid` und der Store-Jar
+### Task S1: Interface, `sid` and the store jar
 
 **Files:**
 - Create: `packages/next/src/session-store.ts`
 - Modify: `packages/next/src/session-cookies.ts:83-105`
-- Test: `packages/next/tests/session-store.test.ts` (neu)
+- Test: `packages/next/tests/session-store.test.ts` (new)
 
 **Interfaces:**
-- Consumes: `cookieName`, `readCookie` aus `./cookie-name`.
+- Consumes: `cookieName`, `readCookie` from `./cookie-name`.
 - Produces:
   - `EmporixSessionStore` — `read`/`write`/`destroy`
   - `SESSION_SID` = `"emporix.sid"`
@@ -58,9 +58,9 @@ Example, Vitest.
   - `hydrateStoreJar(store, secure, readOnly)` →
     `Promise<{ jar: SessionCookieJar; flush: () => Promise<void> }>`
 
-- [ ] **Step 1: Den Testfile schreiben**
+- [ ] **Step 1: Write the test file**
 
-Erstelle `packages/next/tests/session-store.test.ts`:
+Create `packages/next/tests/session-store.test.ts`:
 
 ```ts
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
@@ -245,18 +245,18 @@ describe("lifetimes", () => {
 });
 ```
 
-- [ ] **Step 2: Testlauf — muss fehlschlagen**
+- [ ] **Step 2: Test run — must fail**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next test -- session-store
 ```
 
-Erwartung: Import von `../src/session-store` schlägt fehl. Notiere die Testzahl
-**vor** dieser Task.
+Expectation: the import of `../src/session-store` fails. Note the test count
+**before** this task.
 
-- [ ] **Step 3: Das Store-Modul schreiben**
+- [ ] **Step 3: Write the store module**
 
-Erstelle `packages/next/src/session-store.ts`:
+Create `packages/next/src/session-store.ts`:
 
 ```ts
 import { randomBytes } from "node:crypto";
@@ -331,16 +331,16 @@ export function recordTtl(record: Record<string, string>): number {
 }
 ```
 
-`Number(undefined)` ist `NaN`, deshalb genügt hier `Number.isFinite` — anders als
-bei `jar.get()`, das `null` liefert, wo `Number(null)` **0** ergibt. Der
-Unterschied hat in der Härtung schon einmal einen Fehler verursacht.
+`Number(undefined)` is `NaN`, which is why `Number.isFinite` is enough here — unlike
+with `jar.get()`, which returns `null`, where `Number(null)` yields **0**. That
+difference has already caused a bug once during the hardening work.
 
-- [ ] **Step 4: Den Jar um den Store erweitern**
+- [ ] **Step 4: Extend the jar with the store**
 
-In `packages/next/src/session-cookies.ts`, `SessionCookieJar` um `flush`
-ergänzen und `sessionCookieJar` umbauen.
+In `packages/next/src/session-cookies.ts`, add `flush` to `SessionCookieJar`
+and rework `sessionCookieJar`.
 
-Zuerst das Interface:
+First the interface:
 
 ```ts
 export interface SessionCookieJar {
@@ -362,7 +362,7 @@ export interface SessionCookieJar {
 }
 ```
 
-Dann die Funktion:
+Then the function:
 
 ```ts
 export async function sessionCookieJar(
@@ -457,7 +457,7 @@ export async function sessionCookieJar(
 }
 ```
 
-Imports oben ergänzen:
+Add the imports at the top:
 
 ```ts
 import {
@@ -469,37 +469,37 @@ import {
 } from "./session-store";
 ```
 
-**Achtung Zyklus:** `session-store.ts` importiert `SESSION_ABSOLUTE_MAX` und
-`SESSION_STARTED_AT` aus `session-cookies.ts`, und `session-cookies.ts`
-importiert Funktionen zurück. Das sind reine Konstanten in einer Richtung und
-Funktionen in der anderen, ESM löst das auf — aber wenn der Build sich
-beschwert, wandern die zwei Konstanten in `session-store.ts` und
-`session-cookies.ts` re-exportiert sie. **Nicht** mit einer dritten Datei
-auflösen, bevor der Zyklus tatsächlich stört.
+**Watch out for a cycle:** `session-store.ts` imports `SESSION_ABSOLUTE_MAX` and
+`SESSION_STARTED_AT` from `session-cookies.ts`, and `session-cookies.ts`
+imports functions back. Those are pure constants in one direction and
+functions in the other, ESM resolves that — but if the build does
+complain, the two constants move into `session-store.ts` and
+`session-cookies.ts` re-exports them. Do **not** resolve it with a third file
+before the cycle actually gets in the way.
 
-- [ ] **Step 5: Testlauf — muss durchlaufen**
+- [ ] **Step 5: Test run — must pass**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next test -- session-store
 ```
 
-Erwartung: 12 Tests grün. Die anderen Suites laufen noch nicht, weil `flush`
-neu im Interface ist — das ist Step 6.
+Expectation: 12 tests green. The other suites do not run yet, because `flush`
+is new in the interface — that is Step 6.
 
-- [ ] **Step 6: Die vier Aufrufer flushen lassen**
+- [ ] **Step 6: Make the four callers flush**
 
-`pnpm -F @viu/emporix-sdk-next typecheck` zeigt jetzt, wo `flush` fehlt. In
+`pnpm -F @viu/emporix-sdk-next typecheck` now shows where `flush` is missing. In
 `session-auth.ts`:
 
-- `emporixLogin`: nach `jar.delete(STORAGE_KEYS.anonymousSession);` ein
+- `emporixLogin`: after `jar.delete(STORAGE_KEYS.anonymousSession);` an
   `await jar.flush();`
-- `emporixRefresh`: nach `persistSession(jar, session);` ein
-  `await jar.flush();` — **und** im Decken-Zweig nach `clearSession(jar)` ein
+- `emporixRefresh`: after `persistSession(jar, session);` an
+  `await jar.flush();` — **and** in the ceiling branch after `clearSession(jar)` an
   `await jar.destroy();`
-- `emporixLogout`: nach `clearSession(jar);` ein `await jar.destroy();`
+- `emporixLogout`: after `clearSession(jar);` an `await jar.destroy();`
 
-In `session-client.ts`, `run()`: die mutable Variante muss nach `fn` flushen.
-Das braucht eine kleine Umstellung, weil `run` heute direkt `return fn(...)`:
+In `session-client.ts`, `run()`: the mutable variant has to flush after `fn`.
+That needs a small rearrangement, because `run` today does `return fn(...)` directly:
 
 ```ts
   const result = await fn(client, auth.anonymous());
@@ -507,30 +507,30 @@ Das braucht eine kleine Umstellung, weil `run` heute direkt `return fn(...)`:
   return result;
 ```
 
-— an **beiden** Rückgabestellen, dem Customer- und dem Guest-Zweig.
+— at **both** return sites, the customer branch and the guest branch.
 
-- [ ] **Step 7: Volle Suite und Typecheck**
+- [ ] **Step 7: Full suite and typecheck**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next test && pnpm -F @viu/emporix-sdk-next typecheck
 ```
 
-Erwartung: alles grün. Falls bestehende Tests brechen, weil sie einen Jar
-selbst bauen und `flush` fehlt: den Test anpassen, nicht das Interface optional
-machen — ein optionales `flush` ist genau die Stelle, die jemand vergisst.
+Expectation: everything green. If existing tests break because they build a jar
+themselves and `flush` is missing: adjust the test, do not make the interface
+optional — an optional `flush` is exactly the spot somebody forgets.
 
-- [ ] **Step 8: Mutation testen**
+- [ ] **Step 8: Mutation testing**
 
-Drei Mutationen, jede einzeln, jeweils zurückdrehen:
+Three mutations, one at a time, each one reverted afterwards:
 
-1. In `flush` das `if (readOnly …) return;` entfernen → «does not write in the
-   read-only variant» **muss** rot werden. Das ist der wertvollste Test der
-   Task: Next verhindert Cookie-Writes im Render, einen Store-Write aber nicht.
-2. `isPublicSessionKey` immer `false` zurückgeben lassen → «keeps siteCode a
-   cookie even in store mode» **muss** rot werden.
-3. In `recordTtl` die Restzeit-Rechnung durch `SESSION_ABSOLUTE_MAX` ersetzen →
-   «gives a customer session the time left until the ceiling» **muss** rot
-   werden.
+1. In `flush`, remove the `if (readOnly …) return;` → «does not write in the
+   read-only variant» **must** go red. That is the most valuable test in the
+   task: Next prevents cookie writes during render, but not a store write.
+2. Make `isPublicSessionKey` always return `false` → «keeps siteCode a
+   cookie even in store mode» **must** go red.
+3. In `recordTtl`, replace the time-remaining calculation with `SESSION_ABSOLUTE_MAX` →
+   «gives a customer session the time left until the ceiling» **must** go
+   red.
 
 - [ ] **Step 9: Commit**
 
@@ -540,24 +540,24 @@ git add packages/next/src packages/next/tests && git commit -m "feat(repo): add 
 
 ---
 
-### Task S2: Die drei Leser und der Entry
+### Task S2: The three readers and the entry
 
 **Files:**
-- Modify: `packages/next/src/session-client.ts:11-25` (Options)
+- Modify: `packages/next/src/session-client.ts:11-25` (options)
 - Modify: `packages/next/src/token-proxy.ts:50-80`
 - Modify: `packages/next/src/server-session.ts:51-97`
-- Modify: `packages/next/src/session.ts` (Export)
-- Test: `packages/next/tests/session-store.test.ts` (ergänzen)
+- Modify: `packages/next/src/session.ts` (export)
+- Test: `packages/next/tests/session-store.test.ts` (extend)
 
 **Interfaces:**
-- Consumes: alles aus S1.
+- Consumes: everything from S1.
 - Produces:
   - `store?: EmporixSessionStore` in `WithEmporixSessionOptions`
-  - `store?` in `EmporixTokenProxyOptions` und in den Optionen von
+  - `store?` in `EmporixTokenProxyOptions` and in the options of
     `emporixSession` / `emporixSessionMutable`
-  - `EmporixSessionStore` und `SESSION_SID` aus `@viu/emporix-sdk-next/session`
+  - `EmporixSessionStore` and `SESSION_SID` from `@viu/emporix-sdk-next/session`
 
-- [ ] **Step 1: Die Option in `WithEmporixSessionOptions`**
+- [ ] **Step 1: The option in `WithEmporixSessionOptions`**
 
 ```ts
   /**
@@ -567,7 +567,7 @@ git add packages/next/src packages/next/tests && git commit -m "feat(repo): add 
   store?: EmporixSessionStore;
 ```
 
-Und in `run()` weiterreichen:
+And pass it through in `run()`:
 
 ```ts
   const jar = await sessionCookieJar({
@@ -576,18 +576,18 @@ Und in `run()` weiterreichen:
   });
 ```
 
-Das `...(x !== undefined ? …)` ist wegen `exactOptionalPropertyTypes` nötig, nicht
-Stilfrage.
+The `...(x !== undefined ? …)` is needed because of `exactOptionalPropertyTypes`, not
+a question of style.
 
 - [ ] **Step 2: `emporixTokenProxy`**
 
-Der Proxy liest heute `request.cookies` direkt. Im Store-Modus steht dort nur
-eine `sid`, also braucht er den Store. Er kann nicht `sessionCookieJar()`
-nutzen, weil `cookies()` in einem Proxy nicht existiert — er liest die `sid`
-selbst und geht dann an den Store.
+The proxy reads `request.cookies` directly today. In store mode all that sits
+there is a `sid`, so it needs the store. It cannot use `sessionCookieJar()`,
+because `cookies()` does not exist inside a proxy — it reads the `sid`
+itself and then goes to the store.
 
-`EmporixTokenProxyOptions` bekommt `store?: EmporixSessionStore`, und der Block
-ab `const read = …` wird:
+`EmporixTokenProxyOptions` gets `store?: EmporixSessionStore`, and the block
+from `const read = …` onwards becomes:
 
 ```ts
   const read = (wire: string): string | undefined => request.cookies.get(wire)?.value;
@@ -604,9 +604,9 @@ ab `const read = …` wird:
   }
 ```
 
-Und im `stale`-Zweig: der Cookie-Write der frischen Token entfällt im
-Store-Modus, weil `emporixRefresh` schon in den Store geschrieben hat und der
-folgende Render von dort liest:
+And in the `stale` branch: the cookie write of the fresh token falls away in
+store mode, because `emporixRefresh` has already written into the store and the
+render that follows reads from there:
 
 ```ts
       const fresh = await emporixRefresh(refreshOpts);
@@ -618,20 +618,20 @@ folgende Render von dort liest:
       }
 ```
 
-`emporixRefresh` braucht den Store ebenfalls, sonst refresht der Proxy gegen
-Cookies:
+`emporixRefresh` needs the store as well, otherwise the proxy refreshes against
+cookies:
 
 ```ts
   const refreshOpts: WithEmporixSessionOptions =
     opts.store !== undefined ? { store: opts.store } : {};
 ```
 
-- [ ] **Step 3: `emporixSession` und `emporixSessionMutable`**
+- [ ] **Step 3: `emporixSession` and `emporixSessionMutable`**
 
-Beide bauen einen `ServerCookieJar`-Shim über `cookies()`. Im Store-Modus muss
-der Shim über den Session-Jar gehen.
+Both build a `ServerCookieJar` shim on top of `cookies()`. In store mode the
+shim has to go through the session jar.
 
-`emporixSession` bekommt einen optionalen Parameter:
+`emporixSession` gets an optional parameter:
 
 ```ts
 export async function emporixSession(
@@ -646,13 +646,13 @@ export async function emporixSession(
 }
 ```
 
-Das ist zugleich eine Vereinfachung: die eigene `readCookie`-Verdrahtung fällt
-weg, weil der Jar sie schon macht.
+That is a simplification at the same time: the separate `readCookie` wiring
+falls away, because the jar already does it.
 
-`emporixSessionMutable` analog, plus `store` in seinem Options-Objekt und ein
-`await sessionJar.flush()` **nach** dem Aufbau — hier ist die Reihenfolge
-tückisch, weil `createServerStorage` synchron schreibt. Der Shim sammelt also im
-Jar, und der Aufrufer bekommt die Session zurück, bevor geflusht wurde. Deshalb:
+`emporixSessionMutable` likewise, plus `store` in its options object and an
+`await sessionJar.flush()` **after** the build — the ordering is tricky
+here, because `createServerStorage` writes synchronously. So the shim collects in
+the jar, and the caller gets the session back before the flush happened. Hence:
 
 ```ts
   // The storage writes synchronously into the jar; the flush has to happen
@@ -661,10 +661,10 @@ Jar, und der Aufrufer bekommt die Session zurück, bevor geflusht wurde. Deshalb
   return { ...build(createServerStorage(io)), flush: () => sessionJar.flush() };
 ```
 
-`EmporixServerSession` bekommt dafür `flush: () => Promise<void>`. In der
-read-only Variante ist es eine No-op, damit beide dieselbe Form haben.
+`EmporixServerSession` gets `flush: () => Promise<void>` for that. In the
+read-only variant it is a no-op, so that both have the same shape.
 
-- [ ] **Step 4: Aus dem Entry exportieren**
+- [ ] **Step 4: Export it from the entry**
 
 In `packages/next/src/session.ts`:
 
@@ -676,10 +676,10 @@ export {
 } from "./session-store";
 ```
 
-- [ ] **Step 5: Tests für die drei Leser**
+- [ ] **Step 5: Tests for the three readers**
 
-An `session-store.test.ts` anhängen — `emporixSession` und `withEmporixSession`
-gegen den Fake-Store, plus der Proxy:
+Append to `session-store.test.ts` — `emporixSession` and `withEmporixSession`
+against the fake store, plus the proxy:
 
 ```ts
 describe("all three readers see the store", () => {
@@ -713,8 +713,8 @@ describe("all three readers see the store", () => {
 });
 ```
 
-Für den Proxy einen Test in `token-proxy.test.ts` ergänzen, der belegt, dass er
-mit `store` **nicht** aus dem Cookie liest:
+For the proxy, add a test in `token-proxy.test.ts` that shows that with a
+`store` it does **not** read from the cookie:
 
 ```ts
   it("reads the token from the store when one is configured", async () => {
@@ -734,19 +734,19 @@ mit `store` **nicht** aus dem Cookie liest:
   });
 ```
 
-- [ ] **Step 6: Volle Suite, Typecheck, Lint**
+- [ ] **Step 6: Full suite, typecheck, lint**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next test && pnpm -F @viu/emporix-sdk-next typecheck && pnpm -F @viu/emporix-sdk-next lint
 ```
 
-- [ ] **Step 7: Mutation testen**
+- [ ] **Step 7: Mutation testing**
 
-In `emporixTokenProxy` den Store-Zweig entfernen, sodass immer aus Cookies
-gelesen wird → «reads the token from the store when one is configured» **muss**
-rot werden. Ohne diese Mutation beweist der Test nichts, weil ein
-`refreshCalls`-Zähler auch bei einem fehlenden Token null bleibt — er könnte aus
-dem falschen Grund grün sein.
+In `emporixTokenProxy`, remove the store branch so that it always reads from
+cookies → «reads the token from the store when one is configured» **must** go
+red. Without this mutation the test proves nothing, because a
+`refreshCalls` counter stays at zero for a missing token too — it could be
+green for the wrong reason.
 
 - [ ] **Step 8: Commit**
 
@@ -756,7 +756,7 @@ git add packages/next/src packages/next/tests && git commit -m "feat(repo): thre
 
 ---
 
-### Task S3: Redis-Adapter im Example und Live-Verifikation
+### Task S3: Redis adapter in the example and live verification
 
 **Files:**
 - Create: `examples/next-server-first/app/session-store.ts`
@@ -764,24 +764,24 @@ git add packages/next/src packages/next/tests && git commit -m "feat(repo): thre
 - Modify: `examples/next-server-first/proxy.ts`
 - Modify: `examples/next-server-first/app/cart/page.tsx`, `app/checkout/page.tsx`,
   `app/actions/cart.ts`, `app/actions/checkout.ts`, `app/login/page.tsx`,
-  `app/debug/page.tsx` — überall wo `EMPORIX` oder `emporixSession` genutzt wird
+  `app/debug/page.tsx` — everywhere `EMPORIX` or `emporixSession` is used
 - Modify: `examples/next-server-first/package.json` (`redis`)
 
 **Interfaces:**
-- Consumes: `EmporixSessionStore` aus `@viu/emporix-sdk-next/session`.
+- Consumes: `EmporixSessionStore` from `@viu/emporix-sdk-next/session`.
 - Produces: `sessionStore(): EmporixSessionStore | undefined`.
 
-- [ ] **Step 1: `redis` als Dependency**
+- [ ] **Step 1: `redis` as a dependency**
 
 ```bash
 pnpm -F @viu/emporix-examples-next-server-first add redis
 ```
 
-Das Package selbst bekommt **nichts** — die Null-Dependency-Zusage gilt.
+The package itself gets **nothing** — the zero-dependency promise holds.
 
-- [ ] **Step 2: Den Adapter schreiben**
+- [ ] **Step 2: Write the adapter**
 
-Erstelle `examples/next-server-first/app/session-store.ts`:
+Create `examples/next-server-first/app/session-store.ts`:
 
 ```ts
 import { createClient, type RedisClientType } from "redis";
@@ -835,7 +835,7 @@ export function sessionStore(): EmporixSessionStore | undefined {
 }
 ```
 
-- [ ] **Step 3: In `app/emporix.ts` verdrahten**
+- [ ] **Step 3: Wire it up in `app/emporix.ts`**
 
 ```ts
 import { sessionStore } from "./session-store";
@@ -852,7 +852,7 @@ export const EMPORIX: WithEmporixSessionOptions = {
 export const SESSION_STORE = STORE;
 ```
 
-- [ ] **Step 4: Proxy und die direkten `emporixSession`-Aufrufe**
+- [ ] **Step 4: The proxy and the direct `emporixSession` calls**
 
 `examples/next-server-first/proxy.ts`:
 
@@ -863,8 +863,8 @@ return emporixTokenProxy(request, {
 });
 ```
 
-Es gibt genau **einen** `emporixSession()`-Aufruf im Example, gemessen:
-`app/login/page.tsx:5`. Er bekommt den Store mit:
+There is exactly **one** `emporixSession()` call in the example, measured:
+`app/login/page.tsx:5`. It gets the store passed in:
 
 ```ts
 const { customerToken } = await emporixSession(
@@ -872,52 +872,52 @@ const { customerToken } = await emporixSession(
 );
 ```
 
-Vor dem Umbau nachzählen, ob es noch einer ist:
+Before the rework, recount whether it is still one:
 
 ```bash
 grep -rn "emporixSession(" examples/next-server-first/app
 ```
 
-- [ ] **Step 5: Typecheck und Build**
+- [ ] **Step 5: Typecheck and build**
 
 ```bash
 pnpm -F @viu/emporix-sdk-next build && pnpm -F @viu/emporix-examples-next-server-first typecheck && pnpm -F @viu/emporix-examples-next-server-first build
 ```
 
-- [ ] **Step 6: Live — Cookie-Modus muss unverändert laufen**
+- [ ] **Step 6: Live — the cookie mode has to run unchanged**
 
-Ohne `EMPORIX_SESSION_REDIS_URL` starten. Warenkorb füllen, `/cart` zeigt ihn,
-`/debug` grün. **Das ist der Regressionsbeleg**, dass der Cookie-Modus die
-Arbeit überlebt hat.
+Start without `EMPORIX_SESSION_REDIS_URL`. Fill the cart, `/cart` shows it,
+`/debug` green. **That is the regression evidence** that the cookie mode
+survived the work.
 
-- [ ] **Step 7: Live — Store-Modus gegen Redis**
+- [ ] **Step 7: Live — store mode against Redis**
 
-Redis läuft in Podman auf 6379. Server mit
-`EMPORIX_SESSION_REDIS_URL=redis://127.0.0.1:6379` neu starten.
+Redis runs in Podman on 6379. Restart the server with
+`EMPORIX_SESSION_REDIS_URL=redis://127.0.0.1:6379`.
 
-1. `/cart` sagt **«No cart yet»** — die Cookie-Session gilt im Store-Modus nicht.
-2. Warenkorb füllen, `/cart` zeigt ihn.
-3. Im Browser sind **nur** `__Host-emporix.sid` und `emporix.siteCode` gesetzt.
-4. Genau **ein** Key im Store:
+1. `/cart` says **«No cart yet»** — the cookie session does not count in store mode.
+2. Fill the cart, `/cart` shows it.
+3. In the browser **only** `__Host-emporix.sid` and `emporix.siteCode` are set.
+4. Exactly **one** key in the store:
    ```bash
    node -e "const {createClient}=require('redis');(async()=>{const c=createClient({url:'redis://127.0.0.1:6379'});await c.connect();console.log(await c.keys('emporix:session:*'));await c.quit();})()"
    ```
-5. TTL bei ~604800 Sekunden (7 Tage) für den Gast.
-6. Den Key löschen → `/cart` sagt wieder «No cart yet». **Das ist der Widerruf
-   einer einzelnen Session, live** — die Fähigkeit, für die diese ganze Arbeit
-   existiert.
-7. `/debug` bleibt grün.
+5. TTL at ~604800 seconds (7 days) for the guest.
+6. Delete the key → `/cart` says «No cart yet» again. **That is the revocation
+   of a single session, live** — the capability this whole piece of work
+   exists for.
+7. `/debug` stays green.
 
-Punkt 6 ist der eigentliche Beleg. Punkte 1 und 3 belegen, dass nichts
-Geheimes mehr im Browser liegt.
+Point 6 is the real evidence. Points 1 and 3 show that nothing
+secret is left in the browser.
 
-- [ ] **Step 8: Live — eingeloggt**
+- [ ] **Step 8: Live — logged in**
 
-Braucht das Passwort und damit die Hand der Nutzerin. Danach prüfen:
+Needs the password and therefore the user's own hand. Afterwards check:
 
-1. TTL des Keys liegt bei ~90 Tagen statt 7.
-2. Der Record enthält `emporix.saasToken`, der Browser nicht — damit ist
-   zugleich der offene Punkt zur `saasToken`-Grösse gegenstandslos.
+1. The key's TTL is at ~90 days instead of 7.
+2. The record contains `emporix.saasToken`, the browser does not — which at the
+   same time makes the open point about the `saasToken` size moot.
 
 - [ ] **Step 9: Commit**
 
@@ -927,18 +927,18 @@ git add examples/next-server-first && git commit -m "feat(examples): add a redis
 
 ---
 
-### Task S4: Doku, Changeset und PR
+### Task S4: Docs, changeset and PR
 
 **Files:**
 - Modify: `packages/next/README.md`
 - Modify: `examples/next-server-first/README.md`
 - Modify: `docs/superpowers/specs/2026-08-03-session-cookie-hardening-design.md`
-  (die zwei offenen Punkte schliessen)
+  (close the two open points)
 - Create: `.changeset/next-session-store.md`
 
 - [ ] **Step 1: Changeset**
 
-Erstelle `.changeset/next-session-store.md`:
+Create `.changeset/next-session-store.md`:
 
 ```markdown
 ---
@@ -982,86 +982,86 @@ feature. Revoking every session of one customer needs a `customerId → sid[]`
 index, which your store can build from the record.
 ```
 
-- [ ] **Step 2: README-Abschnitt im Package**
+- [ ] **Step 2: README section in the package**
 
-Nach «Session cookie hardening» ein Abschnitt «Server-side sessions» mit: dem
-Interface, der Verdrahtung über `store`, der Tabelle was im Cookie bleibt, den
-Lebensdauern, dem Satz zu `EMPORIX_COOKIE_SECRET`, und dem ehrlichen Absatz
-über den Widerruf ohne Admin-API.
+After «Session cookie hardening», a section «Server-side sessions» with: the
+interface, the wiring via `store`, the table of what stays in the cookie, the
+lifetimes, the sentence about `EMPORIX_COOKIE_SECRET`, and the honest paragraph
+about revocation without an admin API.
 
-Dazu ausdrücklich: **alle drei Leser brauchen die Option** —
-`withEmporixSession*`, `emporixTokenProxy` und `emporixSession`. Wer sie
-irgendwo vergisst, bekommt dort still den Cookie-Modus, und das ist genau der
-Fehler, den die Cookie-Härtung schon einmal produziert hat.
+Explicitly on top of that: **all three readers need the option** —
+`withEmporixSession*`, `emporixTokenProxy` and `emporixSession`. Anyone who
+forgets it somewhere silently gets the cookie mode there, and that is exactly the
+mistake the cookie hardening has already produced once.
 
-- [ ] **Step 3: Die zwei offenen Punkte der Härtungs-Spec schliessen**
+- [ ] **Step 3: Close the two open points of the hardening spec**
 
-In `2026-08-03-session-cookie-hardening-design.md` die offenen Punkte zur
-`saasToken`-Grösse und zum JWT-Inhalt als **gegenstandslos im Store-Modus**
-markieren, mit Verweis auf die neue Spec. Im Cookie-Modus bleiben sie offen.
+In `2026-08-03-session-cookie-hardening-design.md`, mark the open points about the
+`saasToken` size and the JWT content as **moot in store mode**,
+with a reference to the new spec. In cookie mode they stay open.
 
-- [ ] **Step 4: Volle Suite**
+- [ ] **Step 4: Full suite**
 
 ```bash
 pnpm -r --filter "./packages/*" build && pnpm -r test && pnpm typecheck && pnpm lint
 ```
 
-Testzahl notieren.
+Note the test count.
 
-- [ ] **Step 5: Commit, Push, PR**
+- [ ] **Step 5: Commit, push, PR**
 
 ```bash
 git add .changeset packages/next/README.md examples/next-server-first/README.md docs && git commit -m "docs(repo): document the server-side session store"
 git push origin feat/session-store
 ```
 
-PR gegen `main`. In die Beschreibung: die drei Massnahmen, was der Store kann
-was Verschlüsselung nicht kann, die geschlossenen offenen Punkte, die gemessene
-Testzahl, und der Live-Beleg für den Einzel-Widerruf.
+PR against `main`. Into the description: the three measures, what the store can do
+that encryption cannot, the closed open points, the measured
+test count, and the live evidence for single-session revocation.
 
-**Nicht mergen.**
+**Do not merge.**
 
 ---
 
 ## Self-Review
 
-**Spec-Abdeckung:**
+**Spec coverage:**
 
-| Spec-Abschnitt | Task |
+| Spec section | Task |
 |---|---|
-| Hydrieren / im Speicher ändern / flushen | S1 Step 4 |
-| Vier Flush-Stellen, read-only flusht nie | S1 Step 6, Test 9 |
-| Adapter mit drei Methoden, `write` ersetzt | S1 Step 3 |
+| Hydrate / mutate in memory / flush | S1 Step 4 |
+| Four flush sites, read-only never flushes | S1 Step 6, Test 9 |
+| Adapter with three methods, `write` replaces | S1 Step 3 |
 | `store` in `WithEmporixSessionOptions` | S2 Step 1 |
-| `emporixTokenProxy` und `emporixSession` bekommen ihn | S2 Steps 2-3 |
-| `emporix.sid`, 32 Bytes, httpOnly, `__Host-` | S1 Step 3-4, Tests 2-3 |
-| `siteCode`/`language` bleiben Cookies | S1 Step 3, Test 8 |
-| `EMPORIX_COOKIE_SECRET` nicht auf die `sid` | S1 Step 3 (`newSessionId` ohne Seal), S4 Steps 1-2 |
-| TTL = Restzeit, Gast 7 Tage gleitend | S1 Step 3 (`recordTtl`), Tests 11-12 |
-| Kein Index, kein Store im Package, kein Merge | Nicht-Ziele, S4 Step 1 |
-| Redis-Adapter im Example, `undefined` ohne URL | S3 Steps 2-3 |
-| Live-Checks inkl. Einzel-Widerruf | S3 Steps 6-8 |
+| `emporixTokenProxy` and `emporixSession` get it | S2 Steps 2-3 |
+| `emporix.sid`, 32 bytes, httpOnly, `__Host-` | S1 Step 3-4, Tests 2-3 |
+| `siteCode`/`language` stay cookies | S1 Step 3, Test 8 |
+| `EMPORIX_COOKIE_SECRET` not on the `sid` | S1 Step 3 (`newSessionId` without a seal), S4 Steps 1-2 |
+| TTL = time remaining, guest 7 days sliding | S1 Step 3 (`recordTtl`), Tests 11-12 |
+| No index, no store in the package, no merge | Non-goals, S4 Step 1 |
+| Redis adapter in the example, `undefined` without a URL | S3 Steps 2-3 |
+| Live checks incl. single-session revocation | S3 Steps 6-8 |
 
-**Über die Spec hinaus, mit Grund:** die Spec nennt `flush` und `destroy` nicht
-als Teil des `SessionCookieJar`-Interface. Der Plan tut es, weil es sonst keinen
-Ort gibt, an dem der Store-Write passiert — und `EmporixServerSession` bekommt
-ebenfalls ein `flush`, weil `createServerStorage` synchron schreibt und der
-Aufrufer entscheiden muss, wann der Zustand landet. Ein stilles Write-behind
-wäre eine Lüge darüber, wann geschrieben wurde.
+**Beyond the spec, with a reason:** the spec does not name `flush` and `destroy`
+as part of the `SessionCookieJar` interface. The plan does, because otherwise there
+is no place where the store write happens — and `EmporixServerSession` gets
+a `flush` as well, because `createServerStorage` writes synchronously and the
+caller has to decide when the state lands. A silent write-behind
+would be a lie about when the write happened.
 
-**Typ-Konsistenz:** `EmporixSessionStore`, `SESSION_SID`, `SESSION_GUEST_MAX`,
-`newSessionId`, `recordTtl`, `isPublicSessionKey` entstehen in S1 Step 3 und
-werden in S1 Step 4, S2 und S3 mit genau diesen Signaturen konsumiert. `flush`
-und `destroy` kommen aus S1 Step 4 und werden in S1 Step 6 und S2 Step 3
-gerufen.
+**Type consistency:** `EmporixSessionStore`, `SESSION_SID`, `SESSION_GUEST_MAX`,
+`newSessionId`, `recordTtl`, `isPublicSessionKey` come into being in S1 Step 3
+and are consumed in S1 Step 4, S2 and S3 with exactly these signatures.
+`flush` and `destroy` come out of S1 Step 4 and are called in S1 Step 6 and
+S2 Step 3.
 
-**Drei Annahmen, die der Plan als Prüfpunkt markiert statt zu behaupten:**
+**Three assumptions the plan marks as a check point instead of asserting:**
 
-1. Der Import-Zyklus zwischen `session-store.ts` und `session-cookies.ts` (S1
-   Step 4) — mit der Anweisung, was zu tun ist, falls der Build sich beschwert,
-   und ausdrücklich, was **nicht** zu tun ist.
-2. Ob bestehende Tests brechen, weil sie einen Jar selbst bauen (S1 Step 7) —
-   mit der Anweisung, den Test anzupassen und `flush` nicht optional zu machen.
-3. Die Zahl der `emporixSession()`-Aufrufe im Example ist **einer**, gemessen
-   (`app/login/page.tsx:5`) — mit einem Nachzähl-Befehl, falls sich das bis zur
-   Umsetzung ändert.
+1. The import cycle between `session-store.ts` and `session-cookies.ts` (S1
+   Step 4) — with the instruction on what to do if the build complains,
+   and explicitly what **not** to do.
+2. Whether existing tests break because they build a jar themselves (S1 Step 7) —
+   with the instruction to adjust the test and not to make `flush` optional.
+3. The number of `emporixSession()` calls in the example is **one**, measured
+   (`app/login/page.tsx:5`) — with a recount command in case that changes
+   before implementation.

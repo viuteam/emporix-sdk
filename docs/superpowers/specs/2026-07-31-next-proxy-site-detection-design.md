@@ -1,105 +1,105 @@
-# Site- und Locale-Erkennung im Proxy — Design
+# Site and Locale Detection in the Proxy — Design
 
 **Status:** approved
-**Datum:** 2026-07-31
+**Date:** 2026-07-31
 **Package:** `@viu/emporix-sdk-next`
-**Vorgänger:** `2026-07-31-emporix-sdk-next-design.md` (Follow-up 2),
+**Predecessors:** `2026-07-31-emporix-sdk-next-design.md` (Follow-up 2),
 `2026-07-31-next-example-migration-design.md` (Follow-up 1),
 `2026-07-31-react-key-normalization-design.md` (Follow-up 1)
 
 ## Problem
 
-Eine Storefront, die mehr als eine Site oder Sprache bedient, muss `siteCode`
-und `language` pro Request bestimmen, bevor gerendert wird. Beide Werte gehen an
-zwei Stellen ein, die sich einig sein müssen:
+A storefront that serves more than one site or language has to determine
+`siteCode` and `language` per request before rendering. Both values feed into
+two places that have to agree:
 
-- serverseitig in `getEmporixClient({ context })` und in die
-  `prefetchEmporix`-Query-Keys,
-- clientseitig in den `SiteContextProvider`, aus dem `useEmporixQuery` sie über
-  `siteMeta` in denselben Key schreibt.
+- server-side into `getEmporixClient({ context })` and into the
+  `prefetchEmporix` query keys,
+- client-side into the `SiteContextProvider`, out of which `useEmporixQuery`
+  writes them into the same key via `siteMeta`.
 
-Weichen sie ab, wird aus dem Hydration-Cache-Hit ein Miss und jede Seite lädt
-ihre Daten zweimal. Das ist derselbe Mechanismus, für den die `context`-Option
-in `getEmporixClient` gebaut wurde (PR #187/#188) — hier nur pro Request statt
-pro Prozess.
+If they diverge, the hydration cache hit turns into a miss and every page loads
+its data twice. This is the same mechanism the `context` option in
+`getEmporixClient` was built for (PR #187/#188) — only here it is per request
+instead of per process.
 
-Ein `proxy.ts` ist die einzige Stelle, an der das vor dem Rendern passieren
-kann.
+A `proxy.ts` is the only place where this can happen before rendering
+takes place.
 
-## Gemessene Grundlagen
+## Measured Foundations
 
-Alles an `next@16.2.12` im Repo nachgemessen, nicht aus dem Gedächtnis.
+Everything measured against `next@16.2.12` in the repo, not from memory.
 
-| Fakt | Quelle |
+| Fact | Source |
 |---|---|
-| Datei heisst `proxy`, im Root oder in `src/` | `next/dist/lib/constants.d.ts:32` — `PROXY_FILENAME = "proxy"`, `PROXY_LOCATION_REGEXP = "(?:src/)?proxy"` |
-| Export als `default` **oder** benannt `proxy`; Typ `NextProxy` aus `next/server` | `next/dist/build/analysis/get-page-static-info.js:270-306`, Doku |
-| **Node-Runtime erzwungen** — `export const runtime` wirft | «Route segment config is not allowed in Proxy file … Proxy always runs on Node.js runtime» (`get-page-static-info.js:587`) |
-| Ohne `matcher` läuft der Proxy auf jedem Request, inkl. `_next/static`, `_next/image`, `public/` | Doku, Abschnitt «Matcher» |
-| `matcher` muss ein statisch analysierbares Literal sein | Doku: «The matcher values need to be constants so they can be statically analyzed at build-time. Dynamic values such as variables will be ignored.» |
-| `request.cookies.set(name, value)` schreibt den `cookie`-Header des Requests zurück | `next/dist/compiled/@edge-runtime/cookies/index.js:212-217` — `this._headers.set("cookie", …)` |
-| Der Request-Header wird über `NextResponse.next({ request: { headers } })` weitergegeben, nicht über `{ headers }` | Doku, Abschnitt «Setting Headers» |
-| `NextResponse.rewrite(dest)` validiert `dest` als absolute URL und legt sie in `x-middleware-rewrite` | `next/dist/server/web/spec-extension/response.js:116-118` |
-| `next/root-params` existiert in 16.2.12 | `next/dist/server/request/root-params.js` |
-| Next rät von Proxy ab | Doku: «We recommend users avoid relying on Middleware unless no other options exist» und «you should not attempt relying on shared modules or globals» |
-| `next@^16.2.12` ist bereits devDependency in `packages/next` | `packages/next/package.json` |
+| File is named `proxy`, in the root or in `src/` | `next/dist/lib/constants.d.ts:32` — `PROXY_FILENAME = "proxy"`, `PROXY_LOCATION_REGEXP = "(?:src/)?proxy"` |
+| Export as `default` **or** named `proxy`; type `NextProxy` from `next/server` | `next/dist/build/analysis/get-page-static-info.js:270-306`, docs |
+| **Node runtime enforced** — `export const runtime` throws | «Route segment config is not allowed in Proxy file … Proxy always runs on Node.js runtime» (`get-page-static-info.js:587`) |
+| Without a `matcher` the proxy runs on every request, incl. `_next/static`, `_next/image`, `public/` | Docs, section «Matcher» |
+| `matcher` has to be a statically analysable literal | Docs: «The matcher values need to be constants so they can be statically analyzed at build-time. Dynamic values such as variables will be ignored.» |
+| `request.cookies.set(name, value)` writes the request's `cookie` header back | `next/dist/compiled/@edge-runtime/cookies/index.js:212-217` — `this._headers.set("cookie", …)` |
+| The request header is passed on via `NextResponse.next({ request: { headers } })`, not via `{ headers }` | Docs, section «Setting Headers» |
+| `NextResponse.rewrite(dest)` validates `dest` as an absolute URL and puts it into `x-middleware-rewrite` | `next/dist/server/web/spec-extension/response.js:116-118` |
+| `next/root-params` exists in 16.2.12 | `next/dist/server/request/root-params.js` |
+| Next advises against Proxy | Docs: «We recommend users avoid relying on Middleware unless no other options exist» and «you should not attempt relying on shared modules or globals» |
+| `next@^16.2.12` is already a devDependency in `packages/next` | `packages/next/package.json` |
 
-Vier davon sind nicht nur nachgelesen, sondern in einem Spike ausgeführt und
-danach wieder gelöscht — `Request.headers` ist im Web-Standard guarded, also
-war «`request.cookies.set` ist erlaubt» eine tragende Annahme und keine
-Selbstverständlichkeit:
+Four of them were not merely looked up but executed in a spike and deleted
+again afterwards — `Request.headers` is guarded in the web standard, so
+«`request.cookies.set` is allowed» was a load-bearing assumption and not a
+given:
 
-| Gemessen | Ergebnis |
+| Measured | Result |
 |---|---|
-| `request.cookies.set` auf einem frischen `NextRequest` | erlaubt; `request.headers.get("cookie")` enthält danach `emporix.language=de` |
-| bestehendes Cookie im eingehenden `cookie`-Header | bleibt erhalten, das neue kommt dazu |
-| `NextResponse.next({ request: { headers } })` mit den mutierten Headern | funktioniert; `set-cookie` enthält **kein** `HttpOnly` |
-| `NextResponse.rewrite(new URL("/x", request.url), …)` | `x-middleware-rewrite` ist `https://shop.test/x` |
+| `request.cookies.set` on a fresh `NextRequest` | allowed; `request.headers.get("cookie")` contains `emporix.language=de` afterwards |
+| existing cookie in the incoming `cookie` header | is preserved, the new one is added to it |
+| `NextResponse.next({ request: { headers } })` with the mutated headers | works; `set-cookie` contains **no** `HttpOnly` |
+| `NextResponse.rewrite(new URL("/x", request.url), …)` | `x-middleware-rewrite` is `https://shop.test/x` |
 
-Die `HttpOnly`-Assertion wurde mutiert (`httpOnly: true` gesetzt) und failt dann
-genau einmal — der Guard aus Test 9 unten kann also wirklich failen.
+The `HttpOnly` assertion was mutated (`httpOnly: true` set) and then fails
+exactly once — so the guard from test 9 below really can fail.
 
-Die bestehende Cookie-Kette, ebenfalls nachgelesen:
+The existing cookie chain, likewise looked up:
 
-| Fakt | Quelle |
+| Fact | Source |
 |---|---|
-| Der `SiteContextProvider` liest `storage.getSiteCode()` / `getLanguage()` als **zweite** Präzedenzstufe, nach den `initial*`-Props und vor dem Client-Config-Kontext | `packages/react/src/site-context.tsx:55-68` |
-| `useEmporixQuery` bezieht `siteCode`/`language` aus diesem Kontext und gibt sie über `siteMeta` in den Key | `packages/react/src/hooks/internal/use-emporix-query.ts:45,57` |
-| `emporixSession()` liest dieselben Cookie-Namen serverseitig über `createServerStorage` | `packages/next/src/session.ts` |
-| `COOKIE_NAMES` ist heute aus **keinem** Entry von `@viu/emporix-sdk-react` exportiert | `packages/react/src/storage/cookie-core.ts:12`, kein Re-Export in `index.ts` / `ssr.ts` / `storage/index.ts` |
-| Der Entry `./storage` trägt den `"use client"`-Banner, `./ssr` bewusst nicht | `packages/react/tsup.config.ts`, `packages/react/scripts/check-dist.mjs` |
+| The `SiteContextProvider` reads `storage.getSiteCode()` / `getLanguage()` as the **second** precedence level, after the `initial*` props and before the client-config context | `packages/react/src/site-context.tsx:55-68` |
+| `useEmporixQuery` takes `siteCode`/`language` from this context and puts them into the key via `siteMeta` | `packages/react/src/hooks/internal/use-emporix-query.ts:45,57` |
+| `emporixSession()` reads the same cookie names server-side via `createServerStorage` | `packages/next/src/session.ts` |
+| `COOKIE_NAMES` is today exported from **no** entry of `@viu/emporix-sdk-react` | `packages/react/src/storage/cookie-core.ts:12`, no re-export in `index.ts` / `ssr.ts` / `storage/index.ts` |
+| The `./storage` entry carries the `"use client"` banner, `./ssr` deliberately does not | `packages/react/tsup.config.ts`, `packages/react/scripts/check-dist.mjs` |
 
-## Entscheidung: generisch, kein Policy-Anteil
+## Decision: generic, no policy share
 
-Das Package besitzt ausschliesslich die Emporix-Mechanik. Welcher Host oder
-Pfad auf welchen `siteCode`/`language` zeigt, schreibt die Storefront selbst.
+The package owns the Emporix mechanics exclusively. Which host or path points
+to which `siteCode`/`language` is written by the storefront itself.
 
-Begründung: `@viu/emporix-sdk-next` ist publiziert und soll mehrere künftige
-Storefronts tragen. Eine Host-Map oder Locale-Konvention im Package wäre die
-Policy genau einer Storefront, eingebacken in eine npm-Version — und jede
-weitere Storefront müsste sie umgehen statt nutzen.
+Rationale: `@viu/emporix-sdk-next` is published and is meant to carry several
+future storefronts. A host map or locale convention in the package would be the
+policy of exactly one storefront, baked into an npm version — and every further
+storefront would have to work around it instead of using it.
 
-Wo der Resolver liegt, hat eine Konsequenz, die ins README gehört: **wenn eine
-aufgelöste Site vom bestehenden Cookie abweicht, überschreibt die Funktion es.**
-Wer eine clientseitige Sprachwahl (`setLanguage`) nicht überfahren will, liest
-im Resolver zuerst `request.cookies` und gibt den vorhandenen Wert zurück. Das
-ist bewusst nicht im Package gelöst — ob die URL oder die Nutzerwahl gewinnt,
-ist eine Produktentscheidung, keine Bibliotheksentscheidung.
+Where the resolver lives has one consequence that belongs in the README: **if a
+resolved site diverges from the existing cookie, the function overwrites it.**
+Anyone who does not want to run over a client-side language choice
+(`setLanguage`) reads `request.cookies` first in the resolver and returns the
+existing value. This is deliberately not solved in the package — whether the URL
+or the user's choice wins is a product decision, not a library decision.
 
-Der Proxy darf ausserdem **keinen** Emporix-Aufruf machen und `getEmporixClient`
-nicht importieren. Das ist nicht Vorsicht, sondern die Next-Doku: der Client
-memoisiert in einer Modul-Map, und für Proxy gilt «you should not attempt
-relying on shared modules or globals». Die Auflösung ist damit rein synchron aus
-dem Request.
+The proxy must furthermore make **no** Emporix call and must not import
+`getEmporixClient`. That is not caution but the Next docs: the client memoises
+in a module map, and for Proxy «you should not attempt relying on shared modules
+or globals» applies. Resolution is therefore purely synchronous out of the
+request.
 
-## Oberfläche
+## Surface
 
-Ein neuer Entry `@viu/emporix-sdk-next/proxy` mit einem Export.
+A new entry `@viu/emporix-sdk-next/proxy` with one export.
 
 ```ts
 /**
- * Site und Sprache, die ein Proxy für einen Request aufgelöst hat.
- * Fehlende Felder werden nicht angetastet — es gibt kein Löschen.
+ * Site and language that a proxy has resolved for a request.
+ * Missing fields are left untouched — there is no deleting.
  */
 export interface EmporixSite {
   siteCode?: string;
@@ -113,16 +113,16 @@ export function emporixSiteProxy(
 ): NextResponse;
 ```
 
-`rewriteTo` weggelassen → `NextResponse.next(...)`. `rewriteTo` gesetzt →
-`NextResponse.rewrite(...)`, relative Strings werden gegen `request.url`
-aufgelöst. Beide Pfade laufen durch dieselbe Header-Injektion und denselben
-Cookie-Write.
+`rewriteTo` omitted → `NextResponse.next(...)`. `rewriteTo` set →
+`NextResponse.rewrite(...)`, relative strings are resolved against
+`request.url`. Both paths run through the same header injection and the same
+cookie write.
 
-Redirect ist bewusst nicht abgedeckt: es findet kein Render statt, also braucht
-es keine Header-Injektion, und das `Set-Cookie` reist mit dem Redirect zum
-Folgerequest.
+Redirect is deliberately not covered: no render takes place, so no header
+injection is needed, and the `Set-Cookie` travels along with the redirect to the
+follow-up request.
 
-### Implementierung
+### Implementation
 
 ```ts
 const ENTRIES = [
@@ -140,8 +140,8 @@ export function emporixSiteProxy(
     const value = site[field];
     if (value === undefined) continue;
     if (request.cookies.get(name)?.value === value) continue;
-    // Schreibt den `cookie`-Header zurück, damit `emporixSession()` den Wert
-    // schon in DIESEM Render sieht.
+    // Writes the `cookie` header back so that `emporixSession()` sees the
+    // value already in THIS render.
     request.cookies.set(name, value);
     changed.push([name, value]);
   }
@@ -156,9 +156,9 @@ export function emporixSiteProxy(
     response.cookies.set(name, value, {
       path: "/",
       sameSite: "lax",
-      // NICHT httpOnly: das browserseitige createCookieStorage muss lesen
-      // können, sonst greift die Storage-Präzedenzstufe im
-      // SiteContextProvider nie.
+      // NOT httpOnly: the browser-side createCookieStorage has to be able to
+      // read it, otherwise the storage precedence level in the
+      // SiteContextProvider never kicks in.
       httpOnly: false,
       secure: request.nextUrl.protocol === "https:",
       maxAge: 60 * 60 * 24 * 365,
@@ -168,177 +168,177 @@ export function emporixSiteProxy(
 }
 ```
 
-Drei Details mit Begründung:
+Three details with a rationale:
 
-**`httpOnly: false` explizit**, obwohl es der Default von `ResponseCookies.set`
-ist. Es ist die einzige sicherheitsrelevante Zeile der Datei; explizit
-geschrieben dokumentiert sie sich selbst und übersteht eine Default-Änderung in
-Next. Der Gegensatz zu `emporixSessionMutable` (`httpOnly: true`) ist
-beabsichtigt: der Customer-Token darf der Browser nicht lesen, die
-Site-Präferenz muss er.
+**`httpOnly: false` explicitly**, even though it is the default of
+`ResponseCookies.set`. It is the only security-relevant line in the file;
+written out explicitly it documents itself and survives a default change in
+Next. The contrast to `emporixSessionMutable` (`httpOnly: true`) is
+intentional: the browser must not read the customer token, but it must read the
+site preference.
 
-**`secure` aus dem Protokoll abgeleitet**, nicht hart `true`. Hart `true`
-liefert auf einem HTTP-Staging ein stillschweigend verworfenes Cookie —
-fail-closed und mühsam zu diagnostizieren. Hinter einem TLS-terminierenden
-Reverse Proxy sieht Next `http:` und setzt kein `Secure`; das ist fail-open und
-gehört in die JSDoc.
+**`secure` derived from the protocol**, not hard-wired `true`. Hard-wired `true`
+yields a silently discarded cookie on an HTTP staging environment —
+fail-closed and tedious to diagnose. Behind a TLS-terminating
+reverse proxy Next sees `http:` and sets no `Secure`; that is fail-open and
+belongs in the JSDoc.
 
-**No-op-Guard**, wenn das eingehende Cookie schon passt. Für den
-wiederkehrenden Besucher entsteht dann gar kein `Set-Cookie` — sonst wäre jede
-Response bei manchen CDNs uncacheable. Wenn nichts geändert wurde, ist der
-Aufruf eine reine Durchleitung.
+**No-op guard** when the incoming cookie already matches. For the returning
+visitor no `Set-Cookie` arises at all — otherwise every response would be
+uncacheable on some CDNs. If nothing was changed, the call is a pure
+pass-through.
 
-### Eigener Entry, nicht aus Kosmetik
+### Its own entry, not out of cosmetics
 
-`src/session.ts` importiert `next/headers`, und `cookies()` ist im
-Proxy-Kontext nicht verfügbar. Über den Barrel-Export würde eine `proxy.ts` das
-mitziehen. Dieselbe Begründung wie beim bestehenden `webhook`-Entry.
+`src/session.ts` imports `next/headers`, and `cookies()` is not available in
+the proxy context. Via the barrel export a `proxy.ts` would drag that along
+with it. The same rationale as with the existing `webhook` entry.
 
-Änderungen: `entry` in `packages/next/tsup.config.ts` um
-`proxy: "src/proxy.ts"` erweitern, `"./proxy"` in die `exports`-Map von
+Changes: extend `entry` in `packages/next/tsup.config.ts` with
+`proxy: "src/proxy.ts"`, add `"./proxy"` to the `exports` map of
 `packages/next/package.json`.
 
-## Datenfluss
+## Data Flow
 
 ```
 proxy.ts  →  emporixSiteProxy
-               ├─ request.cookies.set  →  cookie-Header  →  emporixSession()
+               ├─ request.cookies.set  →  cookie header  →  emporixSession()
                │                                          →  prefetchEmporix({ siteCode, language })
                └─ response.cookies.set →  Set-Cookie      →  createCookieStorage
                                                           →  SiteContextProvider
-                                                          →  siteMeta  →  Query-Key
+                                                          →  siteMeta  →  query key
 ```
 
-Beide Hälften münden in dasselbe `siteMeta`, also matchen Server-Prefetch und
-Client-Hydration. Neuer Plumbing-Code entsteht nicht — die Kette existiert, der
-Proxy hängt sich vorne dran.
+Both halves flow into the same `siteMeta`, so server prefetch and client
+hydration match. No new plumbing code arises — the chain exists, the proxy
+hooks itself onto the front of it.
 
-Der Doppel-Write ist nicht redundant. Ohne den Request-Anteil sieht der laufende
-Render den neuen Wert nicht und prefetcht mit dem alten. Ohne das `Set-Cookie`
-hat der Browser den Wert beim ersten Besuch nie, der Client mountet ohne
-`siteCode`, und genau der erste Seitenaufruf verfehlt den Key.
+The double write is not redundant. Without the request half the running render
+does not see the new value and prefetches with the old one. Without the
+`Set-Cookie` the browser never has the value on the first visit, the client
+mounts without `siteCode`, and precisely that first page view misses the key.
 
-### Voraussetzung clientseitig
+### Client-side prerequisite
 
-Die untere Hälfte funktioniert nur mit `createCookieStorage`. Mit
-`createMemoryStorage` — was `examples/next-app-router` heute nutzt — ist sie
-tot. Das gehört ins README, nicht in Code: es ist eine Entscheidung der
-Storefront.
+The lower half only works with `createCookieStorage`. With
+`createMemoryStorage` — which `examples/next-app-router` uses today — it is
+dead. That belongs in the README, not in code: it is a decision of the
+storefront.
 
-### Der eine nötige Export in `@viu/emporix-sdk-react`
+### The one export needed in `@viu/emporix-sdk-react`
 
-`COOKIE_NAMES` wird aus `@viu/emporix-sdk-react/ssr` exportiert. Nicht aus
-`./storage`: dieser Entry trägt den `"use client"`-Banner und hat in einer
-`proxy.ts` nichts zu suchen. `./ssr` ist bannerfrei und der Entry, aus dem
-`packages/next/src/session.ts` schon heute importiert.
+`COOKIE_NAMES` is exported from `@viu/emporix-sdk-react/ssr`. Not from
+`./storage`: that entry carries the `"use client"` banner and has no business in
+a `proxy.ts`. `./ssr` is banner-free and the entry that
+`packages/next/src/session.ts` already imports from today.
 
-Damit bleiben die acht Cookie-Namen in `cookie-core.ts` einfach gesourced,
-statt dass `@viu/emporix-sdk-next` eine dritte Kopie der Literale anlegt.
+That way the eight cookie names stay single-sourced in `cookie-core.ts`,
+instead of `@viu/emporix-sdk-next` laying down a third copy of the literals.
 
-Release-Folge: ein PR, ein Release. Changesets publiziert in topologischer
-Ordnung, also `@viu/emporix-sdk-react` vor `@viu/emporix-sdk-next`; die
-`workspace:^`-Peer-Range wird beim Packen auf die neue react-Version
-umgeschrieben.
+Release sequence: one PR, one release. Changesets publishes in topological
+order, so `@viu/emporix-sdk-react` before `@viu/emporix-sdk-next`; the
+`workspace:^` peer range is rewritten to the new react version at packing
+time.
 
-## Nicht-Ziele
+## Non-Goals
 
-- **Keine Host-Map, keine Locale-Liste, keine Konvention.** Policy gehört in die
-  Storefront.
-- **Kein exportierter `matcher`.** Ein importierter Wert ist für Next eine
-  Variable und wird stillschweigend ignoriert. Das Package kann ihn nur
-  dokumentieren; er muss inline in der `proxy.ts` stehen.
-- **Kein Cookie-Löschen.** `undefined` heisst «unangetastet lassen». Wer löschen
-  will, ruft `response.cookies.delete` selbst auf.
-- **Kein Redirect-Pfad.** Siehe oben — er braucht die Funktion nicht.
-- **Kein Emporix-Aufruf, kein `getEmporixClient`-Import.** Von der Next-Doku
-  ausgeschlossen.
-- **Keine Änderung an `examples/next-app-router`.** Das Example ist Single-Site
-  CHF/`main`; ein Proxy dort wäre Demo-Zeremonie. Verifiziert wird gegen einen
-  echten Server mit einer temporären, nicht committeten Datei (siehe unten).
+- **No host map, no locale list, no convention.** Policy belongs in the
+  storefront.
+- **No exported `matcher`.** An imported value is a variable as far as Next is
+  concerned and is silently ignored. The package can only document it; it has
+  to sit inline in the `proxy.ts`.
+- **No cookie deleting.** `undefined` means «leave untouched». Anyone who wants
+  to delete calls `response.cookies.delete` themselves.
+- **No redirect path.** See above — it does not need the function.
+- **No Emporix call, no `getEmporixClient` import.** Ruled out by the Next
+  docs.
+- **No change to `examples/next-app-router`.** The example is single-site
+  CHF/`main`; a proxy there would be demo ceremony. Verification happens against
+  a real server with a temporary, uncommitted file (see below).
 
 ## Tests
 
-Zehn Unit-Tests in `packages/next/tests/proxy.test.ts`, gegen echte
-`NextRequest`/`NextResponse` aus `next/server`:
+Ten unit tests in `packages/next/tests/proxy.test.ts`, against real
+`NextRequest`/`NextResponse` from `next/server`:
 
-| # | Fall | Erwartung |
+| # | Case | Expectation |
 |---|---|---|
-| 1 | beide Felder gesetzt, keine Cookies vorhanden | zwei `Set-Cookie`, korrekte Werte |
-| 2 | Header-Injektion | `request.headers.get("cookie")` enthält beide Namen nach dem Aufruf |
-| 3 | beide eingehenden Cookies passen schon | `response.cookies.getAll()` ist leer |
-| 4 | nur `language` | genau ein `Set-Cookie` |
-| 5 | `{}` | kein `Set-Cookie`, Response ist eine Durchleitung |
-| 6 | `rewriteTo` als relativer String | `x-middleware-rewrite` ist die absolute URL, Cookies trotzdem gesetzt |
-| 7 | `rewriteTo` als absolute `URL` | dito |
-| 8 | `http://` vs `https://` | `Secure` nur bei https |
-| 9 | `httpOnly` | auf **keinem** der beiden Cookies gesetzt |
-| 10 | eingehendes Cookie hat einen **anderen** Wert | wird überschrieben, im `Set-Cookie` und im weitergegebenen Header |
+| 1 | both fields set, no cookies present | two `Set-Cookie`, correct values |
+| 2 | header injection | `request.headers.get("cookie")` contains both names after the call |
+| 3 | both incoming cookies already match | `response.cookies.getAll()` is empty |
+| 4 | only `language` | exactly one `Set-Cookie` |
+| 5 | `{}` | no `Set-Cookie`, response is a pass-through |
+| 6 | `rewriteTo` as a relative string | `x-middleware-rewrite` is the absolute URL, cookies set nonetheless |
+| 7 | `rewriteTo` as an absolute `URL` | ditto |
+| 8 | `http://` vs `https://` | `Secure` only on https |
+| 9 | `httpOnly` | set on **neither** of the two cookies |
+| 10 | incoming cookie has a **different** value | gets overwritten, in the `Set-Cookie` and in the forwarded header |
 
-Test 9 ist der wichtigste — er ist die Regressionsbremse für die eine
-sicherheitsrelevante Zeile. Test 10 fixiert die Überschreib-Semantik aus dem
-Abschnitt «Entscheidung» und ist der Gegenpol zu Test 3: passt das Cookie, wird
-nichts geschrieben; passt es nicht, gewinnt der Resolver.
+Test 9 is the most important one — it is the regression brake for the one
+security-relevant line. Test 10 pins down the overwrite semantics from the
+«Decision» section and is the counterpart to test 3: if the cookie matches,
+nothing is written; if it does not, the resolver wins.
 
-Rewrite wird über `x-middleware-rewrite` geprüft, mit Quellenangabe
-(`next/dist/server/web/spec-extension/response.js:118`) im Test, damit ein
-Next-Bruch diagnostizierbar failt statt rätselhaft. `next/experimental/testing/server`
-mit `getRewrittenUrl` wäre die sanktionierte Alternative, ist aber
-`unstable_`-benannt; innerhalb von `next@^16` ist der Header stabil.
+Rewrite is checked via `x-middleware-rewrite`, with a source reference
+(`next/dist/server/web/spec-extension/response.js:118`) in the test, so that a
+Next breakage fails diagnosably instead of mysteriously. `next/experimental/testing/server`
+with `getRewrittenUrl` would be the sanctioned alternative, but it is
+`unstable_`-named; within `next@^16` the header is stable.
 
-### Verifikation gegen einen echten Server
+### Verification against a real server
 
-Unit-Tests beweisen die Header-Weitergabe nicht — nur, dass die Funktion die
-richtigen Objekte baut. Ob Next die mutierten Header wirklich an den Render
-weitergibt, zeigt erst ein laufender Server:
+Unit tests do not prove the header forwarding — only that the function builds
+the right objects. Whether Next really passes the mutated headers on to the
+render is only shown by a running server:
 
-1. temporäre `proxy.ts` in `examples/next-app-router`, die `language` aus dem
-   ersten Pfadsegment ableitet,
-2. `next build` und `next start`,
-3. `curl -sD- http://localhost:3000/de/ -o /dev/null` → erwartet `Set-Cookie`
-   für beide Namen, **ohne** `Secure` (http),
-4. derselbe Aufruf mit `-b "emporix.language=de"` → erwartet **kein**
-   `Set-Cookie` für `language` (No-op-Guard),
-5. temporäre Datei löschen.
+1. temporary `proxy.ts` in `examples/next-app-router` that derives `language`
+   from the first path segment,
+2. `next build` and `next start`,
+3. `curl -sD- http://localhost:3000/de/ -o /dev/null` → expects `Set-Cookie`
+   for both names, **without** `Secure` (http),
+4. the same call with `-b "emporix.language=de"` → expects **no**
+   `Set-Cookie` for `language` (no-op guard),
+5. delete the temporary file.
 
-Schritt 5 ist Teil der Aufgabe, nicht ein Nachgedanke: das Example bekommt
-keine committete Änderung.
+Step 5 is part of the task, not an afterthought: the example gets no
+committed change.
 
-## Doku
+## Docs
 
-Ein Abschnitt in `packages/next/README.md` mit einer copy-paste-fähigen
-`proxy.ts`, inklusive **inline** geschriebenem `matcher` samt
-Negativ-Lookahead, und der Notiz, warum der Matcher nicht importierbar ist.
-Dazu die Voraussetzung `createCookieStorage`.
+One section in `packages/next/README.md` with a copy-paste-ready
+`proxy.ts`, including an **inline**-written `matcher` together with its
+negative lookahead, and the note on why the matcher is not importable.
+Plus the `createCookieStorage` prerequisite.
 
-Kein `docs/nextjs.md` in diesem Zyklus — das bleibt der offene Follow-up für
-`images.remotePatterns` und ist ein anderes Thema.
+No `docs/nextjs.md` in this cycle — that remains the open follow-up for
+`images.remotePatterns` and is a different topic.
 
-## Ehrliche Einordnung
+## Honest Assessment
 
-Das ist der Follow-up mit dem schwächsten Nutzen der drei offenen. Next selbst
-rät von Proxy ab, und für Sprache über Pfad-Prefix gibt es in 16 den besseren
-Weg ohne Proxy: `app/[locale]/…` plus `await locale()` aus `next/root-params`.
-Zwingend ist der Proxy nur, wenn der Diskriminator der Host ist oder wenn beim
-ersten Besuch aus `Accept-Language` geraten und persistiert werden soll.
+This is the follow-up with the weakest benefit of the three open ones. Next
+itself advises against Proxy, and for language via a path prefix 16 offers the
+better way without a proxy: `app/[locale]/…` plus `await locale()` from
+`next/root-params`. The proxy is only mandatory when the discriminator is the
+host or when the first visit is meant to guess from `Accept-Language` and persist.
 
-Der Umfang — rund 25 Zeilen plus ein Export in react — macht es vertretbar,
-aber nicht dringend. Wer nur eine Site und eine Sprache hat, braucht davon
-nichts; `getEmporixClient({ context })` reicht.
+The scope — around 25 lines plus one export in react — makes it defensible,
+but not urgent. Anyone who has only one site and one language needs none of
+it; `getEmporixClient({ context })` is enough.
 
-## Offene Follow-ups danach
+## Open Follow-ups After This
 
-1. `docs/nextjs.md` mit dem `images.remotePatterns`-Eintrag für `next/image`.
-   Emporix-Media dokumentiert keine Transform-Parameter, also gibt es keinen
-   Custom-Loader zu schreiben; `packages/next/README.md` nennt `remotePatterns`
-   bereits.
-2. Die acht Storage-Key-Literale zwischen
-   `packages/react/src/storage/cookie-core.ts` und
-   `packages/react/src/storage/web-storage.ts` teilen. Die Duplikation hat die
-   `cookie-core`-Extraktion überlebt — web-storage nutzt sie als
-   localStorage/sessionStorage-Keys, nicht als Cookie-Namen. Der hier
-   hinzukommende `COOKIE_NAMES`-Export aus `./ssr` macht diese Aufgabe
-   sichtbarer, löst sie aber nicht.
-3. EUR/CHF-Divergenz im Example: `providers.tsx:24` bindet
+1. `docs/nextjs.md` with the `images.remotePatterns` entry for `next/image`.
+   Emporix Media documents no transform parameters, so there is no
+   custom loader to write; `packages/next/README.md` already mentions
+   `remotePatterns`.
+2. Share the eight storage-key literals between
+   `packages/react/src/storage/cookie-core.ts` and
+   `packages/react/src/storage/web-storage.ts`. The duplication survived the
+   `cookie-core` extraction — web-storage uses them as
+   localStorage/sessionStorage keys, not as cookie names. The `COOKIE_NAMES`
+   export from `./ssr` added here makes this task more
+   visible, but does not solve it.
+3. EUR/CHF divergence in the example: `providers.tsx:24` binds
    `{ currency: "EUR", siteCode: "main", targetLocation: "DE" }`,
-   `app/emporix.ts:19` dagegen `{ siteCode: "main", currency: "CHF" }`. Als
-   separate Aufgabe abgetrennt.
+   whereas `app/emporix.ts:19` binds `{ siteCode: "main", currency: "CHF" }`.
+   Split off as a separate task.

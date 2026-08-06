@@ -1,84 +1,84 @@
-# Server-First-Checkout — Design
+# Server-First Checkout — Design
 
 **Status:** approved
-**Datum:** 2026-08-01
-**Betroffen:** `packages/sdk` (additiv), `examples/next-server-first`,
-`examples/storefront-demo` (Import-Umstellung)
-**Vorgänger:** `2026-07-31-next-server-first-mode-design.md`
-**Vorlage:** `examples/storefront-demo/src/pages/Checkout.tsx` und
-`src/checkout/*` — die dort erprobte Form wird übernommen, nicht neu erfunden.
+**Date:** 2026-08-01
+**Affects:** `packages/sdk` (additive), `examples/next-server-first`,
+`examples/storefront-demo` (import switch-over)
+**Predecessor:** `2026-07-31-next-server-first-mode-design.md`
+**Template:** `examples/storefront-demo/src/pages/Checkout.tsx` and
+`src/checkout/*` — the shape proven there is adopted, not reinvented.
 
-## Ziel
+## Goal
 
-Der Server-First-Demo bekommt eine Checkout-Seite. Sie schliesst den Flow ab —
-Katalog, Warenkorb, Login, Bestellung — und zeigt den einen Punkt, an dem dieser
-Modus etwas kann, was der SPA-Weg nicht kann: der `saasToken` bleibt `httpOnly`.
+The server-first demo gets a checkout page. It completes the flow — catalog,
+cart, login, order — and shows the one point where this mode can do something
+the SPA route cannot: the `saasToken` stays `httpOnly`.
 
-## Gemessene Grundlagen
+## Measured foundations
 
-Alles aus `storefront-demo` und der SDK gelesen, nicht angenommen.
+Everything read from `storefront-demo` and the SDK, not assumed.
 
-### Die Checkout-Nutzlast
+### The checkout payload
 
-Verifiziert in `examples/storefront-demo/src/pages/Checkout.tsx:75-131`:
+Verified in `examples/storefront-demo/src/pages/Checkout.tsx:75-131`:
 
-| Feld | Form |
+| Field | Shape |
 |---|---|
-| `cartId` | aus dem Cart |
+| `cartId` | from the cart |
 | `customer` | `{ id? , email, firstName, lastName, guest }` — «logged-in customer must be identified by id; guest must not» ([Checkout.tsx:93](../../../examples/storefront-demo/src/pages/Checkout.tsx#L93)) |
-| `shipping` | `{ methodId, zoneId, methodName, amount, shippingTaxCode? }`, sonst `{ methodId: "free", zoneId: <country>, methodName: "Free Shipping", amount: 0 }` |
-| `addresses` | genau zwei: `type: "SHIPPING"` und `type: "BILLING"`, je `{ contactName, companyName?, street, streetNumber?, zipCode, city, country, contactPhone? }` |
-| `paymentMethods` | `[{ provider: "payment-gateway", customAttributes: { modeId }, amount }]` oder `[{ provider: "custom", amount }]` |
+| `shipping` | `{ methodId, zoneId, methodName, amount, shippingTaxCode? }`, otherwise `{ methodId: "free", zoneId: <country>, methodName: "Free Shipping", amount: 0 }` |
+| `addresses` | exactly two: `type: "SHIPPING"` and `type: "BILLING"`, each `{ contactName, companyName?, street, streetNumber?, zipCode, city, country, contactPhone? }` |
+| `paymentMethods` | `[{ provider: "payment-gateway", customAttributes: { modeId }, amount }]` or `[{ provider: "custom", amount }]` |
 
-`placeOrder(input, auth, { saasToken?, siteCode? })` — der `saasToken` nur für
-eingeloggte Kundinnen ([checkout.ts:55-59](../../../packages/sdk/src/services/checkout.ts#L55)).
-Rückgabe ist `CheckoutResult`, ein Alias auf
+`placeOrder(input, auth, { saasToken?, siteCode? })` — the `saasToken` only for
+logged-in customers ([checkout.ts:55-59](../../../packages/sdk/src/services/checkout.ts#L55)).
+The return value is `CheckoutResult`, an alias for
 `ResponseCheckout = { orderId?, paymentDetails?, checkoutId? }`
 ([checkout.ts:18](../../../packages/sdk/src/services/checkout.ts#L18),
 [checkout/types.gen.ts:247](../../../packages/sdk/src/generated/checkout/types.gen.ts#L247)).
 
-### Die Auflösung der Optionen
+### Resolving the options
 
-| Was | Aufruf | Reine Logik danach |
+| What | Call | Pure logic afterwards |
 |---|---|---|
-| Zahlungsarten | `client.payments.listPaymentModes(ctx)` | erste Mode vorauswählen |
-| Versandzonen | `client.shipping.listZones(site, { expand: "methods,fees", activeMethods: "true" }, ctx)` | `resolveZone` + `pickFee` |
-| Gespeicherte Adressen | `client.customers.addresses.list(ctx)` | — |
+| Payment methods | `client.payments.listPaymentModes(ctx)` | pre-select the first mode |
+| Shipping zones | `client.shipping.listZones(site, { expand: "methods,fees", activeMethods: "true" }, ctx)` | `resolveZone` + `pickFee` |
+| Saved addresses | `client.customers.addresses.list(ctx)` | — |
 
-`addresses.list` geht durch `requireCustomer` und wirft für einen anonymen
-Kontext einen `EmporixAuthError` — **lokal**, ohne Emporix je zu erreichen
-([require-customer.ts:10-13](../../../packages/sdk/src/core/require-customer.ts#L10)).
-Das ist kein 401, und der Unterschied ist praktisch: der Gast-Fall kostet keinen
-Roundtrip.
+`addresses.list` goes through `requireCustomer` and throws an
+`EmporixAuthError` for an anonymous context — **locally**, without ever reaching
+Emporix ([require-customer.ts:10-13](../../../packages/sdk/src/core/require-customer.ts#L10)).
+That is not a 401, and the difference is practical: the guest case costs no
+roundtrip.
 
-`resolveZone` und `pickFee` sind **pure Funktionen** und brauchen kein React
+`resolveZone` and `pickFee` are **pure functions** and need no React
 ([ShippingSelector.tsx:21-37](../../../examples/storefront-demo/src/checkout/ShippingSelector.tsx#L21)).
-Sie sind heute **ungetestet** — ein Grep über `examples`, `packages` und `e2e`
-findet keinen einzigen Testtreffer.
+Today they are **untested** — a grep across `examples`, `packages` and `e2e`
+finds not a single test hit.
 
-### `custom` ist ein echter Pfad, kein Platzhalter
+### `custom` is a real path, not a placeholder
 
-Emporix' eigene Spec, von der SDK vendored
+Emporix's own spec, vendored by the SDK
 ([checkout/types.gen.ts:215](../../../packages/sdk/src/generated/checkout/types.gen.ts#L215)):
 
 > «`custom` — When a custom provider is used. In this case the created order has
 > the `IN_CHECKOUT` status.»
 
-Das ist der Grund, warum der Demo ohne Zahlungs-Autorisierung ein vollständiger
-Flow ist und kein abgeschnittener: die Bestellung entsteht wirklich, sie steht
-nur in `IN_CHECKOUT` und wartet auf die Zahlung.
+That is the reason the demo is a complete flow without payment authorization and
+not a truncated one: the order really is created, it just sits in `IN_CHECKOUT`
+and waits for the payment.
 
-### Cache-Einordnung
+### Cache classification
 
-Cart, Zahlungsarten und Versandzonen sind **Gruppe B** der Hook-Inventur: anonym
-lesbar, aber von `emporixTagsForUrl` nicht getaggt und damit nicht cachebar. Sie
-laufen über `withEmporixSession` in einer Server Component. Gespeicherte Adressen
-sind **Gruppe C**, kundengebunden.
+Cart, payment methods and shipping zones are **group B** of the hook inventory:
+readable anonymously, but not tagged by `emporixTagsForUrl` and therefore not
+cacheable. They run through `withEmporixSession` in a Server Component. Saved
+addresses are **group C**, customer-bound.
 
-## Was in die SDK wandert
+## What moves into the SDK
 
-`resolveZone` und `pickFee` werden pure Exports in
-`packages/sdk/src/services/shipping.ts`, neben dem Service, dem sie gehören.
+`resolveZone` and `pickFee` become pure exports in
+`packages/sdk/src/services/shipping.ts`, next to the service they belong to.
 
 ```ts
 /** The zone whose `shipTo` covers `country`, else the default zone, else the first. */
@@ -92,47 +92,47 @@ export function pickFee(
 ): ShippingFee | undefined;
 ```
 
-Die Implementierung wird **wörtlich** aus `ShippingSelector.tsx` übernommen. Die
-Regeln sind dort gegen den `viu`-Tenant erprobt; sie umzuformulieren hiesse,
-erprobtes Verhalten gegen frisch geschriebenes zu tauschen.
+The implementation is taken **verbatim** from `ShippingSelector.tsx`. The rules
+are proven there against the `viu` tenant; rephrasing them would mean trading
+proven behaviour for freshly written behaviour.
 
-Zwei Typ-Details, gemessen:
+Two type details, measured:
 
-- `Zone` ist bereits öffentlich, und `ZoneList[number]` **ist** `Zone`, weil
+- `Zone` is already public, and `ZoneList[number]` **is** `Zone`, because
   `Zones = Array<Zone>`
   ([shipping/types.gen.ts:253](../../../packages/sdk/src/generated/shipping/types.gen.ts#L253)).
-  Das lokale `type ShippingZone = ZoneList[number]` im Demo war nur eine
-  Abkürzung und fällt weg.
-- `Fee` existiert generiert
+  The local `type ShippingZone = ZoneList[number]` in the demo was only a
+  shorthand and goes away.
+- `Fee` exists as a generated type
   ([shipping/types.gen.ts:315](../../../packages/sdk/src/generated/shipping/types.gen.ts#L315)),
-  ist aber **nicht** re-exportiert — `shipping-types.ts` exportiert nur
-  `MinimumFee`. Die Extraktion muss ihn mit re-exportieren, sonst zeigt eine
-  öffentliche Signatur auf einen nicht-öffentlichen Typ. **Nicht als `Fee`:**
-  der Fee-Service besetzt diesen Namen am Package-Root schon, `tsc` meldet
-  TS2308. Der Alias heisst `ShippingFee` — dieselbe Präfix-Konvention wie
-  `ShippingMethod` und `ShippingGroup` in derselben Datei.
+  but is **not** re-exported — `shipping-types.ts` exports only
+  `MinimumFee`. The extraction has to re-export it as well, otherwise a public
+  signature points at a non-public type. **Not as `Fee`:** the Fee service
+  already occupies that name at the package root, `tsc` reports TS2308. The
+  alias is called `ShippingFee` — the same prefix convention as
+  `ShippingMethod` and `ShippingGroup` in the same file.
 
-`SelectedShipping` bleibt im Demo. Es ist die Form, die *dessen* React-State
-braucht; der Server-First-Checkout baut die `shipping`-Nutzlast direkt.
+`SelectedShipping` stays in the demo. It is the shape *its* React state needs;
+the server-first checkout builds the `shipping` payload directly.
 
-**Kein neues `helpers/`-Verzeichnis** für zwei Funktionen. Die SDK hat bisher
-keinen Präzedenzfall für exportierte pure Helper neben Services — der einzige
-Treffer ist `_internalMedia` in `media.ts:387`, und der ist intern. Diese zwei
-sind der erste öffentliche Fall, und sie gehören zu `shipping`.
+**No new `helpers/` directory** for two functions. So far the SDK has no
+precedent for exported pure helpers next to services — the only hit is
+`_internalMedia` in `media.ts:387`, and that one is internal. These two are the
+first public case, and they belong to `shipping`.
 
-`storefront-demo` importiert danach aus der SDK statt lokal zu definieren. Ohne
-diesen Schritt hätte die Extraktion nichts gelöst — es gäbe zwei Kopien statt
-einer.
+Afterwards `storefront-demo` imports from the SDK instead of defining locally.
+Without that step the extraction would have solved nothing — there would be two
+copies instead of one.
 
-**Das ist die erste SDK-Änderung dieses Zyklus.** Bisher galt durchgehend, dass
-kein Einhängepunkt fehlt. Zwei pure, additive Funktionen ändern kein Verhalten,
-aber sie weiten den Rahmen über «ein Example bauen» hinaus und brauchen ein
-eigenes Changeset für `@viu/emporix-sdk` (minor).
+**This is the first SDK change of this cycle.** Until now it held throughout
+that no hook-in point is missing. Two pure, additive functions change no
+behaviour, but they widen the scope beyond «build one example» and need their
+own changeset for `@viu/emporix-sdk` (minor).
 
-## Die Seite
+## The page
 
-Eine Server Component `app/checkout/page.tsx` mit vier parallelen Reads in
-**einer** Session:
+A Server Component `app/checkout/page.tsx` with four parallel reads in **one**
+session:
 
 ```ts
 const { cart, modes, zones, addresses } = await withEmporixSession(async (c, ctx) => {
@@ -146,50 +146,49 @@ const { cart, modes, zones, addresses } = await withEmporixSession(async (c, ctx
 }, EMPORIX);
 ```
 
-**Ein `withEmporixSession`, nicht vier.** Für einen Gast baut jeder Aufruf einen
-eigenen `EmporixClient` mit eigenem Token-Provider
-([bff-session.ts:100](../../../packages/next/src/bff-session.ts#L100)) — vier
-Aufrufe wären vier Token-Roundtrips, die parallel dieselbe anonyme Refresh-Token
-einlösen. Emporix toleriert diese Wiederverwendung zwar (im Server-First-Zyklus
-mit drei aufeinanderfolgenden Reads gemessen), aber sich darauf zu stützen wäre
-unnötig: ein Client, eine Session, vier parallele HTTP-Calls ist zugleich
-sparsamer und weniger Code.
+**One `withEmporixSession`, not four.** For a guest, every call builds its own
+`EmporixClient` with its own token provider
+([bff-session.ts:100](../../../packages/next/src/bff-session.ts#L100)) — four
+calls would be four token roundtrips redeeming the same anonymous refresh token
+in parallel. Emporix does tolerate that reuse (measured in the server-first
+cycle with three consecutive reads), but relying on it would be unnecessary:
+one client, one session, four parallel HTTP calls is both leaner and less code.
 
-Der Adress-Read hängt sein `.catch(() => [])` direkt an. Kein `try/catch` und
-keine Prüfung auf «Cookie vorhanden», weil zwei verschiedene Wege zum selben
-Ergebnis führen: der Gast läuft in den lokalen `EmporixAuthError`, der
-abgelaufene Token in einen echten 401. Eine Cookie-Prüfung fängt nur den ersten.
+The address read attaches its `.catch(() => [])` directly. No `try/catch` and
+no check for «cookie present», because two different routes lead to the same
+result: the guest runs into the local `EmporixAuthError`, the expired token into
+a real 401. A cookie check catches only the first.
 
-Ein Formular, eine Server Action. **Kein Client-State**: Adresse, Zahlungsart und
-Versandart sind native Formularfelder. In diesem Modus gibt es keinen Client, der
-State halten könnte, und das ist der Punkt.
+One form, one Server Action. **No client state**: address, payment method and
+shipping method are native form fields. In this mode there is no client that
+could hold state, and that is the point.
 
-Die Versandauswahl hat ein echtes Henne-Ei-Problem: `resolveZone` braucht das
-Land, und das Land steht im Formular, das noch nicht abgeschickt ist. Ohne
-Client-JS kann die Seite nicht auf das Tippen reagieren.
+The shipping selection has a genuine chicken-and-egg problem: `resolveZone`
+needs the country, and the country sits in the form that has not been submitted
+yet. Without client JS the page cannot react to the typing.
 
-Die Lösung ist, die Autorität zu verschieben statt Zwischenzustände zu bauen:
-die Seite rendert die Methoden der für `CONTEXT.country` aufgelösten Zone, und
-die **Server Action ist die Autorität** — sie ruft `resolveZone`/`pickFee`
-erneut mit dem tatsächlich eingegebenen Land auf und nimmt deren Ergebnis, nicht
-das angeklickte Radio.
+The solution is to move the authority instead of building intermediate states:
+the page renders the methods of the zone resolved for `CONTEXT.country`, and
+the **Server Action is the authority** — it calls `resolveZone`/`pickFee`
+again with the country that was actually entered and takes their result, not
+the radio button that was clicked.
 
-**Bekannte Grenze, bewusst akzeptiert:** wer das Land von Hand auf ein anderes
-ändert, sieht eine Radio-Liste, die nicht mehr zur Zone passt, und bekommt eine
-andere Methode als angeklickt. Für einen Demo mit fixem CH-Kontext ist das die
-richtige Grenze; die Alternative wäre eine zweite GET-Form nur für das Land oder
-eine Client-Insel — beides mehr Apparat als der Punkt, den dieser Demo macht.
-Ein `ponytail:`-Kommentar im Code nennt die Grenze an Ort und Stelle.
+**Known limit, deliberately accepted:** anyone who changes the country by hand
+to a different one sees a radio list that no longer matches the zone, and gets a
+different method than the one clicked. For a demo with a fixed CH context that
+is the right limit; the alternative would be a second GET form just for the
+country or a client island — both more apparatus than the point this demo makes.
+A `ponytail:` comment in the code names the limit on the spot.
 
-## Die Server Action
+## The Server Action
 
 ```ts
 "use server";
 export async function placeOrder(formData: FormData): Promise<void>;
 ```
 
-Sie baut die Nutzlast exakt in der Form oben, liest den `saasToken` aus dem
-httpOnly-Cookie und ruft:
+It builds the payload exactly in the shape above, reads the `saasToken` from the
+httpOnly cookie and calls:
 
 ```ts
 await client.checkout.placeOrder(input, ctx, {
@@ -198,104 +197,105 @@ await client.checkout.placeOrder(input, ctx, {
 });
 ```
 
-**Hier zahlt sich der Modus aus.** Der `saasToken` ist `httpOnly`; der Browser
-sieht ihn nie. Im SPA-Weg muss er JS-lesbar sein, weil der Checkout dort im
-Browser läuft — Finding F-01 in seiner konkretesten Form.
+**This is where the mode pays off.** The `saasToken` is `httpOnly`; the browser
+never sees it. On the SPA route it has to be JS-readable, because the checkout
+runs in the browser there — finding F-01 in its most concrete form.
 
-Danach:
+Afterwards:
 
-1. `emporix.cartId` löschen. Der Cart ist auf Emporix **CLOSED**; bliebe die Id
-   stehen, fragte die Cart-Seite eine tote Ressource ab
+1. Delete `emporix.cartId`. The cart is **CLOSED** on Emporix; if the id stayed
+   put, the cart page would query a dead resource
    ([Checkout.tsx:125-127](../../../examples/storefront-demo/src/pages/Checkout.tsx#L125)).
-2. Auf `/checkout/done?orderId=…` weiterleiten.
+2. Redirect to `/checkout/done?orderId=…`.
 
-## Der Erfolgsfall, ehrlich formuliert
+## The success case, honestly worded
 
-`app/checkout/done/page.tsx` zeigt die `orderId` und sagt, was tatsächlich
-passiert ist: bei `provider: "custom"` steht die Bestellung in `IN_CHECKOUT` und
-wartet auf die Zahlung. Kein «Danke für Ihren Einkauf», das eine abgeschlossene
-Zahlung suggeriert, die es nicht gibt.
+`app/checkout/done/page.tsx` shows the `orderId` and says what actually
+happened: with `provider: "custom"` the order sits in `IN_CHECKOUT` and waits
+for the payment. No «Thank you for your purchase» that suggests a completed
+payment which does not exist.
 
-## Fehlerbehandlung
+## Error handling
 
-Die Action fängt Fehler und leitet auf `/checkout?error=…` zurück; die Seite
-rendert die Meldung. Kein Toast-System in diesem Example.
+The action catches errors and redirects back to `/checkout?error=…`; the page
+renders the message. No toast system in this example.
 
-Die zwei realistischen Fälle: Emporix lehnt eine Adresse ab, oder eine Position
-hat keinen Preis mehr. Beide kommen als `EmporixError` mit brauchbarem Text.
+The two realistic cases: Emporix rejects an address, or a line item no longer
+has a price. Both arrive as an `EmporixError` with usable text.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Keine Zahlungs-Autorisierung** (`payments.initialize`). Der Demo bleibt bei
-  der deklarativen `paymentMethods`-Angabe, wie `storefront-demo` auch.
-- **Keine Redirect-Rückkehr** von einem Payment-Provider.
-- **Kein Quote-Checkout** (`placeOrderFromQuote`).
-- **Keine Adressverwaltung** — gespeicherte Adressen werden gelesen und zur
-  Auswahl gestellt, nicht angelegt oder geändert.
-- ~~**Keine Änderung an `packages/next`.**~~ **Widerlegt am 2026-08-01.** Der
-  erste eingeloggte Live-Lauf lief in ein `409 Conflict` bei
-  `POST /cart/viu/carts`: ein Kunde darf nur einen offenen Cart haben, und nach
-  dem Gast-Checkout war das Cookie leer, also versuchte `addToCart` blind ein
-  `create`. Zugleich fehlte der Cart-Merge beim Login, den das React-Package in
-  `onboardCustomerCart` längst macht. Beides ist **dieselbe Lücke**: dem
-  Server-First-Modus fehlte das Gegenstück zum React-Onboarding.
-  `emporixLogin` bekommt es — nicht das Example, weil sonst jeder Consumer den
-  Fehler selbst wiederholt.
+- **No payment authorization** (`payments.initialize`). The demo sticks with
+  the declarative `paymentMethods` entry, just like `storefront-demo`.
+- **No redirect return** from a payment provider.
+- **No quote checkout** (`placeOrderFromQuote`).
+- **No address management** — saved addresses are read and offered for
+  selection, not created or changed.
+- ~~**No change to `packages/next`.**~~ **Refuted on 2026-08-01.** The
+  first logged-in live run ran into a `409 Conflict` on
+  `POST /cart/viu/carts`: a customer may only have one open cart, and after
+  the guest checkout the cookie was empty, so `addToCart` blindly attempted a
+  `create`. At the same time the cart merge on login was missing, which the
+  React package has long done in `onboardCustomerCart`. Both are **the same
+  gap**: the server-first mode lacked the counterpart to the React onboarding.
+  `emporixLogin` gets it — not the example, because otherwise every consumer
+  repeats the mistake themselves.
 
 ## Tests
 
-**SDK, neu** — `packages/sdk/tests/shipping-helpers.test.ts`, die erste
-Abdeckung dieser Regeln überhaupt:
+**SDK, new** — `packages/sdk/tests/shipping-helpers.test.ts`, the first
+coverage of these rules at all:
 
-| # | `resolveZone` | Erwartung |
+| # | `resolveZone` | Expectation |
 |---|---|---|
-| 1 | Land trifft `shipTo` einer Zone | diese Zone |
-| 2 | Land trifft keine, es gibt eine `default`-Zone | die Default-Zone |
-| 3 | Land trifft keine, keine Default-Zone | die erste Zone |
-| 4 | leere Liste oder `undefined` | `undefined` |
-| 5 | Land in Kleinschreibung, `shipTo` in Grossschreibung | trifft trotzdem |
+| 1 | country matches the `shipTo` of a zone | that zone |
+| 2 | country matches none, there is a `default` zone | the default zone |
+| 3 | country matches none, no default zone | the first zone |
+| 4 | empty list or `undefined` | `undefined` |
+| 5 | country in lower case, `shipTo` in upper case | matches anyway |
 
-| # | `pickFee` | Erwartung |
+| # | `pickFee` | Expectation |
 |---|---|---|
-| 6 | mehrere Schwellen, Warenwert darüber | die höchste passende |
-| 7 | Warenwert genau auf einer Schwelle | diese Schwelle (`≤`, nicht `<`) |
-| 8 | Warenwert unter allen Schwellen | die erste Fee |
-| 9 | Fee ohne `minOrderValue` | zählt als Schwelle 0 |
-| 10 | leere Liste oder `undefined` | `undefined` |
+| 6 | several thresholds, cart total above them | the highest matching one |
+| 7 | cart total exactly on a threshold | that threshold (`≤`, not `<`) |
+| 8 | cart total below all thresholds | the first fee |
+| 9 | fee without `minOrderValue` | counts as threshold 0 |
+| 10 | empty list or `undefined` | `undefined` |
 
-Test 7 ist der wertvollste: `≤` gegen `<` ist genau der Fehler, den eine
-Neuformulierung einführen würde.
+Test 7 is the most valuable one: `≤` versus `<` is exactly the mistake a
+rewrite would introduce.
 
-Test 9 braucht einen Cast. Der generierte Typ deklariert `minOrderValue:
-MonetaryAmount` als **pflicht**
+Test 9 needs a cast. The generated type declares `minOrderValue:
+MonetaryAmount` as **required**
 ([shipping/types.gen.ts:317](../../../packages/sdk/src/generated/shipping/types.gen.ts#L317)),
-das Demo schreibt trotzdem `f.minOrderValue?.amount ?? 0`. Diese Spec ist schon
-einmal danebengelegen — die gemischte Feldschreibweise bei `sessionId` gegen
-`access_token` hat gezeigt, dass sie die Realität nicht immer trifft. Der Test
-hält die defensive Verzweigung fest, damit sie niemand als toten Code entfernt,
-und der Cast dokumentiert genau diesen Widerspruch.
+yet the demo writes `f.minOrderValue?.amount ?? 0`. This spec has been wrong
+once before — the mixed field spelling of `sessionId` versus `access_token`
+showed that it does not always match reality. The test pins down the defensive
+branch so that nobody removes it as dead code, and the cast documents exactly
+this contradiction.
 
-**Example** — keine Unit-Tests, wie beim Rest des Examples. Verifiziert wird live:
+**Example** — no unit tests, as with the rest of the example. Verification
+happens live:
 
-1. Gast: Warenkorb füllen, `/checkout`, Formular ausfüllen, absenden → `orderId`
-   auf der Done-Seite, `emporix.cartId` weg.
-2. Eingeloggt: dasselbe, plus die gespeicherten Adressen erscheinen zur Auswahl.
-3. `/debug` bleibt nach dem Checkout **grün** — der `saasToken` war beteiligt und
-   ist trotzdem nie für JavaScript sichtbar geworden.
+1. Guest: fill the cart, `/checkout`, fill in the form, submit → `orderId`
+   on the done page, `emporix.cartId` gone.
+2. Logged in: the same, plus the saved addresses appear for selection.
+3. `/debug` stays **green** after the checkout — the `saasToken` was involved
+   and still never became visible to JavaScript.
 
-Punkt 3 ist der eigentliche Beleg. Punkt 2 verlangt einen Login und damit deine
-Hand am Passwortfeld.
+Point 3 is the actual proof. Point 2 requires a login and therefore your hand
+on the password field.
 
-## Offene Punkte
+## Open points
 
-1. **Welcher PR.** `feat/next-bff-mode` ist offen (PR #195) und noch nicht
-   gemergt; der Checkout braucht `withEmporixSession` daraus. Entweder an #195
-   anhängen — grösserer PR, aber kohärent — oder auf den Merge warten und einen
-   eigenen Branch von `main` ziehen. Nicht stacken: ein PR mit Feature-Branch als
-   Basis bekommt seine `quality`-Checks nie.
-2. ~~**Ob der `viu`-Tenant konfigurierte Payment-Modes hat.**~~ **Beantwortet
-   2026-08-01:** `listPaymentModes` kommt **leer** zurück. Der `custom`-Pfad ist
-   also der, der hier tatsächlich läuft — Bestellung `EON1225` live angelegt.
-3. ~~**Ob Versandzonen für `CH` konfiguriert sind.**~~ **Beantwortet
-   2026-08-01:** ja, eine Zone mit genau einer Methode «Free Shipping» zu 0. Der
-   `resolveZone`-Pfad greift, nicht der Fallback.
+1. **Which PR.** `feat/next-bff-mode` is open (PR #195) and not merged yet;
+   the checkout needs `withEmporixSession` from it. Either append to #195 —
+   a bigger PR, but coherent — or wait for the merge and cut a separate branch
+   off `main`. Do not stack: a PR with a feature branch as its base never gets
+   its `quality` checks.
+2. ~~**Whether the `viu` tenant has configured payment modes.**~~ **Answered
+   2026-08-01:** `listPaymentModes` comes back **empty**. So the `custom` path
+   is the one that actually runs here — order `EON1225` created live.
+3. ~~**Whether shipping zones are configured for `CH`.**~~ **Answered
+   2026-08-01:** yes, one zone with exactly one method «Free Shipping» at 0.
+   The `resolveZone` path applies, not the fallback.

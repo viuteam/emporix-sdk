@@ -1,85 +1,85 @@
-# Server-First-Modus im next-Package — Design
+# Server-First Mode in the next Package — Design
 
 **Status:** approved
-**Datum:** 2026-07-31
+**Date:** 2026-07-31
 **Package:** `@viu/emporix-sdk-next`
-**Anlass:** Finding F-01 aus dem Session-Security-Review (Refresh-Token in
-JS-lesbaren Cookies), verschärft durch F-13 (Tokens als URL-Query-Parameter)
-**Verwandt:** `2026-07-31-next-service-account-design.md` (der `exports`-Guard),
-`2026-07-31-next-proxy-site-detection-design.md` (der Proxy-Entry)
+**Occasion:** Finding F-01 from the session security review (refresh token in
+JS-readable cookies), aggravated by F-13 (tokens as URL query parameters)
+**Related:** `2026-07-31-next-service-account-design.md` (the `exports` guard),
+`2026-07-31-next-proxy-site-detection-design.md` (the proxy entry)
 
-## Ziel
+## Goal
 
-Ein Next-Storefront soll **keinen Emporix-Token im Browser** halten — auch
-keinen anonymen. Das react-Package bleibt unverändert als SPA-Weg bestehen; wer
-nur eine SPA will, nutzt es weiter mit dem heutigen Sicherheitsprofil.
+A Next storefront must hold **no Emporix token in the browser** — not even an
+anonymous one. The react package remains unchanged as the SPA path; anyone who
+only wants a SPA keeps using it with today's security profile.
 
-## Die harte Randbedingung
+## The hard constraint
 
-Jeder Emporix-Call braucht einen Bearer-Token dort, wo der Call entsteht
-([http.ts:86](../../../packages/sdk/src/core/http.ts#L86)). Daraus folgt
-zwingend:
+Every Emporix call needs a bearer token where the call originates
+([http.ts:86](../../../packages/sdk/src/core/http.ts#L86)). From that it follows
+inevitably:
 
-> «Kein Token im Browser» ist gleichbedeutend mit «der Browser macht keine
-> Emporix-Calls».
+> «No token in the browser» is equivalent to «the browser makes no Emporix
+> calls».
 
-Es gibt keine dritte Möglichkeit. Der Modus besteht deshalb darin, alle Calls
-serverseitig zu verlagern — nicht darin, Tokens besser zu verstecken.
+There is no third option. The mode therefore consists of moving every call to
+the server side — not of hiding tokens better.
 
-Zwei Wege wurden verworfen:
+Two approaches were rejected:
 
-**Catch-all-Proxy mit Sentinel-Token.** Der Browser behält die react-Hooks, ein
-umschreibendes `fetch` leitet alles auf eine eigene Route. Scheitert daran, dass
-die Token-Beschaffung das injizierte `fetch` **umgeht**
-([auth.ts:252](../../../packages/sdk/src/core/auth.ts#L252) nutzt das globale
-`fetch`) — ein anonymer Token landet also doch im Browser. Ausserdem umgeht SSE
-es ebenfalls ([http.ts:321](../../../packages/sdk/src/core/http.ts#L321)) und
-bricht.
+**Catch-all proxy with a sentinel token.** The browser keeps the react hooks, a
+rewriting `fetch` routes everything to a route of our own. Fails because token
+acquisition **bypasses** the injected `fetch`
+([auth.ts:252](../../../packages/sdk/src/core/auth.ts#L252) uses the global
+`fetch`) — so an anonymous token ends up in the browser after all. On top of
+that, SSE bypasses it too
+([http.ts:321](../../../packages/sdk/src/core/http.ts#L321)) and breaks.
 
-**Die SDK ändern, damit Token-Requests das injizierte `fetch` nutzen.** Würde
-den Sentinel-Weg vervollständigen, kehrt aber die dokumentierte Eigenschaft um,
-dass Token-Antworten nicht cachebar *sein können* (Kommentar an
-`EmporixConfig.fetch`). Eine belegte Eigenschaft gegen eine neue tauschen, und
-am Ende bleiben alle Nachteile des Proxys.
+**Change the SDK so that token requests use the injected `fetch`.** Would
+complete the sentinel path, but it inverts the documented property that token
+responses *cannot* be cacheable (comment on `EmporixConfig.fetch`). Trading a
+proven property for a new one, and in the end all the drawbacks of the proxy
+remain.
 
-## Gemessene Grundlagen
+## Measured foundations
 
-Alles im Repo nachgemessen. **Keine SDK-Änderung nötig** — jeder benötigte
-Einhängepunkt ist schon öffentlich.
+Everything measured in the repo. **No SDK change needed** — every hook-in point
+required is already public.
 
-| Fakt | Quelle |
+| Fact | Source |
 |---|---|
-| `client.tokenProvider` ist public, ausdrücklich «Exposed so React/Next hosts can call `attachAnonymousStore`» | [client.ts:105-110](../../../packages/sdk/src/client.ts#L105) |
-| `attachAnonymousStore(store)` bootstrappt mit `expiresAt = 0` → der nächste Aufruf macht ein **Refresh mit erhaltener sessionId**, keinen neuen Login | [auth.ts:189-196](../../../packages/sdk/src/core/auth.ts#L189) |
-| `AnonymousSessionStore` ist `{ read(), write() }`, **synchron** | [auth.ts:42-45](../../../packages/sdk/src/core/auth.ts#L42) |
-| `EmporixConfig.tokenProvider` ist eine öffentliche Option, `create-core.ts` nutzt sie statt des Defaults | [config.ts:46](../../../packages/sdk/src/core/config.ts#L46), [create-core.ts:61](../../../packages/sdk/src/core/create-core.ts#L61) |
-| `EmporixConfig.fetch` ersetzt das Request-`fetch` an zwei Stellen | [http.ts:149](../../../packages/sdk/src/core/http.ts#L149), [:285](../../../packages/sdk/src/core/http.ts#L285) |
-| `emporixTagsForUrl` gibt `[]` für «a different tenant, a non-catalog service, a personalized resource» | [tags.ts:36-42](../../../packages/next/src/tags.ts#L36) |
-| Getaggt werden genau fünf Services: `product`, `category`, `price`, `availability`, `site` | [tags.ts:55,62,77,79,81](../../../packages/next/src/tags.ts#L55) |
-| Der Session-Store spiegelt externe `setCustomerToken`-Writes in den React-Baum | [customer-session-store.ts:70-72](../../../packages/react/src/hooks/internal/customer-session-store.ts#L70) |
-| Ein Server-Component-Render kann keine Cookies schreiben | Next-Doku, und `emporixSession()` ist deshalb read-only |
-| Der Proxy **kann** Cookies schreiben und läuft vor jedem Render | heute verifiziert, `2026-07-31-next-proxy-site-detection-design.md` |
-| Cart-, Order- und Customer-Endpoints sind nie getaggt | [tags.ts:41](../../../packages/next/src/tags.ts#L41) |
+| `client.tokenProvider` is public, explicitly «Exposed so React/Next hosts can call `attachAnonymousStore`» | [client.ts:105-110](../../../packages/sdk/src/client.ts#L105) |
+| `attachAnonymousStore(store)` bootstraps with `expiresAt = 0` → the next call performs a **refresh with the preserved sessionId**, not a new login | [auth.ts:189-196](../../../packages/sdk/src/core/auth.ts#L189) |
+| `AnonymousSessionStore` is `{ read(), write() }`, **synchronous** | [auth.ts:42-45](../../../packages/sdk/src/core/auth.ts#L42) |
+| `EmporixConfig.tokenProvider` is a public option, `create-core.ts` uses it instead of the default | [config.ts:46](../../../packages/sdk/src/core/config.ts#L46), [create-core.ts:61](../../../packages/sdk/src/core/create-core.ts#L61) |
+| `EmporixConfig.fetch` replaces the request `fetch` in two places | [http.ts:149](../../../packages/sdk/src/core/http.ts#L149), [:285](../../../packages/sdk/src/core/http.ts#L285) |
+| `emporixTagsForUrl` returns `[]` for «a different tenant, a non-catalog service, a personalized resource» | [tags.ts:36-42](../../../packages/next/src/tags.ts#L36) |
+| Exactly five services get tagged: `product`, `category`, `price`, `availability`, `site` | [tags.ts:55,62,77,79,81](../../../packages/next/src/tags.ts#L55) |
+| The session store mirrors external `setCustomerToken` writes into the React tree | [customer-session-store.ts:70-72](../../../packages/react/src/hooks/internal/customer-session-store.ts#L70) |
+| A server component render cannot write cookies | Next docs, and `emporixSession()` is read-only for that reason |
+| The proxy **can** write cookies and runs before every render | verified today, `2026-07-31-next-proxy-site-detection-design.md` |
+| Cart, order and customer endpoints are never tagged | [tags.ts:41](../../../packages/next/src/tags.ts#L41) |
 
-### Vom Tenant bestätigt
+### Confirmed by the tenant
 
-**Emporix bindet den Gast-Warenkorb an die anonyme Session.** Beim Anlegen eines
-Carts wird die `session-id` des anonymen Tokens auf den Cart gemappt (bestätigt
-für den `viu`-Tenant).
+**Emporix binds the guest cart to the anonymous session.** When a cart is
+created, the `session-id` of the anonymous token is mapped onto the cart
+(confirmed for the `viu` tenant).
 
-Das ist die wichtigste Randbedingung des ganzen Entwurfs. Sie schliesst die
-naheliegende Vereinfachung aus, der prozessweit memoisierte anonyme Token des
-Servers könne alle Gäste bedienen und `cartId` im Cookie genüge. Jeder Gast
-braucht seine **eigene** anonyme Session, serverseitig verwaltet.
+This is the most important constraint of the entire design. It rules out the
+obvious simplification that the server's process-wide memoized anonymous token
+could serve every guest and that `cartId` in the cookie would suffice. Every
+guest needs its **own** anonymous session, managed server-side.
 
-## Die vier Bausteine
+## The four building blocks
 
-### 1. Auth-Server-Funktionen
+### 1. Auth server functions
 
-Neuer Entry `@viu/emporix-sdk-next/bff`, mit demselben `exports`-Guard wie
-`./service`: er verarbeitet Refresh-Tokens, ein Client-Import muss den Build
-brechen. `types` steht dabei ausserhalb der Conditions — TypeScript versteht
-`react-server` nicht (im Service-Zyklus gemessen).
+A new entry `@viu/emporix-sdk-next/bff`, with the same `exports` guard as
+`./service`: it processes refresh tokens, so a client import must break the
+build. `types` sits outside the conditions — TypeScript does not understand
+`react-server` (measured in the service cycle).
 
 ```ts
 export async function emporixLogin(creds: { email: string; password: string }): Promise<void>;
@@ -88,10 +88,10 @@ export async function emporixRefresh(): Promise<string | null>;
 export function assertSameOrigin(request: Request): void;
 ```
 
-Der Consumer wrappt sie in seiner **eigenen** `"use server"`-Datei:
+The consumer wraps them in its **own** `"use server"` file:
 
 ```ts
-// app/actions/auth.ts — die Datei des Consumers trägt "use server"
+// app/actions/auth.ts — the consumer's file carries "use server"
 "use server";
 import { emporixLogin, emporixLogout } from "@viu/emporix-sdk-next/bff";
 
@@ -106,62 +106,62 @@ export async function logout(): Promise<void> {
 }
 ```
 
-Drei Zeilen Boilerplate pro Storefront — dafür braucht das Package **keinen**
-`"use server"`-Banner und keine zweite tsup-Config. Server Actions aus einer
-Fabrik zu exportieren ist bei Next fragil; die Wrapper-Variante ist robust.
+Three lines of boilerplate per storefront — in exchange the package needs
+**no** `"use server"` banner and no second tsup config. Exporting server actions
+from a factory is fragile in Next; the wrapper variant is robust.
 
-`emporixLogin` fädelt den anonymen Token des Gastes durch, damit der Warenkorb
-den Login überlebt (`customers.login` erwartet das,
-[customer.ts:122-133](../../../packages/sdk/src/services/customer.ts#L122)). Er
-kommt aus dem httpOnly-Cookie, nicht vom Client.
+`emporixLogin` threads the guest's anonymous token through so that the cart
+survives the login (`customers.login` expects that,
+[customer.ts:122-133](../../../packages/sdk/src/services/customer.ts#L122)). It
+comes from the httpOnly cookie, not from the client.
 
-### 2. Token-Rotation ausschliesslich im Proxy
+### 2. Token rotation exclusively in the proxy
 
-Eine Server Component kann keine Cookies schreiben. Ein Refresh während des
-Renders ist damit unmöglich — und ein Refresh, dessen rotierter Token nicht
-geschrieben wird, ist wertlos.
+A server component cannot write cookies. A refresh during the render is
+therefore impossible — and a refresh whose rotated token is not written is
+worthless.
 
-Der Proxy ist der einzige Ort, der beides kann: Cookies lesen **und** schreiben,
-vor jedem Render. Er wird deshalb der einzige Rotationspunkt, für **beide**
-Token-Arten:
+The proxy is the only place that can do both: read **and** write cookies,
+before every render. It therefore becomes the only rotation point, for **both**
+kinds of token:
 
 ```ts
-// proxy.ts des Consumers
+// proxy.ts of the consumer
 export async function proxy(request: NextRequest) {
   return emporixTokenProxy(request, { siteCode: "main" });
 }
 ```
 
-`emporixTokenProxy` dekodiert das `exp` des Access-Tokens (base64, ohne
-Signaturprüfung — die macht Emporix), refresht bei Nähe zum Ablauf, rotiert die
-anonyme Session wenn nötig, schreibt alle betroffenen Cookies und delegiert für
-Site/Sprache an das bestehende `emporixSiteProxy`.
+`emporixTokenProxy` decodes the `exp` of the access token (base64, without
+signature verification — Emporix does that), refreshes when expiry is near,
+rotates the anonymous session when necessary, writes all affected cookies and
+delegates site/language to the existing `emporixSiteProxy`.
 
-Damit ist eine Frage gleichgültig, die sonst blockierend wäre: ob Emporix den
-anonymen Refresh-Token bei Benutzung invalidiert. Der rotierte wird immer
-geschrieben.
+That makes one question irrelevant which would otherwise be blocking: whether
+Emporix invalidates the anonymous refresh token on use. The rotated one is
+always written.
 
-### 3. `withEmporixSession` — ein Helper statt 49 Wrapper
+### 3. `withEmporixSession` — one helper instead of 49 wrappers
 
-Die Inventur unten zählt **49 Mutationen in 18 Hook-Dateien**. Für jede einen
-Server-Action-Wrapper zu liefern wäre «ein Wrapper pro Operation» — dieselbe
-Zeremonie, die beim Service-Client verworfen wurde.
+The inventory below counts **49 mutations in 18 hook files**. Shipping a server
+action wrapper for each of them would be «one wrapper per operation» — the same
+ceremony that was rejected for the service client.
 
-Stattdessen zwei Funktionen, die die Session binden:
+Instead, two functions that bind the session:
 
 ```ts
-/** Für Server Components. Cookie-Writes sind no-ops (Render darf nicht schreiben). */
+/** For server components. Cookie writes are no-ops (a render must not write). */
 export async function withEmporixSession<T>(
   fn: (client: EmporixClient, auth: AuthContext) => Promise<T>,
 ): Promise<T>;
 
-/** Für Server Actions und Route Handlers. Schreibt Cookies. */
+/** For server actions and route handlers. Writes cookies. */
 export async function withEmporixSessionMutable<T>(
   fn: (client: EmporixClient, auth: AuthContext) => Promise<T>,
 ): Promise<T>;
 ```
 
-Die Server Action des Consumers wird zweizeilig, mit voller SDK-Typisierung:
+The consumer's server action becomes two lines, with full SDK typing:
 
 ```ts
 "use server";
@@ -174,138 +174,138 @@ export async function addToCart(cartId: string, item: CartItemInput) {
 }
 ```
 
-**Die Verzweigung im Inneren ist der eigentliche Wert** und der Grund, warum das
-nicht in 19 Consumer-Dateien gehört:
+**The branching on the inside is the actual value** and the reason why it does
+not belong in 19 consumer files:
 
-| Fall | Client | AuthContext |
+| Case | Client | AuthContext |
 |---|---|---|
-| Customer-Token im Cookie | memoisiert, `getEmporixClient({ tagged: false })` | `auth.customer(token)` |
-| Gast | **pro Request**, mit `attachAnonymousStore` über den Cookie-Jar | `auth.anonymous()` |
+| Customer token in the cookie | memoized, `getEmporixClient({ tagged: false })` | `auth.customer(token)` |
+| Guest | **per request**, with `attachAnonymousStore` over the cookie jar | `auth.anonymous()` |
 
-Der Gast-Pfad braucht einen Client pro Request, weil `getEmporixClient()`
-prozessweit memoisiert ist — ein Request-Store daran würde die Session von Gast A
-zu Gast B durchschlagen lassen. Das ist die direkte Folge der
-Session-Bindung des Warenkorbs.
+The guest path needs one client per request, because `getEmporixClient()` is
+memoized process-wide — a request store attached to it would let guest A's
+session bleed through to guest B. That is the direct consequence of the
+cart's session binding.
 
-Nebeneffekt, der zählt: `withEmporixSession*` kann gar keinen getaggten Client
-liefern. Die Regel «ein Kundencall nie über den getaggten Client» — heute «the
-one rule» im README — wird damit wieder **strukturell** statt dokumentiert.
+A side effect that counts: `withEmporixSession*` cannot deliver a tagged client
+at all. The rule «never a customer call via the tagged client» — today «the one
+rule» in the README — thus becomes **structural** again instead of documented.
 
-### 4. Katalog-Proxy für clientseitige Katalog-Interaktion
+### 4. Catalog proxy for client-side catalog interaction
 
-Typeahead, Infinite Scroll und Filter ohne vollen Seitenwechsel wollen
-clientseitige Reads. Für Katalogdaten ist ein Proxy die **bessere** Lösung, nicht
-nur eine erlaubte:
+Typeahead, infinite scroll and filters without a full page change want
+client-side reads. For catalog data a proxy is the **better** solution, not
+merely a permitted one:
 
-- Die Daten sind öffentlich — es gibt kein Privileg zu eskalieren.
-- Sie sind cachebar — Nexts Fetch-Cache absorbiert den zweiten Hop nach dem
-  ersten Request, **einmal für alle Besucher** statt einmal pro Browser. Netto
-  schneller als der direkte Weg.
-- Die Allowlist existiert bereits: `emporixTagsForUrl(url, tenant).length === 0`
-  → 403. Eine Zeile, aufsetzend auf 22 bestehende Tests. Dieselbe Funktion
-  definiert die Cache-Grenze und die Proxy-Grenze, weil beide dasselbe brauchen:
-  die Unterscheidung öffentlich/personalisiert.
+- The data is public — there is no privilege to escalate.
+- It is cacheable — Next's fetch cache absorbs the second hop after the first
+  request, **once for all visitors** instead of once per browser. Net faster
+  than the direct path.
+- The allowlist already exists: `emporixTagsForUrl(url, tenant).length === 0`
+  → 403. One line, building on 22 existing tests. The same function defines
+  the cache boundary and the proxy boundary, because both need the same thing:
+  the distinction public/personalized.
 
-Clientseitig ohne jeden Token:
+Client-side without any token at all:
 
 ```ts
 new EmporixClient({
   tenant,
   credentials: { storefront: { clientId: "proxied" } },
-  tokenProvider: createProxyTokenProvider(),  // Platzhalter, kein Netzwerkaufruf
+  tokenProvider: createProxyTokenProvider(),  // placeholder, no network call
   fetch: createProxyFetch({ base: "/api/emporix" }),
 });
 ```
 
-`createProxyTokenProvider().getAnonymousToken()` gibt eine Platzhalter-Session
-zurück, **ohne** Netzwerkaufruf. Damit wird im Browser nie ein anonymer Token
-geprägt — der Blocker des verworfenen Sentinel-Wegs entfällt, weil gar kein
-Token-Request stattfindet. Die Route streicht den Platzhalter-Header und setzt
-den echten anonymen Token des Servers ein.
+`createProxyTokenProvider().getAnonymousToken()` returns a placeholder session,
+**without** a network call. That way an anonymous token is never minted in the
+browser — the blocker of the rejected sentinel path falls away, because no
+token request happens at all. The route strips the placeholder header and
+inserts the server's real anonymous token.
 
-Die react-Hooks der Gruppe A unten bleiben damit unverändert clientseitig
-nutzbar.
+The group A react hooks below therefore remain usable client-side,
+unchanged.
 
-## Cookie-Kontrakt
+## Cookie contract
 
-| Cookie | `httpOnly` | Begründung |
+| Cookie | `httpOnly` | Rationale |
 |---|---|---|
-| `emporix.customerToken` | **ja** | nur Server Components lesen ihn |
-| `emporix.refreshToken` | **ja** | erreicht den Browser nie |
-| `emporix.saasToken` | **ja** | der Checkout läuft serverseitig, der `saas-token`-Header wird dort gesetzt |
-| `emporix.cartId` | **ja** | nichts clientseitiges braucht ihn |
-| `emporix.anonymousSession` | **ja** | enthält einen Refresh-Token ([storage/index.ts:54](../../../packages/react/src/storage/index.ts#L54)); pro Gast, vom Server verwaltet |
-| `emporix.activeLegalEntityId` | **ja** | der B2B-Switch ist eine Server Action |
-| `emporix.siteCode`, `emporix.language` | nein | keine Geheimnisse; der Proxy schreibt sie schon so, und ein Consumer darf den Provider für anonymes Katalog-Browsing weiter mounten |
+| `emporix.customerToken` | **yes** | only server components read it |
+| `emporix.refreshToken` | **yes** | never reaches the browser |
+| `emporix.saasToken` | **yes** | the checkout runs server-side, the `saas-token` header is set there |
+| `emporix.cartId` | **yes** | nothing client-side needs it |
+| `emporix.anonymousSession` | **yes** | contains a refresh token ([storage/index.ts:54](../../../packages/react/src/storage/index.ts#L54)); per guest, managed by the server |
+| `emporix.activeLegalEntityId` | **yes** | the B2B switch is a server action |
+| `emporix.siteCode`, `emporix.language` | no | no secrets; the proxy already writes them that way, and a consumer may keep mounting the provider for anonymous catalog browsing |
 
-Damit sind **alle** Geheimnisse httpOnly, und alle funktionieren — im Unterschied
-zu jedem Teilentwurf, bei dem der `saasToken` clientseitig lesbar bleiben musste.
-F-01 ist vollständig geschlossen, F-13 clientseitig vollständig.
+That makes **all** secrets httpOnly, and all of them work — unlike every
+partial design in which the `saasToken` had to stay readable client-side.
+F-01 is fully closed, F-13 fully closed on the client side.
 
-Attribute: `path=/`, `sameSite=lax`, `secure` aus dem Request-Protokoll
-abgeleitet (nicht hart `true` — siehe F-04/F-05), `maxAge` für den
-Customer-Token begrenzt.
+Attributes: `path=/`, `sameSite=lax`, `secure` derived from the request protocol
+(not hard-coded `true` — see F-04/F-05), `maxAge` bounded for the
+customer token.
 
 ## CSRF
 
-Exponiert sind nur die eigenen Routen und Server Actions, weil sie als einzige
-cookie-authentifiziert sind. Die Emporix-Calls tragen `Authorization: Bearer` und
-**kein** Cookie (kein `credentials`-Feld in `http.ts`, Default `same-origin`,
-Emporix ist ein anderer Origin) — ein CSRF gegen `addToCart` bei Emporix ist
-strukturell unmöglich.
+Only our own routes and server actions are exposed, because they are the sole
+cookie-authenticated ones. The Emporix calls carry `Authorization: Bearer` and
+**no** cookie (no `credentials` field in `http.ts`, default `same-origin`,
+Emporix is a different origin) — a CSRF against `addToCart` at Emporix is
+structurally impossible.
 
-Gewählt: **`sameSite=lax` + POST-only + `Origin`/`Sec-Fetch-Site`-Prüfung in der
-Factory.** Abgelehnt wird bei `Sec-Fetch-Site: cross-site` und wenn *weder*
-`Sec-Fetch-Site` *noch* `Origin` vorhanden ist — sonst liesse ein Angreifer den
-Header einfach weg. Non-Browser-Clients werden damit abgelehnt; für diese Routen
-ist das korrekt und wird dokumentiert.
+Chosen: **`sameSite=lax` + POST-only + an `Origin`/`Sec-Fetch-Site` check in the
+factory.** A request is rejected on `Sec-Fetch-Site: cross-site` and when
+*neither* `Sec-Fetch-Site` *nor* `Origin` is present — otherwise an attacker
+would simply omit the header. Non-browser clients are rejected by this; for
+these routes that is correct and will be documented.
 
-`sameSite=strict` wurde verworfen: eine Top-Level-Rückkehr von einem
-Payment-Provider würde das Cookie nicht senden und die Nutzerin erschiene
-ausgeloggt. Ein Double-Submit-Token wurde verworfen, weil es hier nichts löst,
-was die Origin-Prüfung nicht schon löst.
+`sameSite=strict` was rejected: a top-level return from a payment provider
+would not send the cookie and the user would appear logged out. A
+double-submit token was rejected because it solves nothing here that the
+origin check does not already solve.
 
-`assertSameOrigin(request)` wird exportiert, damit Consumer ihre eigenen
-state-changing Route Handler damit schützen können. Das schliesst F-07 ab.
-Server Actions bringen Nexts eigenen Origin-Check mit; Route Handlers nicht.
+`assertSameOrigin(request)` is exported so that consumers can protect their own
+state-changing route handlers with it. That closes out F-07.
+Server actions come with Next's own origin check; route handlers do not.
 
-## Hook-Inventur: 41 Dateien, vier Gruppen
+## Hook inventory: 41 files, four groups
 
-Vollständig, nicht exemplarisch. Klassifiziert nach Auth-Modus, Read/Mutation und
-ob `emporixTagsForUrl` die URL taggt.
+Complete, not exemplary. Classified by auth mode, read/mutation and whether
+`emporixTagsForUrl` tags the URL.
 
-### Gruppe A — proxybar, bleiben clientseitig nutzbar (8)
+### Group A — proxyable, stay usable client-side (8)
 
-Anonym lesbar **und** getaggt.
+Anonymously readable **and** tagged.
 
 `use-products` · `use-variant-children` · `use-categories` · `use-availability` ·
 `use-availabilities` · `use-match-prices` · `use-match-prices-chunked` ·
 `use-sites`
 
-### Gruppe B — anonym lesbar, aber **nicht** proxybar (3)
+### Group B — anonymously readable, but **not** proxyable (3)
 
-Der überraschendste Befund der Inventur: kein Kundentoken nötig, aber nicht
-cachebar und damit nicht proxybar. Müssen trotzdem in Server Components.
+The most surprising finding of the inventory: no customer token needed, but not
+cacheable and therefore not proxyable. Have to go into server components anyway.
 
-| Hook | Service | warum `[]` |
+| Hook | Service | why `[]` |
 |---|---|---|
-| `use-cart` (Read-Teil) | `carts` | pro Shopper mutabel |
-| `use-checkout` (Read-Teil) | `checkout` | pro Shopper |
-| `use-shipping` | `shipping` | nicht in der Tag-Liste |
+| `use-cart` (read part) | `carts` | mutable per shopper |
+| `use-checkout` (read part) | `checkout` | per shopper |
+| `use-shipping` | `shipping` | not in the tag list |
 
-### Gruppe C — kundengebundene Reads → Server Components (11)
+### Group C — customer-bound reads → server components (11)
 
 `use-company` · `use-company-contacts` · `use-company-groups` ·
 `use-company-locations` · `use-my-companies` · `use-my-orders` ·
 `use-my-orders-infinite` · `use-order` · `use-my-segments` · `use-sales-order` ·
-`use-customer-addresses` (Read-Teil)
+`use-customer-addresses` (read part)
 
-### Gruppe D — Mutationen → Server Actions (49 in 18 Dateien)
+### Group D — mutations → server actions (49 in 18 files)
 
-Gemessen über `mutationFn`-Vorkommen, nicht über `useMutation`-Zeilen (die den
-Import mitzählen).
+Measured via `mutationFn` occurrences, not via `useMutation` lines (which count
+the import as well).
 
-| Datei | Mutationen |
+| File | Mutations |
 |---|---|
 | `use-company-mutations` | 12 |
 | `use-customer-addresses` | 5 |
@@ -313,98 +313,98 @@ Import mitzählen).
 | `use-customer-credentials` | 4 |
 | `use-cart` | 3 |
 | `use-checkout` | 3 |
-| `use-approvals`, `use-coupons`, `use-customer-profile`, `use-password-reset`, `use-session-context` | je 2 |
-| `use-cancel-order`, `use-cloud-functions`, `use-order-transition`, `use-reorder`, `use-returns`, `use-reward-points`, `use-update-sales-order` | je 1 |
+| `use-approvals`, `use-coupons`, `use-customer-profile`, `use-password-reset`, `use-session-context` | 2 each |
+| `use-cancel-order`, `use-cloud-functions`, `use-order-transition`, `use-reorder`, `use-returns`, `use-reward-points`, `use-update-sales-order` | 1 each |
 
-### Gruppe E — kein Emporix-Call, unverändert nutzbar (4)
+### Group E — no Emporix call, usable unchanged (4)
 
-`use-company-switcher` · `use-site-context` · `use-customer-session` (orchestriert
-nur) · `use-product-media` (reine Ableitung)
+`use-company-switcher` · `use-site-context` · `use-customer-session` (only
+orchestrates) · `use-product-media` (pure derivation)
 
-### Der ehrliche Preis für den Consumer
+### The honest price for the consumer
 
-Eine typische B2C-Storefront schreibt rund **19 Server Actions**: Cart 3,
-Checkout 3, Profil 2, Adressen 5, Session-Context 2, Coupons 2,
-Passwort-Reset 2. B2B legt die 12 Company-Mutationen drauf.
+A typical B2C storefront writes around **19 server actions**: cart 3,
+checkout 3, profile 2, addresses 5, session context 2, coupons 2,
+password reset 2. B2B adds the 12 company mutations on top.
 
-Das ist echte Arbeit, aber sie fällt beim **Consumer** an, nicht im Package, und
-jede Action ist zwei Zeilen. Niemand braucht alle 49 — man schreibt die, die die
-Storefront benutzt.
+That is real work, but it falls on the **consumer**, not in the package, and
+every action is two lines. Nobody needs all 49 — you write the ones the
+storefront uses.
 
-## Nicht-Ziele
+## Non-goals
 
-- **Keine Änderung an `packages/react`.** Es bleibt vollständig als SPA-Weg
-  bestehen, mit dem Sicherheitsprofil, das der Review beschreibt.
-- **Keine Änderung an der SDK.** Jeder Einhängepunkt ist schon öffentlich.
-- **Kein Client-Entry im next-Package** für Session-Zwecke. Der
-  Katalog-Proxy-Client (`createProxyTokenProvider`, `createProxyFetch`) ist
-  browsertauglich und braucht deshalb einen Entry mit `"use client"`-Banner —
-  das ist der einzige neue Build-Aufwand.
-- **Kein Wrapper pro Operation.** Zwei Helper decken 49 Mutationen und 14 Reads
-  ab.
-- **Kein Catch-all-Proxy.** Nur Katalog, mit `emporixTagsForUrl` als Allowlist.
-- **Keine Migration des Examples in dieser Spec.** Das Example zeigt heute den
-  SPA-Weg; ein zweites Example für den Server-First-Modus ist ein eigener
-  Folgezyklus.
+- **No change to `packages/react`.** It remains fully in place as the SPA path,
+  with the security profile the review describes.
+- **No change to the SDK.** Every hook-in point is already public.
+- **No client entry in the next package** for session purposes. The
+  catalog proxy client (`createProxyTokenProvider`, `createProxyFetch`) is
+  browser-capable and therefore needs an entry with a `"use client"` banner —
+  that is the only new build effort.
+- **No wrapper per operation.** Two helpers cover 49 mutations and 14 reads
+  between them.
+- **No catch-all proxy.** Catalog only, with `emporixTagsForUrl` as the allowlist.
+- **No migration of the example in this spec.** The example shows the SPA path
+  today; a second example for server-first mode is a follow-up cycle of its
+  own.
 
 ## Tests
 
-**Auth-Funktionen** (gestubbtes `globalThis.fetch`): Login setzt die
-httpOnly-Cookies und gibt **nie** einen Refresh-Token im Body zurück (der
-sicherheitsrelevante Test) · Login fädelt den anonymen Token durch · Refresh
-rotiert · Logout ruft `customers.logout` und löscht alle Geheimnis-Cookies ·
-`assertSameOrigin` lehnt `cross-site` ab · und lehnt ab, wenn beide Header
-fehlen.
+**Auth functions** (stubbed `globalThis.fetch`): login sets the
+httpOnly cookies and **never** returns a refresh token in the body (the
+security-relevant test) · login threads the anonymous token through · refresh
+rotates · logout calls `customers.logout` and deletes every secret cookie ·
+`assertSameOrigin` rejects `cross-site` · and rejects when both headers are
+missing.
 
-**Token-Proxy:** refresht bei ablaufendem `exp` · lässt einen frischen Token
-unangetastet · rotiert die anonyme Session · schreibt keine Cookies, wenn nichts
-zu tun ist (No-op-Guard wie bei `emporixSiteProxy`) · delegiert Site/Sprache
-korrekt.
+**Token proxy:** refreshes on an expiring `exp` · leaves a fresh token
+untouched · rotates the anonymous session · writes no cookies when there is
+nothing to do (no-op guard as with `emporixSiteProxy`) · delegates site/language
+correctly.
 
-**`withEmporixSession`:** Kunde → memoisierter Client und `auth.customer` · Gast
-→ Client pro Request mit angehängtem Store und `auth.anonymous` · zwei
-gleichzeitige Gäste bekommen **verschiedene** Clients (die Kernaussage der
-Session-Bindung) · `config.fetch` ist `undefined`, also nie getaggt · die
-read-only-Variante schreibt keine Cookies.
+**`withEmporixSession`:** customer → memoized client and `auth.customer` · guest
+→ one client per request with an attached store and `auth.anonymous` · two
+concurrent guests get **different** clients (the core claim of the
+session binding) · `config.fetch` is `undefined`, so never tagged · the
+read-only variant writes no cookies.
 
-**Katalog-Proxy:** getaggte URL wird durchgelassen · Cart-, Order- und
-Customer-URLs geben 403 · der Platzhalter-Header wird ersetzt, nie
-weitergereicht · `createProxyTokenProvider` macht **keinen** Netzwerkaufruf (der
-Test, der «kein Token im Browser» belegt) · fremder Tenant gibt 403.
+**Catalog proxy:** a tagged URL is let through · cart, order and
+customer URLs return 403 · the placeholder header is replaced, never
+passed on · `createProxyTokenProvider` makes **no** network call (the
+test that proves «no token in the browser») · a foreign tenant returns 403.
 
-**Guard:** wie im Service-Zyklus — die Guard-Datei wirft, die `exports`-Map hat
-`react-server` und `default`, `files` enthält sie, plus die Build-Verifikation in
-beide Richtungen.
+**Guard:** as in the service cycle — the guard file throws, the `exports` map
+has `react-server` and `default`, `files` includes it, plus the build
+verification in both directions.
 
-### Was kein Unit-Test deckt
+### What no unit test covers
 
-Die Bundler-Condition selbst, und die Frage, ob Emporix den anonymen
-Refresh-Token bei Benutzung invalidiert. Letzteres ist für diesen Entwurf
-gleichgültig (der Proxy schreibt den rotierten immer), sollte aber im Plan gegen
-den `viu`-Tenant einmal beobachtet werden, damit die Annahme belegt ist.
+The bundler condition itself, and the question of whether Emporix invalidates
+the anonymous refresh token on use. The latter is irrelevant for this design
+(the proxy always writes the rotated one), but it should be observed once in the
+plan against the `viu` tenant so that the assumption is backed by evidence.
 
-## Offene Fragen
+## Open questions
 
-1. **Rotiert Emporix den anonymen Refresh-Token bei Benutzung, und invalidiert
-   es den alten?** Nicht entscheidungsrelevant, siehe oben, aber zu beobachten.
-2. **Wie oft refresht der Gast-Pfad?** Der Store bootstrappt mit
-   `expiresAt = 0`, also macht der erste `getAnonymousToken()` pro
-   Client-Instanz ein Refresh. Bei einem Client pro Request heisst das ein
-   zusätzlicher Emporix-Roundtrip pro Request, der den Warenkorb berührt. Ob das
-   in der Praxis stört, ist zu messen — der Access-Token liesse sich später mit
-   seiner Ablaufzeit im Cookie mitführen, um die meisten Refreshes zu sparen.
-   Nicht vorab optimieren.
-3. **`maxAge` für den Customer-Token.** F-02 hält fest, dass es heute keinen
-   applikationsseitigen Timeout gibt. Dieser Modus ist die Gelegenheit, einen zu
-   setzen; der konkrete Wert (8 h?) ist eine Produktentscheidung.
+1. **Does Emporix rotate the anonymous refresh token on use, and does it
+   invalidate the old one?** Not decision-relevant, see above, but to be observed.
+2. **How often does the guest path refresh?** The store bootstraps with
+   `expiresAt = 0`, so the first `getAnonymousToken()` per
+   client instance performs a refresh. With one client per request that means one
+   extra Emporix roundtrip per request that touches the cart. Whether that
+   is a nuisance in practice has to be measured — the access token could later be
+   carried in the cookie together with its expiry time to save most refreshes.
+   Do not optimize up front.
+3. **`maxAge` for the customer token.** F-02 records that there is no
+   application-side timeout today. This mode is the opportunity to set one;
+   the concrete value (8 h?) is a product decision.
 
-## Verhältnis zu den Review-Findings
+## Relationship to the review findings
 
-| Finding | Status nach diesem Modus |
+| Finding | Status after this mode |
 |---|---|
-| F-01 Tokens im JS-lesbaren Cookie | **geschlossen** für Next-Storefronts; bleibt offen für den SPA-Weg, dort strukturell nicht lösbar |
-| F-13 Tokens in URLs | clientseitig **geschlossen**; Emporix' eigene Logs bleiben |
-| F-07 CSRF in Consumer-Routen | **geschlossen** über `assertSameOrigin` |
-| F-02 keine Session-Lebensdauer | adressierbar, konkreter Wert offen (Frage 3) |
-| F-03 kein Tenant-Namespace | **unberührt** — eigener Zyklus |
-| F-04/F-05 divergierende Cookie-Attribute | teilweise: dieser Modus leitet `secure` ab und vereinheitlicht die Attribute für die neuen Writes. Die Konsolidierung über alle drei Schreibpfade bleibt ein eigener Zyklus. |
+| F-01 tokens in a JS-readable cookie | **closed** for Next storefronts; stays open for the SPA path, structurally unsolvable there |
+| F-13 tokens in URLs | **closed** on the client side; Emporix' own logs remain |
+| F-07 CSRF in consumer routes | **closed** via `assertSameOrigin` |
+| F-02 no session lifetime | addressable, concrete value open (question 3) |
+| F-03 no tenant namespace | **untouched** — its own cycle |
+| F-04/F-05 diverging cookie attributes | partly: this mode derives `secure` and unifies the attributes for the new writes. The consolidation across all three write paths remains a cycle of its own. |

@@ -1,45 +1,45 @@
-# next-server-first auf Muster-Parität — Implementierungsplan
+# next-server-first to pattern parity — implementation plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** `examples/next-server-first` bekommt 13 Routen und deckt jedes
-Muster ab, das `examples/storefront-demo` mit React-Query-Hooks löst — nur
-server-first, plus ein Paket-Fehler aus #198 vorweg.
+**Goal:** `examples/next-server-first` gets 13 routes and covers every
+pattern that `examples/storefront-demo` solves with React-Query hooks — only
+server-first, plus a package bug from #198 up front.
 
-**Architecture:** Ein neues Workspace-Paket `examples/shared` hält die
-Emporix-Formnormalisierung, die beide Demos brauchen (verschoben aus
-storefront-demo, nicht kopiert). Die Next-Demo liest in Server Components und
-schreibt in Server Actions; die Shell kostet null Emporix-Aufrufe, weil die
-Warenkorb-Zählung in der Session mitläuft. Fehler kommen aus Actions **zurück**
-statt geworfen zu werden, und eine einzige Client-Komponente zeigt sie an.
+**Architecture:** A new workspace package `examples/shared` holds the
+Emporix shape normalisation that both demos need (moved out of
+storefront-demo, not copied). The Next demo reads in Server Components and
+writes in Server Actions; the shell costs zero Emporix calls because the
+cart count rides along in the session. Errors are **returned** from actions
+instead of being thrown, and a single client component displays them.
 
 **Tech Stack:** Next 16 App Router, React 19 (`useActionState`),
-`@viu/emporix-sdk-next/session`, Vitest für das Paket, Redis in Podman für den
-Store-Modus.
+`@viu/emporix-sdk-next/session`, Vitest for the package, Redis in Podman for
+store mode.
 
 **Spec:** `docs/superpowers/specs/2026-08-03-next-server-first-parity-design.md`
 
 ## Global Constraints
 
-- **Commitlint:** Scope aus `repo, release, sdk, react, core, customer, product, category, cart, checkout, payment, price, media, segment, availability, auth, http, logger, deps, docs, examples`. Es gibt **kein** `next`-Scope — Paket-Änderungen laufen unter `repo`. Erstes Wort nach dem Scope ist ein **kleingeschriebenes Verb**.
-- **Examples typechecken gegen `dist/`.** Nach jeder Änderung an SDK- oder React-Quellen: `pnpm -F @viu/emporix-sdk build && pnpm -F @viu/emporix-sdk-react build` **vor** dem Typecheck der Examples.
-- **Examples haben keine Unit-Tests.** `test` und `lint` sind bewusste No-ops. Verifikation ist Typecheck, Build und Ausführen. Unit-Tests entstehen nur in Task 0 (`packages/next`) und Task 4.1 (`safeNext`).
-- **`.env*` ist ausserhalb der Schreibrechte des Assistenten.** Neue Variablen werden im README dokumentiert; `.env.example` ergänzt der Mensch.
-- **Kein Cookie wird direkt gelesen.** Immer über `sessionCookieJar` — roher `cookies()`-Zugriff umgeht den `__Host-`-Präfix und den Verschlüsselungs-Codec.
-- **`STORE_OPT` an jeden Leser.** `withEmporixSession*`, `emporixTokenProxy`, `emporixSession`. Eine vergessene Stelle fällt still in den Cookie-Modus zurück.
-- **`exactOptionalPropertyTypes` ist an.** Optionale Felder werden konditional gespreizt (`...(x !== undefined ? { x } : {})`), nicht mit `undefined` belegt.
-- Nie «ß», immer «ss». Prosa in Schweizer Hochdeutsch, Code und Identifier englisch wie im Repo.
+- **Commitlint:** scope from `repo, release, sdk, react, core, customer, product, category, cart, checkout, payment, price, media, segment, availability, auth, http, logger, deps, docs, examples`. There is **no** `next` scope — package changes go under `repo`. The first word after the scope is a **lowercase verb**.
+- **Examples typecheck against `dist/`.** After every change to SDK or React sources: `pnpm -F @viu/emporix-sdk build && pnpm -F @viu/emporix-sdk-react build` **before** typechecking the examples.
+- **Examples have no unit tests.** `test` and `lint` are deliberate no-ops. Verification is typecheck, build and running it. Unit tests only come about in Task 0 (`packages/next`) and Task 4.1 (`safeNext`).
+- **`.env*` is outside the assistant's write permissions.** New variables are documented in the README; the human adds them to `.env.example`.
+- **No cookie is read directly.** Always via `sessionCookieJar` — raw `cookies()` access bypasses the `__Host-` prefix and the encryption codec.
+- **`STORE_OPT` to every reader.** `withEmporixSession*`, `emporixTokenProxy`, `emporixSession`. One forgotten spot silently falls back to cookie mode.
+- **`exactOptionalPropertyTypes` is on.** Optional fields are spread conditionally (`...(x !== undefined ? { x } : {})`), not assigned `undefined`.
+- Never the sharp s, always «ss». Prose in Swiss High German, code and identifiers in English as in the repo. *(Superseded 2026-08-05: everything committed is English — see `CLAUDE.md`. Kept as the record of the constraint that applied when this plan was written.)*
 
-## Gemessene Signaturen
+## Measured signatures
 
-Alles hier ist am 2026-08-03 aus den Quellen gelesen, nicht erinnert. Tasks
-verweisen darauf statt zu raten.
+Everything here was read from the sources on 2026-08-03, not remembered. Tasks
+refer to it instead of guessing.
 
-| Aufruf | Signatur |
+| Call | Signature |
 |---|---|
 | `client.categories.get` | `(categoryId, auth) => Promise<Category>` |
 | `client.categories.subcategories` | `(categoryId, { pageNumber?, pageSize? }, auth) => Promise<Category[]>` |
-| `client.categories.productsIn` | `(categoryId, { pageNumber?, pageSize? }, auth) => Promise<PaginatedItems<Product>>` — hat `hasNextPage` |
+| `client.categories.productsIn` | `(categoryId, { pageNumber?, pageSize? }, auth) => Promise<PaginatedItems<Product>>` — has `hasNextPage` |
 | `client.products.get` | `(productId, undefined, auth) => Promise<Product>` |
 | `client.products.searchByName` | `(term, { pageNumber?, pageSize? }, auth) => Promise<PaginatedItems<Product>>` |
 | `client.products.searchByIds` | `(ids, { chunkSize? }, auth) => Promise<Product[]>` |
@@ -63,49 +63,49 @@ verweisen darauf statt zu raten.
 | `client.orders.get` | `(orderId, auth)` |
 | `client.orders.cancel` | `(orderId, auth, { saasToken? })` |
 
-## Dateistruktur
+## File structure
 
-**Neu — `examples/shared/`**
+**New — `examples/shared/`**
 
-| Datei | Verantwortung |
+| File | Responsibility |
 |---|---|
-| `package.json` | `@viu/emporix-examples-shared`, `private: true`, kein `build` (Quell-Import über `exports: { ".": "./src/index.ts" }`) |
-| `src/index.ts` | Re-Export von `adapters.ts` und `format.ts` |
-| `src/adapters.ts` | verschoben aus `storefront-demo/src/lib/adapters.ts`, ohne `sanitizeHtml`/`productDescription`, mit exportiertem `stripHtml` |
-| `src/format.ts` | verschoben aus `storefront-demo/src/lib/format.ts` |
-| `README.md` | «copy this» — es ist ein Helfer-Satz, keine Demo |
+| `package.json` | `@viu/emporix-examples-shared`, `private: true`, no `build` (source import via `exports: { ".": "./src/index.ts" }`) |
+| `src/index.ts` | re-export of `adapters.ts` and `format.ts` |
+| `src/adapters.ts` | moved out of `storefront-demo/src/lib/adapters.ts`, without `sanitizeHtml`/`productDescription`, with `stripHtml` exported |
+| `src/format.ts` | moved out of `storefront-demo/src/lib/format.ts` |
+| `README.md` | «copy this» — it is a set of helpers, not a demo |
 
-**Geändert — `examples/storefront-demo/`**
+**Changed — `examples/storefront-demo/`**
 
-| Datei | Änderung |
+| File | Change |
 |---|---|
-| `src/lib/adapters.ts` | schrumpft auf `sanitizeHtml` + `productDescription`, re-exportiert den Rest aus dem geteilten Paket |
-| `src/lib/format.ts` | gelöscht, Importe zeigen aufs Paket |
-| `package.json` | Dependency `@viu/emporix-examples-shared: workspace:*` |
+| `src/lib/adapters.ts` | shrinks to `sanitizeHtml` + `productDescription`, re-exports the rest from the shared package |
+| `src/lib/format.ts` | deleted, imports point at the package |
+| `package.json` | dependency `@viu/emporix-examples-shared: workspace:*` |
 
-**Neu — `examples/next-server-first/app/`**
+**New — `examples/next-server-first/app/`**
 
-| Datei | Verantwortung |
+| File | Responsibility |
 |---|---|
-| `lib/cart-session.ts` | `setCart`, `cartCount` — der einzige Schreiber der Cart-Id |
+| `lib/cart-session.ts` | `setCart`, `cartCount` — the only writer of the cart id |
 | `lib/require-customer.ts` | `requireCustomer`, `safeNext` |
-| `lib/prices.ts` | `pricesFor(client, auth, products)` — serverseitiges Pendant zu `usePrices` |
-| `lib/product-names.ts` | `namesFor(client, auth, ids)` — Pendant zu `useProductNames` |
-| `components/action-form.tsx` | `ActionForm` — die einzige Client-Komponente für Formulare |
-| `components/product-grid.tsx` | serverseitiges Produktgitter |
-| `components/header.tsx` | Shell-Kopf, server-gerendert |
-| `search/page.tsx`, `category/[id]/page.tsx`, `product/[id]/page.tsx` | Katalog |
-| `account/page.tsx`, `account/profile/page.tsx`, `account/addresses/page.tsx`, `account/orders/page.tsx`, `account/orders/[id]/page.tsx` | Konto |
-| `actions/account.ts` | Profil, Passwort, Adress-CRUD, Cancel, Reorder |
+| `lib/prices.ts` | `pricesFor(client, auth, products)` — server-side counterpart to `usePrices` |
+| `lib/product-names.ts` | `namesFor(client, auth, ids)` — counterpart to `useProductNames` |
+| `components/action-form.tsx` | `ActionForm` — the only client component for forms |
+| `components/product-grid.tsx` | server-side product grid |
+| `components/header.tsx` | shell header, server-rendered |
+| `search/page.tsx`, `category/[id]/page.tsx`, `product/[id]/page.tsx` | catalog |
+| `account/page.tsx`, `account/profile/page.tsx`, `account/addresses/page.tsx`, `account/orders/page.tsx`, `account/orders/[id]/page.tsx` | account |
+| `actions/account.ts` | profile, password, address CRUD, cancel, reorder |
 | `api/emporix/webhook/route.ts` | Task 5.1 |
-| `styles/tokens.css`, `styles/global.css` | kopiert aus storefront-demo |
+| `styles/tokens.css`, `styles/global.css` | copied from storefront-demo |
 
 ---
 
-## Task 0: `opts.store` an die drei Jar-Konstruktionen in `session-auth.ts`
+## Task 0: `opts.store` to the three jar constructions in `session-auth.ts`
 
-Ein Fehler aus #198. Blockiert Task 4.*. Läuft allein als eigene PR, damit die
-Changeset-Korrektur nicht in einer Feature-PR untergeht.
+A bug from #198. Blocks Task 4.*. Ships alone as its own PR so the changeset
+correction does not get lost inside a feature PR.
 
 **Files:**
 - Modify: `packages/next/src/session-auth.ts:66`, `:151`, `:229`
@@ -113,18 +113,18 @@ Changeset-Korrektur nicht in einer Feature-PR untergeht.
 - Test: `packages/next/tests/session-auth.test.ts`
 
 **Interfaces:**
-- Consumes: `sessionCookieJar(opts: { readOnly?: boolean; store?: EmporixSessionStore })` aus `session-cookies.ts`; `EmporixSessionStore` mit `read`/`write`/`destroy` aus `session-store.ts`.
-- Produces: nichts Neues. Verhalten von `emporixLogin`, `emporixRefresh`, `emporixLogout` im Store-Modus.
+- Consumes: `sessionCookieJar(opts: { readOnly?: boolean; store?: EmporixSessionStore })` from `session-cookies.ts`; `EmporixSessionStore` with `read`/`write`/`destroy` from `session-store.ts`.
+- Produces: nothing new. Behaviour of `emporixLogin`, `emporixRefresh`, `emporixLogout` in store mode.
 
-- [ ] **Step 1: Bestehende Testdatei ansehen und den Fake-Store-Helfer schreiben**
+- [ ] **Step 1: Look at the existing test file and write the fake-store helper**
 
-Zuerst `packages/next/tests/session-auth.test.ts` lesen, um Mock-Aufbau und
-MSW-Handler des Repos zu übernehmen. Dann diesen Helfer in dieselbe Datei:
+First read `packages/next/tests/session-auth.test.ts` to take over the repo's
+mock setup and MSW handlers. Then this helper into the same file:
 
 ```ts
 import type { EmporixSessionStore } from "../src/session-store";
 
-/** Ein Store, der mitschreibt, was er tut — das ist der Beleg, nicht der Inhalt. */
+/** A store that records what it does — that is the evidence, not the content. */
 function fakeStore(): EmporixSessionStore & {
   records: Map<string, Record<string, string>>;
   destroyed: string[];
@@ -146,7 +146,7 @@ function fakeStore(): EmporixSessionStore & {
 }
 ```
 
-- [ ] **Step 2: Die drei fehlschlagenden Tests schreiben**
+- [ ] **Step 2: Write the three failing tests**
 
 ```ts
 import { STORAGE_KEYS } from "@viu/emporix-sdk-react/ssr";
@@ -156,8 +156,8 @@ it("emporixLogin with a store keeps the customer token OUT of the browser", asyn
   const store = fakeStore();
   await emporixLogin({ email: "a@b.ch", password: "x" }, { store, ...BASE_OPTS });
 
-  // Der Beleg ist zweiseitig: nicht im Cookie UND im Record. Nur eine Hälfte
-  // zu prüfen liesse den Cookie-Zweig durchgehen.
+  // The evidence is two-sided: not in the cookie AND in the record. Checking
+  // only one half would let the cookie branch pass.
   expect(cookieJar.get(STORAGE_KEYS.customerToken)).toBeUndefined();
   const record = [...store.records.values()][0];
   expect(record?.[STORAGE_KEYS.customerToken]).toBeTypeOf("string");
@@ -188,42 +188,42 @@ it("emporixLogout with a store destroys the record", async () => {
 });
 ```
 
-`BASE_OPTS` und `cookieJar` aus der bestehenden Datei übernehmen — sie hat
-beides schon, weil die Cookie-Modus-Tests darauf laufen.
+Take `BASE_OPTS` and `cookieJar` from the existing file — it already has
+both, because the cookie-mode tests run on them.
 
-- [ ] **Step 3: Tests laufen lassen — sie MÜSSEN rot sein**
+- [ ] **Step 3: Run the tests — they MUST be red**
 
 Run: `pnpm -F @viu/emporix-sdk-next test -- session-auth`
-Expected: **alle drei FAIL**. Erwartet: Test 1 findet einen `customerToken` im
-Cookie-Jar; Test 2 findet den Record unverändert; Test 3 findet
-`store.destroyed` leer.
+Expected: **all three FAIL**. Expected: test 1 finds a `customerToken` in the
+cookie jar; test 2 finds the record unchanged; test 3 finds
+`store.destroyed` empty.
 
-Ist einer grün, ist der Test falsch, nicht der Code. Dann stimmt der Aufbau von
-`cookieJar`/`BASE_OPTS` nicht — nachsehen, bevor es weitergeht.
+If one is green, the test is wrong, not the code. Then the setup of
+`cookieJar`/`BASE_OPTS` is off — look into it before going on.
 
-- [ ] **Step 4: Den Fix an den drei Stellen anwenden**
+- [ ] **Step 4: Apply the fix in the three places**
 
-An `session-auth.ts:66`, `:151` und `:229` jeweils:
+At `session-auth.ts:66`, `:151` and `:229`, each:
 
 ```ts
 const jar = await sessionCookieJar(opts.store !== undefined ? { store: opts.store } : {});
 ```
 
-`{ store: opts.store }` direkt geht nicht: `exactOptionalPropertyTypes` verbietet
-das Zuweisen von `undefined` an ein optionales Feld.
+`{ store: opts.store }` directly does not work: `exactOptionalPropertyTypes`
+forbids assigning `undefined` to an optional field.
 
-- [ ] **Step 5: Tests laufen lassen — jetzt grün, und der Rest auch**
+- [ ] **Step 5: Run the tests — green now, and the rest too**
 
 Run: `pnpm -F @viu/emporix-sdk-next test`
-Expected: PASS, 203 Tests (200 bestehende plus drei neue). Kein bestehender Test
-darf kippen — die Cookie-Modus-Tests übergeben kein `store` und laufen
-unverändert durch denselben Zweig.
+Expected: PASS, 203 tests (200 existing plus three new). No existing test
+may tip over — the cookie-mode tests pass no `store` and run
+unchanged through the same branch.
 
-- [ ] **Step 6: Changeset-Korrektur**
+- [ ] **Step 6: Changeset correction**
 
-In `.changeset/next-session-store.md` ist die Zeile «`emporixLogout` destroys the
-record» ausgeliefert worden, ohne dass es stimmte. Das Changeset ist mit #198
-schon veröffentlicht, also kommt die Korrektur in ein **neues** Changeset:
+In `.changeset/next-session-store.md` the line «`emporixLogout` destroys the
+record» shipped without being true. That changeset was already published with
+#198, so the correction goes into a **new** changeset:
 
 ```bash
 cat > .changeset/next-store-auth-threading.md <<'EOF'
@@ -248,24 +248,24 @@ which threads the option correctly.
 EOF
 ```
 
-- [ ] **Step 7: Live-Beleg im Store-Modus**
+- [ ] **Step 7: Live evidence in store mode**
 
-Redis muss laufen (`podman ps` zeigt den Container auf 6379).
+Redis must be running (`podman ps` shows the container on 6379).
 
 ```bash
 pnpm -F @viu/emporix-sdk-next build && pnpm -F @viu/emporix-examples-next-server-first dev
 ```
 
-Mit `EMPORIX_SESSION_REDIS_URL` gesetzt: auf `/login` anmelden (der Mensch tippt
-das Passwort), dann prüfen:
+With `EMPORIX_SESSION_REDIS_URL` set: log in at `/login` (the human types
+the password), then check:
 
 ```bash
 node -e "const {createClient}=require('redis');(async()=>{const c=createClient({url:'redis://127.0.0.1:6379'});await c.connect();for(const k of await c.keys('emporix:session:*'))console.log(k,await c.ttl(k),await c.get(k));await c.quit();})()"
 ```
 
-Erwartet: der Record enthält `emporix.customerToken`, und `/debug` zeigt im
-Browser **nur** `emporix.sid` und `emporix.siteCode`. Danach ausloggen und die
-Key-Liste erneut abfragen — der Key ist weg.
+Expected: the record contains `emporix.customerToken`, and in the browser
+`/debug` shows **only** `emporix.sid` and `emporix.siteCode`. Then log out and
+query the key list again — the key is gone.
 
 - [ ] **Step 8: Commit**
 
@@ -276,7 +276,7 @@ git commit -m "fix(repo): thread the session store through login, refresh and lo
 
 ---
 
-## Task 1.1: `examples/shared` anlegen und die Adapter verschieben
+## Task 1.1: Create `examples/shared` and move the adapters
 
 **Files:**
 - Create: `examples/shared/package.json`, `examples/shared/tsconfig.json`, `examples/shared/src/index.ts`, `examples/shared/src/adapters.ts`, `examples/shared/src/format.ts`, `examples/shared/README.md`
@@ -285,13 +285,13 @@ git commit -m "fix(repo): thread the session store through login, refresh and lo
 - Modify: `examples/README.md`
 
 **Interfaces:**
-- Produces: `@viu/emporix-examples-shared` exportiert `localized`, `pickText`, `stripHtml`, `imageOf`, `toProductCard`, `ProductCardVM`, `productName`, `productImages`, `priceMatchItems`, `PriceVM`, `priceForProduct`, `productYrn`, `catLabel`, `catId`, `CartLinePrice`, `CartLineVM`, `toCartLine`, `cartLines`, `cartTotal`, `cartCoupons`, `OrderVM`, `orderVM`, `OrderItemVM`, `orderItems`, `money`.
-- storefront-demo behält lokal: `sanitizeHtml`, `productDescription`.
+- Produces: `@viu/emporix-examples-shared` exports `localized`, `pickText`, `stripHtml`, `imageOf`, `toProductCard`, `ProductCardVM`, `productName`, `productImages`, `priceMatchItems`, `PriceVM`, `priceForProduct`, `productYrn`, `catLabel`, `catId`, `CartLinePrice`, `CartLineVM`, `toCartLine`, `cartLines`, `cartTotal`, `cartCoupons`, `OrderVM`, `orderVM`, `OrderItemVM`, `orderItems`, `money`.
+- storefront-demo keeps locally: `sanitizeHtml`, `productDescription`.
 
-- [ ] **Step 1: Paket-Manifest**
+- [ ] **Step 1: Package manifest**
 
-Kein Build-Schritt: das Paket wird als Quelle importiert. Deshalb zeigt
-`exports` direkt auf `src/`.
+No build step: the package is imported as source. That is why `exports`
+points straight at `src/`.
 
 ```json
 {
@@ -309,31 +309,31 @@ Kein Build-Schritt: das Paket wird als Quelle importiert. Deshalb zeigt
 }
 ```
 
-`test` und `lint` als No-op mit erklärender Ausgabe, wie die anderen Examples es
-halten — `pnpm -r test` läuft sonst ins Leere und man rätselt, warum.
+`test` and `lint` as no-ops with an explanatory message, the way the other
+examples do it — otherwise `pnpm -r test` runs into nothing and you wonder why.
 
-`tsconfig.json` aus `examples/node-server/tsconfig.json` kopieren; es ist das
-Example ohne React und passt deshalb.
+Copy `tsconfig.json` from `examples/node-server/tsconfig.json`; it is the
+example without React and therefore fits.
 
-- [ ] **Step 2: Dateien verschieben**
+- [ ] **Step 2: Move the files**
 
 ```bash
 git mv examples/storefront-demo/src/lib/adapters.ts examples/shared/src/adapters.ts
 git mv examples/storefront-demo/src/lib/format.ts examples/shared/src/format.ts
 ```
 
-`git mv` statt Kopieren, damit die Historie mitkommt.
+`git mv` instead of copying, so the history comes along.
 
-- [ ] **Step 3: `sanitizeHtml` und `productDescription` aus dem Paket herausnehmen, `stripHtml` exportieren**
+- [ ] **Step 3: Take `sanitizeHtml` and `productDescription` out of the package, export `stripHtml`**
 
-In `examples/shared/src/adapters.ts` die beiden Funktionen `sanitizeHtml` und
-`productDescription` **löschen** und bei `stripHtml` das `export` ergänzen:
+In `examples/shared/src/adapters.ts` **delete** the two functions `sanitizeHtml`
+and `productDescription` and add the `export` to `stripHtml`:
 
 ```ts
 /**
- * Tag-Strip ohne DOM. Reine String-Arbeit, läuft deshalb auch in Node — was
- * `sanitizeHtml` nicht tut, weil es `DOMParser` braucht. Server-gerenderte
- * Consumer bekommen Klartext statt Markup, und das ist der ehrliche Handel.
+ * Tag strip without a DOM. Pure string work, so it also runs in Node — which
+ * `sanitizeHtml` does not, because it needs `DOMParser`. Server-rendered
+ * consumers get plain text instead of markup, and that is the honest trade.
  */
 export function stripHtml(s: string): string {
   return s
@@ -344,13 +344,13 @@ export function stripHtml(s: string): string {
 }
 ```
 
-Der Datei-Kopfkommentar «View-model adapters — the SINGLE place that reads
-SDK/generated field names» bleibt und wird jetzt wieder wahr. Ergänzen:
+The file header comment «View-model adapters — the SINGLE place that reads
+SDK/generated field names» stays and becomes true again. Add:
 
 ```ts
 /**
- * Geteilt von examples/storefront-demo und examples/next-server-first. Wer
- * einen eigenen Storefront baut: kopieren. Das ist keine veröffentlichte API.
+ * Shared by examples/storefront-demo and examples/next-server-first. If you
+ * build your own storefront: copy it. This is not a published API.
  */
 ```
 
@@ -361,17 +361,17 @@ export * from "./adapters";
 export * from "./format";
 ```
 
-- [ ] **Step 5: storefront-demo umstellen**
+- [ ] **Step 5: Switch storefront-demo over**
 
-`examples/storefront-demo/src/lib/adapters.ts` neu anlegen — nur noch die zwei
-browsergebundenen Funktionen plus ein Re-Export, damit die 30+ bestehenden
-Importpfade unverändert bleiben:
+Recreate `examples/storefront-demo/src/lib/adapters.ts` — only the two
+browser-bound functions plus a re-export, so that the 30+ existing
+import paths stay unchanged:
 
 ```ts
 import type { Product } from "@viu/emporix-sdk";
 import { pickText, stripHtml } from "@viu/emporix-examples-shared";
 
-/** Alles Formnormalisierende liegt im geteilten Paket. Hier bleibt nur, was einen Browser braucht. */
+/** Everything shape-normalising lives in the shared package. Only what needs a browser stays here. */
 export * from "@viu/emporix-examples-shared";
 
 const UNSAFE_TAGS = "script,style,iframe,object,embed,link,meta,base,form,input,template";
@@ -408,17 +408,17 @@ export function productDescription(p: Product): string {
 }
 ```
 
-Dann in `examples/storefront-demo/package.json` die Dependency ergänzen:
+Then add the dependency in `examples/storefront-demo/package.json`:
 `"@viu/emporix-examples-shared": "workspace:*"`.
 
-Die vier Dateien, die `../lib/format` importieren, auf
-`@viu/emporix-examples-shared` umstellen:
+Switch the four files that import `../lib/format` over to
+`@viu/emporix-examples-shared`:
 
 ```bash
 grep -rln 'lib/format' examples/storefront-demo/src
 ```
 
-- [ ] **Step 6: Der Regressionsbeleg**
+- [ ] **Step 6: The regression evidence**
 
 ```bash
 pnpm install
@@ -427,28 +427,28 @@ pnpm -F @viu/emporix-examples-storefront-demo typecheck
 pnpm -F @viu/emporix-examples-storefront-demo build
 ```
 
-Expected: alle drei grün. Dann die Demo starten und **von Hand** durchgehen:
-Startseite mit Preisen, ein Produkt öffnen, in den Warenkorb, `/cart` mit
-Summe, `/account/orders` mit einer Bestellung. Das ist die Abnahmebedingung
-dieses Tasks — ein Typecheck beweist bei `as`-lastigen Adaptern zu wenig.
+Expected: all three green. Then start the demo and walk through it **by hand**:
+home page with prices, open a product, into the cart, `/cart` with a
+total, `/account/orders` with an order. That is this task's acceptance
+condition — with `as`-heavy adapters a typecheck proves too little.
 
-- [ ] **Step 7: `examples/README.md` korrigieren**
+- [ ] **Step 7: Correct `examples/README.md`**
 
-Drei Änderungen:
+Three changes:
 
-1. Zeile 42: «checkout, account and B2B» → «checkout and account». storefront-demo hat kein B2B; Grep findet nur einen Telemetrie-Event-Namen, den nichts auslöst.
-2. Die Zeile «It states the cost in numbers and shows what a full storefront would need» ersatzlos streichen — diesen Abschnitt gibt es im README der Demo nicht.
-3. Nach der Fünf-Demo-Tabelle einen Absatz:
+1. Line 42: «checkout, account and B2B» → «checkout and account». storefront-demo has no B2B; grep finds only a telemetry event name that nothing triggers.
+2. Delete the line «It states the cost in numbers and shows what a full storefront would need» outright — that section does not exist in the demo's README.
+3. After the five-demo table, one paragraph:
 
 ```markdown
-## `shared/` ist keine Demo
+## `shared/` is not a demo
 
-`examples/shared` ist ein unveröffentlichtes Workspace-Paket mit der
-Emporix-Formnormalisierung, die `storefront-demo` und `next-server-first`
-beide brauchen — Bestellungen kommen in zwei Formen zurück, Warenkorbzeilen
-wollen ihre Preiszeile beim Update zurück, Textfelder sind mal ein String und
-mal eine Locale-Map. Wer einen eigenen Storefront baut, kopiert die Dateien;
-sie sind bewusst nicht Teil der veröffentlichten API.
+`examples/shared` is an unpublished workspace package with the Emporix
+shape normalisation that `storefront-demo` and `next-server-first` both
+need — orders come back in two shapes, cart lines want their price line
+back on update, text fields are sometimes a string and sometimes a locale
+map. If you build your own storefront, you copy the files; they are
+deliberately not part of the published API.
 ```
 
 - [ ] **Step 8: Commit**
@@ -460,7 +460,7 @@ git commit -m "refactor(examples): move the shape adapters into a shared package
 
 ---
 
-## Task 1.2: Shell, CSS und die Warenkorb-Zählung in der Session
+## Task 1.2: Shell, CSS and the cart count in the session
 
 **Files:**
 - Create: `examples/next-server-first/app/lib/cart-session.ts`, `app/components/header.tsx`, `app/styles/tokens.css`, `app/styles/global.css`
@@ -468,10 +468,10 @@ git commit -m "refactor(examples): move the shape adapters into a shared package
 - Modify: `examples/next-server-first/README.md`
 
 **Interfaces:**
-- Consumes: `@viu/emporix-examples-shared` (Task 1.1); `sessionCookieJar`, `STORAGE_KEYS`, `SESSION_MAX_AGE`, `SessionCookieJar`, `emporixSession` aus `@viu/emporix-sdk-next/session`.
-- Produces: `setCart(jar, cart | null): void` und `cartCount(jar): number` aus `app/lib/cart-session.ts`. Ab hier schreibt **niemand** `STORAGE_KEYS.cartId` mehr direkt.
+- Consumes: `@viu/emporix-examples-shared` (Task 1.1); `sessionCookieJar`, `STORAGE_KEYS`, `SESSION_MAX_AGE`, `SessionCookieJar`, `emporixSession` from `@viu/emporix-sdk-next/session`.
+- Produces: `setCart(jar, cart | null): void` and `cartCount(jar): number` from `app/lib/cart-session.ts`. From here on **nobody** writes `STORAGE_KEYS.cartId` directly any more.
 
-- [ ] **Step 1: CSS kopieren**
+- [ ] **Step 1: Copy the CSS**
 
 ```bash
 mkdir -p examples/next-server-first/app/styles
@@ -479,17 +479,17 @@ cp examples/storefront-demo/src/styles/tokens.css examples/next-server-first/app
 cp examples/storefront-demo/src/styles/global.css examples/next-server-first/app/styles/global.css
 ```
 
-Kopiert, **nicht** geteilt. Geteilt hiesse: eine Änderung in storefront-demos CSS
-lässt diese Demo kaputt aussehen, ohne dass ein Test es merkt. Kopiert driften
-sie optisch auseinander und nichts bricht. Oben in beide Dateien:
+Copied, **not** shared. Shared would mean: a change in storefront-demo's CSS
+makes this demo look broken without any test noticing it. Copied, they drift
+apart visually and nothing breaks. At the top of both files:
 
 ```css
-/* Kopiert aus examples/storefront-demo/src/styles/ am 2026-08-03. Absichtlich
-   eine Kopie: eine geteilte Datei hätte die zwei Demos aneinandergekoppelt. */
+/* Copied from examples/storefront-demo/src/styles/ on 2026-08-03. Deliberately
+   a copy: a shared file would have coupled the two demos to each other. */
 ```
 
-`catalog.css` bleibt draussen — es gehört zu Komponenten, die diese Demo nicht
-hat.
+`catalog.css` stays out — it belongs to components this demo does not
+have.
 
 - [ ] **Step 2: `cart-session.ts`**
 
@@ -503,13 +503,13 @@ import {
 const COUNT = "demo.cartCount";
 
 /**
- * Die EINZIGE Stelle, die die Cart-Id schreibt.
+ * The ONLY place that writes the cart id.
  *
- * Die Zählung liegt daneben in der Session, damit die Shell sie ohne
- * Emporix-Aufruf zeigen kann: ein Badge im Layout hiesse sonst pro
- * Seitenaufruf ein `withEmporixSession`, und der Gast-Pfad baut dort
- * absichtlich einen neuen Client pro Aufruf. Wäre die Zählung woanders
- * schreibbar, könnte sie driften; so kann sie es strukturell nicht.
+ * The count sits next to it in the session so the shell can show it
+ * without an Emporix call: a badge in the layout would otherwise mean one
+ * `withEmporixSession` per page view, and the guest path deliberately
+ * builds a new client per call there. If the count were writable
+ * elsewhere it could drift; this way it structurally cannot.
  */
 export function setCart(
   jar: SessionCookieJar,
@@ -526,12 +526,12 @@ export function setCart(
 }
 
 export function cartCount(jar: SessionCookieJar): number {
-  // Ohne Cart-Id ist eine Zählung bedeutungslos, und das deckt den Logout ab:
-  // SESSION_COOKIES in session-auth.ts ist eine feste Liste, unser Demo-Key
-  // steht nicht drin und würde den Logout sonst überleben.
+  // Without a cart id a count is meaningless, and that covers the logout:
+  // SESSION_COOKIES in session-auth.ts is a fixed list, our demo key
+  // is not in it and would otherwise survive the logout.
   if (jar.get(STORAGE_KEYS.cartId) === null) return 0;
-  // `Number.isInteger`, nicht ein Wahrheitstest: `Number(null)` ist 0 und nicht
-  // NaN — derselbe Stolperstein wie bei SESSION_STARTED_AT.
+  // `Number.isInteger`, not a truthiness test: `Number(null)` is 0 and not
+  // NaN — the same stumbling block as with SESSION_STARTED_AT.
   const n = Number(jar.get(COUNT));
   return Number.isInteger(n) && n > 0 ? n : 0;
 }
@@ -539,9 +539,9 @@ export function cartCount(jar: SessionCookieJar): number {
 
 - [ ] **Step 3: `header.tsx`**
 
-Server-Komponente. Das Suchfeld ist ein reines GET-Formular — storefront-demos
-Header hält den Text in `useState` und navigiert programmatisch; hier braucht es
-dafür kein JavaScript.
+Server component. The search field is a plain GET form — storefront-demo's
+header keeps the text in `useState` and navigates programmatically; here it
+needs no JavaScript for that.
 
 ```tsx
 import { emporixSession, sessionCookieJar } from "@viu/emporix-sdk-next/session";
@@ -558,7 +558,7 @@ export async function Header(): Promise<React.JSX.Element> {
     <header style={{ borderBottom: "1px solid var(--line)" }}>
       <div className="container cluster" style={{ gap: "var(--s-5)", paddingBlock: "var(--s-4)" }}>
         <a href="/" className="serif">Server—First</a>
-        {/* Kein onSubmit, kein useState: ein GET-Formular navigiert selbst. */}
+        {/* No onSubmit, no useState: a GET form navigates by itself. */}
         <form action="/search" method="get" style={{ flex: 1, maxWidth: "26rem" }}>
           <input className="input" type="search" name="q" placeholder="Search the catalogue…" aria-label="Search products" />
         </form>
@@ -582,10 +582,10 @@ export async function Header(): Promise<React.JSX.Element> {
 }
 ```
 
-`app/actions/auth.ts` exportiert `login(formData: FormData): Promise<void>` und
-`logout(): Promise<void>` — beide Namen sind gemessen, nicht geraten.
+`app/actions/auth.ts` exports `login(formData: FormData): Promise<void>` and
+`logout(): Promise<void>` — both names are measured, not guessed.
 
-- [ ] **Step 4: `layout.tsx` umbauen**
+- [ ] **Step 4: Rebuild `layout.tsx`**
 
 ```tsx
 import type { ReactNode } from "react";
@@ -596,10 +596,10 @@ import { Header } from "./components/header";
 export const metadata = { title: "Emporix SDK — server-first example" };
 
 /**
- * Kein Provider, kein client-seitiger EmporixClient, kein Storage. Diese
- * Abwesenheit IST die Demonstration. Der Header ist eine Server-Komponente und
- * macht keinen einzigen Emporix-Aufruf — die Warenkorb-Zählung liegt in der
- * Session.
+ * No provider, no client-side EmporixClient, no storage. This
+ * absence IS the demonstration. The header is a server component and makes
+ * not a single Emporix call — the cart count lives in the
+ * session.
  */
 export default function RootLayout({ children }: { children: ReactNode }): React.JSX.Element {
   return (
@@ -613,9 +613,9 @@ export default function RootLayout({ children }: { children: ReactNode }): React
 }
 ```
 
-- [ ] **Step 5: Die bestehenden Schreibstellen auf `setCart` umstellen**
+- [ ] **Step 5: Switch the existing write sites over to `setCart`**
 
-In `app/actions/cart.ts` den Block ersetzen:
+In `app/actions/cart.ts` replace the block:
 
 ```ts
     let cartId = jar.get(STORAGE_KEYS.cartId);
@@ -625,77 +625,77 @@ In `app/actions/cart.ts` den Block ersetzen:
       if (cartId === null) throw new Error("Emporix returned no cart");
       setCart(jar, cart);
     }
-    await client.carts.addItem(cartId, { /* unverändert */ }, ctx);
-    // Emporix gibt den Warenkorb bei addItem nicht zurück, also einmal lesen —
-    // die Zählung im Header muss nach dem Hinzufügen stimmen.
+    await client.carts.addItem(cartId, { /* unchanged */ }, ctx);
+    // Emporix does not return the cart from addItem, so read it once —
+    // the count in the header has to be right after adding.
     setCart(jar, await client.carts.get(cartId, ctx));
 ```
 
-In `app/actions/checkout.ts` das Löschen des Warenkorbs nach der Bestellung auf
-`setCart(sessionJar, null)` umstellen — heute wird dort `STORAGE_KEYS.cartId`
-direkt gelöscht, was die Zählung stehen liesse.
+In `app/actions/checkout.ts` switch clearing the cart after the order over to
+`setCart(sessionJar, null)` — today `STORAGE_KEYS.cartId` is deleted directly
+there, which would leave the count standing.
 
-**Achtung:** `client.carts.getCurrent` gibt einen `Cart` mit `.id`,
-`client.carts.create` einen `CartCreated` mit `.cartId`. `setCart` liest `.id` —
-`create` würde still eine Zählung ohne Id schreiben.
+**Careful:** `client.carts.getCurrent` returns a `Cart` with `.id`,
+`client.carts.create` a `CartCreated` with `.cartId`. `setCart` reads `.id` —
+`create` would silently write a count without an id.
 
-- [ ] **Step 6: Der Login-Pfad**
+- [ ] **Step 6: The login path**
 
-`emporixLogin` führt das Cart-Onboarding im Paket durch und schreibt dabei
-`STORAGE_KEYS.cartId` selbst — ausserhalb von `setCart`. Nach dem Login ist die
-Zählung deshalb die des Gast-Warenkorbs, nicht die des zusammengeführten.
+`emporixLogin` performs the cart onboarding inside the package and writes
+`STORAGE_KEYS.cartId` itself — outside `setCart`. After the login the count is
+therefore the guest cart's, not the merged one's.
 
-Fix in `app/actions/auth.ts`, direkt nach `emporixLogin`:
+Fix in `app/actions/auth.ts`, right after `emporixLogin`:
 
 ```ts
-  // emporixLogin führt Gast- und Kundenwarenkorb zusammen und schreibt die
-  // Cart-Id im Paket, also ausserhalb von setCart. Die Zählung danach einmal
-  // nachziehen, sonst zeigt der Header die Zahl von vor dem Merge.
+  // emporixLogin merges the guest and the customer cart and writes the
+  // cart id inside the package, so outside setCart. Bring the count up to
+  // date once afterwards, or the header shows the number from before the merge.
   await withEmporixSessionMutable(async (client, ctx, jar) => {
     const cartId = jar.get(STORAGE_KEYS.cartId);
     if (cartId !== null) setCart(jar, await client.carts.get(cartId, ctx));
   }, EMPORIX);
 ```
 
-- [ ] **Step 7: Typecheck und Live-Beleg**
+- [ ] **Step 7: Typecheck and live evidence**
 
 ```bash
 pnpm -F @viu/emporix-examples-next-server-first typecheck
 pnpm -F @viu/emporix-examples-next-server-first dev
 ```
 
-Erwartet, im Browser mit offenem Netzwerk-Tab:
+Expected, in the browser with the network tab open:
 
-| Prüfung | Erwartung |
+| Check | Expectation |
 |---|---|
-| Startseite laden | Header gestylt, «Cart» ohne Zahl |
-| «Add to cart», dann Startseite neu laden | «Cart (1)», und **kein** Emporix-Request beim Laden der Startseite |
-| `/debug` | PASS, nur `emporix.siteCode` lesbar (bzw. `emporix.sid` im Store-Modus) |
-| Anmelden mit einem Gast-Warenkorb | Zählung stimmt mit `/cart` überein |
-| Abmelden | «Cart» ohne Zahl |
+| Load the home page | header styled, «Cart» without a number |
+| «Add to cart», then reload the home page | «Cart (1)», and **no** Emporix request when loading the home page |
+| `/debug` | PASS, only `emporix.siteCode` readable (or `emporix.sid` in store mode) |
+| Log in with a guest cart | count matches `/cart` |
+| Log out | «Cart» without a number |
 
-Die zweite Zeile ist der eigentliche Beleg dieses Tasks. Erscheint beim Laden
-der Startseite ein Token- oder Cart-Request, greift `cartCount` nicht und der
-Header liest doch über Emporix.
+The second row is this task's actual evidence. If a token or cart request
+shows up when the home page loads, `cartCount` is not taking hold and the
+header reads through Emporix after all.
 
-- [ ] **Step 8: README-Abschnitt**
+- [ ] **Step 8: README section**
 
-In `examples/next-server-first/README.md` nach «The catalog/cart split»:
+In `examples/next-server-first/README.md` after «The catalog/cart split»:
 
 ```markdown
-## Die Shell kostet null Emporix-Aufrufe
+## The shell costs zero Emporix calls
 
-Ein Warenkorb-Badge im Layout wäre pro Seitenaufruf ein `withEmporixSession`,
-und der Gast-Pfad baut dort absichtlich einen neuen Client pro Aufruf — ein
-geteilter Guest-Client wäre ein geteilter Warenkorb. Dazu kann ein read-only
-Jar eine rotierte anonyme Session nicht persistieren, also würde die
-Wiederverwendung des Refresh-Tokens von «drei Reads auf /cart» auf «jeder
-Seitenaufruf» skalieren.
+A cart badge in the layout would be one `withEmporixSession` per page
+view, and the guest path deliberately builds a new client per call
+there — a shared guest client would be a shared cart. On top of that, a
+read-only jar cannot persist a rotated anonymous session, so reuse of the
+refresh token would scale from «three reads on /cart» to «every page
+view».
 
-Die Zählung liegt deshalb neben der Cart-Id in der Session, geschrieben von
-genau einer Funktion (`app/lib/cart-session.ts`). Das ist eine
-Denormalisierung mit bekannter Obergrenze: wer die Cart-Id direkt schreibt,
-statt `setCart` zu nehmen, lässt den Badge driften.
+The count therefore sits next to the cart id in the session, written by
+exactly one function (`app/lib/cart-session.ts`). That is a
+denormalisation with a known ceiling: whoever writes the cart id directly
+instead of taking `setCart` lets the badge drift.
 ```
 
 - [ ] **Step 9: Commit**
@@ -707,58 +707,58 @@ git commit -m "feat(examples): add a server-rendered shell to the next demo"
 
 ---
 
-## Task 6.1: Sprach- und Site-Umschalter in der Shell
+## Task 6.1: Language and site switcher in the shell
 
-> **Reihenfolge: dieser Task läuft ZULETZT, nach Task 5.1.** Er steht hier, weil
-> er zur Shell aus Task 1.2 gehört, aber er **löscht** `CONTEXT` und `EMPORIX`
-> aus `app/emporix.ts` — und die Tasks 2.1 bis 4.4 benutzen beide. Vorgezogen
-> bricht er jede Seite, die danach noch geschrieben wird. Als eigene, siebte PR.
+> **Order: this task runs LAST, after Task 5.1.** It stands here because it
+> belongs to the shell from Task 1.2, but it **deletes** `CONTEXT` and `EMPORIX`
+> from `app/emporix.ts` — and Tasks 2.1 through 4.4 use both. Pulled forward,
+> it breaks every page written after it. As its own, seventh PR.
 
-Die Spec führt ihn in Muster 1 als eine Nebenklausel. Er ist grösser als das:
-`CONTEXT` in `app/emporix.ts` ist eine Modulkonstante, die **jeder** Leser
-bindet — Katalogseiten über `getEmporixClient({ context: CONTEXT })` und alle
-Session-Aufrufe über `EMPORIX`. Ein Umschalter heisst, das aus der Session
-abzuleiten.
+The spec lists it in pattern 1 as a subordinate clause. It is bigger than that:
+`CONTEXT` in `app/emporix.ts` is a module constant that **every** reader
+binds — catalog pages via `getEmporixClient({ context: CONTEXT })` and all
+session calls via `EMPORIX`. A switcher means deriving that from the
+session.
 
-Die gute Nachricht steht in
-[client.ts:113](../../../packages/next/src/client.ts#L113): der
-Memoisierungs-Key enthält den Kontext, ein Kontext pro Besucherwahl ergibt also
-eine eigene Client-Instanz und **kein** Leck zwischen Besuchern. Der Kommentar
-dort sagt «the context is written once per app, in one place» — genau diese
-Annahme bricht dieser Task, und die Map wächst danach mit der Zahl distinkter
-Kontexte. Bei zwei oder drei Sites ist das begrenzt und in Ordnung; die Zeile
-gehört korrigiert.
+The good news is in
+[client.ts:113](../../../packages/next/src/client.ts#L113): the
+memoisation key contains the context, so one context per visitor choice yields
+its own client instance and **no** leak between visitors. The comment
+there says «the context is written once per app, in one place» — this task
+breaks exactly that assumption, and from then on the map grows with the number
+of distinct contexts. With two or three sites that is bounded and fine; the
+line ought to be corrected.
 
 **Files:**
 - Create: `examples/next-server-first/app/lib/site-context.ts`, `app/actions/site.ts`, `app/components/site-switcher.tsx`
 - Modify: `app/emporix.ts`, `app/components/header.tsx`, `app/page.tsx`, `app/search/page.tsx`, `app/category/[id]/page.tsx`, `app/product/[id]/page.tsx`
-- Modify: `packages/next/src/client.ts:110-112` (Kommentar), `examples/next-server-first/README.md`
+- Modify: `packages/next/src/client.ts:110-112` (comment), `examples/next-server-first/README.md`
 
 **Interfaces:**
-- Produces: `siteContext(): Promise<{ siteCode: string; currency: string; targetLocation: string; language?: string }>` und `emporixOptions(): Promise<WithEmporixSessionOptions>` aus `app/lib/site-context.ts`; `switchLanguage`, und — abhängig von Step 1 — `switchSite` aus `app/actions/site.ts`.
+- Produces: `siteContext(): Promise<{ siteCode: string; currency: string; targetLocation: string; language?: string }>` and `emporixOptions(): Promise<WithEmporixSessionOptions>` from `app/lib/site-context.ts`; `switchLanguage`, and — depending on Step 1 — `switchSite` from `app/actions/site.ts`.
 
-- [ ] **Step 1: Messen, wie viele Sites der Tenant hat — das entscheidet den Rest**
+- [ ] **Step 1: Measure how many sites the tenant has — that decides the rest**
 
 ```bash
 pnpm -F @viu/emporix-examples-next-server-first dev
 ```
 
-Dann eine Wegwerf-Route oder das bestehende `/debug` nutzen, um
-`client.sites.list(undefined)` zu rendern. `sites.list(auth)` und
-`sites.listCodes(auth)` existieren beide.
+Then use a throwaway route or the existing `/debug` to render
+`client.sites.list(undefined)`. `sites.list(auth)` and
+`sites.listCodes(auth)` both exist.
 
-**Ist genau eine Site konfiguriert** (auf dem `viu`-Tenant ist `main` die, die
-der Proxy pinnt): ein Site-Umschalter mit einem Eintrag demonstriert nichts und
-lässt sich nicht verifizieren. Dann fällt der **Site**-Teil weg und dieser Task
-liefert nur den **Sprach**-Umschalter — Sprache ist eine freie Wahl und nicht
-tenant-konfiguriert, also prüfbar. Im README wird die Verengung mit dem Grund
-festgehalten, nach derselben Regel, die `/reset-password` ausschliesst: was
-nicht verifizierbar ist, wird hier nicht behauptet.
+**If exactly one site is configured** (on the `viu` tenant `main` is the one
+the proxy pins): a site switcher with a single entry demonstrates nothing and
+cannot be verified. Then the **site** part drops out and this task delivers
+only the **language** switcher — language is a free choice and not
+tenant-configured, so it is checkable. The narrowing is recorded in the README
+together with the reason, by the same rule that excludes `/reset-password`:
+what cannot be verified is not claimed here.
 
-**Sind es zwei oder mehr:** Steps 2–7 wie geschrieben, plus Step 8.
+**If there are two or more:** Steps 2–7 as written, plus Step 8.
 
-Das Ergebnis dieser Messung in den Commit-Text schreiben. Ohne sie ist der Rest
-des Tasks Spekulation.
+Write the result of this measurement into the commit message. Without it the
+rest of the task is speculation.
 
 - [ ] **Step 2: `lib/site-context.ts`**
 
@@ -766,14 +766,14 @@ des Tasks Spekulation.
 import { sessionCookieJar, STORAGE_KEYS, type WithEmporixSessionOptions } from "@viu/emporix-sdk-next/session";
 import { SESSION_STORE, STORE_OPT } from "../emporix";
 
-/** Die Vorgabe, wenn der Besucher nichts gewählt hat. Bisher war das CONTEXT. */
+/** The default when the visitor has chosen nothing. That used to be CONTEXT. */
 const DEFAULTS = { siteCode: "main", currency: "CHF", targetLocation: "CH" } as const;
 
 /**
- * Der Kontext für diesen Request, aus der Session abgeleitet statt aus einer
- * Modulkonstante. `siteCode` und `language` sind PUBLIC session keys — sie
- * liegen auch im Store-Modus als gewöhnliche Cookies und sind für JavaScript
- * lesbar. Das ist Absicht: es sind Anzeigeeinstellungen, keine Geheimnisse.
+ * The context for this request, derived from the session instead of from a
+ * module constant. `siteCode` and `language` are PUBLIC session keys — even
+ * in store mode they sit there as ordinary cookies and are readable by
+ * JavaScript. That is deliberate: they are display settings, not secrets.
  */
 export async function siteContext(): Promise<{
   siteCode: string;
@@ -791,7 +791,7 @@ export async function siteContext(): Promise<{
   };
 }
 
-/** Dasselbe für die Session-Aufrufe. Ersetzt das exportierte `EMPORIX`. */
+/** The same for the session calls. Replaces the exported `EMPORIX`. */
 export async function emporixOptions(): Promise<WithEmporixSessionOptions> {
   return {
     context: await siteContext(),
@@ -800,9 +800,9 @@ export async function emporixOptions(): Promise<WithEmporixSessionOptions> {
 }
 ```
 
-Bei mehreren Sites kommt die Währung aus der gewählten Site statt aus
-`DEFAULTS` — dann in `siteContext` ein `client.sites.get(siteCode, undefined)`
-ergänzen und die Währung daraus lesen.
+With several sites the currency comes from the chosen site instead of from
+`DEFAULTS` — then add a `client.sites.get(siteCode, undefined)` in
+`siteContext` and read the currency from it.
 
 - [ ] **Step 3: `actions/site.ts`**
 
@@ -813,34 +813,34 @@ import { SESSION_MAX_AGE, STORAGE_KEYS, sessionCookieJar } from "@viu/emporix-sd
 import { STORE_OPT } from "../emporix";
 import type { ActionState } from "../components/action-form";
 
-/** Die Sprachen, die die Demo anbietet. Frei gewählt, nicht tenant-konfiguriert. */
+/** The languages the demo offers. Freely chosen, not tenant-configured. */
 export const LANGUAGES = ["en", "de"] as const;
 
 export async function switchLanguage(_state: ActionState, form: FormData): Promise<ActionState> {
   const language = String(form.get("language"));
-  // Allowlist, kein Freitext: der Wert landet in einem Cookie und von dort in
-  // jedem Emporix-Request als Header.
+  // Allowlist, not free text: the value lands in a cookie and from there in
+  // every Emporix request as a header.
   if (!LANGUAGES.includes(language as (typeof LANGUAGES)[number])) {
     return { error: "Unsupported language" };
   }
   const jar = await sessionCookieJar(STORE_OPT);
   jar.set(STORAGE_KEYS.language, language, SESSION_MAX_AGE.siteCode);
   await jar.flush();
-  // "layout", nicht nur die Seite: die Sprache betrifft jede serverseitige
-  // Lesung, auch die im Header.
+  // "layout", not just the page: the language affects every server-side
+  // read, including the one in the header.
   revalidatePath("/", "layout");
   return { error: null };
 }
 ```
 
-`SESSION_MAX_AGE.siteCode` prüfen — heisst der Schlüssel dort anders, den
-tatsächlichen nehmen; `SESSION_MAX_AGE` wird aus `@viu/emporix-sdk-next/session`
-exportiert.
+Check `SESSION_MAX_AGE.siteCode` — if the key is named differently there, take
+the actual one; `SESSION_MAX_AGE` is exported from
+`@viu/emporix-sdk-next/session`.
 
 - [ ] **Step 4: `components/site-switcher.tsx`**
 
-Server-Komponente, ein Formular pro Sprache — so bleibt es ohne JavaScript
-bedienbar und braucht kein `<select onChange>`.
+Server component, one form per language — that keeps it usable without
+JavaScript and needs no `<select onChange>`.
 
 ```tsx
 import { STORAGE_KEYS, sessionCookieJar } from "@viu/emporix-sdk-next/session";
@@ -864,23 +864,23 @@ export async function SiteSwitcher(): Promise<React.JSX.Element> {
 }
 ```
 
-- [ ] **Step 5: Jeden Leser auf den Sitzungskontext umstellen**
+- [ ] **Step 5: Switch every reader over to the session context**
 
 ```bash
 grep -rn 'CONTEXT\|EMPORIX\b' examples/next-server-first/app
 ```
 
-Jede Stelle `getEmporixClient({ context: CONTEXT })` → `getEmporixClient({ context: await siteContext() })`,
-jede Stelle `EMPORIX` → `await emporixOptions()`. Dann `CONTEXT` und `EMPORIX`
-aus `app/emporix.ts` **löschen**, damit keine Stelle zurückfallen kann. `SITE`,
-`SESSION_STORE`, `STORE_OPT` und `PRICED_CATEGORY` bleiben.
+Every `getEmporixClient({ context: CONTEXT })` → `getEmporixClient({ context: await siteContext() })`,
+every `EMPORIX` → `await emporixOptions()`. Then **delete** `CONTEXT` and
+`EMPORIX` from `app/emporix.ts` so no call site can fall back. `SITE`,
+`SESSION_STORE`, `STORE_OPT` and `PRICED_CATEGORY` stay.
 
-`<SiteSwitcher />` in `components/header.tsx` in die `<nav>` einsetzen, vor
+Insert `<SiteSwitcher />` into the `<nav>` in `components/header.tsx`, before
 `Cart`.
 
-- [ ] **Step 6: Den falschen Kommentar im Paket korrigieren**
+- [ ] **Step 6: Correct the wrong comment in the package**
 
-`packages/next/src/client.ts`, der Block über dem Memoisierungs-Key:
+`packages/next/src/client.ts`, the block above the memoisation key:
 
 ```ts
   // JSON.stringify is key-order-dependent, so the same context written with its
@@ -890,47 +890,47 @@ aus `app/emporix.ts` **löschen**, damit keine Stelle zurückfallen kann. `SITE`
   // combination. Bounded by the configuration, not by traffic.
 ```
 
-- [ ] **Step 7: Typecheck und Live-Beleg**
+- [ ] **Step 7: Typecheck and live evidence**
 
 ```bash
 pnpm -F @viu/emporix-examples-next-server-first typecheck
 ```
 
-| Prüfung | Erwartung |
+| Check | Expectation |
 |---|---|
-| «de» klicken | Der aktive Marker wandert, die Seite lädt neu |
-| Netzwerk-Tab beim nächsten Katalog-Request | der Emporix-Request trägt die neue Sprache |
-| Produktname mit deutscher Lokalisierung | zeigt die deutsche Variante, falls der Tenant eine hat |
-| Cookies | `emporix.language` ist da und **für JavaScript lesbar** — anders als die Token, und das ist Absicht |
-| `/debug` | bleibt PASS: ein lesbares `emporix.language` ist kein Geheimnis |
+| Click «de» | the active marker moves, the page reloads |
+| Network tab on the next catalog request | the Emporix request carries the new language |
+| Product name with a German localisation | shows the German variant, if the tenant has one |
+| Cookies | `emporix.language` is there and **readable by JavaScript** — unlike the tokens, and that is deliberate |
+| `/debug` | stays PASS: a readable `emporix.language` is not a secret |
 
-Die vierte Zeile ist der Punkt, an dem man `/debug` falsch verstehen könnte —
-grün heisst «keine Token lesbar», nicht «keine Cookies lesbar». Falls `/debug`
-über eine Allowlist prüft, muss `emporix.language` dort hinein.
+The fourth row is the point where one could misread `/debug` —
+green means «no tokens readable», not «no cookies readable». If `/debug`
+checks against an allowlist, `emporix.language` has to go in there.
 
-Hat der Tenant keine deutschen Lokalisierungen, ist Zeile 3 nicht prüfbar. Dann
-Zeile 2 als Beleg nehmen und im README festhalten, dass der Effekt auf die
-Anzeige von den Tenant-Daten abhängt.
+If the tenant has no German localisations, row 3 is not checkable. Then take
+row 2 as the evidence and record in the README that the effect on the
+display depends on the tenant data.
 
-- [ ] **Step 8: Nur bei zwei oder mehr Sites — Warenkorb mitziehen**
+- [ ] **Step 8: Only with two or more sites — bring the cart along**
 
-Ein Site- oder Währungswechsel bindet den anonymen Token nicht neu; Emporix hat
-für den Warenkorb eigene Operationen. Nach dem Schreiben des `siteCode`:
+A site or currency switch does not rebind the anonymous token; Emporix has its
+own operations for the cart. After writing the `siteCode`:
 
 ```ts
   await withEmporixSessionMutable(async (client, ctx, jar) => {
     const cartId = jar.get(STORAGE_KEYS.cartId);
     if (cartId === null) return;
-    // changeSite/changeCurrency existieren, WEIL ein neu gebundener Kontext den
-    // bestehenden Warenkorb nicht mitnimmt. Ohne diesen Schritt zeigt der
-    // Warenkorb weiter die alte Währung.
+    // changeSite/changeCurrency exist BECAUSE a freshly bound context does not
+    // take the existing cart along. Without this step the cart keeps
+    // showing the old currency.
     await client.carts.changeSite(cartId, siteCode, ctx);
     setCart(jar, await client.carts.get(cartId, ctx));
   }, await emporixOptions());
 ```
 
-Beleg: Artikel im Warenkorb, Site wechseln, `/cart` öffnen — Währung und Summe
-sind die der neuen Site.
+Evidence: item in the cart, switch site, open `/cart` — currency and total
+are those of the new site.
 
 - [ ] **Step 9: Commit**
 
@@ -939,7 +939,7 @@ git add examples/next-server-first packages/next/src/client.ts
 git commit -m "feat(examples): derive the emporix context from the session"
 ```
 
-Braucht ein Changeset? Nein — die Änderung an `client.ts` ist ein Kommentar.
+Does it need a changeset? No — the change to `client.ts` is a comment.
 
 ---
 
@@ -950,20 +950,20 @@ Braucht ein Changeset? Nein — die Änderung an `client.ts` ist ein Kommentar.
 - Modify: `examples/next-server-first/app/page.tsx`
 
 **Interfaces:**
-- Consumes: `toProductCard`, `ProductCardVM`, `PriceVM`, `priceForProduct`, `priceMatchItems`, `money` aus `@viu/emporix-examples-shared`.
-- Produces: `pricesFor(client, auth, products): Promise<(id: string) => PriceVM | undefined>` aus `app/lib/prices.ts`; `ProductGrid` aus `app/components/product-grid.tsx`.
+- Consumes: `toProductCard`, `ProductCardVM`, `PriceVM`, `priceForProduct`, `priceMatchItems`, `money` from `@viu/emporix-examples-shared`.
+- Produces: `pricesFor(client, auth, products): Promise<(id: string) => PriceVM | undefined>` from `app/lib/prices.ts`; `ProductGrid` from `app/components/product-grid.tsx`.
 
 - [ ] **Step 1: `lib/prices.ts`**
 
-Serverseitiges Pendant zu `usePrices` — dieselbe Logik, ohne React Query.
+Server-side counterpart to `usePrices` — the same logic, without React Query.
 
 ```ts
 import type { AuthContext, EmporixClient, Product } from "@viu/emporix-sdk";
 import { priceForProduct, priceMatchItems, type PriceVM } from "@viu/emporix-examples-shared";
 
 /**
- * Löst die Preise für einen Satz Produkte in EINEM Aufruf auf und gibt eine
- * Nachschlagefunktion zurück. Ein Aufruf pro Produkt wäre N Requests pro Seite.
+ * Resolves the prices for a set of products in ONE call and returns a
+ * lookup function. One call per product would be N requests per page.
  */
 export async function pricesFor(
   client: EmporixClient,
@@ -984,7 +984,7 @@ import { money, toProductCard, type PriceVM } from "@viu/emporix-examples-shared
 import type { Product } from "@viu/emporix-sdk";
 import { addToCart } from "../actions/cart";
 
-/** Server-Komponente. Die Klassennamen kommen aus dem kopierten CSS. */
+/** Server component. The class names come from the copied CSS. */
 export function ProductGrid({
   products,
   priceOf,
@@ -1036,8 +1036,8 @@ export default async function SearchPage({
 }): Promise<React.JSX.Element> {
   const q = ((await searchParams).q ?? "").trim();
   const client = getEmporixClient({ context: CONTEXT });
-  // searchByName baut den Emporix-Filter `name:(~…)` und escaped die
-  // Regex-Metazeichen — deshalb hier kein eigenes Quoting.
+  // searchByName builds the Emporix filter `name:(~…)` and escapes the
+  // regex metacharacters — hence no quoting of our own here.
   const page = q === "" ? null : await client.products.searchByName(q, { pageSize: 24 }, undefined);
   const priceOf = await pricesFor(client, undefined, page?.items ?? []);
 
@@ -1057,22 +1057,22 @@ export default async function SearchPage({
 }
 ```
 
-- [ ] **Step 4: Startseite auf `ProductGrid` umstellen**
+- [ ] **Step 4: Switch the home page over to `ProductGrid`**
 
-`app/page.tsx` behält seinen Katalog-Aufruf und ersetzt die `<ul>` durch
-`<ProductGrid products={page.items} priceOf={priceOf} />` samt
-`const priceOf = await pricesFor(client, undefined, page.items)`. Die lokale
-`label()`-Funktion fällt weg — `toProductCard` im Gitter macht das.
+`app/page.tsx` keeps its catalog call and replaces the `<ul>` with
+`<ProductGrid products={page.items} priceOf={priceOf} />` together with
+`const priceOf = await pricesFor(client, undefined, page.items)`. The local
+`label()` function goes away — `toProductCard` in the grid does that.
 
-- [ ] **Step 5: Typecheck und Live-Beleg**
+- [ ] **Step 5: Typecheck and live evidence**
 
 ```bash
 pnpm -F @viu/emporix-examples-next-server-first typecheck
 ```
 
-Dann im Browser: im Header «shirt» (oder einen Begriff, den die Startseite
-zeigt) eingeben und absenden. Erwartet: URL ist `/search?q=shirt`, Treffer mit
-Preisen, «Add to cart» erhöht den Badge. Leere Suche zeigt den Hinweistext.
+Then in the browser: type «shirt» (or a term the home page shows) into the
+header and submit. Expected: the URL is `/search?q=shirt`, hits with prices,
+«Add to cart» raises the badge. An empty search shows the hint text.
 
 - [ ] **Step 6: Commit**
 
@@ -1083,15 +1083,15 @@ git commit -m "feat(examples): add server-rendered search to the next demo"
 
 ---
 
-## Task 2.2: `/category/[id]` mit Pagination über die URL
+## Task 2.2: `/category/[id]` with pagination over the URL
 
 **Files:**
 - Create: `examples/next-server-first/app/category/[id]/page.tsx`
 
 **Interfaces:**
-- Consumes: `ProductGrid`, `pricesFor` (Task 2.1); `catLabel`, `catId` aus `@viu/emporix-examples-shared`.
+- Consumes: `ProductGrid`, `pricesFor` (Task 2.1); `catLabel`, `catId` from `@viu/emporix-examples-shared`.
 
-- [ ] **Step 1: Die Seite**
+- [ ] **Step 1: The page**
 
 ```tsx
 import { getEmporixClient } from "@viu/emporix-sdk-next";
@@ -1108,8 +1108,8 @@ export default async function CategoryPage({
   searchParams: Promise<{ page?: string }>;
 }): Promise<React.JSX.Element> {
   const { id } = await params;
-  // `Number(undefined) || 1` ergibt 1, `Number("abc") || 1` ergibt 1, und
-  // Math.max fängt Negatives. Die Grenze wird gezogen, ohne Framework.
+  // `Number(undefined) || 1` gives 1, `Number("abc") || 1` gives 1, and
+  // Math.max catches negatives. The bound is drawn, without a framework.
   const page = Math.max(1, Number((await searchParams).page) || 1);
 
   const client = getEmporixClient({ context: CONTEXT });
@@ -1137,14 +1137,14 @@ export default async function CategoryPage({
       ) : null}
 
       {products.items.length === 0 ? (
-        // Eine reine Elternkategorie hat nur Unterkategorien — die Kacheln oben
-        // sind dann die Antwort, nicht eine leere Meldung.
+        // A pure parent category has only subcategories — the tiles above
+        // are then the answer, not an empty message.
         subs.length > 0 ? null : <p className="muted">No products in this category.</p>
       ) : (
         <>
           <ProductGrid products={products.items} priceOf={priceOf} />
-          {/* Blättern, nicht anhängen: Akkumulieren wie useInfiniteQuery
-              bräuchte Client-State, und den gibt es in diesem Modus nicht. */}
+          {/* Paging, not appending: accumulating like useInfiniteQuery
+              would need client state, and there is none in this mode. */}
           <nav className="cluster" style={{ gap: "var(--s-4)", marginTop: "var(--s-6)" }}>
             {page > 1 ? <a href={href(page - 1)} className="btn btn--outline">← Previous</a> : null}
             <span className="muted">Page {page}</span>
@@ -1157,19 +1157,19 @@ export default async function CategoryPage({
 }
 ```
 
-- [ ] **Step 2: Typecheck und Live-Beleg**
+- [ ] **Step 2: Typecheck and live evidence**
 
 ```bash
 pnpm -F @viu/emporix-examples-next-server-first typecheck
 ```
 
-`PRICED_CATEGORY` aus `app/emporix.ts` hat 11 Produkte — zu wenig für eine
-zweite Seite. Für den Beleg deshalb `pageSize` temporär auf 5 setzen, blättern,
-zurückblättern, und den Wert wieder auf 24 stellen.
+`PRICED_CATEGORY` from `app/emporix.ts` has 11 products — too few for a
+second page. So for the evidence, temporarily set `pageSize` to 5, page
+forward, page back, and put the value back to 24.
 
-Erwartet: Seite 2 zeigt andere Produkte, «Previous» erscheint erst ab Seite 2,
-«Next» verschwindet auf der letzten Seite. `?page=0` und `?page=abc` landen auf
-Seite 1, `?page=-5` ebenfalls.
+Expected: page 2 shows different products, «Previous» only appears from page 2
+on, «Next» disappears on the last page. `?page=0` and `?page=abc` land on
+page 1, `?page=-5` too.
 
 - [ ] **Step 3: Commit**
 
@@ -1180,15 +1180,15 @@ git commit -m "feat(examples): add a paginated category page to the next demo"
 
 ---
 
-## Task 2.3: `/product/[id]` mit Varianten
+## Task 2.3: `/product/[id]` with variants
 
 **Files:**
 - Create: `examples/next-server-first/app/product/[id]/page.tsx`
 
 **Interfaces:**
-- Consumes: `pricesFor` (Task 2.1); `productName`, `productImages`, `imageOf`, `stripHtml`, `pickText`, `money` aus `@viu/emporix-examples-shared`; `addToCart` aus `app/actions/cart.ts`.
+- Consumes: `pricesFor` (Task 2.1); `productName`, `productImages`, `imageOf`, `stripHtml`, `pickText`, `money` from `@viu/emporix-examples-shared`; `addToCart` from `app/actions/cart.ts`.
 
-- [ ] **Step 1: Die Seite**
+- [ ] **Step 1: The page**
 
 ```tsx
 import { getEmporixClient } from "@viu/emporix-sdk-next";
@@ -1209,9 +1209,9 @@ export default async function ProductPage({
   const client = getEmporixClient({ context: CONTEXT });
 
   const parent = await client.products.get(id, undefined, undefined);
-  // Kinder sind leer, wenn das Produkt kein PARENT_VARIANT ist — der Aufruf ist
-  // dann verschenkt, aber billiger als eine Typprüfung über die fünf
-  // Produktformen der Emporix-Union.
+  // Children are empty when the product is not a PARENT_VARIANT — the call is
+  // wasted then, but cheaper than a type check across the five
+  // product shapes of the Emporix union.
   const children = await client.products.listVariantChildren(id, { pageSize: 50 }, undefined);
   const selected =
     children.find((c) => (c as { id?: string }).id === chosen) ?? (children[0] ?? parent);
@@ -1220,8 +1220,8 @@ export default async function ProductPage({
   const priceOf = await pricesFor(client, undefined, [selected]);
   const price = priceOf(selectedId);
   const name = productName(parent);
-  // stripHtml, nicht sanitizeHtml: `DOMParser` gibt es in Node nicht. Die
-  // Beschreibung kommt hier als Klartext, nicht als Markup — siehe README.
+  // stripHtml, not sanitizeHtml: there is no `DOMParser` in Node. The
+  // description comes as plain text here, not as markup — see the README.
   const description = stripHtml(pickText((parent as { description?: unknown }).description, ""));
 
   async function add(formData: FormData): Promise<void> {
@@ -1245,8 +1245,8 @@ export default async function ProductPage({
           {description !== "" ? <p className="muted" style={{ maxWidth: "52ch" }}>{description}</p> : null}
 
           {children.length > 0 ? (
-            // Varianten über die URL, nicht über Client-State: jedes Kind ist
-            // ein Link, und der gewählte ist ein teilbarer Zustand.
+            // Variants over the URL, not over client state: every child is
+            // a link, and the chosen one is a shareable state.
             <nav className="cluster" aria-label="Variants" style={{ gap: "var(--s-2)" }}>
               {children.map((c) => {
                 const cid = (c as { id?: string }).id ?? "";
@@ -1264,8 +1264,8 @@ export default async function ProductPage({
           ) : null}
 
           <form action={add} style={{ marginTop: "var(--s-4)" }}>
-            {/* Die gewählte Kind-Id, nicht die des Elternteils: ein
-                PARENT_VARIANT ist nicht bestellbar. */}
+            {/* The chosen child id, not the parent's: a
+                PARENT_VARIANT cannot be ordered. */}
             <input type="hidden" name="productId" value={selectedId} />
             <button type="submit" className="btn btn--accent">Add to cart</button>
           </form>
@@ -1276,27 +1276,27 @@ export default async function ProductPage({
 }
 ```
 
-- [ ] **Step 2: README-Zeile zur Beschreibung**
+- [ ] **Step 2: README line about the description**
 
-In `examples/next-server-first/README.md` unter «Not every product has a price»
-einen Absatz:
+In `examples/next-server-first/README.md` under «Not every product has a
+price», one paragraph:
 
 ```markdown
-## Produktbeschreibungen sind hier Klartext
+## Product descriptions are plain text here
 
-storefront-demo rendert die händlergepflegte Beschreibung als HTML, gesäubert
-über `DOMParser`. Den gibt es in Node nicht, also nimmt diese Demo `stripHtml`
-aus `examples/shared` und zeigt Klartext. Ein Sanitizer mit Node-Pfad wäre eine
-Abhängigkeit für eine Demo-Zeile — der falsche Handel.
+storefront-demo renders the merchant-authored description as HTML, cleaned
+via `DOMParser`. That does not exist in Node, so this demo takes `stripHtml`
+from `examples/shared` and shows plain text. A sanitizer with a Node path
+would be a dependency for one demo line — the wrong trade.
 ```
 
-- [ ] **Step 3: Typecheck und Live-Beleg**
+- [ ] **Step 3: Typecheck and live evidence**
 
-Erwartet: ein Produkt aus dem Gitter öffnet, Name, Preis und Beschreibung
-stehen da. Ein Produkt **mit** Varianten zeigt die Kacheln; ein Klick ändert die
-URL auf `?variant=…`, markiert die gewählte und «Add to cart» legt die
-**Variante** in den Warenkorb (in `/cart` an der `itemYrn` prüfen). Ein Produkt
-**ohne** Varianten zeigt keine Kacheln und legt sich selbst in den Warenkorb.
+Expected: a product from the grid opens, name, price and description are
+there. A product **with** variants shows the tiles; a click changes the
+URL to `?variant=…`, marks the chosen one, and «Add to cart» puts the
+**variant** in the cart (check it on the `itemYrn` in `/cart`). A product
+**without** variants shows no tiles and puts itself in the cart.
 
 - [ ] **Step 4: Commit**
 
@@ -1307,26 +1307,26 @@ git commit -m "feat(examples): add a product page with variants to the next demo
 
 ---
 
-## Task 3.1: `ActionForm` und die Fehlerrückgabe
+## Task 3.1: `ActionForm` and returning errors
 
 **Files:**
 - Create: `examples/next-server-first/app/components/action-form.tsx`, `app/lib/describe-error.ts`
 - Modify: `examples/next-server-first/app/actions/checkout.ts`
 
 **Interfaces:**
-- Produces: `ActionState = { error: string | null }`, `ActionForm({ action, submit, children })` aus `app/components/action-form.tsx`; `describeError(e: unknown): string` aus `app/lib/describe-error.ts`.
-- Alle Actions ab Task 3.2 haben die Form `(state: ActionState, form: FormData) => Promise<ActionState>`.
+- Produces: `ActionState = { error: string | null }`, `ActionForm({ action, submit, children })` from `app/components/action-form.tsx`; `describeError(e: unknown): string` from `app/lib/describe-error.ts`.
+- Every action from Task 3.2 on has the shape `(state: ActionState, form: FormData) => Promise<ActionState>`.
 
 - [ ] **Step 1: `describe-error.ts`**
 
-`app/actions/checkout.ts` hat heute eine lokale `describe(e)`, die
-`EmporixError.body` sichtbar macht — ohne sie kommt bei einem 400 nur «Request
-failed» an. Die Funktion wird geteilt, statt sie ein zweites Mal zu schreiben.
+`app/actions/checkout.ts` today has a local `describe(e)` that makes
+`EmporixError.body` visible — without it, a 400 only arrives as «Request
+failed». The function gets shared instead of being written a second time.
 
-Zuerst die bestehende Implementierung in `app/actions/checkout.ts` lesen und
-**wörtlich** nach `app/lib/describe-error.ts` verschieben, als
-`describeError` exportiert. Dann in `checkout.ts` importieren und die lokale
-Kopie löschen.
+First read the existing implementation in `app/actions/checkout.ts` and move
+it **verbatim** into `app/lib/describe-error.ts`, exported as
+`describeError`. Then import it in `checkout.ts` and delete the local
+copy.
 
 - [ ] **Step 2: `action-form.tsx`**
 
@@ -1339,13 +1339,13 @@ export interface ActionState {
 }
 
 /**
- * Die einzige Client-Komponente für Formulare. `useActionState` verlangt eine,
- * aber nicht acht: der Action kommt als Prop rein (Server Actions sind
- * serialisierbar), und die Kinder bleiben serverseitig gerendert.
+ * The only client component for forms. `useActionState` demands one, but
+ * not eight: the action comes in as a prop (Server Actions are
+ * serialisable), and the children stay server-rendered.
  *
- * Die Alternative — Redirect mit `?error=…` — bräuchte null Client-Komponenten,
- * schreibt aber Fehlertexte in teilbare URLs. Das ist ein Defekt, nicht nur
- * unschön.
+ * The alternative — a redirect with `?error=…` — would need zero client
+ * components, but writes error texts into shareable URLs. That is a defect,
+ * not merely ugly.
  */
 export function ActionForm({
   action,
@@ -1379,8 +1379,8 @@ export function ActionForm({
 pnpm -F @viu/emporix-examples-next-server-first typecheck
 ```
 
-Erwartet: grün. `/checkout` muss unverändert funktionieren — der einzige
-Eingriff dort war das Verschieben von `describe`.
+Expected: green. `/checkout` must work unchanged — the only intervention
+there was moving `describe`.
 
 - [ ] **Step 4: Commit**
 
@@ -1391,15 +1391,15 @@ git commit -m "feat(examples): add one client form wrapper for action errors"
 
 ---
 
-## Task 3.2: `/cart` mit Mengen, Entfernen, Coupon und Summen
+## Task 3.2: `/cart` with quantities, removal, coupon and totals
 
 **Files:**
 - Create: `examples/next-server-first/app/lib/product-names.ts`
 - Modify: `examples/next-server-first/app/cart/page.tsx`, `app/actions/cart.ts`
 
 **Interfaces:**
-- Consumes: `ActionForm`, `ActionState`, `describeError` (Task 3.1); `setCart` (Task 1.2); `cartLines`, `cartTotal`, `cartCoupons`, `money`, `productName` aus `@viu/emporix-examples-shared`.
-- Produces: `namesFor(client, auth, ids): Promise<Record<string, string>>` aus `app/lib/product-names.ts`; die Actions `setQuantity`, `removeLine`, `applyCoupon`, `removeCoupon` aus `app/actions/cart.ts`.
+- Consumes: `ActionForm`, `ActionState`, `describeError` (Task 3.1); `setCart` (Task 1.2); `cartLines`, `cartTotal`, `cartCoupons`, `money`, `productName` from `@viu/emporix-examples-shared`.
+- Produces: `namesFor(client, auth, ids): Promise<Record<string, string>>` from `app/lib/product-names.ts`; the actions `setQuantity`, `removeLine`, `applyCoupon`, `removeCoupon` from `app/actions/cart.ts`.
 
 - [ ] **Step 1: `lib/product-names.ts`**
 
@@ -1408,9 +1408,9 @@ import type { AuthContext, EmporixClient } from "@viu/emporix-sdk";
 import { productName } from "@viu/emporix-examples-shared";
 
 /**
- * Löst Anzeigenamen nach Produkt-Id auf. Warenkorbzeilen tragen nur ein
- * `itemYrn` — der Cart-GET liefert ein LEERES `product`, also gibt es keinen
- * Namen in der Antwort und er muss separat geholt werden.
+ * Resolves display names by product id. Cart lines carry only an
+ * `itemYrn` — the cart GET returns an EMPTY `product`, so there is no
+ * name in the response and it has to be fetched separately.
  */
 export async function namesFor(
   client: EmporixClient,
@@ -1429,17 +1429,17 @@ export async function namesFor(
 }
 ```
 
-- [ ] **Step 2: Die vier Actions in `app/actions/cart.ts`**
+- [ ] **Step 2: The four actions in `app/actions/cart.ts`**
 
-Alle geben `ActionState` zurück statt zu werfen — das ist, was `ActionForm`
-anzeigen kann. Alle laufen über `setCart`, damit der Badge stimmt.
+All of them return `ActionState` instead of throwing — that is what `ActionForm`
+can display. All of them go through `setCart` so the badge is right.
 
 ```ts
 import type { ActionState } from "../components/action-form";
 import { describeError } from "../lib/describe-error";
 import { setCart } from "../lib/cart-session";
 
-/** Gemeinsamer Rahmen: Warenkorb holen, mutieren, Zählung nachziehen, Fehler zurückgeben. */
+/** Shared frame: fetch the cart, mutate, update the count, return the error. */
 async function mutateCart(
   fn: (client: EmporixClient, ctx: AuthContext, cartId: string) => Promise<void>,
 ): Promise<ActionState> {
@@ -1464,8 +1464,8 @@ export async function setQuantity(_state: ActionState, form: FormData): Promise<
   const quantity = Number(form.get("quantity"));
   if (!Number.isInteger(quantity) || quantity < 1) return { error: "Quantity must be 1 or more" };
   return mutateCart((client, ctx, cartId) =>
-    // `partial: true` → nur die Menge. Ohne das ersetzt PUT die ganze Zeile und
-    // will itemYrn plus Preiszeile zurück.
+    // `partial: true` → the quantity only. Without it PUT replaces the whole
+    // line and wants itemYrn plus price line back.
     client.carts.updateItem(cartId, itemId, { quantity }, ctx, { partial: true }),
   );
 }
@@ -1490,10 +1490,10 @@ export async function removeCoupon(_state: ActionState, form: FormData): Promise
 }
 ```
 
-`EmporixClient` und `AuthContext` als Typimporte aus `@viu/emporix-sdk`
-ergänzen.
+Add `EmporixClient` and `AuthContext` as type imports from
+`@viu/emporix-sdk`.
 
-- [ ] **Step 3: `cart/page.tsx` neu**
+- [ ] **Step 3: `cart/page.tsx` afresh**
 
 ```tsx
 import { STORAGE_KEYS, sessionCookieJar, withEmporixSession } from "@viu/emporix-sdk-next/session";
@@ -1504,7 +1504,7 @@ import { namesFor } from "../lib/product-names";
 import { applyCoupon, removeCoupon, removeLine, setQuantity } from "../actions/cart";
 
 export default async function CartPage(): Promise<React.JSX.Element> {
-  // sessionCookieJar, nicht cookies(): der Präfix und der Codec hängen daran.
+  // sessionCookieJar, not cookies(): the prefix and the codec hang off it.
   const jar = await sessionCookieJar({ readOnly: true, ...STORE_OPT });
   const cartId = jar.get(STORAGE_KEYS.cartId);
 
@@ -1531,9 +1531,9 @@ export default async function CartPage(): Promise<React.JSX.Element> {
   return (
     <main className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <h1 className="serif">Your bag</h1>
-      {/* Die Id ist httpOnly, nur der Server kann sie zeigen. Sie steht hier,
-          weil ihr Wechsel über einen Login der einzige Beleg ist, dass das
-          Cart-Onboarding den Gast-Warenkorb wirklich getauscht hat. */}
+      {/* The id is httpOnly, only the server can show it. It stands here
+          because its change across a login is the only evidence that the
+          cart onboarding really swapped the guest cart. */}
       <p className="muted">Cart <code>{cartId}</code></p>
 
       {lines.length === 0 ? (
@@ -1579,22 +1579,22 @@ export default async function CartPage(): Promise<React.JSX.Element> {
 }
 ```
 
-- [ ] **Step 4: Typecheck und Live-Beleg**
+- [ ] **Step 4: Typecheck and live evidence**
 
-| Prüfung | Erwartung |
+| Check | Expectation |
 |---|---|
-| Produkt hinzufügen, `/cart` öffnen | Zeile mit **Namen** (nicht der Id), Einzel- und Zeilensumme |
-| Menge auf 3, «Update» | Zeile zeigt 3, Zeilensumme verdreifacht, Badge zeigt weiter 1 Position |
-| Menge auf 0, «Update» | «Quantity must be 1 or more», kein Request an Emporix |
-| «Remove» | Zeile weg, Badge sinkt |
-| Coupon «NOPE», «Apply» | Emporix-Meldung im Formular, nicht «Request failed» |
-| Leerer Coupon | «Enter a coupon code» |
+| Add a product, open `/cart` | line with the **name** (not the id), unit and line total |
+| Quantity to 3, «Update» | line shows 3, line total tripled, badge still shows 1 position |
+| Quantity to 0, «Update» | «Quantity must be 1 or more», no request to Emporix |
+| «Remove» | line gone, badge drops |
+| Coupon «NOPE», «Apply» | Emporix message in the form, not «Request failed» |
+| Empty coupon | «Enter a coupon code» |
 
-Zeile 3 und 6 sind der Beleg für die Fehlerrückgabe: ohne `ActionForm` würde
-dort eine geworfene Exception die Next-Fehlerseite zeigen.
+Rows 3 and 6 are the evidence for returning errors: without `ActionForm` a
+thrown exception would show the Next error page there.
 
-Die Namenszeile ist der Beleg für `namesFor` — der Cart-GET liefert ein leeres
-`product`, also stünde ohne den zweiten Aufruf die nackte Id da.
+The name row is the evidence for `namesFor` — the cart GET returns an empty
+`product`, so without the second call the bare id would stand there.
 
 - [ ] **Step 5: Commit**
 
@@ -1605,10 +1605,10 @@ git commit -m "feat(examples): add cart mutations to the next demo"
 
 ---
 
-## Task 4.1: Auth-Gate, `safeNext` und `/account`
+## Task 4.1: Auth gate, `safeNext` and `/account`
 
-**Braucht Task 0** — ohne den Store-Fix meldet `emporixSession` im Store-Modus
-jeden angemeldeten Kunden als anonym, und das Gate leitet in einer Schleife um.
+**Needs Task 0** — without the store fix, `emporixSession` in store mode reports
+every logged-in customer as anonymous, and the gate redirects in a loop.
 
 **Files:**
 - Create: `examples/next-server-first/app/lib/require-customer.ts`, `app/account/page.tsx`
@@ -1616,18 +1616,18 @@ jeden angemeldeten Kunden als anonym, und das Gate leitet in einer Schleife um.
 - Modify: `examples/next-server-first/app/login/page.tsx`, `app/actions/auth.ts`, `app/package.json`
 
 **Interfaces:**
-- Produces: `requireCustomer(next: string): Promise<string>` und `safeNext(raw: string | undefined): string` aus `app/lib/require-customer.ts`.
+- Produces: `requireCustomer(next: string): Promise<string>` and `safeNext(raw: string | undefined): string` from `app/lib/require-customer.ts`.
 
-- [ ] **Step 1: Den fehlschlagenden Test für `safeNext`**
+- [ ] **Step 1: The failing test for `safeNext`**
 
-Die einzige Vertrauensgrenze in dieser Demo. Sie bekommt einen Test, obwohl
-Examples sonst keine haben — eine offene Weiterleitung ist kein Demo-Detail.
+The only trust boundary in this demo. It gets a test even though examples
+otherwise have none — an open redirect is not a demo detail.
 
-`examples/next-server-first/package.json`: `"test": "vitest run"` statt des
-No-ops, und `vitest` als devDependency. Dazu in `examples/README.md` unter
-«Conventions» die Zeile «No unit tests» ergänzen um: «— ausser
-`next-server-first/tests/safe-next.test.ts`, das eine offene Weiterleitung
-abdeckt.»
+`examples/next-server-first/package.json`: `"test": "vitest run"` instead of
+the no-op, and `vitest` as a devDependency. On top of that, in
+`examples/README.md` under «Conventions» extend the line «No unit tests» with:
+«— except `next-server-first/tests/safe-next.test.ts`, which covers an open
+redirect.»
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -1638,7 +1638,7 @@ describe("safeNext", () => {
     expect(safeNext("/account/orders")).toBe("/account/orders");
   });
   it("rejects a protocol-relative absolute link", () => {
-    // `//evil.com` ist KEIN Pfad — der Browser liest es als Absolutlink.
+    // `//evil.com` is NOT a path — the browser reads it as an absolute link.
     expect(safeNext("//evil.com")).toBe("/");
   });
   it("rejects an absolute URL", () => {
@@ -1650,10 +1650,10 @@ describe("safeNext", () => {
 });
 ```
 
-- [ ] **Step 2: Test laufen lassen — rot**
+- [ ] **Step 2: Run the test — red**
 
 Run: `pnpm -F @viu/emporix-examples-next-server-first test`
-Expected: FAIL, «Failed to resolve import» oder «safeNext is not a function».
+Expected: FAIL, «Failed to resolve import» or «safeNext is not a function».
 
 - [ ] **Step 3: `lib/require-customer.ts`**
 
@@ -1663,9 +1663,9 @@ import { emporixSession } from "@viu/emporix-sdk-next/session";
 import { STORE_OPT } from "../emporix";
 
 /**
- * Nur eigene Pfade. Eine offene Weiterleitung ist eine Vertrauensgrenze, auch
- * in einer Demo — `//evil.com` ist ein protokollrelativer Absolutlink und kein
- * Pfad, obwohl er mit einem Schrägstrich beginnt.
+ * Own paths only. An open redirect is a trust boundary, even in a
+ * demo — `//evil.com` is a protocol-relative absolute link and not a
+ * path, even though it begins with a slash.
  */
 export function safeNext(raw: string | undefined): string {
   if (raw === undefined || !raw.startsWith("/") || raw.startsWith("//")) return "/";
@@ -1673,8 +1673,8 @@ export function safeNext(raw: string | undefined): string {
 }
 
 /**
- * Gate für Konto-Seiten. Pro Seite, nicht als Middleware: Next 16 führt
- * Middleware in `proxy.ts` aus, das Node-Runtime ist und kein `cookies()` hat.
+ * Gate for account pages. Per page, not as middleware: Next 16 runs
+ * middleware in `proxy.ts`, which is Node runtime and has no `cookies()`.
  */
 export async function requireCustomer(next: string): Promise<string> {
   const { customerToken } = await emporixSession(STORE_OPT);
@@ -1683,21 +1683,21 @@ export async function requireCustomer(next: string): Promise<string> {
 }
 ```
 
-- [ ] **Step 4: Test laufen lassen — grün**
+- [ ] **Step 4: Run the test — green**
 
 Run: `pnpm -F @viu/emporix-examples-next-server-first test`
-Expected: PASS, 4 Tests.
+Expected: PASS, 4 tests.
 
-- [ ] **Step 5: `/login` honoriert `?next=`**
+- [ ] **Step 5: `/login` honours `?next=`**
 
-In `app/login/page.tsx` `searchParams` annehmen, `safeNext` darauf anwenden und
-den Wert als `<input type="hidden" name="next" …>` mitschicken. In der
-Login-Action in `app/actions/auth.ts` nach `emporixLogin` und dem
-Zählungs-Nachzug aus Task 1.2:
+In `app/login/page.tsx` accept `searchParams`, apply `safeNext` to it and send
+the value along as `<input type="hidden" name="next" …>`. In the login
+action in `app/actions/auth.ts`, after `emporixLogin` and the count update
+from Task 1.2:
 
 ```ts
-  // safeNext auch hier, nicht nur beim Rendern: das Feld kommt aus dem Formular
-  // und ist damit vom Client bestimmt.
+  // safeNext here too, not only when rendering: the field comes from the form
+  // and is therefore determined by the client.
   redirect(safeNext(String(form.get("next") ?? "/")));
 ```
 
@@ -1730,12 +1730,12 @@ export default async function AccountPage(): Promise<React.JSX.Element> {
 }
 ```
 
-- [ ] **Step 7: Live-Beleg**
+- [ ] **Step 7: Live evidence**
 
-Abgemeldet `/account` öffnen: Umleitung auf `/login?next=%2Faccount`. Anmelden:
-zurück auf `/account` mit dem Namen. Dann `/login?next=//evil.com` öffnen,
-anmelden — Landung auf `/`, nicht auf evil.com. Und einmal im Store-Modus mit
-Redis, weil genau das ohne Task 0 in einer Umleitungsschleife endet.
+Logged out, open `/account`: redirect to `/login?next=%2Faccount`. Log in:
+back on `/account` with the name. Then open `/login?next=//evil.com`, log
+in — landing on `/`, not on evil.com. And once in store mode with
+Redis, because exactly that ends in a redirect loop without Task 0.
 
 - [ ] **Step 8: Commit**
 
@@ -1746,16 +1746,16 @@ git commit -m "feat(examples): gate the account routes server-side"
 
 ---
 
-## Task 4.2: `/account/profile` — Profil und Passwort
+## Task 4.2: `/account/profile` — profile and password
 
 **Files:**
 - Create: `examples/next-server-first/app/account/profile/page.tsx`, `app/actions/account.ts`
 
 **Interfaces:**
 - Consumes: `requireCustomer` (Task 4.1), `ActionForm`/`ActionState`/`describeError` (Task 3.1).
-- Produces: `updateProfile`, `changePassword` aus `app/actions/account.ts`.
+- Produces: `updateProfile`, `changePassword` from `app/actions/account.ts`.
 
-- [ ] **Step 1: Die zwei Actions**
+- [ ] **Step 1: The two actions**
 
 ```ts
 "use server";
@@ -1778,8 +1778,8 @@ export async function updateProfile(_state: ActionState, form: FormData): Promis
           {
             firstName,
             lastName,
-            // exactOptionalPropertyTypes: leere Felder weglassen statt "" zu
-            // senden — "" würde einen bestehenden Wert löschen.
+            // exactOptionalPropertyTypes: omit empty fields instead of
+            // sending "" — "" would delete an existing value.
             ...(contactEmail !== "" ? { contactEmail } : {}),
             ...(contactPhone !== "" ? { contactPhone } : {}),
           },
@@ -1796,9 +1796,9 @@ export async function updateProfile(_state: ActionState, form: FormData): Promis
 }
 
 export async function changePassword(_state: ActionState, form: FormData): Promise<ActionState> {
-  // `currentPassword`, NICHT `oldPassword` — gemessen an
-  // storefront-demo/src/account/PasswordForm.tsx:23, wo der Aufruf live erprobt
-  // ist. Der falsche Name ergibt einen 400 mit unklarem Body.
+  // `currentPassword`, NOT `oldPassword` — measured against
+  // storefront-demo/src/account/PasswordForm.tsx:23, where the call is proven
+  // live. The wrong name yields a 400 with an unclear body.
   const currentPassword = String(form.get("currentPassword"));
   const newPassword = String(form.get("newPassword"));
   if (newPassword.length < 8) return { error: "The new password needs at least 8 characters" };
@@ -1810,17 +1810,17 @@ export async function changePassword(_state: ActionState, form: FormData): Promi
   } catch (e) {
     return { error: describeError(e) };
   }
-  // Kein revalidate: es gibt nichts anzuzeigen, was sich geändert hätte.
+  // No revalidate: there is nothing to display that would have changed.
   return { error: null };
 }
 ```
 
-Die vier Profilfelder (`firstName`, `lastName`, `contactEmail`, `contactPhone`)
-sind aus `storefront-demo/src/account/ProfileForm.tsx` gelesen — dieselbe Quelle,
-die gegen den echten Tenant läuft. `CustomerUpdateInput` ist ein Alias auf das
-generierte `CustomerUpdateDto`; weicht der generierte Typ ab, gilt der Typ.
+The four profile fields (`firstName`, `lastName`, `contactEmail`, `contactPhone`)
+are read from `storefront-demo/src/account/ProfileForm.tsx` — the same source
+that runs against the real tenant. `CustomerUpdateInput` is an alias for the
+generated `CustomerUpdateDto`; if the generated type differs, the type wins.
 
-- [ ] **Step 2: Die Seite**
+- [ ] **Step 2: The page**
 
 ```tsx
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
@@ -1870,15 +1870,15 @@ export default async function ProfilePage(): Promise<React.JSX.Element> {
 }
 ```
 
-- [ ] **Step 3: Live-Beleg**
+- [ ] **Step 3: Live evidence**
 
-Namen ändern, speichern, neu laden — der neue Name steht im Formular **und** in
-`/account`. Ein leeres Namensfeld zeigt «First and last name are required» ohne
-Emporix-Request. Beim Passwort ein zu kurzes Neues zeigt die Längenmeldung; ein
-falsches Aktuelles zeigt die Emporix-Meldung.
+Change the name, save, reload — the new name stands in the form **and** in
+`/account`. An empty name field shows «First and last name are required»
+without an Emporix request. For the password, a too-short new one shows the
+length message; a wrong current one shows the Emporix message.
 
-Das Passwort-Ändern nicht mit dem Testkonto durchspielen, wenn danach andere
-Tasks damit anmelden müssen — sonst ist die `.env.local` veraltet.
+Do not play the password change through with the test account if other tasks
+have to log in with it afterwards — otherwise the `.env.local` is out of date.
 
 - [ ] **Step 4: Commit**
 
@@ -1889,20 +1889,20 @@ git commit -m "feat(examples): add a profile page to the next demo"
 
 ---
 
-## Task 4.3: `/account/addresses` — CRUD über Server Actions
+## Task 4.3: `/account/addresses` — CRUD over Server Actions
 
 **Files:**
 - Create: `examples/next-server-first/app/account/addresses/page.tsx`
 - Modify: `examples/next-server-first/app/actions/account.ts`
 
 **Interfaces:**
-- Produces: `addAddress`, `updateAddress`, `deleteAddress` aus `app/actions/account.ts`.
+- Produces: `addAddress`, `updateAddress`, `deleteAddress` from `app/actions/account.ts`.
 
-- [ ] **Step 1: Die drei Actions**
+- [ ] **Step 1: The three actions**
 
-Die sieben Feldnamen sind aus
-`examples/storefront-demo/src/account/AddressForm.tsx` gelesen — dort läuft der
-Aufruf gegen den echten Tenant, das ist die belastbare Quelle.
+The seven field names are read from
+`examples/storefront-demo/src/account/AddressForm.tsx` — the call there runs
+against the real tenant, that is the dependable source.
 
 ```ts
 const ADDRESS_FIELDS = [
@@ -1922,8 +1922,8 @@ function readAddress(form: FormData): Record<string, string> {
 }
 
 function missing(a: Record<string, string>): string | null {
-  // Emporix antwortet auf ein fehlendes Pflichtfeld mit einem 400, dessen Body
-  // das Feld nennt. Hier vorher zu prüfen erspart den Umlauf und nennt es klarer.
+  // Emporix answers a missing required field with a 400 whose body
+  // names the field. Checking here first saves the round trip and is clearer.
   for (const f of ["contactName", "street", "zipCode", "city", "country"]) {
     if (a[f] === "") return `${f} is required`;
   }
@@ -1978,13 +1978,13 @@ export async function deleteAddress(_state: ActionState, form: FormData): Promis
 }
 ```
 
-**Zum `as never`:** erst ohne den Cast typechecken. Beim Checkout hatte ich
-denselben Cast aus storefront-demo übernommen und dann gemessen, dass er nicht
-gebraucht wird. Bleibt der Typecheck rot, den Cast durch die generierte
-Eingabeform ersetzen, nicht durch `never` — und wenn nur `never` geht, mit
-einer Zeile begründen, warum.
+**On the `as never`:** typecheck without the cast first. For the checkout I had
+taken the same cast over from storefront-demo and then measured that it is not
+needed. If the typecheck stays red, replace the cast with the generated
+input shape, not with `never` — and if only `never` works, justify why in
+one line.
 
-- [ ] **Step 2: Die Seite**
+- [ ] **Step 2: The page**
 
 ```tsx
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
@@ -2052,15 +2052,15 @@ export default async function AddressesPage(): Promise<React.JSX.Element> {
 }
 ```
 
-- [ ] **Step 3: Live-Beleg**
+- [ ] **Step 3: Live evidence**
 
-Adresse anlegen (CH, gültige PLZ), Seite neu laden — sie steht in der Liste.
-Stadt ändern, speichern, neu laden — geänderter Wert. Löschen, neu laden — weg.
-Ein leeres Pflichtfeld zeigt «… is required» ohne Emporix-Request.
+Create an address (CH, valid postcode), reload the page — it is in the list.
+Change the city, save, reload — changed value. Delete, reload — gone.
+An empty required field shows «… is required» without an Emporix request.
 
-Danach `/checkout` öffnen: die gespeicherte Adresse muss dort vorbelegt sein —
-das prüft, dass diese Seite die Adresse in der Form schreibt, die der Checkout
-liest.
+Then open `/checkout`: the saved address must be pre-filled there — that
+checks that this page writes the address in the shape the checkout
+reads.
 
 - [ ] **Step 4: Commit**
 
@@ -2071,17 +2071,17 @@ git commit -m "feat(examples): add address crud to the next demo"
 
 ---
 
-## Task 4.4: `/account/orders` und `/account/orders/[id]`
+## Task 4.4: `/account/orders` and `/account/orders/[id]`
 
 **Files:**
 - Create: `examples/next-server-first/app/account/orders/page.tsx`, `app/account/orders/[id]/page.tsx`
 - Modify: `examples/next-server-first/app/actions/account.ts`
 
 **Interfaces:**
-- Consumes: `orderVM`, `orderItems`, `money` aus `@viu/emporix-examples-shared`; `setCart` (Task 1.2).
-- Produces: `cancelOrder`, `reorder` aus `app/actions/account.ts`.
+- Consumes: `orderVM`, `orderItems`, `money` from `@viu/emporix-examples-shared`; `setCart` (Task 1.2).
+- Produces: `cancelOrder`, `reorder` from `app/actions/account.ts`.
 
-- [ ] **Step 1: Die Listenseite**
+- [ ] **Step 1: The list page**
 
 ```tsx
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
@@ -2134,12 +2134,12 @@ export default async function OrdersPage({
 }
 ```
 
-- [ ] **Step 2: Die zwei Actions**
+- [ ] **Step 2: The two actions**
 
-`orders.cancel` nimmt einen optionalen `saasToken`. Im server-first-Modus liegt
-der in der Session und darf den Browser nie erreichen — das ist derselbe
-Mechanismus wie beim Checkout und der Grund, warum diese Action serverseitig
-sein **muss**.
+`orders.cancel` takes an optional `saasToken`. In server-first mode it lives
+in the session and must never reach the browser — that is the same
+mechanism as in the checkout and the reason why this action **must** be
+server-side.
 
 ```ts
 export async function cancelOrder(_state: ActionState, form: FormData): Promise<ActionState> {
@@ -2174,8 +2174,8 @@ export async function reorder(_state: ActionState, form: FormData): Promise<Acti
 
       let cartId = jar.get(STORAGE_KEYS.cartId);
       if (cartId === null) {
-        // getCurrent({ create: true }), nicht create: ein Kunde darf nur einen
-        // offenen Warenkorb haben, und ein blindes create antwortet mit 409.
+        // getCurrent({ create: true }), not create: a customer may have only
+        // one open cart, and a blind create answers with 409.
         const cart = await client.carts.getCurrent(ctx, { siteCode: SITE.siteCode, create: true });
         cartId = cart?.id ?? null;
         if (cartId === null) throw new Error("Emporix returned no cart");
@@ -2193,15 +2193,15 @@ export async function reorder(_state: ActionState, form: FormData): Promise<Acti
 }
 ```
 
-`orderItems`, `productYrn` und `SITE` importieren. Das `as never` bei
-`addItemsBatch` stammt aus `use-reorder.ts` — erst ohne den Cast typechecken und
-ihn nur behalten, wenn es ohne rot bleibt. Emporix verlangt auf internen
-Positionen einen `priceId`; schlägt der Batch mit dieser Meldung fehl, ist der
-Preis pro Position wie in `addToCart` über `matchByContext` aufzulösen. Das dann
-so umsetzen und im README festhalten, dass der Reorder Preise neu auflöst statt
-die der Bestellung zu übernehmen.
+Import `orderItems`, `productYrn` and `SITE`. The `as never` on
+`addItemsBatch` comes from `use-reorder.ts` — typecheck without the cast first
+and keep it only if it stays red without it. Emporix requires a `priceId` on
+internal line items; if the batch fails with that message, the price per line
+item has to be resolved via `matchByContext` as in `addToCart`. Implement it
+that way then, and record in the README that the reorder resolves prices anew
+instead of taking over the order's.
 
-- [ ] **Step 3: Die Detailseite**
+- [ ] **Step 3: The detail page**
 
 ```tsx
 import { withEmporixSession } from "@viu/emporix-sdk-next/session";
@@ -2252,39 +2252,39 @@ export default async function OrderDetailPage({
 }
 ```
 
-- [ ] **Step 4: Live-Beleg**
+- [ ] **Step 4: Live evidence**
 
-Angemeldet `/account/orders` öffnen — die Bestellungen aus den früheren
-Checkout-Tests (EON1225, EON1226) stehen da mit Nummer, Status und Summe. Ein
-Detail öffnen: Positionen mit **Namen**, nicht mit Ids. «Reorder» erhöht den
-Badge und `/cart` zeigt die Positionen. «Cancel order» auf einer Bestellung im
-Status `IN_CHECKOUT` ändert den Status; auf einer abgeschlossenen zeigt es die
-Emporix-Meldung im Formular statt einer Fehlerseite.
+Logged in, open `/account/orders` — the orders from the earlier
+checkout tests (EON1225, EON1226) stand there with number, status and total.
+Open one detail: line items with **names**, not with ids. «Reorder» raises the
+badge and `/cart` shows the line items. «Cancel order» on an order in
+status `IN_CHECKOUT` changes the status; on a completed one it shows the
+Emporix message in the form instead of an error page.
 
-Der Namens-Punkt ist nicht Kosmetik: `orderItems` liest beide Bestellformen
-(Liste mit `items`, GET mit `entries`), und ohne die geteilte Funktion wäre die
-Detailseite leer.
+The name point is not cosmetics: `orderItems` reads both order shapes
+(list with `items`, GET with `entries`), and without the shared function the
+detail page would be empty.
 
-- [ ] **Step 5: README-Tabelle nachziehen**
+- [ ] **Step 5: Bring the README table up to date**
 
-In `examples/next-server-first/README.md` die Tabelle «What each page proves»
-um die neuen Routen ergänzen und einen datierten Verifikationsabschnitt für
-diese Arbeit anlegen — nach dem Muster der bestehenden Tabellen, mit den
-tatsächlich beobachteten Werten, nicht mit erwarteten.
+In `examples/next-server-first/README.md`, extend the table «What each page
+proves» with the new routes and add a dated verification section for
+this work — after the pattern of the existing tables, with the values
+actually observed, not with expected ones.
 
-Ebenso die vier Nicht-Ziele aus der Spec eintragen:
+Likewise enter the four non-goals from the spec:
 
 ```markdown
-## Was diese Demo bewusst NICHT hat
+## What this demo deliberately does NOT have
 
-- `/account/returns`, `/account/rewards`, `/account/lists` — dasselbe
-  CRUD-über-Server-Action-Muster wie `addresses`, ein viertes Mal. Es lehrt
-  nichts Neues und müsste bei jeder SDK-Änderung mitgezogen werden.
-- `/reset-password` — braucht einen echten E-Mail-Umlauf. Was nicht
-  verifizierbar ist, wird hier nicht behauptet.
-- B2B — hat `storefront-demo` auch nicht.
-- Optimistische Updates — es gibt keinen Client-State, der optimistisch sein
-  könnte. Der dokumentierte Preis des Modus, keine offene Aufgabe.
+- `/account/returns`, `/account/rewards`, `/account/lists` — the same
+  CRUD-over-Server-Action pattern as `addresses`, a fourth time. It teaches
+  nothing new and would have to be dragged along with every SDK change.
+- `/reset-password` — needs a real email round trip. What cannot be
+  verified is not claimed here.
+- B2B — `storefront-demo` does not have it either.
+- Optimistic updates — there is no client state that could be
+  optimistic. The documented price of the mode, not an open task.
 ```
 
 - [ ] **Step 6: Commit**
@@ -2296,86 +2296,86 @@ git commit -m "feat(examples): add order history to the next demo"
 
 ---
 
-## Task 5.1: Webhook-Route und `revalidateTag`
+## Task 5.1: Webhook route and `revalidateTag`
 
 **Files:**
 - Create: `examples/next-server-first/app/api/emporix/webhook/route.ts`
 - Modify: `examples/next-server-first/README.md`
 
 **Interfaces:**
-- Consumes: den Webhook-Export aus `@viu/emporix-sdk-next/webhook`.
+- Consumes: the webhook export from `@viu/emporix-sdk-next/webhook`.
 
-- [ ] **Step 1: Die Route**
+- [ ] **Step 1: The route**
 
-`createEmporixWebhookRoute(opts)` gibt einen `(req: Request) => Promise<Response>`
-zurück, der direkt als `POST` exportiert wird — kein Destructuring. Optionen:
-`secret` (Pflicht), `onEvent?`, `maxAgeSeconds?`, `canonicalize?`, `profile?`
-(Standard `{ expire: 0 }`).
+`createEmporixWebhookRoute(opts)` returns a `(req: Request) => Promise<Response>`
+that is exported directly as `POST` — no destructuring. Options:
+`secret` (required), `onEvent?`, `maxAgeSeconds?`, `canonicalize?`, `profile?`
+(default `{ expire: 0 }`).
 
 ```ts
 import { createEmporixWebhookRoute } from "@viu/emporix-sdk-next/webhook";
 
 const secret = process.env.EMPORIX_WEBHOOK_SECRET;
-// Werfen statt still 401 zu liefern: eine Route, die jede Lieferung ablehnt,
-// weil eine Variable fehlt, ist die teuerste Art, einen Konfigurationsfehler zu
-// verstecken. Das ist das Muster, das dieses Example schon für den Tenant nutzt.
+// Throw instead of quietly returning 401: a route that rejects every delivery
+// because a variable is missing is the most expensive way to hide a
+// configuration error. That is the pattern this example already uses for the tenant.
 if (secret === undefined || secret === "") {
   throw new Error("EMPORIX_WEBHOOK_SECRET is not set — see the README.");
 }
 
 /**
- * Der Auslöser, der bisher fehlte.
+ * The trigger that was missing until now.
  *
- * Der getaggte Client (`getEmporixClient()`) versieht Katalog-Antworten mit
- * Cache-Tags, und diese Route ruft `revalidateTag` darauf (webhook.ts:163).
- * Ohne diese Datei hatte die Hälfte keinen Absender: kein Example mountete sie.
+ * The tagged client (`getEmporixClient()`) stamps catalog responses with
+ * cache tags, and this route calls `revalidateTag` on them (webhook.ts:163).
+ * Without this file, half of it had no sender: no example mounted it.
  *
- * Für Warenkorb, Bestellungen und Kundendaten gibt es das NICHT und kann es
- * nicht geben — `emporixTagsForUrl` gibt dort absichtlich `[]` zurück. Das
- * `revalidatePath` in den Cart-Actions ist deshalb korrekt und nicht das
- * Grobwerkzeug; es ist das einzige Werkzeug.
+ * For cart, orders and customer data that does NOT exist and cannot
+ * exist — `emporixTagsForUrl` deliberately returns `[]` there. The
+ * `revalidatePath` in the cart actions is therefore correct and not the
+ * blunt instrument; it is the only instrument.
  */
 export const POST = createEmporixWebhookRoute({
   secret,
-  // Fünf Minuten Replay-Fenster. Ohne die Option wird das Alter der Lieferung
-  // gar nicht geprüft, und eine abgefangene Lieferung bleibt beliebig lange
-  // gültig.
+  // Five-minute replay window. Without the option the age of the delivery is
+  // not checked at all, and an intercepted delivery stays valid for
+  // arbitrarily long.
   maxAgeSeconds: 300,
 });
 ```
 
-- [ ] **Step 2: README-Abschnitt mit dem Secret**
+- [ ] **Step 2: README section with the secret**
 
 ```markdown
-## Webhook: `revalidateTag` schliesst den Kreis
+## Webhook: `revalidateTag` closes the loop
 
 ```
-EMPORIX_WEBHOOK_SECRET=<das in Emporix konfigurierte Secret>
+EMPORIX_WEBHOOK_SECRET=<the secret configured in Emporix>
 ```
 
-Katalogdaten werden vom getaggten Client zwischengespeichert und leben, bis
-etwas sie für ungültig erklärt. Diese Route ist das Etwas. Ohne sie hilft nur
-Warten.
+Catalog data is cached by the tagged client and lives until something
+declares it invalid. This route is that something. Without it, only waiting
+helps.
 
-Für Warenkorb, Bestellungen und Kundendaten gibt es keine Tags — absichtlich,
-sie sind pro Besucher veränderlich oder geheim. Dort ist `revalidatePath`
-richtig.
+For cart, orders and customer data there are no tags — deliberately, they
+are per-visitor mutable or secret. There, `revalidatePath` is
+right.
 ```
 
-`.env.example` ergänzt der Mensch: `.env*` liegt ausserhalb der Schreibrechte.
+The human adds it to `.env.example`: `.env*` lies outside the write permissions.
 
-- [ ] **Step 3: Live-Beleg**
+- [ ] **Step 3: Live evidence**
 
-Ein Produkt im Emporix-Backend umbenennen und die Katalogseite laden — sie zeigt
-noch den alten Namen (das ist der Cache, kein Fehler). Dann den Webhook mit
-gültiger Signatur feuern und neu laden: neuer Name, ohne Deploy und ohne
-Wartezeit.
+Rename a product in the Emporix backend and load the catalog page — it still
+shows the old name (that is the cache, not a bug). Then fire the webhook with a
+valid signature and reload: new name, without a deploy and without any
+waiting.
 
-Danach mit **falscher** Signatur feuern: `401`, und ein danach geänderter Name
-erscheint **nicht** — eine ungültige Signatur darf nichts invalidieren.
+Then fire with a **wrong** signature: `401`, and a name changed afterwards
+does **not** appear — an invalid signature must invalidate nothing.
 
-Die Signaturberechnung aus `packages/next/tests/webhook.test.ts` übernehmen; die
-Tests dort bauen sie schon.
+Take the signature computation from `packages/next/tests/webhook.test.ts`; the
+tests there already build it.
 
 - [ ] **Step 4: Commit**
 
@@ -2386,30 +2386,30 @@ git commit -m "feat(examples): mount the webhook route in the next demo"
 
 ---
 
-## Abschluss
+## Wrap-up
 
-**Ausführungsreihenfolge — sieben PRs, nicht sechs.** Die Spec zählt sechs; beim
-Planen kam heraus, dass der Umschalter aus Muster 1 den Kontext jeder Leserstelle
-umstellt und deshalb eine eigene PR am Ende braucht:
+**Execution order — seven PRs, not six.** The spec counts six; while planning it
+came out that the switcher from pattern 1 changes the context of every reader
+site and therefore needs its own PR at the end:
 
 ```
 0  →  1.1 → 1.2  →  2.1 → 2.2 → 2.3  →  3.1 → 3.2  →  4.1 → 4.2 → 4.3 → 4.4  →  5.1  →  6.1
 ```
 
-`6.1` steht im Dokument oberhalb von `2.1`, weil es inhaltlich zur Shell gehört —
-ausgeführt wird es **zuletzt**.
+`6.1` stands above `2.1` in the document because it belongs to the shell —
+it is executed **last**.
 
-Nach jeder PR-Gruppe (0 · 1.1–1.2 · 2.1–2.3 · 3.1–3.2 · 4.1–4.4 · 5.1 · 6.1):
+After every PR group (0 · 1.1–1.2 · 2.1–2.3 · 3.1–3.2 · 4.1–4.4 · 5.1 · 6.1):
 
 ```bash
 pnpm -r build && pnpm -r test && pnpm typecheck && pnpm lint
 ```
 
-Erwartet: `pnpm -r test` bleibt bei 1'439 Tests plus **5** aus Task 0 (nicht 3 —
-beim Umsetzen kamen zwei dazu, für den saasToken und für die Ein-Record-Zusage)
-plus 4 aus Task 4.1 = **1'448**. Nach Task 0 gemessen: **1'444**. Typecheck deckt
-nach Task 1.1 elf Projekte statt zehn.
+Expected: `pnpm -r test` stays at 1'439 tests plus **5** from Task 0 (not 3 —
+two came along during implementation, for the saasToken and for the
+single-record promise) plus 4 from Task 4.1 = **1'448**. Measured after Task 0:
+**1'444**. After Task 1.1 the typecheck covers eleven projects instead of ten.
 
-Dann `superpowers:finishing-a-development-branch` für die PR. Changesets nur für
-Task 0 — `@viu/emporix-examples-*` ist in `.changeset/config.json` unter
-`ignore` und wird nie versioniert.
+Then `superpowers:finishing-a-development-branch` for the PR. Changesets only
+for Task 0 — `@viu/emporix-examples-*` is under `ignore` in
+`.changeset/config.json` and is never versioned.
