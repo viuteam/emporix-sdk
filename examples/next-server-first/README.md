@@ -243,9 +243,39 @@ you find out — not a cache wrapper added on suspicion.
 may render `<html>` and it cannot see the `[lang]` segment, so the language sits on a
 wrapper inside it — correct for assistive technology, which honours the nearest
 ancestor, and honest about the English shell around it. No JSON-LD, and no products in
-the sitemap. The junk URLs (`/de/category/x/0`, `/2/3/4`, `/99999`,
-`/de/product/x/bogus`) still answer 200 and still buy an ISR entry; the canonical stops
-them competing, segment validation would remove them.
+the sitemap.
+
+### One URL per document
+
+Twelve URL shapes answered **200** before this — measured 2026-08-06, each of them also
+buying its own ISR cache entry:
+
+| shape | before | now |
+|---|---|---|
+| `…/category/x/1` | 200, duplicate of page 1 | **308** to the bare URL |
+| `…/category/x/0`, `/abc`, `/-1`, `/01`, `/2/3/4` | 200, rendered page 1 | **404** |
+| `…/category/x/99999` | 200, «Nothing on page N», self-canonical | **404** |
+| `…/product/x/bogus`, `/a/b/c` | 200, duplicate of the product | **404** |
+
+`lib/page-segment.ts` decides all of it in one place and returns three outcomes rather
+than a number, because the three need different HTTP answers: a page renders, the
+page-one alias redirects, anything else 404s. `/1` redirects rather than 404s because it
+renders exactly what the bare URL renders and another site may already link it.
+
+A variant segment now has to name a real child. On this tenant that means **every**
+variant URL 404s, because no product is a `PARENT_VARIANT` — correct rather than a
+regression, since those URLs were never documents.
+
+The page number is bounded at 10'000. Not caution: measured, `pageNumber: 99999` answers
+200 with an empty list, but 1e15 and above make Emporix answer `400` — which would
+surface as a 500, the same class of bug the language guard fixed.
+
+The stale window is a day instead of a year. Next computes
+`stale-while-revalidate = expireTime − revalidate`, so `expireTime: 86400` with the
+routes' hourly `revalidate` yields 82'800 s — measured, not read off. The default 1 year
+meant a storefront whose revalidation kept failing would keep serving year-old prices,
+and that is not hypothetical: during the metadata work a product page cached by an
+earlier build was served for a page whose code had already changed.
 
 ## Checkout
 
