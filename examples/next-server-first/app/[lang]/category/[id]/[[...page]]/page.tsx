@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getEmporixClient } from "@viu/emporix-sdk-next";
 
 import { ProductGrid } from "../../../../components/product-grid";
 import { pricesFor } from "../../../../lib/prices";
 import { isLanguage } from "../../../../lib/languages";
+import { parsePageSegment } from "../../../../lib/page-segment";
 import { alternatesFor } from "../../../../lib/seo";
 import { SITE_NAME } from "../../../../lib/site-url";
 import { siteContext } from "../../../../lib/site-context";
@@ -60,7 +61,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { lang, id, page: segments } = await params;
   if (!isLanguage(lang)) return {};
-  const page = Math.max(1, Number(segments?.[0]) || 1);
+  // An alias or an invalid segment never renders, so it gets no metadata either — the
+  // redirect and the 404 in the page body own those two cases.
+  const parsed = parsePageSegment(segments);
+  if (parsed.kind !== "page") return {};
+  const page = parsed.page;
 
   const { byId } = await categoryIndex(lang);
   const entry = byId[id];
@@ -89,15 +94,24 @@ export default async function CategoryPage({
   params: Promise<{ lang: string; id: string; page?: string[] }>;
 }): Promise<React.JSX.Element> {
   const { lang, id, page: segments } = await params;
-  // The page number is a PATH segment, not `?page=`. Reading `searchParams` opts
-  // a route out of static rendering entirely, and this is the busiest route in
-  // the demo — `/de/category/x/2` is cacheable, `/de/category/x?page=2` is not.
-  // It also keeps the property the old comment claimed: page 3 is a URL.
+  // The page number is a PATH segment, not `?page=`. Reading `searchParams` opts a
+  // route out of static rendering entirely, and this is the busiest route in the demo —
+  // `/de/category/x/2` is cacheable, `/de/category/x?page=2` is not. It also keeps the
+  // property the old comment claimed: page 3 is a URL.
   //
-  // `Number(undefined) || 1` is 1, `Number("abc") || 1` is 1, `Number("0") || 1`
-  // is 1, and Math.max catches a negative. A page number arrives from the URL, so
-  // the bound is drawn even though no framework is doing it.
-  const page = Math.max(1, Number(segments?.[0]) || 1);
+  // Three outcomes, three HTTP answers — see `lib/page-segment.ts`. Measured 2026-08-06,
+  // nine shapes of this URL answered 200 before: `/1`, `/0`, `/abc`, `/-1`, `/01`,
+  // `/2/3/4`, `/99999` and two more, four of them rendering page one under a URL that is
+  // not page one.
+  //
+  // `/1` redirects rather than 404s: it renders exactly what the bare URL renders, it is
+  // a URL a human would type, and another site may already link it.
+  const parsed = parsePageSegment(segments);
+  if (parsed.kind === "invalid") notFound();
+  if (parsed.kind === "alias") {
+    permanentRedirect(`/${lang}/category/${encodeURIComponent(id)}`);
+  }
+  const page = parsed.page;
 
   const client = getEmporixClient({ context: await siteContext(lang), timeouts: TIMEOUTS });
 
@@ -126,6 +140,12 @@ export default async function CategoryPage({
     { pageNumber: page, pageSize: PAGE_SIZE },
     undefined,
   );
+  // A page past the last one is not a document. It used to answer 200 with «Nothing on
+  // page N» — a soft 404, and since the metadata PR one that nominated itself as its own
+  // canonical. `page > 1` matters: an empty page 1 is an empty category, which is a real
+  // page with a real answer.
+  if (products.items.length === 0 && page > 1) notFound();
+
   const priceOf = await pricesFor(client, undefined, products.items);
   // Page one has no segment, so the canonical URL of a category is one URL and
   // not two — `/de/category/x` and `/de/category/x/1` would otherwise both
@@ -191,15 +211,10 @@ export default async function CategoryPage({
         </nav>
       ) : null}
 
+      {/* The «Nothing on page N» branch that used to live here is gone: a page past the
+          last one now 404s above, so this only ever sees page one. */}
       {products.items.length === 0 ? (
-        page > 1 ? (
-          // Past the last page, not an empty category. Saying «no products» here
-          // would be a lie about the category — and a page number in a URL is
-          // exactly the kind of thing that goes stale in a bookmark.
-          <p className="muted">
-            Nothing on page {page}. <Link href={href(1)} className="u-underline">Back to page 1</Link>.
-          </p>
-        ) : children.length > 0 ? (
+        children.length > 0 ? (
           // A pure parent category holds only subcategories, so the tiles above
           // are the answer — an «empty» notice would be wrong there.
           null
