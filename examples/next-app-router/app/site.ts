@@ -31,6 +31,17 @@ export const CURRENCY = "CHF";
 export const TARGET_LOCATION = "CH";
 
 /**
+ * A product that actually has a price in the context above — «Just-in-Time Zugriff (JIT)»
+ * on the `viu` tenant.
+ *
+ * Here rather than in each page because two pages need it and a second copy is the same
+ * drift this module exists to prevent. Most of this tenant's catalogue carries no price in
+ * `main`/CHF/CH, and Emporix requires a `priceId` on an internal cart item, so «pick any
+ * product» does not work.
+ */
+export const DEMO_PRODUCT_ID = "0f1e2d3c-4b5a";
+
+/**
  * The active language, and it must be **explicit**.
  *
  * Left unset, `EmporixProvider` seeds it from the active site's `defaultLanguage` after
