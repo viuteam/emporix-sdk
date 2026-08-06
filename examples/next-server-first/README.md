@@ -208,13 +208,42 @@ against 30'789 for `/de`. There is no safety net; the check is
 `find app -name 'page.tsx' -not -path 'app/\[lang\]/*'`, and the backslashes matter
 because `[lang]` is otherwise a character class.
 
-### What it costs
+### What it costs, and the bug that cost hid
 
-The cart badge arrives one round trip after the page, and with JavaScript
-disabled it never arrives — the fallback is a plain `Cart` link without the
-count. Everything that *changes* state is still a `<form>` posting to a Server
-Action, so the demo keeps working without JS; only the badge and the active
-language marker are poorer.
+The cart badge arrives one round trip after the page, and with JavaScript disabled it
+never arrives — the fallback is a plain `Cart` link without the count. Everything that
+*changes* state is still a `<form>` posting to a Server Action, so the demo keeps working
+without JS; only the badge and the active language marker are poorer.
+
+That paragraph used to end there, and it was hiding a defect. «One round trip late» was
+true of the first read and of no other: `SessionNav` filled its state in a
+`useEffect(…, [])`, which runs once per **mount**. A Server Action does not remount a
+client component, so the badge was late *forever*. Measured 2026-08-06 after adding a
+product: the server answered `{cartCount: 1}` while the header still showed a bare `Cart`,
+with exactly **one** `/api/session/nav` request in the whole session. Logging in had the
+same shape — the redirect is a client-side navigation, the layout survives it, so the
+header kept offering «Login» on the account page. F5 fixed both, which is the tell.
+
+`revalidatePath` cannot fix it: it re-renders the server tree, and React keeps the state of
+a client component that stayed where it was. Server-rendering the nav would fix it and is
+not available — one `cookies()` read in the root layout turns all four catalog routes from
+`●` to `ƒ`.
+
+So the shell re-reads on two triggers, in `lib/session-changed.ts`:
+
+- **A navigation** — `usePathname()` in the effect's deps. This is the login case.
+- **A mutation with no navigation** — a `window` event that `ActionForm` fires once the
+  action settles. This is the add-to-cart case.
+
+A `window` event rather than a context provider, because «no provider» is a claim this
+demo makes about itself, and two client components agreeing on one fact do not need a
+store. `ActionForm` is the single place that fires it, which is the same reason that
+component exists: eight forms, one `"use client"`.
+
+The add-to-cart buttons moved onto `ActionForm` for this, which brought them into the shape
+the four other cart mutations already had — so a failed add is now an inline message
+instead of an error page. It also makes each priced tile a client island, and the title
+blocks say so.
 
 ## What a crawler gets
 

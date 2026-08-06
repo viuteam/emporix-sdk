@@ -90,7 +90,7 @@ export default async function Home({
           route: "/[lang]",
           render: "static",
           revalidate: 3600,
-          islands: ["typeahead"],
+          islands: ["typeahead", "one per add-to-cart form"],
         }}
         rail={
           <>
@@ -112,7 +112,7 @@ export default async function Home({
         }
       >
         <p className="eyebrow">Catalog</p>
-        {/* `<h1>`, nicht `<h2>`: diese Seite hatte keine erste Ueberschrift. */}
+        {/* `<h1>`, not `<h2>`: this page had no first heading at all. */}
         <h1 style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
           Products from the priced category
         </h1>

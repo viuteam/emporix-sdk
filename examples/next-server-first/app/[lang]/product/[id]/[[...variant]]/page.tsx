@@ -14,7 +14,8 @@ import {
 
 import { Note, Sheet } from "../../../../components/sheet";
 import { pricesFor } from "../../../../lib/prices";
-import { addToCart } from "../../../../actions/cart";
+import { addToCartAction } from "../../../../actions/cart";
+import { ActionForm } from "../../../../components/action-form";
 import { isLanguage } from "../../../../lib/languages";
 import { jsonLdScript, productJsonLd } from "../../../../lib/json-ld";
 import { alternatesFor } from "../../../../lib/seo";
@@ -180,11 +181,6 @@ export default async function ProductPage({
       : {}),
   });
 
-  async function add(formData: FormData): Promise<void> {
-    "use server";
-    await addToCart(String(formData.get("productId")));
-  }
-
   return (
     <main className="container pdp" style={{ paddingBlock: "var(--s-6)" }}>
       <script
@@ -198,6 +194,7 @@ export default async function ProductPage({
           route: "/[lang]/product/[id]/[[...variant]]",
           render: "static",
           revalidate: 3600,
+          islands: ["add-to-cart form"],
         }}
         rail={
           <>
@@ -278,14 +275,20 @@ export default async function ProductPage({
             ) : null}
 
             {price !== undefined ? (
-              <form action={add} style={{ marginTop: "var(--s-5)" }}>
-                {/* The SELECTED id, which is a variant's when one is picked: a
-                    PARENT_VARIANT is not orderable. */}
-                <input type="hidden" name="productId" value={selectedId} />
-                <button type="submit" className="btn btn--accent">
-                  Add to cart
-                </button>
-              </form>
+              // `ActionForm` rather than a plain server form, for the same reason as the
+              // product tiles: the header badge is a client island and only this
+              // component tells it the cart moved. See `lib/session-changed.ts`.
+              <div style={{ marginTop: "var(--s-5)" }}>
+                <ActionForm
+                  action={addToCartAction}
+                  submit="Add to cart"
+                  submitClassName="btn btn--accent"
+                >
+                  {/* The SELECTED id, which is a variant's when one is picked: a
+                      PARENT_VARIANT is not orderable. */}
+                  <input type="hidden" name="productId" value={selectedId} />
+                </ActionForm>
+              </div>
             ) : null}
           </div>
         </div>

@@ -38,8 +38,8 @@ export async function updateProfile(_state: ActionState, form: FormData): Promis
   } catch (e) {
     return { error: describeError(e) };
   }
-  revalidatePath("/account");
-  revalidatePath("/account/profile");
+  revalidatePath("/[lang]/account", "page");
+  revalidatePath("/[lang]/account/profile", "page");
   return { error: null };
 }
 
@@ -75,7 +75,7 @@ async function mutateAddresses(
   } catch (e) {
     return { error: describeError(e) };
   }
-  revalidatePath("/account/addresses");
+  revalidatePath("/[lang]/account/addresses", "page");
   return { error: null };
 }
 
@@ -117,8 +117,8 @@ export async function cancelOrder(_state: ActionState, form: FormData): Promise<
   } catch (e) {
     return { error: describeError(e) };
   }
-  revalidatePath("/account/orders");
-  revalidatePath(`/account/orders/${orderId}`);
+  revalidatePath("/[lang]/account/orders", "page");
+  revalidatePath("/[lang]/account/orders/[id]", "page");
   return { error: null };
 }
 
@@ -183,7 +183,7 @@ export async function reorder(_state: ActionState, form: FormData): Promise<Acti
   } catch (e) {
     return { error: describeError(e) };
   }
-  revalidatePath("/cart");
-  revalidatePath("/");
+  revalidatePath("/[lang]/cart", "page");
+  revalidatePath("/[lang]", "page");
   return { error: null };
 }

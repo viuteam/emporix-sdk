@@ -100,8 +100,12 @@ export async function addToCart(productId: string): Promise<void> {
     // every OTHER page view.
     setCart(handle, cartId, await client.carts.get(cartId, ctx));
   }, await emporixOptions());
-  revalidatePath("/cart");
-  revalidatePath("/");
+  // The ROUTE PATTERN, not a URL: these pages moved under `/[lang]/…` on 2026-08-06 and
+  // `revalidatePath("/cart")` has pointed at nothing since. The pattern form covers both
+  // languages, which matters because a Server Action gets no route params — see the
+  // «How far `lang` is threaded» section of the design record.
+  revalidatePath("/[lang]/cart", "page");
+  revalidatePath("/[lang]", "page");
 }
 
 /**
@@ -137,8 +141,33 @@ async function mutateCart(
   } catch (e) {
     return { error: describeError(e) };
   }
-  revalidatePath("/cart");
-  revalidatePath("/");
+  // The ROUTE PATTERN, not a URL: these pages moved under `/[lang]/…` on 2026-08-06 and
+  // `revalidatePath("/cart")` has pointed at nothing since. The pattern form covers both
+  // languages, which matters because a Server Action gets no route params — see the
+  // «How far `lang` is threaded» section of the design record.
+  revalidatePath("/[lang]/cart", "page");
+  revalidatePath("/[lang]", "page");
+  return { error: null };
+}
+
+/**
+ * The form-shaped add, so a product tile can use `ActionForm` like every other cart
+ * mutation in this demo.
+ *
+ * Two things come out of that. The shell learns the cart changed — `ActionForm` signals
+ * it, and the header badge is a client island that cannot see a Server Action otherwise.
+ * And a failed add becomes an inline message instead of an error page, which is what the
+ * four mutations below have done all along.
+ */
+export async function addToCartAction(
+  _state: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  try {
+    await addToCart(String(form.get("productId")));
+  } catch (e) {
+    return { error: describeError(e) };
+  }
   return { error: null };
 }
 

@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { Product } from "@viu/emporix-sdk";
 import { money, toProductCard, type PriceVM } from "@viu/emporix-examples-shared";
-import { addToCart } from "../actions/cart";
+import { addToCartAction } from "../actions/cart";
+import { ActionForm } from "./action-form";
 
 /**
  * A Server Component. The class names come from the CSS copied out of
@@ -30,11 +31,6 @@ export function ProductGrid({
   /** Prefix for the product links — catalog routes live under `/[lang]/…`. */
   lang: string;
 }): React.JSX.Element {
-  async function add(formData: FormData): Promise<void> {
-    "use server";
-    await addToCart(String(formData.get("productId")));
-  }
-
   return (
     <ul className="product-grid" style={{ listStyle: "none", padding: 0 }}>
       {products.map((p, i) => {
@@ -81,12 +77,19 @@ export function ProductGrid({
               </div>
             </Link>
             {price !== undefined ? (
-              <form action={add} className="pc__action">
+              // `ActionForm`, not a plain `<form action={serverAction}>`: the header badge
+              // is a client island and cannot see a Server Action finish. `ActionForm`
+              // signals it — see `lib/session-changed.ts`. Measured before this change:
+              // the server reported `cartCount: 1` and the header still showed a bare
+              // `Cart` until a full page load.
+              <ActionForm
+                action={addToCartAction}
+                submit="Add to cart"
+                className="pc__action"
+                submitClassName="btn btn--sm btn--outline"
+              >
                 <input type="hidden" name="productId" value={vm.id} />
-                <button type="submit" className="btn btn--sm btn--outline">
-                  Add to cart
-                </button>
-              </form>
+              </ActionForm>
             ) : null}
           </li>
         );
