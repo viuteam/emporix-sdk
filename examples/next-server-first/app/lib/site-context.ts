@@ -1,10 +1,11 @@
+import { notFound } from "next/navigation";
 import {
   STORAGE_KEYS,
   emporixSessionHandle,
   type WithEmporixSessionOptions,
 } from "@viu/emporix-sdk-next/session";
 import { SESSION_STORE, STORE_OPT, TIMEOUTS } from "../emporix";
-import { DEFAULT_LANGUAGE } from "./languages";
+import { DEFAULT_LANGUAGE, isLanguage } from "./languages";
 
 /**
  * What a visitor who has chosen nothing gets. This was the module constant
@@ -49,7 +50,25 @@ export async function siteContext(lang?: string): Promise<{
   targetLocation: string;
   language?: string;
 }> {
-  if (lang !== undefined) return { ...DEFAULTS, language: lang };
+  if (lang !== undefined) {
+    // BEFORE any Emporix call, and that is the whole point.
+    //
+    // `[lang]/layout.tsx` has the same check and it is not enough: React renders
+    // layout and page concurrently, so the page's `products.get` is already in
+    // flight when the layout's `notFound()` runs. Measured 2026-08-06 —
+    // `/robots.txt` matches `/[lang]`, the home page sent `Accept-Language:
+    // robots.txt`, Emporix answered `400 Language header validation failed`, and
+    // the throw beat the notFound(): HTTP 500 instead of 404. Plus a billed
+    // request, plus an ISR entry cached for an hour, for every junk URL.
+    //
+    // Here rather than in each page because every route under `/[lang]/…` calls
+    // this before it does anything else, so one check covers all four.
+    // `dynamicParams = false` on the layout was the other candidate and is
+    // disqualified: measured, it fixes the 500 and 404s every product and
+    // category page with it, because it cascades to the child segments.
+    if (!isLanguage(lang)) notFound();
+    return { ...DEFAULTS, language: lang };
+  }
   const handle = await emporixSessionHandle({ readOnly: true, ...STORE_OPT });
   const language = handle.get(STORAGE_KEYS.language);
   return {
