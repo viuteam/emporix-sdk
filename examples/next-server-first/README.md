@@ -177,6 +177,37 @@ count. Everything that *changes* state is still a `<form>` posting to a Server
 Action, so the demo keeps working without JS; only the badge and the active
 language marker are poorer.
 
+## What a crawler gets
+
+`/[lang]` matches **any** single path segment, so `/robots.txt` used to land on the
+home page with `Accept-Language: robots.txt`. Emporix answered `400 Language header
+validation failed`, the throw beat the layout's `notFound()`, and the URL answered
+**500** — the one status code that makes a crawler give up on the whole host.
+Measured 2026-08-06, together with the second half of the bill: each junk URL
+rendered the home page in full, made real Emporix calls, and left an ISR entry
+behind for an hour.
+
+Two things fix it, and neither replaces the other:
+
+- `siteContext(lang)` checks the language **before** the first Emporix call. The
+  check in `[lang]/layout.tsx` was never enough — React renders layout and page
+  concurrently, so the page's request is already in flight when the layout's
+  `notFound()` runs.
+- `app/robots.ts`, `app/sitemap.ts` and `app/icon.svg` give the three URLs a
+  crawler asks for first a real answer. A metadata route beats a dynamic segment.
+
+`export const dynamicParams = false` looks like the one-line version of this and is
+not: measured, it fixes the 500 and 404s every product and category page with it,
+because it cascades to the child segments.
+
+The sitemap lists both languages and every category — 3'266 URLs on this tenant,
+out of the tree that is already cached for the category pages, so a sitemap request
+costs no Emporix call at all. Products are not in it yet.
+
+`SITE_BASE_URL` decides the host in `robots.txt` and `sitemap.xml`. Unset it falls
+back to `http://localhost:3000`, because a wrong absolute URL points crawlers at
+somebody else's site and an obviously local one is the lesser failure.
+
 ## Checkout
 
 `/checkout` reads the cart, the payment modes, the shipping zones and — for a
