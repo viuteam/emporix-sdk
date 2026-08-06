@@ -83,9 +83,8 @@ much each simplifies:
   and it **becomes a `<Link>`**: its target is a page now, not a route handler, which
   removes the «the only `<a>` in this app, and it has to stay one» exception documented in
   its own file.
-- **`siteContext(lang?)`** — loses the no-argument branch and its cookie read, so `lang`
-  becomes required. Every caller already has it from `params`; the exceptions are the three
-  named under «Server Actions» below.
+- **`siteContext(lang?)`** — loses its cookie read. `lang` stays **optional** and falls back
+  to `DEFAULT_LANGUAGE`; see «How far `lang` is threaded» below.
 - **`app/lib/path-language.ts`** and its test — deleted. It existed so the proxy could
   derive the language from the path in order to write the cookie. No cookie, no derivation.
 - **`app/lib/swap-language.ts`** — loses the session-route branch, because there is no
@@ -136,6 +135,25 @@ spoofable and absent on the first POST after a redirect. The forms already carry
 fields (`productId`), so this follows the file's own pattern.
 
 `safeNext` is unchanged — it validates «own path only», and `/de/account/orders` is one.
+
+### How far `lang` is threaded
+
+Counted while planning, and it changes the shape of this section: `emporixOptions()` and
+`siteContext()` are called **23 times** with no argument — across 8 pages and 5 action files
+— not the three redirect sites above. Threading a language through all 23 would be a large
+mechanical diff for a difference that is mostly invisible, so the rule is:
+
+| Caller | Gets `lang` | Why |
+|---|---|---|
+| The 8 session pages (`cart`, `checkout`, `account`×5, `search`) | **yes**, from `params` | They render localized content — product names, order items. The language is visible. |
+| `submitCheckout` | **yes**, from the hidden field it already needs for its redirect | Its Emporix errors reach the visitor through `describeError`. |
+| The remaining actions (`cart.ts`, `account.ts`, `auth.ts`) | no — `DEFAULT_LANGUAGE` | They mutate and redirect; the page that re-renders afterwards supplies its own language. |
+
+`DEFAULT_LANGUAGE` is a constant, not a second source of truth, so «one language source»
+still holds for everything a visitor sees. **The wart, named rather than hidden:** an
+Emporix error surfaced by a cart or account action can arrive in German on an English page.
+It is one constant away from being fixed if it ever shows up, and the alternative was
+threading a parameter through 23 sites on the chance that it does.
 
 ### What 404s now, deliberately
 
