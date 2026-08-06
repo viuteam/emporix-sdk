@@ -10,9 +10,10 @@ import {
   useMatchPrices,
   useCheckout,
 } from "@viu/emporix-sdk-react";
+// The product and the currency come from `../site`, the one place this example binds
+// its request context — a second copy here is what drifted before.
+import { CURRENCY, DEMO_PRODUCT_ID } from "../site";
 
-// Priced product on tenant `viu` (CHF/main/CH) — see plan-c-viu-context.md.
-const PRODUCT_ID = "0f1e2d3c-4b5a";
 
 type Phase = "empty" | "shopping" | "ordered";
 
@@ -30,7 +31,7 @@ export default function GuestCheckoutPage(): React.JSX.Element {
   const cartMutations = useCartMutations();
   const checkout = useCheckout();
   const prices = useMatchPrices(
-    { items: [{ itemId: { itemType: "PRODUCT", id: PRODUCT_ID }, quantity: { quantity: 1 } }] },
+    { items: [{ itemId: { itemType: "PRODUCT", id: DEMO_PRODUCT_ID }, quantity: { quantity: 1 } }] },
     { enabled: cartId !== null },
   );
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -44,7 +45,7 @@ export default function GuestCheckoutPage(): React.JSX.Element {
   async function startCart(): Promise<void> {
     setError(null);
     try {
-      await createCart.mutateAsync({ currency: "CHF" });
+      await createCart.mutateAsync({ currency: CURRENCY });
     } catch (e) {
       setError(String(e));
     }
@@ -60,13 +61,13 @@ export default function GuestCheckoutPage(): React.JSX.Element {
         | undefined;
       if (!p?.priceId) throw new Error("no price resolved for the product");
       await cartMutations.addItem.mutateAsync({
-        itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${PRODUCT_ID}`,
+        itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${DEMO_PRODUCT_ID}`,
         quantity: 1,
         price: {
           priceId: p.priceId,
           originalAmount: p.originalValue ?? 0,
           effectiveAmount: p.effectiveValue ?? 0,
-          currency: "CHF",
+          currency: CURRENCY,
         },
       });
     } catch (e) {
