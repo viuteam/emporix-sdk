@@ -612,6 +612,20 @@ export type TraitSort = string;
 export type TraitPagedPageSize = number;
 
 /**
+ * Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+ * Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+ * When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+ *
+ */
+export type TraitCursorNext = string;
+
+/**
+ * Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
+ *
+ */
+export type TraitCursorPrev = string;
+
+/**
  * Fields to be included in the response.
  *
  */
@@ -2164,6 +2178,18 @@ export type GetSchemaRetrieveCustomInstancesData = {
          *
          */
         expand?: string;
+        /**
+         * Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+         * Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+         * When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+         *
+         */
+        next?: string;
+        /**
+         * Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
+         *
+         */
+        prev?: string;
     };
     url: '/schema/{tenant}/custom-entities/{type}/instances';
 };
@@ -2668,6 +2694,18 @@ export type PostSchemaSearchCustomInstancesData = {
          *
          */
         expand?: string;
+        /**
+         * Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+         * Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+         * When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+         *
+         */
+        next?: string;
+        /**
+         * Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
+         *
+         */
+        prev?: string;
     };
     url: '/schema/{tenant}/custom-entities/{type}/instances/search';
 };
