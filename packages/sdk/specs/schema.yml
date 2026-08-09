@@ -1019,6 +1019,15 @@ paths:
       description: |-
         Retrieves all custom instances associated with a specific custom schema type.
 
+        Supports offset pagination (`pageNumber`, `pageSize`) and cursor pagination (`next`, `prev`). Cursor pagination is active when `next` or `prev` is provided.
+
+        In cursor mode:
+        - `next` and `prev` cannot be used together and return `400`.
+        - `pageNumber` is ignored.
+        - the `X-Total-Count` request header is ignored and the `X-Total-Count` response header is not returned.
+
+        If no sort is provided, results are returned in `_id:ASC` order. If a sort is provided, `_id:ASC` is appended as a tie-breaker when `_id` is not already part of the sort.
+
       tags:
         - Custom Instance
       responses:
@@ -1026,10 +1035,18 @@ paths:
           description: ''
           headers:
             X-Total-Count:
-              description: Total amount of custom instances for given criteria.
+              description: Total amount of custom instances for given criteria. Returned only for offset pagination when requested with the `X-Total-Count` header.
               schema:
                 type: integer
                 format: int32
+            X-Next-Cursor:
+              description: Opaque cursor for retrieving the next page. Returned on non-empty responses when a next page exists.
+              schema:
+                type: string
+            X-Prev-Cursor:
+              description: Opaque cursor for retrieving the previous page. Returned on non-empty responses when a previous page exists.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -1151,6 +1168,8 @@ paths:
         - $ref: '#/components/parameters/trait_fields'
         - $ref: '#/components/parameters/trait_acceptLanguage_header'
         - $ref: '#/components/parameters/trait_expand_references'
+        - $ref: '#/components/parameters/trait_cursor_next'
+        - $ref: '#/components/parameters/trait_cursor_prev'
 
   '/schema/{tenant}/custom-entities/{type}/instances/{id}':
     parameters:
@@ -1424,6 +1443,15 @@ paths:
       description: |-
         Returns all custom instances for provided type that match specified criteria.
 
+        Supports offset pagination (`pageNumber`, `pageSize`) and cursor pagination (`next`, `prev`). Cursor pagination is active when `next` or `prev` is provided.
+
+        In cursor mode:
+        - `next` and `prev` cannot be used together and return `400`.
+        - `pageNumber` is ignored.
+        - the `X-Total-Count` request header is ignored and the `X-Total-Count` response header is not returned.
+
+        If no sort is provided, results are returned in `_id:ASC` order. If a sort is provided, `_id:ASC` is appended as a tie-breaker when `_id` is not already part of the sort.
+
       tags:
         - Custom Instance
       requestBody:
@@ -1440,6 +1468,20 @@ paths:
       responses:
         '200':
           description: 'Custom instances succesfully retrieved'
+          headers:
+            X-Total-Count:
+              description: Total amount of custom instances for given criteria. Returned only for offset pagination when requested with the `X-Total-Count` header.
+              schema:
+                type: integer
+                format: int32
+            X-Next-Cursor:
+              description: Opaque cursor for retrieving the next page. Returned on non-empty responses when a next page exists.
+              schema:
+                type: string
+            X-Prev-Cursor:
+              description: Opaque cursor for retrieving the previous page. Returned on non-empty responses when a previous page exists.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -1544,6 +1586,8 @@ paths:
         - $ref: '#/components/parameters/trait_acceptLanguage_header'
         - $ref: '#/components/parameters/trait_fields'
         - $ref: '#/components/parameters/trait_expand_references'
+        - $ref: '#/components/parameters/trait_cursor_next'
+        - $ref: '#/components/parameters/trait_cursor_prev'
   '/schema/{tenant}/custom-entities/{type}/instances/bulk':
     parameters:
       - $ref: '#/components/parameters/tenant'
@@ -2674,6 +2718,26 @@ components:
         default: 60
         minimum: 1
         type: integer
+    trait_cursor_next:
+      name: next
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 4096
+      description: |
+        Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+        Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+        When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+    trait_cursor_prev:
+      name: prev
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 4096
+      description: |
+        Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
     trait_fields:
       name: fields
       in: query
