@@ -375,6 +375,33 @@ describe("SchemaService — custom instances (group D)", () => {
     expect(page.hasNextPage).toBe(true);
   });
 
+  it("searchInstances forwards pagination and cursor parameters to the query string", async () => {
+    let params = new URLSearchParams();
+    server.use(
+      http.post(`${INSTANCES}/search`, ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json(
+          [{ id: "i1", name: { en: "n" }, type: "shoe", owner: { type: "SERVICE", userId: "u" }, mixins: { size: 42 }, metadata: { version: 1 } }],
+          { headers: { "X-Next-Cursor": "cur-9" } },
+        );
+      }),
+    );
+
+    const page = await svc().searchInstances(
+      "shoe",
+      { size: { $gt: 40 } },
+      { pageNumber: 2, pageSize: 5, sort: "_id:ASC", next: "cur-8" },
+    );
+
+    expect(params.get("pageNumber")).toBe("2");
+    expect(params.get("pageSize")).toBe("5");
+    expect(params.get("sort")).toBe("_id:ASC");
+    expect(params.get("next")).toBe("cur-8");
+    expect(page.nextCursor).toBe("cur-9");
+    // Used to be hard-coded false regardless of what the server said.
+    expect(page.hasNextPage).toBe(true);
+  });
+
   it("keeps the totalCount flag out of the query string", async () => {
     let params = new URLSearchParams();
     let askedForTotals: string | null = null;

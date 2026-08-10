@@ -119,6 +119,20 @@ export interface ListCustomEntitiesOptions {
 /** Structured search filter body for {@link SchemaService.searchInstances}. */
 export type InstanceSearchBody = Record<string, unknown>;
 
+/** Pagination, sorting and cursor options for {@link SchemaService.searchInstances}. */
+export interface SearchInstancesQuery {
+  pageNumber?: number;
+  pageSize?: number;
+  /** e.g. `"_id:ASC"`. The server appends `_id:ASC` as a tie-breaker if absent. */
+  sort?: string;
+  /** See {@link ListInstancesQuery.next}. */
+  next?: string;
+  /** See {@link ListInstancesQuery.prev}. */
+  prev?: string;
+  /** Ask for `X-Total-Count`. Ignored by the server in cursor mode. */
+  totalCount?: boolean;
+}
+
 /** A reference entity (a schema attached to an uploaded JSON file). */
 export type SchemaReference = ReferenceResponse;
 

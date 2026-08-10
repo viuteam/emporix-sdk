@@ -14,6 +14,7 @@ import type {
   ListInstancesQuery,
   ListCustomEntitiesOptions,
   InstanceSearchBody,
+  SearchInstancesQuery,
   BulkPatchInstanceItem,
   BulkInstanceResult,
   SchemaReference,
@@ -41,6 +42,7 @@ export type {
   ListInstancesQuery,
   ListCustomEntitiesOptions,
   InstanceSearchBody,
+  SearchInstancesQuery,
   BulkPatchInstanceItem,
   BulkInstanceResult,
   SchemaReference,
@@ -472,19 +474,31 @@ export class SchemaService {
   /**
    * Structured search over a custom entity's instances
    * (`POST /instances/search`), wrapped in {@link PaginatedItems}.
+   *
+   * The `query` parameter is third and `auth` fourth. This used to forward no
+   * query parameters at all and report a hard-coded `hasNextPage: false`, so a
+   * search could only ever return the server's default first page.
    */
   async searchInstances<T = Record<string, unknown>>(
     type: string,
     body: InstanceSearchBody,
+    query: SearchInstancesQuery = {},
     auth: AuthContext = SERVICE,
   ): Promise<PaginatedItems<CustomInstance<T>>> {
-    const items = await this.ctx.http.request<CustomInstance<T>[]>({
-      method: "POST",
-      path: `${this.instancesBase(type)}/search`,
-      auth,
-      body,
-    });
-    return { items, pageNumber: 1, pageSize: items.length, hasNextPage: false };
+    const pageNumber = query.pageNumber ?? 1;
+    const pageSize = query.pageSize ?? 60;
+    const { totalCount, ...rest } = query;
+    return requestPage<CustomInstance<T>>(
+      this.ctx.http,
+      {
+        method: "POST",
+        path: `${this.instancesBase(type)}/search`,
+        auth,
+        body,
+        query: { ...rest, pageNumber, pageSize },
+      },
+      { pageNumber, pageSize, ...(totalCount === undefined ? {} : { totalCount }) },
+    );
   }
 
   // --- (E) References ------------------------------------------------------
