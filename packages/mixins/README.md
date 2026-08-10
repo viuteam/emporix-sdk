@@ -111,3 +111,15 @@ jobs:
 
 A new (Emporix-assigned) schema version surfaces as a PR bumping `mixins.lock.json`
 and the generated types — review the type diff and merge to adopt it.
+
+## Changelog
+
+npmjs.com renders only this README, never a changelog — the registry has no field
+for one. The per-version history lives here instead:
+
+- [`CHANGELOG.md`](https://github.com/viuteam/emporix-sdk/blob/main/packages/mixins/CHANGELOG.md)
+  — the whole history in one file. Also shipped inside the published tarball, so
+  [unpkg serves it](https://unpkg.com/@viu/emporix-mixins/CHANGELOG.md) straight from
+  the release artifact.
+- [Releases](https://github.com/viuteam/emporix-sdk/releases) — one entry per
+  published version, each linking the PR and the commit behind every change.
