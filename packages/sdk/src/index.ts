@@ -39,7 +39,7 @@ export type {
   TokenStorage,
 } from "./core/session-storage";
 export { HttpClient } from "./core/http";
-export type { RequestOptions, HttpClientOptions } from "./core/http";
+export type { RequestOptions, HttpClientOptions, HttpResult } from "./core/http";
 export { EmporixClient } from "./client";
 export { createEmporixClient } from "./create-emporix-client";
 export type { ServiceClass } from "./create-emporix-client";

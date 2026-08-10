@@ -74,3 +74,41 @@ describe("redact", () => {
     });
   });
 });
+
+describe("HttpClient.requestWithMeta", () => {
+  it("returns the response headers alongside the parsed body", async () => {
+    server.use(
+      mhttp.get("https://api.emporix.io/paged", () =>
+        HttpResponse.json([{ id: "a" }], {
+          headers: { "X-Total-Count": "42", "X-Next-Cursor": "cur-1" },
+        }),
+      ),
+    );
+
+    const r = await client().requestWithMeta<{ id: string }[]>({
+      method: "GET",
+      path: "/paged",
+      auth: { kind: "service" },
+    });
+
+    expect(r.data).toEqual([{ id: "a" }]);
+    expect(r.headers.get("X-Total-Count")).toBe("42");
+    expect(r.headers.get("X-Next-Cursor")).toBe("cur-1");
+  });
+
+  it("leaves request() returning the body alone", async () => {
+    server.use(
+      mhttp.get("https://api.emporix.io/plain", () =>
+        HttpResponse.json({ ok: true }, { headers: { "X-Total-Count": "7" } }),
+      ),
+    );
+
+    const body = await client().request<{ ok: boolean }>({
+      method: "GET",
+      path: "/plain",
+      auth: { kind: "service" },
+    });
+
+    expect(body).toEqual({ ok: true });
+  });
+});

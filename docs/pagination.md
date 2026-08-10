@@ -69,8 +69,24 @@ for await (const x of iterateAll<X>((pageNumber) => fetchPage(pageNumber))) {
 | `useMySegmentCategories` / `useMySegmentCategoriesInfinite` | `PaginatedItems<Category>` |
 | `client.imports.listRuns` / `listRunErrors` / `searchRecords` / `searchStreamRecords` | `ImportPage<T>` |
 
-## Why not absolute totals?
+## Absolute totals and cursors
 
-Emporix returns `X-Total-Count` headers on some endpoints, but the SDK does not currently expose response headers to facades. `hasNextPage` covers infinite scroll cleanly; absolute totals (for "X of Y" UIs) will be added when there's a concrete consumer that needs them.
+`PaginatedItems` carries three optional fields beyond the four above:
 
-The import service is the exception, and not by a change to this rule: it reports `totalElements` and `totalPages` **in the response body**, so no header access is needed. Anywhere else, "X of Y" still needs the headers.
+| field | when it is set |
+|---|---|
+| `totalCount` | the caller passed `totalCount: true` **and** the endpoint answered with `X-Total-Count` |
+| `nextCursor` / `prevCursor` | the endpoint offers cursor pagination (today: the schema service's custom instances) |
+
+`hasNextPage` uses whichever is most precise: a `nextCursor` means there is a next page,
+a known `totalCount` gives `pageNumber * pageSize < totalCount`, and otherwise it stays
+the `items.length === pageSize` guess. An **absent** cursor header means "this endpoint
+does not offer cursors", not "last page".
+
+Totals are opt-in per call rather than always on: Emporix computes the count with a second
+query, so defaulting it on would put that cost on every list a storefront issues.
+
+No facade surfaces `totalCount` yet — that arrives with the facade migration. The import
+service remains the exception that needs none of this: it reports `totalElements` and
+`totalPages` **in the response body**, so `ImportPage` derives `hasNextPage` from the
+totals without touching a header. See [import.md](./import.md#pagination).
