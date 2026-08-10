@@ -121,6 +121,12 @@ Not exported from `index.ts`. There is no external consumer, and an internal hel
 change shape without a major bump. Exporting it later — as `iterateAll` is exported —
 stays available.
 
+**`core/context.ts`.** `PaginatedItems<T>` gains three optional fields in this PR, not
+in C: `totalCount?: number`, `nextCursor?: string`, `prevCursor?: string`. They are what
+`requestPage` returns, so the contract has to land with the helper that produces it. All
+three are optional, so nothing breaks; `ImportPage` is the precedent for extending this
+contract rather than forking it.
+
 **`hasNextPage` gains three precision tiers**, evaluated in order:
 
 1. `X-Next-Cursor` present → `true`. Exact: the spec returns it only when a next page
@@ -166,12 +172,22 @@ blocker.
 
 ### PR C — totals across the repo
 
-`PaginatedItems<T>` gains `totalCount?: number`. Optional, so nothing breaks; `ImportPage`
-is the precedent for extending this contract rather than forking it.
+The contract already changed in PR A. What is left is the migration, and the 23 methods
+are not 23 equal cases:
 
-The remaining 21 methods move to `requestPage`, which replaces their four duplicated
-lines — schema's `listInstances` and `searchInstances` already moved in PR B, because
-cursors forced them to. Each paginated query interface gains `totalCount?: boolean`.
+- **19 issue a paginated request themselves.** Two of them (`listInstances`,
+  `searchInstances`) already moved in PR B because cursors forced them to, leaving **17**
+  for this PR.
+- **2 delegate** to a sibling — `products.searchByName` calls `products.search`,
+  `media.listForProduct` calls `media.list`. They inherit totals for free and only need
+  `totalCount?: boolean` added to their own parameter type so it can be forwarded.
+- **2 are excluded on purpose.** `segments.listMyProducts` and `listMyCategories` page
+  over the *assignments* list and then hydrate the hits through a second call. Their
+  `X-Total-Count` would count assignments, not the products or categories the caller sees
+  — a number that is wrong in exactly the way that is hardest to notice. They keep the
+  `items.length === pageSize` guess.
+
+Each migrated method's query interface gains `totalCount?: boolean`.
 
 React needs no structural change: the hooks pass `PaginatedItems` straight through, and
 `emporixKey` folds the call arguments into the query key, so `totalCount: true` produces
