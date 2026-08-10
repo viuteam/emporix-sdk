@@ -20,6 +20,23 @@ export interface PaginatedItems<T> {
   pageNumber: number;
   pageSize: number;
   hasNextPage: boolean;
+  /**
+   * Absolute number of matches, when the caller asked for it and the endpoint
+   * answered. Opt-in per call (`totalCount: true`), because Emporix computes it
+   * with a second query — see `core/paged.ts`.
+   *
+   * Always `undefined` in cursor mode: the server ignores the request header
+   * and omits the response header there.
+   */
+  totalCount?: number;
+  /**
+   * Opaque cursor for the next page, on the endpoints that offer one (today:
+   * the schema service's custom instances). Pass it back as the `next` query
+   * parameter. Absence means "this endpoint said nothing", NOT "last page".
+   */
+  nextCursor?: string;
+  /** Opaque cursor for the previous page. Same caveat as {@link nextCursor}. */
+  prevCursor?: string;
 }
 
 /** Default `AuthContext` applied by a service when the caller passes none. */
