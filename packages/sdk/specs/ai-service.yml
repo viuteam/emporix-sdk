@@ -1066,7 +1066,15 @@ paths:
           $ref: '#/components/responses/409_resp_common'
       description: |-
         Updates or creates a specified tool by replacing all of its existing data with data from the request body.
-        If the `metadata.version` is provided then optimistic locking is enabled and version must match the version in the database.`
+        If the `metadata.version` is provided then optimistic locking is enabled and version must match the version in the database.
+
+        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        The `teams` native tool type and its configuration fields are in preview. Slack `config.defaultInboundAgentId` and `config.allowedOperations` are in preview.
       security:
         - OAuth2:
             - ai.agent_manage
@@ -2289,6 +2297,7 @@ components:
         * `teams`
 
           **The `teams` value is in preview mode** - some of the features may not be fully operational yet.
+          Slack fields `defaultInboundAgentId` and `allowedOperations` are in preview.
     BaseNativeTool:
       type: object
       properties:
@@ -2556,12 +2565,43 @@ components:
                 - $ref: '#/components/schemas/OpenAiRagEmporixEmbeddingNativeToolConfigResponse'
                 - $ref: '#/components/schemas/SelfHostedOllamaRagEmporixEmbeddingNativeToolConfigResponse'
 
+    SlackAllowedOperations:
+      type: string
+      enum:
+        - sendMessage
+        - createChannel
+        - inviteParticipants
+        - collaborateOnChannel
+      description: |-
+        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Slack native tool operation identifier.
     SlackNativeToolConfigResponse:
       type: object
+      description: |-
+        ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Configuration of a Slack native tool instance. Fields `defaultInboundAgentId` and `allowedOperations` are in preview.
       properties:
         teamId:
           type: string
           description: Unique identifier of the Slack workspace (team) associated with the request. Used to distinguish the source Slack environment when handling events or API calls.
+        defaultInboundAgentId:
+          type: string
+          description: Agent ID that handles inbound Slack replies when no conversation-specific routing context exists yet. This field is in preview.
+        allowedOperations:
+          type: array
+          items:
+            $ref: '#/components/schemas/SlackAllowedOperations'
+          description: Operations the tool instance exposes to assigned agents. At least one value is required when the tool is enabled. This field is in preview.
       required:
         - teamId
     SlackNativeToolConfigRequest:
@@ -2979,6 +3019,11 @@ components:
               description: Type of the LLM Provider. The self-hosted LLM allows you to provide your own LLMs. When using this providers, the `selfHostedParams.url` property cannot be omitted.
               enum: [ self_hosted_ollama, self_hosted_vllm ]
               example: self_hosted_ollama
+            baseProvider:
+              type: string
+              description: Optional. Indicates which cloud LLM provider API the self-hosted endpoint is compatible with (OPENAI, GOOGLE, or ANTHROPIC). Applies when provider is self_hosted_ollama or self_hosted_vllm. Used to select the correct request/response conventions for that backend. Ignored for non–self-hosted providers.
+              enum: [ ANTHROPIC, GOOGLE, OPENAI ]
+              example: OPENAI
           required:
             - provider
     SelfHostedLlmRequest:
@@ -3169,9 +3214,11 @@ components:
         allowedOperations:
           type: array
           items:
-            $ref: '#/components/schemas/TeamsAllowedOperations'
+            oneOf:
+              - $ref: '#/components/schemas/TeamsAllowedOperations'
+              - $ref: '#/components/schemas/SlackAllowedOperations'
           description: |-
-            Optional per-agent override of allowed MS Teams operations. When omitted, the tool instance defaults apply.
+            Optional per-agent override of allowed native tool operations. When omitted, the tool instance defaults apply. Supported for MS Teams and Slack (preview).
 
             **The `allowedOperations` field is in preview mode** - some of the features may not be fully operational yet.
       required:
@@ -3195,7 +3242,8 @@ components:
       enum:
         - endpoint
         - slack
-      description: Type of the trigger. The `slack` trigger type can be used only for `support` agent type.
+        - teams
+      description: Type of the trigger. The `slack` and `teams` trigger types can be used only for `support` agent type.
     CommerceEventsTriggerType:
       type: string
       enum:
@@ -4721,6 +4769,11 @@ components:
         type: slack
         config:
           teamId: "12345"
+          defaultInboundAgentId: "slack-agent-id"
+          allowedOperations:
+            - sendMessage
+            - collaborateOnChannel
+            - inviteParticipants
     SlackNativeToolsResponse:
       value:
         - id: "slack-1"
@@ -4729,6 +4782,10 @@ components:
           type: slack
           config:
             teamId: "12345"
+            defaultInboundAgentId: "slack-agent-id"
+            allowedOperations:
+              - sendMessage
+              - collaborateOnChannel
     ConversationResponse:
       value:
         conversationId: "19:abc123@thread.tacv2"
@@ -4874,6 +4931,11 @@ components:
         config:
           teamId: "12345"
           botToken: xoxb-35354
+          defaultInboundAgentId: "slack-agent-id"
+          allowedOperations:
+            - sendMessage
+            - collaborateOnChannel
+            - inviteParticipants
     TeamsNativeToolRequest:
       value:
         name: MS Teams Support Tool
