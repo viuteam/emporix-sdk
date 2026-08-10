@@ -13,7 +13,11 @@ export interface RequestOptions {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   auth: AuthContext;
-  query?: Record<string, string | number | undefined>;
+  /**
+   * Query parameters. Booleans are serialized with `String(v)`, so a facade can
+   * pass one straight through instead of stringifying it at the call site.
+   */
+  query?: Record<string, string | number | boolean | undefined>;
   body?: unknown;
   /** Extra request headers (merged before auth; cannot override Authorization). */
   headers?: Record<string, string>;
@@ -26,6 +30,18 @@ export interface RequestOptions {
    * placeOrder would duplicate the order/charge).
    */
   idempotent?: boolean;
+}
+
+/**
+ * A successful response: the parsed body plus its headers.
+ *
+ * `Headers` rather than the whole `Response` on purpose — by the time this
+ * returns, the body has been consumed, and a `Response` whose body cannot be
+ * read again is a trap in a caller's hands.
+ */
+export interface HttpResult<T> {
+  data: T;
+  headers: Headers;
 }
 
 /** Construction options for {@link HttpClient}. */
@@ -92,7 +108,27 @@ export class HttpClient {
     };
   }
 
+  /**
+   * Issues a request and returns the parsed body. Retries 5xx/429 on idempotent
+   * methods and re-auths once on a 401 — see {@link send}.
+   */
   async request<T = unknown>(o: RequestOptions): Promise<T> {
+    return (await this.send<T>(o)).data;
+  }
+
+  /**
+   * Like {@link request}, but also hands back the response headers.
+   *
+   * Emporix puts pagination metadata there — `X-Total-Count` and, on the schema
+   * service's custom instances, `X-Next-Cursor` / `X-Prev-Cursor`. Facades
+   * should reach for `core/paged.ts`'s `requestPage` rather than calling this
+   * directly; it exists for metadata that does not fit the paginated shape.
+   */
+  async requestWithMeta<T = unknown>(o: RequestOptions): Promise<HttpResult<T>> {
+    return this.send<T>(o);
+  }
+
+  private async send<T>(o: RequestOptions): Promise<HttpResult<T>> {
     const requestId = `req-${++requestSeq}`;
     const log = this.opts.logger.child({ requestId });
     const url = new URL(this.opts.host + o.path);
@@ -171,7 +207,7 @@ export class HttpClient {
       const parsed = text ? safeJson(text) : undefined;
       if (res.ok) {
         log.debug("http ok", { status: res.status });
-        return parsed as T;
+        return { data: parsed as T, headers: res.headers };
       }
 
       // 401 asymmetry.
