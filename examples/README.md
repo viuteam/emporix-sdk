@@ -10,6 +10,7 @@ and run. Pick by the question you have.
 | **a complete storefront** | [`storefront-demo`](./storefront-demo) | Vite + React Router |
 | Next with client-side hooks | [`next-app-router`](./next-app-router) | Next 16 App Router |
 | Next with **no token in the browser** | [`next-server-first`](./next-server-first) | Next 16 App Router |
+| a **Managed Dashboard module** (host-owned token) | [`md-module`](./md-module) | Vite + Module Federation |
 
 ## `shared/` is not a demo
 
@@ -78,6 +79,7 @@ pnpm -r --filter "./packages/*" build   # examples typecheck against dist/
 | `storefront-demo` | `pnpm -F @viu/emporix-examples-storefront-demo dev` | none — entered in the app |
 | `next-app-router` | `pnpm -F @viu/emporix-examples-next-app-router dev` | `NEXT_PUBLIC_EMPORIX_TENANT` |
 | `next-server-first` | `pnpm -F @viu/emporix-examples-next-server-first dev` | `.env.local`, see its `.env.example` |
+| `md-module` | `pnpm -F @viu/emporix-examples-md-module dev` | `.env.local` — `VITE_API_URL`, `VITE_DEMO_TENANT`, `VITE_DEMO_LANGUAGE`, `VITE_DEMO_TOKEN`; see its [README](./md-module/README.md) |
 
 `node-server`, `vite-spa` and `next-app-router` fall back to the tenant
 `mytenant`, which does not exist — set the variable or you get 404s that look
