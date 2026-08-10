@@ -1,5 +1,53 @@
 # @viu/emporix-sdk
 
+## 2.32.0
+
+### Minor Changes
+
+- [#252](https://github.com/viuteam/emporix-sdk/pull/252) [`27623a1`](https://github.com/viuteam/emporix-sdk/commit/27623a1dc14ebfc24b973fb71e75e0d99c9f6fe6) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): expose response headers to facades
+
+  `HttpClient.requestWithMeta` returns the parsed body together with the response
+  `Headers`, and `PaginatedItems` gains optional `totalCount`, `nextCursor` and
+  `prevCursor`. Nothing surfaces them yet; this is the groundwork that lets the
+  facades read Emporix's `X-Total-Count` and cursor headers at all.
+
+  `RequestOptions.query` also widens to accept booleans, so a facade can pass one
+  through instead of stringifying it at the call site.
+
+- [#254](https://github.com/viuteam/emporix-sdk/pull/254) [`47570cd`](https://github.com/viuteam/emporix-sdk/commit/47570cdf2a5ab10bd17c385610367daef7aa73ee) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): opt into absolute match counts on the list facades
+
+  Pass `totalCount: true` to any list facade to get `X-Total-Count` back as
+  `page.totalCount`, and an exact `hasNextPage` instead of the page-size guess.
+  Off by default: Emporix computes the count with a second query, so turning it
+  on for every list would be a silent cost on every storefront.
+
+  From React the four single-page list hooks accept the same flag — `useProducts`,
+  `useProductSearch`, `useCategories`, `useCategorySearch`. It is part of the query
+  key, so a totals request is never served a cached page without them. The
+  `*Infinite` hooks do not offer it: `hasNextPage` already terminates them.
+
+  Three facades deliberately keep the guess — `categories.productsIn`,
+  `segments.listMyProducts` and `segments.listMyCategories`. They page over an
+  assignments list and hydrate the hits in a second call, so a total there would
+  count assignments rather than the items returned.
+
+- [#253](https://github.com/viuteam/emporix-sdk/pull/253) [`4aa20c0`](https://github.com/viuteam/emporix-sdk/commit/4aa20c00e854adb4cbf54ce9714adf5bc26120b7) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): support cursor pagination on schema custom instances
+
+  `listInstances` and `searchInstances` now declare `next` / `prev`, return the
+  cursors the server sends back, and `searchInstances` finally forwards
+  `pageNumber`, `pageSize` and `sort` — it forwarded none of them and always
+  claimed `hasNextPage: false`, so a search could only ever return the server's
+  default first page. New `listAllInstances` iterates a whole type by cursor.
+
+  Note: `searchInstances` gained a third `query` parameter, so a positional `auth`
+  argument moves to fourth.
+
+### Patch Changes
+
+- [#250](https://github.com/viuteam/emporix-sdk/pull/250) [`9094d8e`](https://github.com/viuteam/emporix-sdk/commit/9094d8e447b45644f5c46f765efd8dfc77cc44a7) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+
+  Updated services: schema
+
 ## 2.31.1
 
 ### Patch Changes
