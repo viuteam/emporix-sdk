@@ -880,6 +880,18 @@ cannot pull it in at all, because `cookies()` does not exist in a proxy context.
 client-side import a build error. `./public-client` is the one entry that ships
 `"use client"`.
 
+## Changelog
+
+npmjs.com renders only this README, never a changelog — the registry has no field
+for one. The per-version history lives here instead:
+
+- [`CHANGELOG.md`](https://github.com/viuteam/emporix-sdk/blob/main/packages/next/CHANGELOG.md)
+  — the whole history in one file. Also shipped inside the published tarball, so
+  [unpkg serves it](https://unpkg.com/@viu/emporix-sdk-next/CHANGELOG.md) straight
+  from the release artifact.
+- [Releases](https://github.com/viuteam/emporix-sdk/releases) — one entry per
+  published version, each linking the PR and the commit behind every change.
+
 ## Authors
 
 - **Dominic Fritschi** — _Maintainer_ — [VIU](https://www.viu.ch)
