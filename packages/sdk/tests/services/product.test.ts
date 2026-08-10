@@ -67,6 +67,10 @@ describe("ProductService", () => {
       pageNumber: 1,
       pageSize: 2,
       hasNextPage: true,
+      // The shared fixture above answers with `X-Total-Count: 3` whether or not
+      // it was asked to. A total that arrives unasked is still a real total, so
+      // the SDK reports it rather than discarding it — as this facade used to.
+      totalCount: 3,
     });
   });
 
@@ -417,5 +421,46 @@ describe("ProductService.search — built filters", () => {
     };
     await svc().search(filter);
     expect((seen as URLSearchParams | null)?.get("q")).toBe(filter.toString());
+  });
+});
+
+describe("ProductService — absolute totals", () => {
+  it("asks for X-Total-Count only on request and reports the exact total", async () => {
+    let asked: string | null = null;
+    server.use(
+      // Models a real Emporix endpoint: the count header comes back only when
+      // the request opted in.
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        asked = request.headers.get("X-Total-Count");
+        return HttpResponse.json(
+          [{ id: "p1" }],
+          asked === "true" ? { headers: { "X-Total-Count": "137" } } : {},
+        );
+      }),
+    );
+
+    const plain = await svc().list({ pageNumber: 1, pageSize: 50 });
+    expect(asked).toBeNull();
+    expect(plain.totalCount).toBeUndefined();
+
+    const withTotals = await svc().list({ pageNumber: 1, pageSize: 50, totalCount: true });
+    expect(asked).toBe("true");
+    expect(withTotals.totalCount).toBe(137);
+    expect(withTotals.hasNextPage).toBe(true);
+  });
+
+  it("keeps the totalCount flag out of the query string", async () => {
+    let params = new URLSearchParams();
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    await svc().list({ totalCount: true });
+
+    expect(params.get("totalCount")).toBeNull();
+    expect(params.get("pageNumber")).toBe("1");
   });
 });

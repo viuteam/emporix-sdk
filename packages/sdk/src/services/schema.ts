@@ -1,6 +1,6 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
-import type { AuthContext } from "../core/auth";
 import { requestPage } from "../core/paged";
+import type { AuthContext } from "../core/auth";
 import type {
   Schema,
   SchemaDraft,
@@ -108,13 +108,20 @@ export class SchemaService {
     const q: Record<string, string | number> = { pageNumber, pageSize };
     if (query.q) q.q = query.q;
     if (query.type) q.type = query.type;
-    const items = await this.ctx.http.request<Schema[]>({
-      method: "GET",
-      path: this.schemasBase(),
-      auth,
-      query: q,
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    return requestPage<Schema>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: this.schemasBase(),
+        auth,
+        query: q,
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(query.totalCount === undefined ? {} : { totalCount: query.totalCount }),
+      },
+    );
   }
 
   /** Retrieve one schema by id. */
@@ -559,13 +566,20 @@ export class SchemaService {
       if (query.q) q.q = query.q;
       if (query.fields) q.fields = query.fields;
       if (query.type) q.type = query.type;
-      const items = await this.ctx.http.request<SchemaReference[]>({
-        method: "GET",
-        path: this.referencesBase(),
-        auth,
-        query: q,
-      });
-      return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+      return requestPage<SchemaReference>(
+        this.ctx.http,
+        {
+          method: "GET",
+          path: this.referencesBase(),
+          auth,
+          query: q,
+        },
+        {
+          pageNumber,
+          pageSize,
+          ...(query.totalCount === undefined ? {} : { totalCount: query.totalCount }),
+        },
+      );
     },
 
     /** Retrieve one reference by id. */

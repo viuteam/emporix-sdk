@@ -1,5 +1,6 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import { iterateAll } from "../core/context";
+import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import { resolveQuery, type QueryFor } from "../core/query";
 import type {
@@ -117,18 +118,25 @@ export class ProductService {
 
   /** One page of products. */
   async list(
-    params: { pageNumber?: number; pageSize?: number } = {},
+    params: { pageNumber?: number; pageSize?: number; totalCount?: boolean } = {},
     auth: AuthContext = ANON,
   ): Promise<PaginatedItems<Product>> {
     const pageNumber = params.pageNumber ?? 1;
     const pageSize = params.pageSize ?? 50;
-    const items = await this.ctx.http.request<Product[]>({
-      method: "GET",
-      path: `/product/${this.ctx.tenant}/products`,
-      query: { pageNumber, pageSize },
-      auth,
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    return requestPage<Product>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: `/product/${this.ctx.tenant}/products`,
+        query: { pageNumber, pageSize },
+        auth,
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(params.totalCount === undefined ? {} : { totalCount: params.totalCount }),
+      },
+    );
   }
 
   /** Async-iterates every product across pages. */
@@ -144,19 +152,26 @@ export class ProductService {
    */
   async search(
     query: QueryFor<"PRODUCT">,
-    params: { pageNumber?: number; pageSize?: number } = {},
+    params: { pageNumber?: number; pageSize?: number; totalCount?: boolean } = {},
     auth: AuthContext = ANON,
   ): Promise<PaginatedItems<Product>> {
     const q = resolveQuery(query, { compoundLogicalQuery: true });
     const pageNumber = params.pageNumber ?? 1;
     const pageSize = params.pageSize ?? 50;
-    const items = await this.ctx.http.request<Product[]>({
-      method: "GET",
-      path: `/product/${this.ctx.tenant}/products`,
-      query: { q, pageNumber, pageSize },
-      auth,
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    return requestPage<Product>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: `/product/${this.ctx.tenant}/products`,
+        query: { q, pageNumber, pageSize },
+        auth,
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(params.totalCount === undefined ? {} : { totalCount: params.totalCount }),
+      },
+    );
   }
 
   /**
@@ -177,7 +192,9 @@ export class ProductService {
    */
   async searchByName(
     query: string,
-    params: { pageNumber?: number; pageSize?: number } = {},
+    // Makes no request of its own — `totalCount` is here purely so it can be
+    // forwarded to `search`, which is where the header actually gets sent.
+    params: { pageNumber?: number; pageSize?: number; totalCount?: boolean } = {},
     auth: AuthContext = ANON,
   ): Promise<PaginatedItems<Product>> {
     // Replaced by a space rather than dropped, so «Access(JIT)» does not become

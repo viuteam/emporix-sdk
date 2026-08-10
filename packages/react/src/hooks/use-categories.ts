@@ -50,7 +50,8 @@ export function useSubcategories(
 
 /** Fetches one page of categories. */
 export function useCategories(
-  params: { pageNumber?: number; pageSize?: number } = {},
+  // See the note on `useProducts` — `totalCount` reaches the facade and the key.
+  params: { pageNumber?: number; pageSize?: number; totalCount?: boolean } = {},
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Category>> {
   const { client } = useEmporix();
@@ -186,7 +187,7 @@ export function useProductsInCategoryInfinite(
 /** Category search. Accepts a raw `q` string or a built filter. Disabled when empty/whitespace. */
 export function useCategorySearch(
   query: QueryFor<"CATEGORY"> | undefined,
-  params: { pageNumber?: number; pageSize?: number } = {},
+  params: { pageNumber?: number; pageSize?: number; totalCount?: boolean } = {},
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Category>> {
   const { client } = useEmporix();

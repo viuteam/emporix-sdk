@@ -85,6 +85,8 @@ export interface ListSchemasQuery {
   type?: SchemaTypeName;
   pageNumber?: number;
   pageSize?: number;
+  /** Ask for `X-Total-Count` — becomes a request header, not a query parameter. */
+  totalCount?: boolean;
 }
 
 /**
@@ -166,4 +168,6 @@ export interface ListSchemaReferencesQuery {
   fields?: string;
   /** Restrict to references attached to this entity type (e.g. `PRODUCT`). */
   type?: string;
+  /** Ask for `X-Total-Count` — becomes a request header, not a query parameter. */
+  totalCount?: boolean;
 }

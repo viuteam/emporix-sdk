@@ -4,7 +4,13 @@ import { CategoryService } from "../../src/services/category";
 function ctxWith(request: ReturnType<typeof vi.fn>): ConstructorParameters<typeof CategoryService>[0] {
   return {
     tenant: "acme",
-    http: { request },
+    // `requestWithMeta` is derived from the same stub so a paginated facade
+    // (which goes through `core/paged.ts`) sees the same answers, with no
+    // pagination headers.
+    http: {
+      request,
+      requestWithMeta: async (o: unknown) => ({ data: await request(o), headers: new Headers() }),
+    },
     tokenProvider: { getToken: vi.fn() },
     logger: {
       trace: vi.fn(),

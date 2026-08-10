@@ -1,4 +1,5 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
+import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import { resolveQuery, type QueryFor } from "../core/query";
 import type {
@@ -59,6 +60,8 @@ export interface ListSalesOrdersOptions {
   fields?: string;
   /** A `q` filter — raw DSL string or a built filter for entity "ORDER". */
   q?: QueryFor<"ORDER">;
+  /** Ask for `X-Total-Count` — becomes a request header, not a query parameter. */
+  totalCount?: boolean;
 }
 
 /** Options for `orders.listForLegalEntity`. */
@@ -69,6 +72,8 @@ export interface ListLegalEntityOrdersOptions {
   saasToken?: string;
   /** A `q` filter — raw DSL string or a built filter for entity "ORDER". */
   q?: QueryFor<"ORDER">;
+  /** Ask for `X-Total-Count` — becomes a request header, not a query parameter. */
+  totalCount?: boolean;
 }
 
 /** Optional fields supported by the order-v2 list endpoint. */
@@ -81,6 +86,8 @@ export interface ListMyOrdersOptions {
   saasToken?: string;
   /** A `q` filter — raw DSL string or a built filter (e.g. mixinQuery for entity "ORDER"). */
   q?: QueryFor<"ORDER">;
+  /** Ask for `X-Total-Count` — becomes a request header, not a query parameter. */
+  totalCount?: boolean;
 }
 
 /** Options for single-order reads (saas-token only). */
@@ -147,18 +154,24 @@ export class OrdersService {
       setIfDefined(query, "q", resolveQuery(opts.q, { compoundLogicalQuery: false }));
     }
     const headers = this.saasHeader(opts.saasToken);
-    // order-v2 returns a bare JSON array (the total count lives in the
-    // X-Total-Count header), not a {items,...} envelope — so wrap it into the
-    // shared PaginatedItems shape like every other paginated service.
-    // hasNextPage is inferred from the page being full.
-    const items = await this.ctx.http.request<Order[]>({
-      method: "GET",
-      path: this.base(),
-      query,
-      auth,
-      ...(headers ? { headers } : {}),
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    // order-v2 returns a bare JSON array, not a {items,...} envelope — the total
+    // lives in the X-Total-Count header, which `requestPage` reads when the
+    // caller opts in with `totalCount: true`.
+    return requestPage<Order>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: this.base(),
+        query,
+        auth,
+        ...(headers ? { headers } : {}),
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(opts.totalCount === undefined ? {} : { totalCount: opts.totalCount }),
+      },
+    );
   }
 
   /** Fetches one of the calling customer's orders by id. */
@@ -222,14 +235,21 @@ export class OrdersService {
       setIfDefined(query, "q", resolveQuery(opts.q, { compoundLogicalQuery: false }));
     }
     const headers = this.saasHeader(opts.saasToken);
-    const items = await this.ctx.http.request<SalesOrder[]>({
-      method: "GET",
-      path: `/order-v2/${this.ctx.tenant}/legal-entity-orders/${legalEntityId}`,
-      query,
-      auth,
-      ...(headers ? { headers } : {}),
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    return requestPage<SalesOrder>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: `/order-v2/${this.ctx.tenant}/legal-entity-orders/${legalEntityId}`,
+        query,
+        auth,
+        ...(headers ? { headers } : {}),
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(opts.totalCount === undefined ? {} : { totalCount: opts.totalCount }),
+      },
+    );
   }
 
   /**
@@ -306,13 +326,20 @@ export class SalesOrdersService {
     if (opts.q !== undefined) {
       setIfDefined(query, "q", resolveQuery(opts.q, { compoundLogicalQuery: false }));
     }
-    const items = await this.ctx.http.request<SalesOrder[]>({
-      method: "GET",
-      path: this.base(),
-      query,
-      auth,
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    return requestPage<SalesOrder>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: this.base(),
+        query,
+        auth,
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(opts.totalCount === undefined ? {} : { totalCount: opts.totalCount }),
+      },
+    );
   }
 
   /** Searches tenant sales-orders (`POST /salesorders/search`, body carries the `q` filter). */

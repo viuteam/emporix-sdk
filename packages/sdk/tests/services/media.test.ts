@@ -434,3 +434,43 @@ describe("MediaService.download", () => {
     await expect(svc().download("broken")).rejects.toBeInstanceOf(EmporixError);
   });
 });
+
+describe("MediaService — absolute totals", () => {
+  it("asks for X-Total-Count only on request and reports the exact total", async () => {
+    let asked: string | null = null;
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets", ({ request }) => {
+        asked = request.headers.get("X-Total-Count");
+        return HttpResponse.json(
+          [{ id: "a1" }],
+          asked === "true" ? { headers: { "X-Total-Count": "3" } } : {},
+        );
+      }),
+    );
+
+    const plain = await svc().list({ pageSize: 60 });
+    expect(asked).toBeNull();
+    expect(plain.totalCount).toBeUndefined();
+
+    const withTotals = await svc().list({ pageSize: 60, totalCount: true });
+    expect(asked).toBe("true");
+    expect(withTotals.totalCount).toBe(3);
+    // 1 * 60 >= 3, so this is the last page.
+    expect(withTotals.hasNextPage).toBe(false);
+  });
+
+  it("keeps the totalCount flag out of the query string", async () => {
+    let params = new URLSearchParams();
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets", ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    await svc().list({ q: "name:hero", totalCount: true });
+
+    expect(params.get("totalCount")).toBeNull();
+    expect(params.get("q")).toBe("name:hero");
+  });
+});

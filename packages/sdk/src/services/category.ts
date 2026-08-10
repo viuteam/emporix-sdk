@@ -1,5 +1,6 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import { iterateAll } from "../core/context";
+import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import { resolveQuery, type QueryFor } from "../core/query";
 import type { Product } from "./product";
@@ -77,18 +78,25 @@ export class CategoryService {
 
   /** One page of categories. */
   async list(
-    params: { pageNumber?: number; pageSize?: number } = {},
+    params: { pageNumber?: number; pageSize?: number; totalCount?: boolean } = {},
     auth: AuthContext = ANON,
   ): Promise<PaginatedItems<Category>> {
     const pageNumber = params.pageNumber ?? 1;
     const pageSize = params.pageSize ?? 50;
-    const items = await this.ctx.http.request<Category[]>({
-      method: "GET",
-      path: `/category/${this.ctx.tenant}/categories`,
-      query: { pageNumber, pageSize },
-      auth,
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    return requestPage<Category>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: `/category/${this.ctx.tenant}/categories`,
+        query: { pageNumber, pageSize },
+        auth,
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(params.totalCount === undefined ? {} : { totalCount: params.totalCount }),
+      },
+    );
   }
 
   /**
@@ -98,19 +106,26 @@ export class CategoryService {
    */
   async search(
     query: QueryFor<"CATEGORY">,
-    params: { pageNumber?: number; pageSize?: number } = {},
+    params: { pageNumber?: number; pageSize?: number; totalCount?: boolean } = {},
     auth: AuthContext = ANON,
   ): Promise<PaginatedItems<Category>> {
     const q = resolveQuery(query, { compoundLogicalQuery: false });
     const pageNumber = params.pageNumber ?? 1;
     const pageSize = params.pageSize ?? 50;
-    const items = await this.ctx.http.request<Category[]>({
-      method: "GET",
-      path: `/category/${this.ctx.tenant}/categories`,
-      query: { q, pageNumber, pageSize },
-      auth,
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    return requestPage<Category>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: `/category/${this.ctx.tenant}/categories`,
+        query: { q, pageNumber, pageSize },
+        auth,
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(params.totalCount === undefined ? {} : { totalCount: params.totalCount }),
+      },
+    );
   }
 
   /** Async-iterates every category across pages. */
@@ -191,6 +206,12 @@ export class CategoryService {
    * references, and resolves them to full products via `/products/search`.
    * `hasNextPage` reflects the assignments page (the source of truth for
    * pagination).
+   *
+   * No `totalCount` opt-in here, deliberately. `X-Total-Count` on the
+   * assignments request would count **assignments** — including the `CATEGORY`
+   * references filtered out below — not the products this returns. A number
+   * that is wrong in the way that is hardest to notice. Same reason
+   * `segments.listMyProducts` stays on the guess.
    */
   async productsIn(
     categoryId: string,
@@ -363,27 +384,34 @@ export class CategoryService {
    */
   async searchByQuery(
     query: QueryFor<"CATEGORY">,
-    params: { pageNumber?: number; pageSize?: number; sort?: string; showRoots?: boolean; showUnpublished?: boolean } = {},
+    params: { pageNumber?: number; pageSize?: number; sort?: string; showRoots?: boolean; showUnpublished?: boolean; totalCount?: boolean } = {},
     auth: AuthContext = ANON,
   ): Promise<PaginatedItems<Category>> {
     const q = resolveQuery(query, { compoundLogicalQuery: false });
     const pageNumber = params.pageNumber ?? 1;
     const pageSize = params.pageSize ?? 50;
-    const items = await this.ctx.http.request<Category[]>({
-      method: "POST",
-      path: `/category/${this.ctx.tenant}/categories/search`,
-      query: {
+    return requestPage<Category>(
+      this.ctx.http,
+      {
+        method: "POST",
+        path: `/category/${this.ctx.tenant}/categories/search`,
+        query: {
+          pageNumber,
+          pageSize,
+          ...(params.sort === undefined ? {} : { sort: params.sort }),
+          ...(params.showRoots === undefined ? {} : { showRoots: String(params.showRoots) }),
+          ...(params.showUnpublished === undefined ? {} : { showUnpublished: String(params.showUnpublished) }),
+        },
+        body: { q },
+        idempotent: true, // pure read over POST — safe to replay on 5xx/429
+        auth,
+      },
+      {
         pageNumber,
         pageSize,
-        ...(params.sort === undefined ? {} : { sort: params.sort }),
-        ...(params.showRoots === undefined ? {} : { showRoots: String(params.showRoots) }),
-        ...(params.showUnpublished === undefined ? {} : { showUnpublished: String(params.showUnpublished) }),
+        ...(params.totalCount === undefined ? {} : { totalCount: params.totalCount }),
       },
-      body: { q },
-      idempotent: true, // pure read over POST — safe to replay on 5xx/429
-      auth,
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    );
   }
 
   /**
