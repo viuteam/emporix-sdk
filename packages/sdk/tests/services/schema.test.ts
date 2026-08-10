@@ -375,6 +375,57 @@ describe("SchemaService — custom instances (group D)", () => {
     expect(page.hasNextPage).toBe(true);
   });
 
+  it("listAllInstances follows the cursor across pages", async () => {
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get(INSTANCES, ({ request }) => {
+        const next = new URL(request.url).searchParams.get("next");
+        seen.push(next);
+        const row = (id: string) => ({
+          id, name: { en: "n" }, type: "shoe",
+          owner: { type: "SERVICE", userId: "u" },
+          mixins: { size: 42 }, metadata: { version: 1 },
+        });
+        if (next === null) return HttpResponse.json([row("a")], { headers: { "X-Next-Cursor": "c1" } });
+        if (next === "c1") return HttpResponse.json([row("b")], { headers: { "X-Next-Cursor": "c2" } });
+        return HttpResponse.json([row("c")]);
+      }),
+    );
+
+    // `CustomInstance.id` is optional in the generated type, so the array is too.
+    const ids: (string | undefined)[] = [];
+    for await (const inst of svc().listAllInstances<{ size: number }>("shoe")) ids.push(inst.id);
+
+    expect(ids).toEqual(["a", "b", "c"]);
+    expect(seen).toEqual([null, "c1", "c2"]);
+  });
+
+  it("listAllInstances falls back to page numbers when the server sends no cursor", async () => {
+    const pages: (string | null)[] = [];
+    server.use(
+      http.get(INSTANCES, ({ request }) => {
+        const p = new URL(request.url).searchParams.get("pageNumber");
+        pages.push(p);
+        const row = (id: string) => ({
+          id, name: { en: "n" }, type: "shoe",
+          owner: { type: "SERVICE", userId: "u" },
+          mixins: { size: 42 }, metadata: { version: 1 },
+        });
+        // pageSize 2, so a full page means "keep going" under the guess.
+        if (p === "1") return HttpResponse.json([row("a"), row("b")]);
+        return HttpResponse.json([row("c")]);
+      }),
+    );
+
+    const ids: (string | undefined)[] = [];
+    for await (const inst of svc().listAllInstances<{ size: number }>("shoe", { pageSize: 2 })) {
+      ids.push(inst.id);
+    }
+
+    expect(ids).toEqual(["a", "b", "c"]);
+    expect(pages).toEqual(["1", "2"]);
+  });
+
   it("searchInstances forwards pagination and cursor parameters to the query string", async () => {
     let params = new URLSearchParams();
     server.use(

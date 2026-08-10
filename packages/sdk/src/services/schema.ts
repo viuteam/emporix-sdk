@@ -297,6 +297,41 @@ export class SchemaService {
     );
   }
 
+  /**
+   * Async-iterates every instance of a type.
+   *
+   * Not built on `iterateAll`: that helper drives pagination by page number, and
+   * the server ignores `pageNumber` the moment a cursor is in play. This follows
+   * `nextCursor` while the server offers one and falls back to `pageNumber + 1`
+   * when it does not — so it is correct whether or not the tenant's deployment
+   * emits cursor headers on a request that carries no cursor.
+   */
+  async *listAllInstances<T = Record<string, unknown>>(
+    type: string,
+    // Takes the full query type rather than an `Omit<…>`: `ListInstancesQuery`
+    // has an index signature, so `Omit` would not actually forbid `next` — it
+    // would only look like it did. The overrides below win regardless.
+    query: ListInstancesQuery = {},
+    auth: AuthContext = SERVICE,
+  ): AsyncIterable<CustomInstance<T>> {
+    let cursor: string | undefined;
+    let pageNumber = 1;
+    for (;;) {
+      const page = await this.listInstances<T>(
+        type,
+        { ...query, pageNumber, ...(cursor === undefined ? {} : { next: cursor }) },
+        auth,
+      );
+      for (const item of page.items) yield item;
+      if (!page.hasNextPage) return;
+      cursor = page.nextCursor;
+      // Only advances while there is no cursor. Once cursor mode takes over the
+      // server ignores pageNumber anyway, so leaving it pinned keeps the two
+      // modes from interfering.
+      if (cursor === undefined) pageNumber += 1;
+    }
+  }
+
   /** Retrieve one instance by id. */
   async getInstance<T = Record<string, unknown>>(
     type: string,
