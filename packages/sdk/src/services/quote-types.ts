@@ -39,10 +39,14 @@ export interface ListQuotesQuery {
   sort?: string;
   pageNumber?: number;
   pageSize?: number;
+  /** Ask for `X-Total-Count` — becomes a request header, not a query parameter. */
+  totalCount?: boolean;
 }
 
 /** Pagination for `reasons.list`. */
 export interface ListQuoteReasonsQuery {
   pageNumber?: number;
   pageSize?: number;
+  /** Ask for `X-Total-Count` — becomes a request header, not a query parameter. */
+  totalCount?: boolean;
 }

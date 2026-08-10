@@ -220,6 +220,11 @@ export class SegmentService {
    * the whole batch (`Promise.all`); use the id-list method + your own
    * tolerance strategy if partial success matters.
    */
+  // No `totalCount` opt-in, deliberately. This pages over the segment's
+  // ASSIGNMENTS and hydrates the hits in a second call, so `X-Total-Count` would
+  // count assignments — including the CATEGORY entries filtered out below — not
+  // the products returned. A number that is wrong in the way that is hardest to
+  // notice. Same reason `categories.productsIn` stays on the guess.
   async listMyProducts(
     query?: Parameters<SegmentService["listItems"]>[0],
     auth?: AuthContext,
@@ -243,6 +248,7 @@ export class SegmentService {
    * real categories via one bulk `categories.searchByIds` call. Same
    * `hasNextPage` semantic as `listMyProducts`.
    */
+  // No `totalCount` opt-in — see the note on {@link listMyProducts}.
   async listMyCategories(
     query?: Parameters<SegmentService["listItems"]>[0],
     auth?: AuthContext,

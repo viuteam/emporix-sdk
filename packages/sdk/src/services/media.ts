@@ -1,4 +1,5 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
+import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import { EmporixError, errorFromResponse } from "../core/errors";
 import type {
@@ -31,7 +32,12 @@ export interface ListAssetsQuery {
   sort?: string;
   /** Emporix `q`-syntax filter, e.g. `"name:hero"`. */
   q?: string;
-  [key: string]: string | number | undefined;
+  /**
+   * Ask for `X-Total-Count`. An SDK-side flag, not an Emporix query parameter:
+   * it becomes a request header.
+   */
+  totalCount?: boolean;
+  [key: string]: string | number | boolean | undefined;
 }
 
 /**
@@ -111,18 +117,20 @@ export class MediaService {
   ): Promise<PaginatedItems<Asset>> {
     const pageNumber = query.pageNumber ?? 1;
     const pageSize = query.pageSize ?? 60;
-    const items = await this.ctx.http.request<Asset[]>({
-      method: "GET",
-      path: this.base(),
-      auth,
-      query: { ...query, pageNumber, pageSize },
-    });
-    return {
-      items,
-      pageNumber,
-      pageSize,
-      hasNextPage: items.length === pageSize,
-    };
+    // Destructured out because the rest of `query` is spread into the query
+    // string: `totalCount` is an SDK-side flag that becomes a request header,
+    // and would otherwise ride along as a stray `?totalCount=true`.
+    const { totalCount, ...rest } = query;
+    return requestPage<Asset>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: this.base(),
+        auth,
+        query: { ...rest, pageNumber, pageSize },
+      },
+      { pageNumber, pageSize, ...(totalCount === undefined ? {} : { totalCount }) },
+    );
   }
 
   /** Fetch an asset by id. */

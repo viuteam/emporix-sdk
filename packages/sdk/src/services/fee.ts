@@ -1,4 +1,5 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
+import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import type {
   Fee,
@@ -65,13 +66,19 @@ export class FeeService {
   async list(query: ListFeesQuery = {}, auth: AuthContext = SERVICE): Promise<PaginatedItems<Fee>> {
     const pageNumber = query.pageNumber ?? 1;
     const pageSize = query.pageSize ?? 60;
-    const items = await this.ctx.http.request<Fee[]>({
-      method: "GET",
-      path: this.feesBase(),
-      auth,
-      query: { ...query, pageNumber, pageSize },
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    // Destructured out because the rest is spread into the query string — see
+    // `media.list` for the same note.
+    const { totalCount, ...rest } = query;
+    return requestPage<Fee>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: this.feesBase(),
+        auth,
+        query: { ...rest, pageNumber, pageSize },
+      },
+      { pageNumber, pageSize, ...(totalCount === undefined ? {} : { totalCount }) },
+    );
   }
 
   /** Retrieve one fee definition by id. */

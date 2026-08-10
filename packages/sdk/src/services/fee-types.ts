@@ -61,7 +61,12 @@ export interface ListFeesQuery {
   sort?: string;
   /** Emporix `q`-syntax filter, e.g. `"siteCode:main"`. */
   q?: string;
-  [key: string]: string | number | undefined;
+  /**
+   * Ask for `X-Total-Count`. An SDK-side flag, not an Emporix query parameter:
+   * it becomes a request header.
+   */
+  totalCount?: boolean;
+  [key: string]: string | number | boolean | undefined;
 }
 
 /** Options for {@link FeeService.setItemFees} / {@link FeeService.setProductFees}. */

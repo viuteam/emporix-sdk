@@ -1,4 +1,5 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
+import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import { errorFromResponse } from "../core/errors";
 import type {
@@ -56,13 +57,20 @@ export class QuoteService {
     const q: Record<string, string | number> = { pageNumber, pageSize };
     if (query.q) q.q = query.q;
     if (query.sort) q.sort = query.sort;
-    const items = await this.ctx.http.request<Quote[]>({
-      method: "GET",
-      path: this.quotesBase(),
-      auth,
-      query: q,
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    return requestPage<Quote>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: this.quotesBase(),
+        auth,
+        query: q,
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(query.totalCount === undefined ? {} : { totalCount: query.totalCount }),
+      },
+    );
   }
 
   /** Create a quote (`POST /quotes`, 201). */
@@ -144,13 +152,20 @@ export class QuoteReasonsResource {
   async list(query: ListQuoteReasonsQuery, auth: AuthContext): Promise<PaginatedItems<QuoteReason>> {
     const pageNumber = query.pageNumber ?? 1;
     const pageSize = query.pageSize ?? 60;
-    const items = await this.ctx.http.request<QuoteReason[]>({
-      method: "GET",
-      path: this.base(),
-      auth,
-      query: { pageNumber, pageSize },
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    return requestPage<QuoteReason>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: this.base(),
+        auth,
+        query: { pageNumber, pageSize },
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(query.totalCount === undefined ? {} : { totalCount: query.totalCount }),
+      },
+    );
   }
 
   /** Retrieve one reason by id. */

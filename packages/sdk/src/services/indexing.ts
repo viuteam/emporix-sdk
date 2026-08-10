@@ -1,4 +1,5 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
+import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import type {
   IndexConfig,
@@ -28,6 +29,8 @@ export interface ListReindexJobsOptions {
   pageSize?: number;
   /** Raw Emporix `q` filter string. */
   q?: string;
+  /** Ask for `X-Total-Count` — becomes a request header, not a query parameter. */
+  totalCount?: boolean;
 }
 
 /**
@@ -123,13 +126,20 @@ export class IndexingService {
     const pageSize = opts.pageSize ?? 50;
     const query: Record<string, string | number | undefined> = { pageNumber, pageSize };
     if (opts.q !== undefined) query.q = opts.q;
-    const items = await this.ctx.http.request<ReindexJob[]>({
-      method: "GET",
-      path: `${this.base()}/reindex-jobs`,
-      query,
-      auth,
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    return requestPage<ReindexJob>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: `${this.base()}/reindex-jobs`,
+        query,
+        auth,
+      },
+      {
+        pageNumber,
+        pageSize,
+        ...(opts.totalCount === undefined ? {} : { totalCount: opts.totalCount }),
+      },
+    );
   }
 
   /** Fetch one reindex job by id. */
