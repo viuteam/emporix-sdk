@@ -785,6 +785,12 @@ and `prefetchOrder` remain as convenience wrappers.
   `useAvailabilities` read anonymously unless you pass `customerToken` explicitly.
   A token in storage does not change them, by design; the site also comes from the
   `siteCode` argument, not the ambient site.
+- **A host-owned token needs `customerSession="external"`** — passing
+  `initialCustomerToken` alone still bootstraps a B2B company context from it (one
+  `companies.listMine()` on mount) and leaves `onCustomerSessionExpired` silent, because that
+  callback is wired to `autoRefreshCustomerToken`. External mode turns both off and makes a
+  changed `initialCustomerToken` authoritative. See the Managed Dashboard section in
+  [`packages/react/README.md`](../packages/react/README.md).
 
 See [`examples/next-app-router`](../examples/next-app-router) and
 [`examples/vite-spa`](../examples/vite-spa) for working setups.

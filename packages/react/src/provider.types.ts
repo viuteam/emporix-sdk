@@ -54,6 +54,20 @@ export interface EmporixProviderProps {
   storage?: EmporixStorage;
   initialCustomerToken?: string;
   /**
+   * Who owns the customer token.
+   *
+   * `"owned"` (default) — the storefront model: the token came from a login this
+   * provider performed or restored, may be refreshed, and belongs to a shop
+   * customer who may have legal entities.
+   *
+   * `"external"` — the token was handed in by a host application (an Emporix
+   * Managed Dashboard module, an embedded admin UI). The SDK never refreshes it,
+   * never bootstraps a company context from it, and treats a changed
+   * `initialCustomerToken` as authoritative. `autoRefreshCustomerToken` is
+   * ignored; `onCustomerSessionExpired` still fires on a 401.
+   */
+  customerSession?: "owned" | "external";
+  /**
    * Initial site code. Resolution order: this prop → `storage.getSiteCode()` →
    * `client.config.credentials.storefront.context.siteCode` → `null`.
    */

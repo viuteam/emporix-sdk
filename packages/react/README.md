@@ -33,6 +33,79 @@ const client = new EmporixClient({
 Create `EmporixClient` **once** (per app, or once per server for SSR) — never
 per request/render.
 
+## Managed Dashboard module (host-owned token)
+
+Emporix's [`md-module-template`](https://github.com/emporix/md-module-template) is a Module
+Federation remote. The Managed Dashboard loads it and passes one object:
+
+```ts
+type AppState = { tenant: string; language: string; token: string }
+```
+
+The module never authenticates — that `token` is a customer token whose scopes reach
+operations a storefront token could not. `customerSession="external"` is how you tell the
+provider so:
+
+```tsx
+import { EmporixClient } from "@viu/emporix-sdk";
+import { EmporixProvider } from "@viu/emporix-sdk-react";
+
+const clients = new Map<string, EmporixClient>();
+const clientFor = (tenant: string) => {
+  let c = clients.get(tenant);
+  if (!c) {
+    // No credentials: the host owns the token. `host` must be explicit — the
+    // template's VITE_API_URL points at a different environment than the
+    // SDK's default.
+    c = new EmporixClient({ tenant, host: import.meta.env.VITE_API_URL, credentials: {} });
+    clients.set(tenant, c);
+  }
+  return c;
+};
+
+const RemoteComponent = ({ appState }: { appState: AppState }) => (
+  <EmporixProvider
+    client={clientFor(appState.tenant)}
+    initialCustomerToken={appState.token}
+    initialLanguage={appState.language}
+    customerSession="external"
+    onCustomerSessionExpired={() => setSessionDead(true)}
+  >
+    <YourModule />
+  </EmporixProvider>
+);
+```
+
+Every hook now works on the host's token — including the token-gated ones (`useOrder`,
+`useMyOrders`, the cart hooks), which an `auth.raw(...)` per-call override cannot reach.
+
+**What `customerSession="external"` changes**
+
+| | `"owned"` (default) | `"external"` |
+| --- | --- | --- |
+| `companies.listMine()` on mount | yes, when a token is present | **never** |
+| refresh on a customer 401 | only with `autoRefreshCustomerToken` | **never**; `onCustomerSessionExpired` fires and the 401 propagates |
+| a changed `initialCustomerToken` | seeds only an empty slot | **authoritative** — written into storage |
+
+**Five things to get right**
+
+1. **No `storage` prop.** A federation remote runs on the host's origin, so
+   `createLocalStorage()` would write `emporix.customerToken` into the dashboard's own
+   `localStorage`. The default memory storage ties the token's lifetime to the module's.
+2. **Pass `initialLanguage`.** Without it the provider seeds the language from the active
+   site *after* mount, which moves the query key and orphans anything already fetched. The
+   host already knows the language.
+3. **One client per tenant, memoized on tenant — not on the token.** The token is a request
+   credential; rebuilding the client on rotation throws away its caches.
+4. **Do not pass `initialSiteCode`** unless the token can read sites. It triggers a site
+   fetch whose failure is swallowed.
+5. **Federation `shared`:** keep `react` and `react-dom` shared with the host — two React
+   copies break every hook. Do **not** share `@viu/emporix-sdk`, `@viu/emporix-sdk-react` or
+   `@tanstack/react-query`; the host does not know your versions, and the module owns its own
+   cache.
+
+A working remote is in [`examples/md-module`](../../examples/md-module).
+
 ## Hooks
 
 | Hook | Purpose |

@@ -30,6 +30,7 @@ Five runnable examples live in [`examples/`](./examples) — see its
 | [`storefront-demo`](./examples/storefront-demo) | a complete storefront, catalog → checkout → account (**places real orders**) |
 | [`next-app-router`](./examples/next-app-router) | Next 16 with client-side hooks |
 | [`next-server-first`](./examples/next-server-first) | Next 16 with **no Emporix token in the browser** |
+| [`md-module`](./examples/md-module) | an Emporix **Managed Dashboard module** — the host owns the customer token |
 
 Example packages are private and never published.
 

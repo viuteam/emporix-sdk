@@ -18,6 +18,8 @@ export interface CompanyContextProviderProps {
   client: EmporixClient;
   storage: EmporixStorage;
   initialActiveLegalEntityId?: string | null;
+  /** See `EmporixProviderProps.customerSession`. Always resolved by the provider. */
+  customerSession: "owned" | "external";
   children: ReactNode;
 }
 
@@ -25,6 +27,7 @@ export function CompanyContextProvider({
   client,
   storage,
   initialActiveLegalEntityId,
+  customerSession,
   children,
 }: CompanyContextProviderProps): React.JSX.Element {
   const { emit } = useEmporixTelemetry();
@@ -32,6 +35,7 @@ export function CompanyContextProvider({
     client,
     storage,
     emit,
+    customerSession,
     ...(initialActiveLegalEntityId !== undefined ? { initialActiveLegalEntityId } : {}),
   });
 
