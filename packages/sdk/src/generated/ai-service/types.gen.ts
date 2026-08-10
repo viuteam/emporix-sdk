@@ -99,6 +99,7 @@ export type ExpandableTokenResponse = IdResponse | ExpandedTokenResponse;
  * * `teams`
  *
  * **The `teams` value is in preview mode** - some of the features may not be fully operational yet.
+ * Slack fields `defaultInboundAgentId` and `allowedOperations` are in preview.
  */
 export type NativeToolType = 'slack' | 'rag_custom' | 'rag_emporix' | 'teams';
 
@@ -285,11 +286,39 @@ export type RagEmporixNativeToolConfigResponse = RagEmporixNativeToolConfig & {
     embeddingConfig?: EmporixOpenAiRagEmporixEmbeddingNativeToolConfig | OpenAiRagEmporixEmbeddingNativeToolConfigResponse | SelfHostedOllamaRagEmporixEmbeddingNativeToolConfigResponse;
 };
 
+/**
+ * ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+ *
+ * {% hint style="danger" %}
+ * This functionality is in preview mode - some of the features may not be fully operational yet.
+ * {% endhint %}
+ *
+ * Slack native tool operation identifier.
+ */
+export type SlackAllowedOperations = 'sendMessage' | 'createChannel' | 'inviteParticipants' | 'collaborateOnChannel';
+
+/**
+ * ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
+ *
+ * {% hint style="danger" %}
+ * This functionality is in preview mode - some of the features may not be fully operational yet.
+ * {% endhint %}
+ *
+ * Configuration of a Slack native tool instance. Fields `defaultInboundAgentId` and `allowedOperations` are in preview.
+ */
 export type SlackNativeToolConfigResponse = {
     /**
      * Unique identifier of the Slack workspace (team) associated with the request. Used to distinguish the source Slack environment when handling events or API calls.
      */
     teamId: string;
+    /**
+     * Agent ID that handles inbound Slack replies when no conversation-specific routing context exists yet. This field is in preview.
+     */
+    defaultInboundAgentId?: string;
+    /**
+     * Operations the tool instance exposes to assigned agents. At least one value is required when the tool is enabled. This field is in preview.
+     */
+    allowedOperations?: Array<SlackAllowedOperations>;
 };
 
 export type SlackNativeToolConfigRequest = SlackNativeToolConfigResponse & {
@@ -611,6 +640,10 @@ export type SelfHostedLlm = BaseLlm & {
      * Type of the LLM Provider. The self-hosted LLM allows you to provide your own LLMs. When using this providers, the `selfHostedParams.url` property cannot be omitted.
      */
     provider: 'self_hosted_ollama' | 'self_hosted_vllm';
+    /**
+     * Optional. Indicates which cloud LLM provider API the self-hosted endpoint is compatible with (OPENAI, GOOGLE, or ANTHROPIC). Applies when provider is self_hosted_ollama or self_hosted_vllm. Used to select the correct request/response conventions for that backend. Ignored for non–self-hosted providers.
+     */
+    baseProvider?: 'ANTHROPIC' | 'GOOGLE' | 'OPENAI';
 };
 
 export type SelfHostedLlmRequest = SelfHostedLlm & {
@@ -746,11 +779,11 @@ export type NativeToolReferenceRequest = {
      */
     id: string;
     /**
-     * Optional per-agent override of allowed MS Teams operations. When omitted, the tool instance defaults apply.
+     * Optional per-agent override of allowed native tool operations. When omitted, the tool instance defaults apply. Supported for MS Teams and Slack (preview).
      *
      * **The `allowedOperations` field is in preview mode** - some of the features may not be fully operational yet.
      */
-    allowedOperations?: Array<TeamsAllowedOperations>;
+    allowedOperations?: Array<TeamsAllowedOperations | SlackAllowedOperations>;
 };
 
 /**
@@ -768,9 +801,9 @@ export type AgentCollaborations = Array<{
 }>;
 
 /**
- * Type of the trigger. The `slack` trigger type can be used only for `support` agent type.
+ * Type of the trigger. The `slack` and `teams` trigger types can be used only for `support` agent type.
  */
-export type TriggerType = 'endpoint' | 'slack';
+export type TriggerType = 'endpoint' | 'slack' | 'teams';
 
 /**
  * Type of the trigger.
