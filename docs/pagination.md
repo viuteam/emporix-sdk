@@ -100,7 +100,30 @@ while (page.nextCursor !== undefined) {
 `client.schema.listAllInstances("shoe")` does exactly this and yields the items, falling
 back to page numbers on a tenant whose deployment does not send the cursor headers.
 
-No facade surfaces `totalCount` yet — that arrives with the facade migration. The import
-service remains the exception that needs none of this: it reports `totalElements` and
-`totalPages` **in the response body**, so `ImportPage` derives `hasNextPage` from the
-totals without touching a header. See [import.md](./import.md#pagination).
+### "X of Y" counters
+
+```ts
+const page = await client.products.list({ pageNumber: 2, pageSize: 50, totalCount: true });
+`Showing ${(page.pageNumber - 1) * page.pageSize + page.items.length} of ${page.totalCount}`;
+```
+
+From React, the four single-page list hooks take the same flag — `useProducts`,
+`useProductSearch`, `useCategories`, `useCategorySearch`. It becomes part of the query
+key, so a totals request never gets served a cached page without them. The `*Infinite`
+hooks do **not** offer it: `hasNextPage` already terminates them, and a count query would
+be paid on every scroll.
+
+Three facades deliberately have no `totalCount`: `client.categories.productsIn`,
+`client.segments.listMyProducts` and `client.segments.listMyCategories`. All three page
+over an **assignments** list and hydrate the hits through a second call, so
+`X-Total-Count` there would count assignments — including the references filtered out —
+rather than the items returned. They keep the `items.length === pageSize` guess.
+
+A total that arrives **unasked** is still reported. Some endpoints send `X-Total-Count`
+whether or not the request opted in; the value is real, so the SDK surfaces it instead of
+discarding it.
+
+The import service remains the exception that needs none of this: it reports
+`totalElements` and `totalPages` **in the response body**, so `ImportPage` derives
+`hasNextPage` from the totals without touching a header. See
+[import.md](./import.md#pagination).

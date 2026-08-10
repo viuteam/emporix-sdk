@@ -1,7 +1,6 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
-import { requestPage } from "../core/paged";
 import type {
   Schema,
   SchemaDraft,
