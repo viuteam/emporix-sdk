@@ -1,5 +1,25 @@
 # @viu/emporix-sdk-react
 
+## 2.33.0
+
+### Minor Changes
+
+- [#255](https://github.com/viuteam/emporix-sdk/pull/255) [`0bc0307`](https://github.com/viuteam/emporix-sdk/commit/0bc0307c26766b1419e31c2cba832b00165d5f13) Thanks [@amnael1](https://github.com/amnael1)! - feat(react): accept a host-owned customer token
+
+  `customerSession="external"` tells `EmporixProvider` that the customer token was
+  handed in by a host application — an Emporix Managed Dashboard module, an
+  embedded admin UI. The SDK then never bootstraps a company context from it,
+  never attempts a refresh, reports a 401 through `onCustomerSessionExpired`, and
+  treats a changed `initialCustomerToken` as authoritative.
+
+  Also fixes a latent bug in the default `"owned"` mode: storage identity no
+  longer depends on `initialCustomerToken`, so delivering a new token stops
+  silently discarding `cartId`, `siteCode`, `language` and
+  `activeLegalEntityId`.
+
+  See the Managed Dashboard section in `packages/react/README.md` and the new
+  `examples/md-module`.
+
 ## 2.32.0
 
 ### Minor Changes
