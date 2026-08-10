@@ -1,4 +1,5 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
+import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import { EmporixNotFoundError } from "../core/errors";
 import type {
@@ -109,23 +110,30 @@ export class AvailabilityService {
    */
   async listForSite(
     siteCode: string,
-    params: { pageNumber?: number; pageSize?: number; q?: string; sort?: string } = {},
+    params: { pageNumber?: number; pageSize?: number; q?: string; sort?: string; totalCount?: boolean } = {},
     auth: AuthContext = ANON,
   ): Promise<PaginatedItems<Availability>> {
     const pageNumber = params.pageNumber ?? 1;
     const pageSize = params.pageSize ?? 50;
-    const items = await this.ctx.http.request<Availability[]>({
-      method: "GET",
-      path: `/availability/${this.ctx.tenant}/availability/site/${encodeURIComponent(siteCode)}`,
-      query: {
+    return requestPage<Availability>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: `/availability/${this.ctx.tenant}/availability/site/${encodeURIComponent(siteCode)}`,
+        query: {
+          pageNumber,
+          pageSize,
+          ...(params.q === undefined ? {} : { q: params.q }),
+          ...(params.sort === undefined ? {} : { sort: params.sort }),
+        },
+        auth,
+      },
+      {
         pageNumber,
         pageSize,
-        ...(params.q === undefined ? {} : { q: params.q }),
-        ...(params.sort === undefined ? {} : { sort: params.sort }),
+        ...(params.totalCount === undefined ? {} : { totalCount: params.totalCount }),
       },
-      auth,
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    );
   }
 
   // --- Admin writes. Default auth: service. ---
