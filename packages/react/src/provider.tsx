@@ -21,6 +21,7 @@ export function EmporixProvider({
   queryClient,
   storage,
   initialCustomerToken,
+  customerSession,
   initialSiteCode,
   initialLanguage,
   initialActiveLegalEntityId,
@@ -29,14 +30,17 @@ export function EmporixProvider({
   onCustomerSessionExpired,
   children,
 }: EmporixProviderProps): React.JSX.Element {
-  const value = useMemo<EmporixContextValue>(() => {
-    const s =
-      storage ??
-      createMemoryStorage(
-        initialCustomerToken !== undefined ? { initial: initialCustomerToken } : {},
-      );
-    return { client, storage: s };
-  }, [client, storage, initialCustomerToken]);
+  const session = customerSession ?? "owned";
+
+  // Fallback storage held in state, not useMemo, and NOT keyed on the token:
+  // recreating storage to deliver a new token silently discards cartId,
+  // siteCode, language and activeLegalEntityId. Seeding and rotation are
+  // useProviderWiring's job. Same reasoning as `fallbackQc` below.
+  const [fallbackStorage] = useState(() => createMemoryStorage());
+  const value = useMemo<EmporixContextValue>(
+    () => ({ client, storage: storage ?? fallbackStorage }),
+    [client, storage, fallbackStorage],
+  );
 
   // Fallback QueryClient held in state, not useMemo: React may discard a
   // useMemo cache, which would silently drop the entire query cache mid-session.
@@ -49,8 +53,8 @@ export function EmporixProvider({
   useProviderWiring({
     client,
     storage: value.storage,
+    customerSession: session,
     ...(initialCustomerToken !== undefined ? { initialCustomerToken } : {}),
-    ...(storage !== undefined ? { externalStorage: storage } : {}),
   });
 
   const telemetryValue = useTelemetrySource({
