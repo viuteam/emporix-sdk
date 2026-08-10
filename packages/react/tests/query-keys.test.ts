@@ -46,4 +46,22 @@ describe("emporixKey with siteMeta", () => {
       }),
     ).toEqual(["emporix", "sites", { tenant: "acme", authKind: "anonymous" }]);
   });
+
+  /**
+   * A page fetched with `totalCount: true` carries a field a page without it
+   * does not, so the two must not share a cache entry. `emporixKey` spreads
+   * `args` wholesale and the list hooks pass their params object in intact
+   * (`args: [params]`), so this holds structurally — pinned here because it
+   * would break silently if a hook ever started picking fields out of params.
+   */
+  it("gives a totals request its own cache key", () => {
+    const ctx = { tenant: "acme", authKind: "anonymous" };
+    const withoutTotals = emporixKey("products", [{ pageNumber: 1, pageSize: 50 }], ctx);
+    const withTotals = emporixKey(
+      "products",
+      [{ pageNumber: 1, pageSize: 50, totalCount: true }],
+      ctx,
+    );
+    expect(withTotals).not.toEqual(withoutTotals);
+  });
 });

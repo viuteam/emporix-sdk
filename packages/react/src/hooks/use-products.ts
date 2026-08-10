@@ -25,7 +25,12 @@ export function useProduct(productId: string, options: QueryOpts = {}): UseQuery
 
 /** Fetches one page of products. */
 export function useProducts(
-  params: { pageNumber?: number; pageSize?: number } = {},
+  // `totalCount: true` reaches the facade as-is and lands in the query key,
+  // because `args: [params]` puts the whole object there — a totals request
+  // cannot be served a cached page that lacks them. Not offered on the infinite
+  // variant below: `hasNextPage` already terminates it, and a per-page count
+  // query would be paid on every scroll.
+  params: { pageNumber?: number; pageSize?: number; totalCount?: boolean } = {},
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
@@ -74,7 +79,7 @@ export function useProductByCode(
 /** Product search. Accepts a raw `q` string or a built filter. Disabled when empty/whitespace. */
 export function useProductSearch(
   query: QueryFor<"PRODUCT"> | undefined,
-  params: { pageNumber?: number; pageSize?: number } = {},
+  params: { pageNumber?: number; pageSize?: number; totalCount?: boolean } = {},
   options: QueryOpts = {},
 ): UseQueryResult<PaginatedItems<Product>> {
   const { client } = useEmporix();
