@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from "vitest";
 import { render, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
@@ -99,6 +99,73 @@ describe("EmporixProvider customerSession='external'", () => {
     });
     await expect(result.current.setActiveCompany("le-1")).rejects.toThrow(/customerSession/);
     await expect(result.current.setActiveCompany("le-1")).rejects.not.toThrow(/not mounted/);
+  });
+
+  it("reports a 401 through onCustomerSessionExpired and issues no refresh request", async () => {
+    let expired = 0;
+    let refreshCalls = 0;
+    server.use(
+      http.get("https://api.emporix.io/product/acme/products/p1", () =>
+        HttpResponse.json({ message: "expired" }, { status: 401 }),
+      ),
+      // customers.refresh is a GET on /customer/{tenant}/refreshauthtoken
+      // (packages/sdk/src/services/customer.ts:160) — not a POST.
+      http.get("https://api.emporix.io/customer/acme/refreshauthtoken", () => {
+        refreshCalls += 1;
+        return HttpResponse.json({}, { status: 200 });
+      }),
+    );
+
+    const c = client();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const storage = createMemoryStorage();
+    // A refresh token IS present — the point is that external mode ignores it.
+    storage.setRefreshToken("rt-1");
+
+    render(
+      <EmporixProvider
+        client={c}
+        queryClient={qc}
+        storage={storage}
+        customerSession="external"
+        initialCustomerToken="host-1"
+        onCustomerSessionExpired={() => {
+          expired += 1;
+        }}
+      >
+        <span>mounted</span>
+      </EmporixProvider>,
+    );
+
+    await expect(
+      c.products.get("p1", undefined, { kind: "customer", token: "host-1" }),
+    ).rejects.toThrow();
+    await waitFor(() => expect(expired).toBe(1));
+    expect(refreshCalls).toBe(0);
+  });
+
+  it("warns when autoRefreshCustomerToken is combined with external mode", () => {
+    const warnings: unknown[] = [];
+    const spy = vi.spyOn(console, "warn").mockImplementation((...args) => {
+      warnings.push(args[0]);
+    });
+    const c = client();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <EmporixProvider
+        client={c}
+        queryClient={qc}
+        customerSession="external"
+        initialCustomerToken="host-1"
+        autoRefreshCustomerToken
+      >
+        <span>mounted</span>
+      </EmporixProvider>,
+    );
+    expect(warnings.some((w) => String(w).includes("autoRefreshCustomerToken is ignored"))).toBe(
+      true,
+    );
+    spy.mockRestore();
   });
 
   it("the rotated token is what the next request sends", async () => {

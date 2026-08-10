@@ -67,6 +67,7 @@ export function EmporixProvider({
   useCustomerTokenRefresher({
     client,
     storage: value.storage,
+    customerSession: session,
     emit: telemetryValue.emit,
     ...(autoRefreshCustomerToken !== undefined ? { enabled: autoRefreshCustomerToken } : {}),
     ...(onCustomerSessionExpired !== undefined ? { onExpired: onCustomerSessionExpired } : {}),
