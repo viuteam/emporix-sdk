@@ -85,6 +85,7 @@ export function EmporixProvider({
             <CompanyContextProvider
               client={client}
               storage={value.storage}
+              customerSession={session}
               {...(initialActiveLegalEntityId !== undefined
                 ? { initialActiveLegalEntityId }
                 : {})}

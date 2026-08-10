@@ -6,6 +6,7 @@ import { setupServer } from "msw/node";
 import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider, useEmporix } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
+import { useActiveCompany } from "../src/company-context";
 import type { EmporixStorage } from "../src/storage";
 import type { ReactNode } from "react";
 
@@ -70,6 +71,34 @@ describe("EmporixProvider customerSession='external'", () => {
     await waitFor(() => expect(storage.getCustomerToken()).toBe("host-2"));
     // The whole point: rotation must not be implemented by rebuilding storage.
     expect(storage.getCartId()).toBe("cart-9");
+  });
+
+  it("makes no legal-entities request on mount even with a token present", async () => {
+    // onUnhandledRequest: "error" in this file's server means an unexpected
+    // legal-entities call fails the test by itself. The counter below is the
+    // readable statement of the same thing.
+    let calls = 0;
+    server.use(
+      http.get("https://api.emporix.io/customer-management/acme/legal-entities", () => {
+        calls += 1;
+        return HttpResponse.json([]);
+      }),
+    );
+    const { result } = renderHook(() => useActiveCompany(), {
+      wrapper: wrap({ token: "host-1" }),
+    });
+    await waitFor(() => expect(result.current.status).toBe("idle"));
+    expect(calls).toBe(0);
+    expect(result.current.mode).toBe("b2c");
+    expect(result.current.myCompanies).toEqual([]);
+  });
+
+  it("setActiveCompany rejects with the external-mode reason, not 'provider not mounted'", async () => {
+    const { result } = renderHook(() => useActiveCompany(), {
+      wrapper: wrap({ token: "host-1" }),
+    });
+    await expect(result.current.setActiveCompany("le-1")).rejects.toThrow(/customerSession/);
+    await expect(result.current.setActiveCompany("le-1")).rejects.not.toThrow(/not mounted/);
   });
 
   it("the rotated token is what the next request sends", async () => {

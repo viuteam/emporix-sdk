@@ -37,3 +37,26 @@ export const NULL_CTX: CompanyContextValue = {
   },
   refetchMyCompanies: async () => {},
 };
+
+/**
+ * Context value for `customerSession="external"`.
+ *
+ * Distinct from {@link NULL_CTX} on purpose: that value's error says the
+ * provider is not mounted, which would be false here — it is mounted, it simply
+ * has no company to switch between. A misleading error costs more than this
+ * second constant.
+ */
+export const EXTERNAL_CTX: CompanyContextValue = {
+  activeCompany: null,
+  myCompanies: [],
+  mode: "b2c",
+  status: "idle",
+  error: null,
+  setActiveCompany: async () => {
+    throw new Error(
+      'setActiveCompany is unavailable: customerSession is "external", so no company ' +
+        "context is bootstrapped. Call client.companies.listMine() directly if you need one.",
+    );
+  },
+  refetchMyCompanies: async () => {},
+};

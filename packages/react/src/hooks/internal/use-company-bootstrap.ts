@@ -3,13 +3,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { auth, type EmporixClient, type LegalEntity } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "../../storage";
 import type { EmporixTelemetryEvent } from "../../telemetry";
-import type { CompanyContextValue, CompanyMode } from "../../company-context.types";
+import {
+  EXTERNAL_CTX,
+  type CompanyContextValue,
+  type CompanyMode,
+} from "../../company-context.types";
 
 interface CompanyBootstrapArgs {
   client: EmporixClient;
   storage: EmporixStorage;
   initialActiveLegalEntityId?: string | null;
   emit: (event: EmporixTelemetryEvent) => void;
+  /** `"external"` skips the listMine bootstrap entirely — see {@link EXTERNAL_CTX}. */
+  customerSession: "owned" | "external";
 }
 
 /**
@@ -23,6 +29,7 @@ export function useCompanyBootstrap({
   storage,
   initialActiveLegalEntityId,
   emit,
+  customerSession,
 }: CompanyBootstrapArgs): CompanyContextValue {
   const qc = useQueryClient();
   const [myCompanies, setMyCompanies] = useState<LegalEntity[]>([]);
@@ -135,18 +142,20 @@ export function useCompanyBootstrap({
   );
 
   useEffect(() => {
+    if (customerSession === "external") return;
     const signal = { cancelled: false };
     void load(signal);
     return () => {
       signal.cancelled = true;
     };
-  }, [load]);
+  }, [load, customerSession]);
 
   // Re-run bootstrap only on token-presence transitions (login/logout). A
   // mid-session token swap (e.g. switch-driven refresh) keeps prev/next both
   // truthy and is ignored — otherwise the auto-pick branch would clobber an
   // explicit B2C choice as soon as the new token is written.
   useEffect(() => {
+    if (customerSession === "external") return;
     let prev = storage.getCustomerToken();
     return storage.subscribe?.((next) => {
       const becameAuth = !prev && next;
@@ -154,7 +163,7 @@ export function useCompanyBootstrap({
       prev = next;
       if (becameAuth || becameUnauth) void load();
     });
-  }, [storage, load]);
+  }, [storage, load, customerSession]);
 
   const setActiveCompany = useCallback(
     async (legalEntityId: string | null) => {
@@ -177,7 +186,7 @@ export function useCompanyBootstrap({
     [myCompanies, switchTo],
   );
 
-  return useMemo<CompanyContextValue>(() => {
+  const value = useMemo<CompanyContextValue>(() => {
     const mode: CompanyMode = activeCompany
       ? "b2b"
       : myCompanies.length > 1
@@ -193,4 +202,8 @@ export function useCompanyBootstrap({
       refetchMyCompanies: load,
     };
   }, [activeCompany, myCompanies, status, error, setActiveCompany, load]);
+
+  // Chosen after the memo, not instead of it: hook order must not depend on the
+  // mode, and every hook above has already run.
+  return customerSession === "external" ? EXTERNAL_CTX : value;
 }
