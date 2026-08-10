@@ -353,4 +353,43 @@ describe("SchemaService — custom instances (group D)", () => {
     await svc().listInstances("a/b");
     expect(pathname).toBe("/schema/acme/custom-entities/a%2Fb/instances");
   });
+
+  it("forwards next as a query parameter and returns the cursors from the headers", async () => {
+    let sentNext: string | null = null;
+    server.use(
+      http.get(INSTANCES, ({ request }) => {
+        sentNext = new URL(request.url).searchParams.get("next");
+        return HttpResponse.json(
+          [{ id: "i2", name: { en: "n" }, type: "shoe", owner: { type: "SERVICE", userId: "u" }, mixins: { size: 43 }, metadata: { version: 1 } }],
+          { headers: { "X-Next-Cursor": "cur-3", "X-Prev-Cursor": "cur-1" } },
+        );
+      }),
+    );
+
+    const page = await svc().listInstances<{ size: number }>("shoe", { next: "cur-2" });
+
+    expect(sentNext).toBe("cur-2");
+    expect(page.nextCursor).toBe("cur-3");
+    expect(page.prevCursor).toBe("cur-1");
+    // One item on a pageSize-60 request: the old guess would have said false.
+    expect(page.hasNextPage).toBe(true);
+  });
+
+  it("keeps the totalCount flag out of the query string", async () => {
+    let params = new URLSearchParams();
+    let askedForTotals: string | null = null;
+    server.use(
+      http.get(INSTANCES, ({ request }) => {
+        params = new URL(request.url).searchParams;
+        askedForTotals = request.headers.get("X-Total-Count");
+        return HttpResponse.json([], { headers: { "X-Total-Count": "9" } });
+      }),
+    );
+
+    const page = await svc().listInstances("shoe", { totalCount: true });
+
+    expect(params.get("totalCount")).toBeNull();
+    expect(askedForTotals).toBe("true");
+    expect(page.totalCount).toBe(9);
+  });
 });

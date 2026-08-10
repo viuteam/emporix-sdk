@@ -1,5 +1,6 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { requestPage } from "../core/paged";
 import type {
   Schema,
   SchemaDraft,
@@ -278,13 +279,20 @@ export class SchemaService {
   ): Promise<PaginatedItems<CustomInstance<T>>> {
     const pageNumber = query.pageNumber ?? 1;
     const pageSize = query.pageSize ?? 60;
-    const items = await this.ctx.http.request<CustomInstance<T>[]>({
-      method: "GET",
-      path: this.instancesBase(type),
-      auth,
-      query: { ...query, pageNumber, pageSize },
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    // `totalCount` is an SDK-side flag, not an Emporix query parameter — it
+    // becomes a request header in requestPage. Sending it in the query too
+    // would be a stray `?totalCount=true` on every call.
+    const { totalCount, ...rest } = query;
+    return requestPage<CustomInstance<T>>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: this.instancesBase(type),
+        auth,
+        query: { ...rest, pageNumber, pageSize },
+      },
+      { pageNumber, pageSize, ...(totalCount === undefined ? {} : { totalCount }) },
+    );
   }
 
   /** Retrieve one instance by id. */
