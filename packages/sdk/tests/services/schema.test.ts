@@ -353,4 +353,121 @@ describe("SchemaService — custom instances (group D)", () => {
     await svc().listInstances("a/b");
     expect(pathname).toBe("/schema/acme/custom-entities/a%2Fb/instances");
   });
+
+  it("forwards next as a query parameter and returns the cursors from the headers", async () => {
+    let sentNext: string | null = null;
+    server.use(
+      http.get(INSTANCES, ({ request }) => {
+        sentNext = new URL(request.url).searchParams.get("next");
+        return HttpResponse.json(
+          [{ id: "i2", name: { en: "n" }, type: "shoe", owner: { type: "SERVICE", userId: "u" }, mixins: { size: 43 }, metadata: { version: 1 } }],
+          { headers: { "X-Next-Cursor": "cur-3", "X-Prev-Cursor": "cur-1" } },
+        );
+      }),
+    );
+
+    const page = await svc().listInstances<{ size: number }>("shoe", { next: "cur-2" });
+
+    expect(sentNext).toBe("cur-2");
+    expect(page.nextCursor).toBe("cur-3");
+    expect(page.prevCursor).toBe("cur-1");
+    // One item on a pageSize-60 request: the old guess would have said false.
+    expect(page.hasNextPage).toBe(true);
+  });
+
+  it("listAllInstances follows the cursor across pages", async () => {
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get(INSTANCES, ({ request }) => {
+        const next = new URL(request.url).searchParams.get("next");
+        seen.push(next);
+        const row = (id: string) => ({
+          id, name: { en: "n" }, type: "shoe",
+          owner: { type: "SERVICE", userId: "u" },
+          mixins: { size: 42 }, metadata: { version: 1 },
+        });
+        if (next === null) return HttpResponse.json([row("a")], { headers: { "X-Next-Cursor": "c1" } });
+        if (next === "c1") return HttpResponse.json([row("b")], { headers: { "X-Next-Cursor": "c2" } });
+        return HttpResponse.json([row("c")]);
+      }),
+    );
+
+    // `CustomInstance.id` is optional in the generated type, so the array is too.
+    const ids: (string | undefined)[] = [];
+    for await (const inst of svc().listAllInstances<{ size: number }>("shoe")) ids.push(inst.id);
+
+    expect(ids).toEqual(["a", "b", "c"]);
+    expect(seen).toEqual([null, "c1", "c2"]);
+  });
+
+  it("listAllInstances falls back to page numbers when the server sends no cursor", async () => {
+    const pages: (string | null)[] = [];
+    server.use(
+      http.get(INSTANCES, ({ request }) => {
+        const p = new URL(request.url).searchParams.get("pageNumber");
+        pages.push(p);
+        const row = (id: string) => ({
+          id, name: { en: "n" }, type: "shoe",
+          owner: { type: "SERVICE", userId: "u" },
+          mixins: { size: 42 }, metadata: { version: 1 },
+        });
+        // pageSize 2, so a full page means "keep going" under the guess.
+        if (p === "1") return HttpResponse.json([row("a"), row("b")]);
+        return HttpResponse.json([row("c")]);
+      }),
+    );
+
+    const ids: (string | undefined)[] = [];
+    for await (const inst of svc().listAllInstances<{ size: number }>("shoe", { pageSize: 2 })) {
+      ids.push(inst.id);
+    }
+
+    expect(ids).toEqual(["a", "b", "c"]);
+    expect(pages).toEqual(["1", "2"]);
+  });
+
+  it("searchInstances forwards pagination and cursor parameters to the query string", async () => {
+    let params = new URLSearchParams();
+    server.use(
+      http.post(`${INSTANCES}/search`, ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return HttpResponse.json(
+          [{ id: "i1", name: { en: "n" }, type: "shoe", owner: { type: "SERVICE", userId: "u" }, mixins: { size: 42 }, metadata: { version: 1 } }],
+          { headers: { "X-Next-Cursor": "cur-9" } },
+        );
+      }),
+    );
+
+    const page = await svc().searchInstances(
+      "shoe",
+      { size: { $gt: 40 } },
+      { pageNumber: 2, pageSize: 5, sort: "_id:ASC", next: "cur-8" },
+    );
+
+    expect(params.get("pageNumber")).toBe("2");
+    expect(params.get("pageSize")).toBe("5");
+    expect(params.get("sort")).toBe("_id:ASC");
+    expect(params.get("next")).toBe("cur-8");
+    expect(page.nextCursor).toBe("cur-9");
+    // Used to be hard-coded false regardless of what the server said.
+    expect(page.hasNextPage).toBe(true);
+  });
+
+  it("keeps the totalCount flag out of the query string", async () => {
+    let params = new URLSearchParams();
+    let askedForTotals: string | null = null;
+    server.use(
+      http.get(INSTANCES, ({ request }) => {
+        params = new URL(request.url).searchParams;
+        askedForTotals = request.headers.get("X-Total-Count");
+        return HttpResponse.json([], { headers: { "X-Total-Count": "9" } });
+      }),
+    );
+
+    const page = await svc().listInstances("shoe", { totalCount: true });
+
+    expect(params.get("totalCount")).toBeNull();
+    expect(askedForTotals).toBe("true");
+    expect(page.totalCount).toBe(9);
+  });
 });

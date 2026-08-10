@@ -94,7 +94,20 @@ export interface ListSchemasQuery {
 export interface ListInstancesQuery {
   pageNumber?: number;
   pageSize?: number;
-  [key: string]: string | number | undefined;
+  /**
+   * Opaque cursor from a previous page's `nextCursor`. Sending it switches the
+   * server to cursor pagination: `pageNumber` is ignored and no total is
+   * returned. Cannot be combined with {@link prev} — the server answers 400.
+   */
+  next?: string;
+  /** Opaque cursor from a previous page's `prevCursor`. See {@link next}. */
+  prev?: string;
+  /**
+   * Ask for `X-Total-Count`. An SDK-side flag, not an Emporix query parameter:
+   * it becomes a request header. Ignored by the server in cursor mode.
+   */
+  totalCount?: boolean;
+  [key: string]: string | number | boolean | undefined;
 }
 
 /** Options for {@link SchemaService.listCustomEntities}. */
@@ -105,6 +118,20 @@ export interface ListCustomEntitiesOptions {
 
 /** Structured search filter body for {@link SchemaService.searchInstances}. */
 export type InstanceSearchBody = Record<string, unknown>;
+
+/** Pagination, sorting and cursor options for {@link SchemaService.searchInstances}. */
+export interface SearchInstancesQuery {
+  pageNumber?: number;
+  pageSize?: number;
+  /** e.g. `"_id:ASC"`. The server appends `_id:ASC` as a tie-breaker if absent. */
+  sort?: string;
+  /** See {@link ListInstancesQuery.next}. */
+  next?: string;
+  /** See {@link ListInstancesQuery.prev}. */
+  prev?: string;
+  /** Ask for `X-Total-Count`. Ignored by the server in cursor mode. */
+  totalCount?: boolean;
+}
 
 /** A reference entity (a schema attached to an uploaded JSON file). */
 export type SchemaReference = ReferenceResponse;

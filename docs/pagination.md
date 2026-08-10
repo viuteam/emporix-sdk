@@ -68,6 +68,8 @@ for await (const x of iterateAll<X>((pageNumber) => fetchPage(pageNumber))) {
 | `useMySegmentProducts` / `useMySegmentProductsInfinite` | `PaginatedItems<Product>` |
 | `useMySegmentCategories` / `useMySegmentCategoriesInfinite` | `PaginatedItems<Category>` |
 | `client.imports.listRuns` / `listRunErrors` / `searchRecords` / `searchStreamRecords` | `ImportPage<T>` |
+| `client.schema.listInstances` / `searchInstances` | `PaginatedItems<CustomInstance<T>>` |
+| `client.schema.listAllInstances` | `AsyncIterable<CustomInstance<T>>` |
 
 ## Absolute totals and cursors
 
@@ -85,6 +87,18 @@ does not offer cursors", not "last page".
 
 Totals are opt-in per call rather than always on: Emporix computes the count with a second
 query, so defaulting it on would put that cost on every list a storefront issues.
+
+### Following a cursor by hand
+
+```ts
+let page = await client.schema.listInstances("shoe", { pageSize: 50 });
+while (page.nextCursor !== undefined) {
+  page = await client.schema.listInstances("shoe", { pageSize: 50, next: page.nextCursor });
+}
+```
+
+`client.schema.listAllInstances("shoe")` does exactly this and yields the items, falling
+back to page numbers on a tenant whose deployment does not send the cursor headers.
 
 No facade surfaces `totalCount` yet — that arrives with the facade migration. The import
 service remains the exception that needs none of this: it reports `totalElements` and

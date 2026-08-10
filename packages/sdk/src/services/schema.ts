@@ -1,5 +1,6 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { requestPage } from "../core/paged";
 import type {
   Schema,
   SchemaDraft,
@@ -13,6 +14,7 @@ import type {
   ListInstancesQuery,
   ListCustomEntitiesOptions,
   InstanceSearchBody,
+  SearchInstancesQuery,
   BulkPatchInstanceItem,
   BulkInstanceResult,
   SchemaReference,
@@ -40,6 +42,7 @@ export type {
   ListInstancesQuery,
   ListCustomEntitiesOptions,
   InstanceSearchBody,
+  SearchInstancesQuery,
   BulkPatchInstanceItem,
   BulkInstanceResult,
   SchemaReference,
@@ -278,13 +281,55 @@ export class SchemaService {
   ): Promise<PaginatedItems<CustomInstance<T>>> {
     const pageNumber = query.pageNumber ?? 1;
     const pageSize = query.pageSize ?? 60;
-    const items = await this.ctx.http.request<CustomInstance<T>[]>({
-      method: "GET",
-      path: this.instancesBase(type),
-      auth,
-      query: { ...query, pageNumber, pageSize },
-    });
-    return { items, pageNumber, pageSize, hasNextPage: items.length === pageSize };
+    // `totalCount` is an SDK-side flag, not an Emporix query parameter — it
+    // becomes a request header in requestPage. Sending it in the query too
+    // would be a stray `?totalCount=true` on every call.
+    const { totalCount, ...rest } = query;
+    return requestPage<CustomInstance<T>>(
+      this.ctx.http,
+      {
+        method: "GET",
+        path: this.instancesBase(type),
+        auth,
+        query: { ...rest, pageNumber, pageSize },
+      },
+      { pageNumber, pageSize, ...(totalCount === undefined ? {} : { totalCount }) },
+    );
+  }
+
+  /**
+   * Async-iterates every instance of a type.
+   *
+   * Not built on `iterateAll`: that helper drives pagination by page number, and
+   * the server ignores `pageNumber` the moment a cursor is in play. This follows
+   * `nextCursor` while the server offers one and falls back to `pageNumber + 1`
+   * when it does not — so it is correct whether or not the tenant's deployment
+   * emits cursor headers on a request that carries no cursor.
+   */
+  async *listAllInstances<T = Record<string, unknown>>(
+    type: string,
+    // Takes the full query type rather than an `Omit<…>`: `ListInstancesQuery`
+    // has an index signature, so `Omit` would not actually forbid `next` — it
+    // would only look like it did. The overrides below win regardless.
+    query: ListInstancesQuery = {},
+    auth: AuthContext = SERVICE,
+  ): AsyncIterable<CustomInstance<T>> {
+    let cursor: string | undefined;
+    let pageNumber = 1;
+    for (;;) {
+      const page = await this.listInstances<T>(
+        type,
+        { ...query, pageNumber, ...(cursor === undefined ? {} : { next: cursor }) },
+        auth,
+      );
+      for (const item of page.items) yield item;
+      if (!page.hasNextPage) return;
+      cursor = page.nextCursor;
+      // Only advances while there is no cursor. Once cursor mode takes over the
+      // server ignores pageNumber anyway, so leaving it pinned keeps the two
+      // modes from interfering.
+      if (cursor === undefined) pageNumber += 1;
+    }
   }
 
   /** Retrieve one instance by id. */
@@ -464,19 +509,31 @@ export class SchemaService {
   /**
    * Structured search over a custom entity's instances
    * (`POST /instances/search`), wrapped in {@link PaginatedItems}.
+   *
+   * The `query` parameter is third and `auth` fourth. This used to forward no
+   * query parameters at all and report a hard-coded `hasNextPage: false`, so a
+   * search could only ever return the server's default first page.
    */
   async searchInstances<T = Record<string, unknown>>(
     type: string,
     body: InstanceSearchBody,
+    query: SearchInstancesQuery = {},
     auth: AuthContext = SERVICE,
   ): Promise<PaginatedItems<CustomInstance<T>>> {
-    const items = await this.ctx.http.request<CustomInstance<T>[]>({
-      method: "POST",
-      path: `${this.instancesBase(type)}/search`,
-      auth,
-      body,
-    });
-    return { items, pageNumber: 1, pageSize: items.length, hasNextPage: false };
+    const pageNumber = query.pageNumber ?? 1;
+    const pageSize = query.pageSize ?? 60;
+    const { totalCount, ...rest } = query;
+    return requestPage<CustomInstance<T>>(
+      this.ctx.http,
+      {
+        method: "POST",
+        path: `${this.instancesBase(type)}/search`,
+        auth,
+        body,
+        query: { ...rest, pageNumber, pageSize },
+      },
+      { pageNumber, pageSize, ...(totalCount === undefined ? {} : { totalCount }) },
+    );
   }
 
   // --- (E) References ------------------------------------------------------
