@@ -2241,7 +2241,6 @@ components:
       type: string
       description: Type of the agent handling the request.
       enum:
-        - support
         - generic
         - complaint
         - anti_fraud
@@ -3243,7 +3242,7 @@ components:
         - endpoint
         - slack
         - teams
-      description: Type of the trigger. The `slack` and `teams` trigger types can be used only for `support` agent type.
+      description: Type of the trigger. When `slack` or `teams` is selected, the agent must have exactly one matching enabled Slack or Teams native tool assigned.
     CommerceEventsTriggerType:
       type: string
       enum:
@@ -4358,7 +4357,7 @@ components:
                   requestId: req-123e4567-e89b-12d3-a456-426614174000
                   triggerAgentId: complaint-agent
                   collaborationAgents:
-                    - support-agent
+                    - complaint-agent-categorization
                   severity: INFO
                   messages:
                     - timestamp: '2025-01-15T10:30:27.167Z'
@@ -4392,7 +4391,7 @@ components:
                 requestId: req-123e4567-e89b-12d3-a456-426614174000
                 triggerAgentId: complaint-agent
                 collaborationAgents:
-                  - support-agent
+                  - complaint-agent-categorization
                 severity: INFO
                 messages:
                   - timestamp: '2025-01-15T10:30:28.234Z'
@@ -4428,7 +4427,7 @@ components:
                   severity: INFO
                   agents:
                     - complaint-agent
-                    - support-agent
+                    - complaint-agent-categorization
                   messages:
                     - timestamp: '2025-01-15T10:30:27.167Z'
                       severity: INFO
@@ -4438,7 +4437,7 @@ components:
                       isBusinessLog: false
                     - timestamp: '2025-01-15T10:30:28.234Z'
                       severity: INFO
-                      message: Handed off to support agent
+                      message: Handed off to categorization agent
                       agentId: complaint-agent
                       requestId: req-123e4567-e89b-12d3-a456-426614174000
                       isBusinessLog: true
@@ -4461,7 +4460,7 @@ components:
                 severity: INFO
                 agents:
                   - complaint-agent
-                  - support-agent
+                  - complaint-agent-categorization
                 messages:
                   - timestamp: '2025-01-15T10:30:28.234Z'
                     severity: INFO
@@ -4471,8 +4470,8 @@ components:
                     isBusinessLog: true
                   - timestamp: '2025-01-15T10:30:30.789Z'
                     severity: INFO
-                    message: Support agent processing request
-                    agentId: support-agent
+                    message: Categorization agent processing request
+                    agentId: complaint-agent-categorization
                     requestId: req-123e4567-e89b-12d3-a456-426614174000
                     isBusinessLog: false
                 duration: 120
@@ -4522,7 +4521,7 @@ components:
           examples:
             Search Request:
               value:
-                q: name:~Support
+                q: name:~Complaint
     AgentFromTemplateRequest:
       content:
         application/json:
@@ -4683,27 +4682,22 @@ components:
       value:
         - id: "123"
           name:
-            en: Support Agent
+            en: Complaint Handler
           description:
-            en: Support agent template
-          userPrompt: Use get-order tool to fetch order.
-          templatePrompt: "You are an support agent which helps users with their requests, which using following tools: {{user_prompt}}"
-          type: SUPPORT
+            en: A specialized agent template for handling customer complaints
+          userPrompt: First, determine if the user request is really a complaint.
+          templatePrompt: "You are a complaint resolution specialist. Your goal is to understand customer complaints and provide appropriate solutions."
+          type: complaint
           enabled: true
           tags:
             - productivity
           icon: fa-productivity
           mcpServers:
-            - domain: order
+            - domain: customer
               type: predefined
               tools:
-                - get-orders
-                - get-order
-          nativeTools:
-            - type: slack
-              name: Slack Tool
-              config:
-                teamId: T0445953
+                - delete-customer
+                - get-locations
     McpServerResponse:
       value:
         id: mcp-custom
@@ -4792,7 +4786,7 @@ components:
         conversationName: "Support - Order #12345"
         contextRef: "order-12345"
         channelId: "19:abc123@thread.tacv2"
-        agentId: "support-agent-id"
+        agentId: "generic-agent-id"
         sessionId: "session-abc"
         lastMessageAt: "2026-07-10T08:00:00Z"
     ConversationsResponse:
@@ -4801,7 +4795,7 @@ components:
           conversationName: "Support - Order #12345"
           contextRef: "order-12345"
           channelId: "19:abc123@thread.tacv2"
-          agentId: "support-agent-id"
+          agentId: "generic-agent-id"
           sessionId: "session-abc"
           lastMessageAt: "2026-07-10T08:00:00Z"
     AgentResponse:
@@ -4938,13 +4932,13 @@ components:
             - inviteParticipants
     TeamsNativeToolRequest:
       value:
-        name: MS Teams Support Tool
+        name: MS Teams Collaboration Tool
         enabled: true
         type: teams
         config:
           teamId: "19:team-id@thread.tacv2"
           tenantId: "aad-tenant-id"
-          defaultInboundAgentId: "support-agent-id"
+          defaultInboundAgentId: "generic-agent-id"
           allowedOperations:
             - sendMessage
             - collaborateOnChannel
@@ -4952,13 +4946,13 @@ components:
     TeamsNativeToolResponse:
       value:
         id: "teams-tool-1"
-        name: MS Teams Support Tool
+        name: MS Teams Collaboration Tool
         enabled: true
         type: teams
         config:
           teamId: "19:team-id@thread.tacv2"
           tenantId: "aad-tenant-id"
-          defaultInboundAgentId: "support-agent-id"
+          defaultInboundAgentId: "generic-agent-id"
           allowedOperations:
             - sendMessage
             - collaborateOnChannel
