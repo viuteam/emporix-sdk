@@ -12,11 +12,19 @@ describe("resolveEnvironment", () => {
     });
   });
 
-  it("maps Vite's implicit modes onto ours", () => {
+  it("maps Vite's own mode names onto ours", () => {
     // `vite` with no --mode is "development"; `vite build` is "production".
     // Without the aliases, `pnpm dev` would throw.
     expect(resolveEnvironment("development")).toEqual(resolveEnvironment("dev"));
     expect(resolveEnvironment("production")).toEqual(resolveEnvironment("prod"));
+  });
+
+  it("accepts Vitest's 'test' mode", () => {
+    // Vitest loads vite.config.ts with mode "test", and that config calls this
+    // resolver. Without the alias the whole suite dies at startup with
+    // "Unknown mode" before a single test runs — which is exactly how this case
+    // was found.
+    expect(resolveEnvironment("test")).toEqual(resolveEnvironment("dev"));
   });
 
   it("resolves stage and prod to their own hosts", () => {

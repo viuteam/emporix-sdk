@@ -1,8 +1,16 @@
 /** One Emporix environment the Managed Dashboard runs in. */
 export interface Environment {
-  /** Emporix API base URL. Bound as `host` on the SDK client. */
+  /** Emporix API base URL. Bound as `host` on the SDK client — read at runtime. */
   apiUrl: string;
-  /** Dashboard origin that must be allowed to fetch `remoteEntry.js`. */
+  /**
+   * Dashboard origin that must be allowed to fetch `remoteEntry.js`.
+   *
+   * **Build-time only.** Nothing under `src/` reads this; only `vite.config.ts`
+   * does, for `server.cors` and `preview.cors`. Those two options apply when the
+   * remote is served by `vite dev` or `vite preview` — which is how you load a
+   * locally-running module into a real dashboard. A deployed remote gets its
+   * CORS headers from wherever it is hosted, not from here.
+   */
   dashboardOrigin: string;
 }
 
@@ -40,13 +48,18 @@ const ENVIRONMENTS = {
 export type EnvironmentName = keyof typeof ENVIRONMENTS;
 
 /**
- * Vite's implicit modes are `development` (`vite`) and `production`
- * (`vite build`) — not our names. Mapping them keeps `pnpm dev` working
- * without an explicit `--mode`.
+ * Vite's own mode names, which are not ours. `development` is `vite`,
+ * `production` is `vite build`, and `test` is what Vitest loads the config
+ * with — it reads `vite.config.ts` too, so without this entry `pnpm test`
+ * dies before a single test runs.
+ *
+ * These are real Vite modes, not typos, which is why they alias instead of
+ * hitting the throw below.
  */
 const MODE_ALIASES: Record<string, EnvironmentName> = {
   development: "dev",
   production: "prod",
+  test: "dev",
 };
 
 /**
