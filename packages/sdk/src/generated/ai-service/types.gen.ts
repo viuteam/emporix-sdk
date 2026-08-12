@@ -51,7 +51,7 @@ export type AgenticRequest = {
 /**
  * Type of the agent handling the request.
  */
-export type AgentType = 'support' | 'generic' | 'complaint' | 'anti_fraud';
+export type AgentType = 'generic' | 'complaint' | 'anti_fraud';
 
 /**
  * Represents a request body for a text generation operation.
@@ -801,7 +801,7 @@ export type AgentCollaborations = Array<{
 }>;
 
 /**
- * Type of the trigger. The `slack` and `teams` trigger types can be used only for `support` agent type.
+ * Type of the trigger. When `slack` or `teams` is selected, the agent must have exactly one matching enabled Slack or Teams native tool assigned.
  */
 export type TriggerType = 'endpoint' | 'slack' | 'teams';
 
