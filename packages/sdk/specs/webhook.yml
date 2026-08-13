@@ -44,6 +44,9 @@ paths:
         At any time, a tenant can have only one webhook configuration of each type: `svix`, `svix_shared`, and `http`. If a configuration of the requested type already exists, the request returns a `409 Conflict` response. To change the configuration, update or delete the existing one.
 
         **NOTE**
+        For HTTP configurations, `eventsConfiguration` can contain multiple entries for the same `eventType`. The server assigns a stable `id` to each entry. Omit `id` on create; client-supplied entry ids are rejected with `400`. Each entry may include an optional JsonPath `filter` and optional `excludedFields`.
+
+        **NOTE**
         Svix supports a maximum message payload size of approximately 350kb. However, it is generally advisable to keep webhook payloads small, ideally under 40kb. For larger message sizes, consider using the HTTP Webhook Strategy.
       operationId: POST-webhook-create-config
       security:
@@ -87,11 +90,17 @@ paths:
                       - eventType: PRODUCT.CREATED
                         destinationUrl: 'https://gcp.cloudfunctions.net/webhook?name=Detailed'
                         secretKey: admin123
+                        filter: "$[?(@.code == 'abc')]"
+                        excludedFields:
+                          - metadata
                         headers:
                           header3:
                             value: value3
                           header4:
                             value: value4
+                      - eventType: PRODUCT.CREATED
+                        destinationUrl: 'https://gcp.cloudfunctions.net/webhook?name=Second'
+                        excludedFields: []
         description: ''
     get:
       summary: Retrieving a list of webhook configs
@@ -136,6 +145,10 @@ paths:
 
         * Svix Emporix Shared Account
         * Svix Custom Account
+        * HTTP Webhook Strategy
+
+        **NOTE**
+        For HTTP configurations, `eventsConfiguration` can contain multiple entries for the same `eventType`. Existing entry `id` values must be preserved when updating known entries. Legacy payloads without entry ids are still accepted; the server assigns ids to id-less entries (and reuses an existing id when both the stored config and the payload have exactly one entry for that event type).
       operationId: PUT-webhook-update-config
       security:
         - OAuth2:
@@ -166,8 +179,17 @@ paths:
                   configuration:
                     destinationUrl: 'https://gcp.cloudfunctions.net/webhook?name=General'
                     eventsConfiguration:
-                      - eventType: PRODUCT.CREATED
+                      - id: 3f1a2b4c-5d6e-7f80-91a2-b3c4d5e6f708
+                        name: ERP integration
+                        eventType: PRODUCT.CREATED
                         destinationUrl: 'https://gcp.cloudfunctions.net/webhook?name=Detailed'
+                        filter: "$[?(@.code == 'abc')]"
+                        excludedFields:
+                          - metadata
+                      - id: 8a9b0c1d-2e3f-4a5b-6c7d-8e9f0a1b2c3d
+                        eventType: PRODUCT.CREATED
+                        destinationUrl: 'https://gcp.cloudfunctions.net/webhook?name=Second'
+                        excludedFields: []
         description: ''
     patch:
       summary: Partially updating a webhook config
@@ -181,12 +203,21 @@ paths:
           $ref: '#/components/responses/Unauthorized_401'
         '403':
           $ref: '#/components/responses/Forbidden_403'
+        '409':
+          $ref: '#/components/responses/Conflict_409'
         '500':
           $ref: '#/components/responses/InternalServerError_500'
       description: |
         Partially updates a webhook config for a given tenant. Single update may contain multiple partial updates in the form of an array. Following operations are allowed:
         * `REMOVE` - removing an item from the list
         * `UPSERT` - adding or updating given property
+
+        For HTTP `eventsConfiguration`:
+        * Create a new entry with `UPSERT` on `/configuration/http/eventsConfigurationEntry` (no id segment). Do not send `id` in the body — the server generates it. `REMOVE` is not supported on this path.
+        * Address an existing entry by id with `/configuration/http/eventsConfigurationEntry/{entryId}` (and field subpaths for `destinationUrl`, `secretKey`, `headers`, `filter`, `excludedFields`, `name`, and `active`).
+        * Deactivate a single endpoint with `UPSERT` on `/configuration/http/eventsConfigurationEntry/{entryId}/active` and value `false`. Events for a deactivated endpoint are dropped without filter evaluation, delivery, or retries; other endpoints are not affected. Set the value back to `true` to resume deliveries.
+        * Legacy `/configuration/http/eventsConfiguration/{eventType}` paths remain supported when at most one entry exists for that event type and return `409 Conflict` when multiple entries exist.
+        * Create/update requests return `400 Bad Request` when the body supplies a client-minted entry id or the JsonPath `filter` is invalid.
       security:
         - OAuth2:
             - webhook.subscription_manage
@@ -254,6 +285,12 @@ paths:
                     value:
                       - eventType: PRODUCT.CREATED
                         destinationUrl: 'https://gcp.cloudfunctions.net/webhook?name=Detailed'
+                        filter: "$[?(@.code == 'abc')]"
+                        excludedFields:
+                          - metadata
+                      - eventType: PRODUCT.CREATED
+                        destinationUrl: 'https://gcp.cloudfunctions.net/webhook?name=Second'
+                        excludedFields: []
                       - eventType: RETURN.DELETED
                         destinationUrl: 'https://gcp.cloudfunctions.net/webhook?name=Detailed'
               Remove Configuration Event Types:
@@ -290,6 +327,57 @@ paths:
                         value: value1
                       header2:
                         value: value2
+              Create Configuration Event Entry:
+                value:
+                  - op: UPSERT
+                    path: /configuration/http/eventsConfigurationEntry
+                    value:
+                      name: ERP integration
+                      eventType: PRODUCT.CREATED
+                      destinationUrl: 'https://gcp.cloudfunctions.net/webhook?name=New'
+                      filter: "$[?(@.status == 'DECLINED')]"
+                      excludedFields:
+                        - mixins
+              Upsert Configuration Event Entry:
+                value:
+                  - op: UPSERT
+                    path: /configuration/http/eventsConfigurationEntry/3f1a2b4c-5d6e-7f80-91a2-b3c4d5e6f708
+                    value:
+                      eventType: PRODUCT.CREATED
+                      destinationUrl: 'https://gcp.cloudfunctions.net/webhook?name=Detailed'
+                      filter: "$[?(@.status == 'NEW')]"
+                      excludedFields:
+                        - mixins
+              Remove Configuration Event Entry:
+                value:
+                  - op: REMOVE
+                    path: /configuration/http/eventsConfigurationEntry/3f1a2b4c-5d6e-7f80-91a2-b3c4d5e6f708
+              Upsert Configuration Event Entry Destination Url:
+                value:
+                  - op: UPSERT
+                    path: /configuration/http/eventsConfigurationEntry/3f1a2b4c-5d6e-7f80-91a2-b3c4d5e6f708/destinationUrl
+                    value: 'https://gcp.cloudfunctions.net/webhook?name=Detailed'
+              Upsert Configuration Event Entry Filter:
+                value:
+                  - op: UPSERT
+                    path: /configuration/http/eventsConfigurationEntry/3f1a2b4c-5d6e-7f80-91a2-b3c4d5e6f708/filter
+                    value: "$[?(@.status == 'NEW')]"
+              Upsert Configuration Event Entry Excluded Fields:
+                value:
+                  - op: UPSERT
+                    path: /configuration/http/eventsConfigurationEntry/3f1a2b4c-5d6e-7f80-91a2-b3c4d5e6f708/excludedFields
+                    value:
+                      - mixins
+              Upsert Configuration Event Entry Name:
+                value:
+                  - op: UPSERT
+                    path: /configuration/http/eventsConfigurationEntry/3f1a2b4c-5d6e-7f80-91a2-b3c4d5e6f708/name
+                    value: ERP integration
+              Deactivate Configuration Event Entry:
+                value:
+                  - op: UPSERT
+                    path: /configuration/http/eventsConfigurationEntry/3f1a2b4c-5d6e-7f80-91a2-b3c4d5e6f708/active
+                    value: false
         description: ''
     get:
       summary: Retrieving a webhook config
@@ -535,9 +623,18 @@ components:
     EventConfiguration:
       type: object
       properties:
+        id:
+          type: string
+          description: |-
+            Stable server-generated identifier of this event configuration entry. Omit on create; client-supplied ids are rejected with `400`. On update, known ids must refer to existing entries; unknown ids are rejected with `400`. Ids are immutable once assigned.
+        name:
+          type: string
+          maxLength: 255
+          description: |-
+            Optional user-facing label for this entry (for example "ERP integration"). Purely descriptive — it has no impact on delivery. Maximum 255 characters.
         eventType:
           type: string
-          description: Unique identifier of the event.
+          description: Unique identifier of the event. Multiple entries may share the same `eventType`.
         secretKey:
           type: string
           description: Optional secret key which could be used to sign the message. This secret is used in `HMAC SHA 256` algorithm which encrypts the payload. Then this value is encoded to `BASE256` and included in `emporix-event-signature` header of HTTP request. It has higher priority than `secretKey` on root level. Each event can have defined a separated secret key.
@@ -548,8 +645,25 @@ components:
           allOf:
             - $ref: '#/components/schemas/HttpHeadersConfig'
           description: List of key-value pairs which can decorate outgoing HTTP POST request as headers. The size limit for this list is `10`. It has higher priority than `headers` on root level. Each event can have defined a separated headers.
+        filter:
+          type: string
+          description: |-
+            Optional Jayway JsonPath predicate evaluated against the event payload. When omitted or empty, the entry matches every event of the given `eventType`. Invalid expressions are rejected with `400`. Examples: `$[?(@.status == 'DECLINED')]`, `$[?(@.total.amount > 100)]`.
+        excludedFields:
+          type: array
+          items:
+            type: string
+          description: |-
+            Optional per-entry field exclusion list. Only non-blank top-level field names are allowed. Omit or set to `null` to inherit the event-subscription `excludedFields`. An empty array `[]` overrides the subscription exclusions with no exclusions for this target.
+        active:
+          type: boolean
+          default: true
+          description: |-
+            Per-endpoint activation switch. When `false`, events for this endpoint are dropped without filter evaluation, delivery, or retries; other endpoints are not affected. Omitted means active.
     EventsConfiguration:
       type: array
+      description: |-
+        List of HTTP event-specific configuration entries. Multiple entries for the same `eventType` are allowed. Uniqueness is by entry `id`. Duplicate entry ids are rejected with `400`.
       items:
         $ref: '#/components/schemas/EventConfiguration'
     HttpHeaderConfigValue:
@@ -575,7 +689,7 @@ components:
             - $ref: '#/components/schemas/HttpHeadersConfig'
           description: List of key-value pairs which can decorate outgoing HTTP POST request as headers. The size limit for this list is `10`.
         eventsConfiguration:
-          $ref: '#/components/schemas/EventConfiguration'
+          $ref: '#/components/schemas/EventsConfiguration'
       description: HTTP config
     Configuration:
       type: object
@@ -610,7 +724,22 @@ components:
             - '/configuration/http/eventsConfiguration/{eventType}/destinationUrl'
             - '/configuration/http/eventsConfiguration/{eventType}/secretKey'
             - '/configuration/http/eventsConfiguration/{eventType}/headers'
-          description: Path for identyifing which properties should be updated
+            - /configuration/http/eventsConfigurationEntry
+            - '/configuration/http/eventsConfigurationEntry/{entryId}'
+            - '/configuration/http/eventsConfigurationEntry/{entryId}/destinationUrl'
+            - '/configuration/http/eventsConfigurationEntry/{entryId}/secretKey'
+            - '/configuration/http/eventsConfigurationEntry/{entryId}/headers'
+            - '/configuration/http/eventsConfigurationEntry/{entryId}/filter'
+            - '/configuration/http/eventsConfigurationEntry/{entryId}/excludedFields'
+            - '/configuration/http/eventsConfigurationEntry/{entryId}/name'
+            - '/configuration/http/eventsConfigurationEntry/{entryId}/active'
+          description: |-
+            Path identifying which properties should be updated.
+            Use `UPSERT` on `/configuration/http/eventsConfigurationEntry` (no id) to create a new entry — body must omit `id` (server-generated); `REMOVE` on this path is rejected.
+            Prefer `/configuration/http/eventsConfigurationEntry/{entryId}` paths to address a specific existing entry.
+            Use `UPSERT` on `/configuration/http/eventsConfigurationEntry/{entryId}/active` with a boolean value to deactivate (`false`) or reactivate (`true`) a single endpoint without removing it; the value is required.
+            Legacy `/configuration/http/eventsConfiguration/{eventType}` paths remain supported when at most one entry exists for that event type; they return `409` when multiple entries exist.
+            Create/update can return `400` for a client-supplied entry id or an invalid JsonPath `filter`.
         value:
           type: object
           anyOf:
@@ -619,11 +748,17 @@ components:
             - type: string
               description: Svix Api Key
             - type: boolean
-              description: Active flag
+              description: Active flag (config-level on `/active`, per-endpoint on `/configuration/http/eventsConfigurationEntry/{entryId}/active`)
             - type: string
               description: Destination URL where event should be sent
             - type: string
               description: Secret key needed to sign messages sent via HTTP requests.
+            - type: string
+              description: JsonPath filter expression
+            - type: array
+              items:
+                type: string
+              description: Per-entry excluded fields
             - $ref: '#/components/schemas/EventsConfiguration'
             - $ref: '#/components/schemas/EventConfiguration'
       required:
@@ -648,9 +783,12 @@ components:
               items:
                 type: object
                 properties:
+                  id:
+                    type: string
+                    description: Stable server-generated identifier of this event configuration entry.
                   eventType:
                     type: string
-                    description: Type of the event.
+                    description: Type of the event. Multiple entries may share the same `eventType`.
                   destinationUrl:
                     type: string
                     description: Destination URL where event should be sent.
@@ -661,6 +799,19 @@ components:
                     allOf:
                       - $ref: '#/components/schemas/HttpHeadersConfig'
                     description: List of key-value pairs which can decorate outgoing HTTP POST request as headers.
+                  filter:
+                    type: string
+                    description: Optional Jayway JsonPath predicate. When omitted, the entry matches every event of the given `eventType`.
+                  excludedFields:
+                    type: array
+                    items:
+                      type: string
+                    description: |-
+                      Per-entry field exclusion list. Omitted or `null` means inherit the event-subscription exclusions. An empty array `[]` overrides with no exclusions for this target.
+                  active:
+                    type: boolean
+                    description: |-
+                      Per-endpoint activation switch. Always returned as an explicit boolean; entries created before the flag existed report `true`. When `false`, events for this endpoint are dropped without filter evaluation, delivery, or retries.
     ConfigCode:
       type: string
       description: |-
@@ -942,7 +1093,8 @@ components:
             InsufficientPermissionsExample:
               $ref: '#/components/examples/InsufficientPermissions_403'
     Conflict_409:
-      description: Conflict. The resource already exists, for example when creating a webhook configuration for a type that is already configured.
+      description: |-
+        Conflict. Returned when creating a webhook configuration for a type that is already configured, or when a legacy event-type PATCH path is used while multiple `eventsConfiguration` entries exist for that event type.
       content:
         application/json:
           schema:
