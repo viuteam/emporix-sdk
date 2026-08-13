@@ -28,7 +28,15 @@ export type SvixConfig = {
 
 export type EventConfiguration = {
     /**
-     * Unique identifier of the event.
+     * Stable server-generated identifier of this event configuration entry. Omit on create; client-supplied ids are rejected with `400`. On update, known ids must refer to existing entries; unknown ids are rejected with `400`. Ids are immutable once assigned.
+     */
+    id?: string;
+    /**
+     * Optional user-facing label for this entry (for example "ERP integration"). Purely descriptive — it has no impact on delivery. Maximum 255 characters.
+     */
+    name?: string;
+    /**
+     * Unique identifier of the event. Multiple entries may share the same `eventType`.
      */
     eventType?: string;
     /**
@@ -43,8 +51,23 @@ export type EventConfiguration = {
      * List of key-value pairs which can decorate outgoing HTTP POST request as headers. The size limit for this list is `10`. It has higher priority than `headers` on root level. Each event can have defined a separated headers.
      */
     headers?: HttpHeadersConfig;
+    /**
+     * Optional Jayway JsonPath predicate evaluated against the event payload. When omitted or empty, the entry matches every event of the given `eventType`. Invalid expressions are rejected with `400`. Examples: `$[?(@.status == 'DECLINED')]`, `$[?(@.total.amount > 100)]`.
+     */
+    filter?: string;
+    /**
+     * Optional per-entry field exclusion list. Only non-blank top-level field names are allowed. Omit or set to `null` to inherit the event-subscription `excludedFields`. An empty array `[]` overrides the subscription exclusions with no exclusions for this target.
+     */
+    excludedFields?: Array<string>;
+    /**
+     * Per-endpoint activation switch. When `false`, events for this endpoint are dropped without filter evaluation, delivery, or retries; other endpoints are not affected. Omitted means active.
+     */
+    active?: boolean;
 };
 
+/**
+ * List of HTTP event-specific configuration entries. Multiple entries for the same `eventType` are allowed. Uniqueness is by entry `id`. Duplicate entry ids are rejected with `400`.
+ */
 export type EventsConfiguration = Array<EventConfiguration>;
 
 export type HttpHeaderConfigValue = {
@@ -71,7 +94,7 @@ export type HttpConfig = {
      * List of key-value pairs which can decorate outgoing HTTP POST request as headers. The size limit for this list is `10`.
      */
     headers?: HttpHeadersConfig;
-    eventsConfiguration?: EventConfiguration;
+    eventsConfiguration?: EventsConfiguration;
 };
 
 export type Configuration = EmptyConfiguration | SvixConfig | HttpConfig;
@@ -84,10 +107,15 @@ export type WebhookConfigPartialUpdate = {
      */
     op: 'REMOVE' | 'UPSERT';
     /**
-     * Path for identyifing which properties should be updated
+     * Path identifying which properties should be updated.
+     * Use `UPSERT` on `/configuration/http/eventsConfigurationEntry` (no id) to create a new entry — body must omit `id` (server-generated); `REMOVE` on this path is rejected.
+     * Prefer `/configuration/http/eventsConfigurationEntry/{entryId}` paths to address a specific existing entry.
+     * Use `UPSERT` on `/configuration/http/eventsConfigurationEntry/{entryId}/active` with a boolean value to deactivate (`false`) or reactivate (`true`) a single endpoint without removing it; the value is required.
+     * Legacy `/configuration/http/eventsConfiguration/{eventType}` paths remain supported when at most one entry exists for that event type; they return `409` when multiple entries exist.
+     * Create/update can return `400` for a client-supplied entry id or an invalid JsonPath `filter`.
      */
-    path: '/active' | '/configuration' | '/configuration/svix/apiKey' | '/configuration/http/headers' | '/configuration/http/destinationUrl' | '/configuration/http/secretKey' | '/configuration/http/eventsConfiguration' | '/configuration/http/eventsConfiguration/{eventType}' | '/configuration/http/eventsConfiguration/{eventType}/destinationUrl' | '/configuration/http/eventsConfiguration/{eventType}/secretKey' | '/configuration/http/eventsConfiguration/{eventType}/headers';
-    value?: SvixConfig | HttpConfig | string | boolean | EventsConfiguration | EventConfiguration;
+    path: '/active' | '/configuration' | '/configuration/svix/apiKey' | '/configuration/http/headers' | '/configuration/http/destinationUrl' | '/configuration/http/secretKey' | '/configuration/http/eventsConfiguration' | '/configuration/http/eventsConfiguration/{eventType}' | '/configuration/http/eventsConfiguration/{eventType}/destinationUrl' | '/configuration/http/eventsConfiguration/{eventType}/secretKey' | '/configuration/http/eventsConfiguration/{eventType}/headers' | '/configuration/http/eventsConfigurationEntry' | '/configuration/http/eventsConfigurationEntry/{entryId}' | '/configuration/http/eventsConfigurationEntry/{entryId}/destinationUrl' | '/configuration/http/eventsConfigurationEntry/{entryId}/secretKey' | '/configuration/http/eventsConfigurationEntry/{entryId}/headers' | '/configuration/http/eventsConfigurationEntry/{entryId}/filter' | '/configuration/http/eventsConfigurationEntry/{entryId}/excludedFields' | '/configuration/http/eventsConfigurationEntry/{entryId}/name' | '/configuration/http/eventsConfigurationEntry/{entryId}/active';
+    value?: SvixConfig | HttpConfig | string | boolean | Array<string> | EventsConfiguration | EventConfiguration;
 };
 
 export type ConfigurationGet = {
@@ -105,7 +133,11 @@ export type ConfigurationGet = {
     headers?: HttpHeadersConfig;
     eventsConfiguration?: Array<{
         /**
-         * Type of the event.
+         * Stable server-generated identifier of this event configuration entry.
+         */
+        id?: string;
+        /**
+         * Type of the event. Multiple entries may share the same `eventType`.
          */
         eventType?: string;
         /**
@@ -120,6 +152,18 @@ export type ConfigurationGet = {
          * List of key-value pairs which can decorate outgoing HTTP POST request as headers.
          */
         headers?: HttpHeadersConfig;
+        /**
+         * Optional Jayway JsonPath predicate. When omitted, the entry matches every event of the given `eventType`.
+         */
+        filter?: string;
+        /**
+         * Per-entry field exclusion list. Omitted or `null` means inherit the event-subscription exclusions. An empty array `[]` overrides with no exclusions for this target.
+         */
+        excludedFields?: Array<string>;
+        /**
+         * Per-endpoint activation switch. Always returned as an explicit boolean; entries created before the flag existed report `true`. When `false`, events for this endpoint are dropped without filter evaluation, delivery, or retries.
+         */
+        active?: boolean;
     }>;
 };
 
@@ -431,7 +475,7 @@ export type PostWebhookCreateConfigErrors = {
      */
     403: ErrorMessage;
     /**
-     * Conflict. The resource already exists, for example when creating a webhook configuration for a type that is already configured.
+     * Conflict. Returned when creating a webhook configuration for a type that is already configured, or when a legacy event-type PATCH path is used while multiple `eventsConfiguration` entries exist for that event type.
      */
     409: ErrorMessage;
     /**
@@ -609,6 +653,10 @@ export type PatchWebhookUpdateConfigErrors = {
      */
     403: ErrorMessage;
     /**
+     * Conflict. Returned when creating a webhook configuration for a type that is already configured, or when a legacy event-type PATCH path is used while multiple `eventsConfiguration` entries exist for that event type.
+     */
+    409: ErrorMessage;
+    /**
      * Some server-side error occurred. Details are provided in the response payload.
      */
     500: ErrorMessage;
@@ -665,7 +713,7 @@ export type PutWebhookUpdateConfigErrors = {
      */
     403: ErrorMessage;
     /**
-     * Conflict. The resource already exists, for example when creating a webhook configuration for a type that is already configured.
+     * Conflict. Returned when creating a webhook configuration for a type that is already configured, or when a legacy event-type PATCH path is used while multiple `eventsConfiguration` entries exist for that event type.
      */
     409: ErrorMessage;
     /**
@@ -785,7 +833,7 @@ export type PatchWebhookManageEventSubscriptionsErrors = {
      */
     404: ErrorMessage;
     /**
-     * Conflict. The resource already exists, for example when creating a webhook configuration for a type that is already configured.
+     * Conflict. Returned when creating a webhook configuration for a type that is already configured, or when a legacy event-type PATCH path is used while multiple `eventsConfiguration` entries exist for that event type.
      */
     409: ErrorMessage;
     /**
