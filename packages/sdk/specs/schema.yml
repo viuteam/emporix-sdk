@@ -1997,6 +1997,8 @@ components:
             url: "https://res.cloudinary.com/saas-ag/raw/upload/emporix-docs/64d35aa7fa54121ca47db657_v1.json"
     TypesResponse:
       value:
+        - AVAILABILITY
+        - LOCATION
         - ORDER
         - PRODUCT
         - QUOTE
@@ -2092,7 +2094,7 @@ components:
     SchemaType:
       type: string
       description: Type which the schema should be assigned to. Can be one of the predefined values or any custom schema type id.
-      enum: [CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA]
+      enum: [AVAILABILITY, CART, CART_ITEM, CATEGORY, COMPANY, COUPON, CUSTOMER, CUSTOMER_ADDRESS, LOCATION, ORDER, ORDER_ENTRY, PRODUCT, QUOTE, RETURN, PRICE_LIST, SITE, CUSTOM_ENTITY, VENDOR, MEDIA]
     SchemaTypes:
       type: array
       description: List of types to which assign the schema.

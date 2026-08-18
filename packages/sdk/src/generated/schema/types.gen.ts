@@ -46,7 +46,7 @@ export type IdResponse = {
 /**
  * Type which the schema should be assigned to. Can be one of the predefined values or any custom schema type id.
  */
-export type SchemaType = 'CART' | 'CART_ITEM' | 'CATEGORY' | 'COMPANY' | 'COUPON' | 'CUSTOMER' | 'CUSTOMER_ADDRESS' | 'ORDER' | 'ORDER_ENTRY' | 'PRODUCT' | 'QUOTE' | 'RETURN' | 'PRICE_LIST' | 'SITE' | 'CUSTOM_ENTITY' | 'VENDOR' | 'MEDIA';
+export type SchemaType = 'AVAILABILITY' | 'CART' | 'CART_ITEM' | 'CATEGORY' | 'COMPANY' | 'COUPON' | 'CUSTOMER' | 'CUSTOMER_ADDRESS' | 'LOCATION' | 'ORDER' | 'ORDER_ENTRY' | 'PRODUCT' | 'QUOTE' | 'RETURN' | 'PRICE_LIST' | 'SITE' | 'CUSTOM_ENTITY' | 'VENDOR' | 'MEDIA';
 
 /**
  * List of types to which assign the schema.
