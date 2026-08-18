@@ -24,7 +24,7 @@ paths:
                 - name: Schema
                   schemaType: orderNoSequence
                   active: true
-                  preText: C-__year__-__month__-
+                  preText: EC-__region__-__year__-__month__-
                   postText: '-D'
                   startValue: 1
                   maxValue: 999999999
@@ -35,6 +35,9 @@ paths:
                       required: true
                     __month__:
                       required: true
+                    __region__:
+                      required: true
+                      sitePath: mixins.customConfig.region
                 - name: customer_number
                   startValue: 1
                   schemaType: orderNoSequence
@@ -80,6 +83,20 @@ paths:
       summary: Creating a sequence schema
       description: |-
         Creates a new sequence schema.
+
+        Placeholder names must start and end with `__`, for example `__year__` or `__region__`.
+
+        Built-in placeholders that Sequential ID can resolve  when `siteCode` is provided:
+        * `__year__`, `__month__`, `__day__`, `__hour__`, `__minute__`, `__second__` — based on `homeBase.timezone`. Default timezone is `UTC`.
+        * `__country__` — based on `homeBase.address.country`. Default country is `DE`.
+
+        Custom placeholders must declare `sitePath`.
+        Paths that start with `mixins.` are resolved from [Retrieving site mixins](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/mixins#get-site-tenant-sites-sitecode-mixins) and are format-validated only at creation.
+        Other paths are resolved from [Retrieving a site](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/site-settings#get-site-tenant-sites-sitecode) and must match the Site schema, for example `homeBase.address.country`. Paths that target `metadata` or the bare `mixins` root are rejected.
+
+        For array values, `arrayLimit` (default `3`) and `delimiter` (default `-`) control how elements are joined. Both are ignored for scalar values. Resolved values longer than 100 characters are truncated.
+        To access array elements, use the `sitePath` with the index, for example `mixins.customConfig.regions.2` or `mixins.customConfig.regions.2.name`. Array index starts at `0`.
+        Omit the array index to access all elements, which will then be joined with the `delimiter` and limited to `arrayLimit` elements. Joining of object array elements is not supported.
       operationId: POST-sequential-id-create-tenant-schema
       requestBody:
         content:
@@ -87,7 +104,7 @@ paths:
             example:
               name: Schema
               schemaType: orderNoSequence
-              preText: C-__year__-__month__-
+              preText: EC-__region__-__year__-__month__-
               postText: '-D'
               maxValue: 999999999
               numberOfDigits: 9
@@ -97,6 +114,9 @@ paths:
                   required: true
                 __month__:
                   required: true
+                __region__:
+                  required: true
+                  sitePath: mixins.customConfig.region
             schema:
               $ref: '#/components/schemas/SequenceSchemaCreate'
         required: true
@@ -129,7 +149,7 @@ paths:
                 name: Schema
                 schemaType: orderNoSequence
                 active: true
-                preText: C-__year__-__month__-
+                preText: EC-__region__-__year__-__month__-
                 postText: '-D'
                 startValue: 1
                 maxValue: 999999999
@@ -140,6 +160,9 @@ paths:
                     required: true
                   __month__:
                     required: true
+                  __region__:
+                    required: true
+                    sitePath: mixins.customConfig.region
               schema:
                 $ref: '#/components/schemas/SequenceSchema'
         '400':
@@ -229,7 +252,7 @@ paths:
                 - name: Schema
                   schemaType: orderNoSequence
                   active: true
-                  preText: C-__year__-__month__-
+                  preText: EC-__region__-__year__-__month__-
                   postText: '-D'
                   startValue: 1
                   maxValue: 999999999
@@ -240,6 +263,9 @@ paths:
                       required: true
                     __month__:
                       required: true
+                    __region__:
+                      required: true
+                      sitePath: mixins.customConfig.region
                 - name: customer_number
                   startValue: 1
                   schemaType: orderNoSequence
@@ -313,6 +339,17 @@ paths:
       description: |-
         Creates and returns the `nextId` according to the specified sequence.
         If you specify the `sequenceKey` in request body, the `nextId` number is generated for this sequence, otherwise default pool is used.
+
+        When `siteCode` is provided and a placeholder value is missing from the request body, Sequential ID resolves it from site data:
+        * Built-in placeholders `__year__`, `__month__`, `__day__`, `__hour__`, `__minute__`, `__second__` use `homeBase.timezone`. Default timezone is `UTC`.
+        * Built-in `__country__` uses `homeBase.address.country` from site data.
+        * Custom placeholders with `sitePath` are resolved from [Retrieving a site](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/site-settings#get-site-tenant-sites-sitecode), or from [Retrieving site mixins](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/mixins#get-site-tenant-sites-sitecode-mixins) when the path starts with `mixins.`.
+
+        Values supplied in the request body take precedence over site resolution.
+        Arrays of scalars are joined using `delimiter` (default `-`), limited to `arrayLimit` elements (default `3`).
+        Paths that resolve to an object, an empty array, or a missing value do not populate the placeholder. Required placeholders then fail with `400 Bad Request`.
+        `siteCode` is required when a required `sitePath` placeholder is not supplied in the request body.
+        Placeholders that resolve to a value longer than 100 characters are truncated.
       operationId: POST-sequential-id-create-schema-type-nextId
       requestBody:
         content:
@@ -369,6 +406,17 @@ paths:
       description: |-
         Creates and returns multiple `nextIds` for the specified sequence schemas.
         If you specify the `sequenceKey` in request body, the `nextIds` numbers are generated for this sequence, otherwise default pool is used.
+
+        When `siteCode` is provided and a placeholder value is missing from the request body, Sequential ID resolves it from site data:
+        * Built-in placeholders `__year__`, `__month__`, `__day__`, `__hour__`, `__minute__`, `__second__` use `homeBase.timezone`. Default timezone is `UTC`.
+        * Built-in `__country__` uses `homeBase.address.country` from site data.
+        * Custom placeholders with `sitePath` are resolved from [Retrieving a site](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/site-settings#get-site-tenant-sites-sitecode), or from [Retrieving site mixins](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/mixins#get-site-tenant-sites-sitecode-mixins) when the path starts with `mixins.`.
+
+        Values supplied in the request body take precedence over site resolution.
+        Arrays of scalars are joined using `delimiter` (default `-`), limited to `arrayLimit` elements (default `3`).
+        Paths that resolve to an object, an empty array, or a missing value do not populate the placeholder. Required placeholders then fail with `400 Bad Request`.
+        `siteCode` is required when a required `sitePath` placeholder is not supplied in the request body.
+        Placeholders that resolve to a value longer than 100 characters are truncated.
       parameters:
         - $ref: '#/components/parameters/trait_siteCode'
       operationId: POST-sequential-id-create-schema-types-nextIds
@@ -429,15 +477,29 @@ components:
         $ref: '#/components/schemas/SequenceSchema'
     Placeholders:
       type: object
-      description: The filler text for values based on certain properties or settings in the system.
+      description: Placeholder definitions used in `preText` and `postText`. Names must start and end with `__`.
       additionalProperties:
         type: object
         description: Properties used as placeholders.
         properties:
           required:
             type: boolean
+            description: Flag indicating whether the placeholder must be resolved when generating an ID.
           default:
             type: string
+            description: Replacement used when the placeholder is not set in the request. Used only when `required` is `false`.
+          sitePath:
+            type: string
+            description: Dotted path into the site or site mixins response. Resolved when `siteCode` is provided.
+          arrayLimit:
+            type: integer
+            minimum: 1
+            description: Maximum array elements to include. Defaults to `3`. Ignored for scalars.
+          delimiter:
+            type: string
+            description: Separator for joined array elements. Defaults to `-`. Ignored for scalars.
+        required:
+          - required
     SequenceSchemaCreate:
       type: object
       properties:
@@ -654,8 +716,8 @@ components:
       in: query
       required: false
       description: |
-        Value used to resolve certain placeholders.
-
+        Site code used to resolve placeholders from [Retrieving a site](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/site-settings#get-site-tenant-sites-sitecode) and [Retrieving site mixins](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/mixins#get-site-tenant-sites-sitecode-mixins).
+        
         Placeholders such as **\_\_year__**, **\_\_month__**, **\_\_day__**, **\_\_hour__**, **\_\_minute__**, **\_\_second__**, and **\_\_country__**, 
         which are defined in the schema, can have default values computed when their counterparts are missing in the request body.
 
