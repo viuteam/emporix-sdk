@@ -446,7 +446,7 @@ export type CreateQuoteApprovalRequest = GenericApprovalForCreate & {
  * Approval partial update operation list.
  */
 export type UpdateApprovalRequest = Array<{
-    op: 'ADD' | 'REMOVE' | 'REPLACE';
+    op: 'add' | 'remove' | 'replace';
     path: '/status' | '/details*' | '/comment' | '/approverComment' | '/resource/deliveryWindow*';
     value?: ApprovalStatus | string | {
         [key: string]: unknown;

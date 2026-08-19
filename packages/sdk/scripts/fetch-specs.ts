@@ -12,7 +12,8 @@ import {
 import { applyPatches } from "./spec-patches";
 
 const BASE = "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main";
-const SPECS: Record<string, string> = {
+/** Exported for `tests/spec-patches.test.ts`: it asserts every SPEC_PATCHES key names a real spec. */
+export const SPECS: Record<string, string> = {
   customer: `${BASE}/companies-and-customers/customer-management/api-reference/api.yml`,
   product: `${BASE}/products-labels-and-brands/product-service/api-reference/api.yml`,
   category: `${BASE}/catalogs-and-categories/category-tree/api-reference/api.yml`,

@@ -9,6 +9,10 @@
 - **Contact Assignment** — links a customer to a legal entity with a type: `PRIMARY`, `BILLING`, `LOGISTICS`, or `CONTACT`.
 - **Location** — a `HEADQUARTER`, `WAREHOUSE`, or `OFFICE` owned by a legal entity.
 - **Customer Group** — IAM group keyed by `b2b.legalEntityId`. Predefined: Admin, Buyer, Requester, Contact.
+- **Approval** — a member of a `Requester` group cannot check out directly; the cart needs a
+  decision from an approver first. See [approval.md](./approval.md), whose «Measured behaviour»
+  section covers the parts the API reference does not — notably that creating an approval
+  consumes the cart.
 
 ## Active-company model
 

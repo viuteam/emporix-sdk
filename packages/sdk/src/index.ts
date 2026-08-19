@@ -49,7 +49,7 @@ export type { ClientContext, PaginatedItems } from "./core/context";
 export { iterateAll } from "./core/context";
 export { resolveQuery } from "./core/query";
 export type { QueryFor, BuiltQuery, QueryCapability } from "./core/query";
-export { productIdFromYrn } from "./core/yrn";
+export { productIdFromYrn, productYrn } from "./core/yrn";
 export { CustomerService } from "./services/customer";
 export type {
   Customer,
