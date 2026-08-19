@@ -110,6 +110,38 @@ export const SPEC_PATCHES: Record<string, SpecPatch[]> = {
       apply: relocateBulkPatchSchema,
     },
   ],
+  /**
+   * The op enum ships uppercase upstream, and the live API rejects it.
+   *
+   * Measured against tenant `viu` on 2026-08-18: `PATCH /approval/{tenant}/approvals/{id}`
+   * with `{ op: "REPLACE", path: "/status" }` answers 400; the same call with
+   * `{ op: "replace" }` succeeds. `docs/approval.md` has always shown the lowercase
+   * form — it is the generated type that misleads, which is why the repair belongs
+   * here rather than in a hand-written cast at each call site.
+   *
+   * Deliberately NOT applied to `ai-service.yml` (`PatchRequest`) or `quote.yml`
+   * (`QuoteUpdateRequest`), which carry the identical uppercase enum: neither has
+   * been measured. Lowercasing an op that a service expects uppercase breaks working
+   * calls in the other direction, so each needs its own confirmed 400 first.
+   */
+  "approval-service": [
+    {
+      reason:
+        "upstream: the JSON-Patch `op` enum is uppercase (ADD/REMOVE/REPLACE); the live API rejects those with 400 and accepts only lowercase. Lowercasing the enum is what makes the generated `ApprovalPatch['op']` usable.",
+      apply: replaceAll(
+        "              - enum:\n                  - ADD\n                  - REMOVE\n                  - REPLACE",
+        "              - enum:\n                  - add\n                  - remove\n                  - replace",
+      ),
+    },
+    {
+      reason:
+        "upstream: the `approvalUpdateBody` examples repeat the same uppercase ops. They do not affect codegen, but a vendored spec whose examples contradict its own enum is a trap for the next reader.",
+      apply: (yaml) => {
+        const next = yaml.split("- op: REPLACE").join("- op: replace").split("- op: ADD").join("- op: add");
+        return next === yaml ? null : next;
+      },
+    },
+  ],
 };
 
 /** Result of applying every registered patch for a spec. */

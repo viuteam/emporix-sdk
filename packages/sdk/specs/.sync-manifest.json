@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-18T05:55:58.579Z",
+  "generatedAt": "2026-08-19T05:40:15.905Z",
   "services": {
     "customer": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/companies-and-customers/customer-management/api-reference/api.yml",
@@ -220,8 +220,8 @@
     "approval-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/companies-and-customers/approval-service/approval-api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-08-18T05:55:58.579Z",
-      "sha256": "15076f7be2fe78dc7c11752d8a5b4c6681952361b613a3aa214cce867213db7b"
+      "fetchedAt": "2026-08-19T05:40:15.905Z",
+      "sha256": "f4833258aedc5bedc3c54c6751e55afd31fff3572ac270d1cd1cf6dc77761338"
     },
     "iam": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/users-and-permissions/iam/api-reference/api.yml",

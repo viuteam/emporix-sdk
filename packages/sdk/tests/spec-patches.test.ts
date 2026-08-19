@@ -94,3 +94,71 @@ describe("spec-patches", () => {
     expect(Object.keys(SPEC_PATCHES)).toContain("schema");
   });
 });
+
+// The op enum exactly as upstream ships it — 14 spaces before `- enum:`, 18 before
+// the values — plus the `approvalUpdateBody` examples, which repeat the same
+// uppercase ops. Both are reproduced verbatim from specs/approval-service.yml as
+// fetched on 2026-08-18.
+const APPROVAL_UPPERCASE_OPS = [
+  "    updateApprovalRequest:",
+  "      type: array",
+  "      description: Approval partial update operation list.",
+  "      items:",
+  "        type: object",
+  "        properties:",
+  "          op:",
+  "            anyOf:",
+  "              - enum:",
+  "                  - ADD",
+  "                  - REMOVE",
+  "                  - REPLACE",
+  "            type: string",
+  "    approvalUpdateBody:",
+  "      examples:",
+  "        Change status of the approval:",
+  "          value:",
+  "            - op: REPLACE",
+  "              path: /status",
+  "              value: APPROVED",
+  "        Add comment by the approver:",
+  "          value:",
+  "            - op: ADD",
+  "              path: /approverComment",
+  "              value: new comment",
+  "",
+].join("\n");
+
+describe("approval-service patches", () => {
+  it("lowercases the op enum so the generated type matches the API", () => {
+    const out = applyPatches("approval-service", APPROVAL_UPPERCASE_OPS);
+    expect(out.yaml).toContain(
+      "              - enum:\n                  - add\n                  - remove\n                  - replace",
+    );
+    expect(out.yaml).not.toContain("                  - REPLACE");
+    expect(out.applied.length).toBeGreaterThan(0);
+  });
+
+  it("lowercases the examples too, so the vendored spec does not contradict itself", () => {
+    const out = applyPatches("approval-service", APPROVAL_UPPERCASE_OPS);
+    expect(out.yaml).toContain("- op: replace");
+    expect(out.yaml).toContain("- op: add");
+    expect(out.yaml).not.toContain("op: REPLACE");
+    expect(out.yaml).not.toContain("op: ADD");
+  });
+
+  it("is idempotent: a second pass changes nothing and reports the patches stale", () => {
+    const once = applyPatches("approval-service", APPROVAL_UPPERCASE_OPS);
+    const twice = applyPatches("approval-service", once.yaml);
+    expect(twice.yaml).toBe(once.yaml);
+    expect(twice.applied).toEqual([]);
+    expect(twice.stale).toHaveLength(once.applied.length);
+  });
+
+  it("leaves the path enum and the status values alone", () => {
+    // `/status` and `APPROVED` are measured correct as they stand. Lowercasing too
+    // broadly would be a new defect, not a fix.
+    const out = applyPatches("approval-service", APPROVAL_UPPERCASE_OPS);
+    expect(out.yaml).toContain("path: /status");
+    expect(out.yaml).toContain("value: APPROVED");
+  });
+});

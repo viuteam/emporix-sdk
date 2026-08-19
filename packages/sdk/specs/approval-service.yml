@@ -1090,9 +1090,9 @@ components:
           op:
             anyOf:
               - enum:
-                  - ADD
-                  - REMOVE
-                  - REPLACE
+                  - add
+                  - remove
+                  - replace
             type: string
           path:
             anyOf:
@@ -1249,35 +1249,35 @@ components:
           examples:
             Multiple update list:
               value:
-                - op: REPLACE
+                - op: replace
                   path: /comment
                   value: new comment
-                - op: REPLACE
+                - op: replace
                   path: /status
                   value: APPROVED
             Change status of the approval:
               value:
-                - op: REPLACE
+                - op: replace
                   path: /status
                   value: APPROVED
             Change comment of the approval:
               value:
-                - op: REPLACE
+                - op: replace
                   path: /comment
                   value: new comment
             Add comment by the approver:
               value:
-                - op: ADD
+                - op: add
                   path: /approverComment
                   value: new comment
             Change currency of the details:
               value:
-                - op: REPLACE
+                - op: replace
                   path: /details/currency
                   value: EUR
             Change delivery window:
               value:
-                - op: REPLACE
+                - op: replace
                   path: /resource/deliveryWindow
                   value:
                     id: deliveryWindowId
@@ -1285,7 +1285,7 @@ components:
                     deliveryDate: "2010-05-02T13:06:15.280Z"
             Change details of the approval:
               value:
-                - op: REPLACE
+                - op: replace
                   path: /details
                   value:
                     currency: EUR
