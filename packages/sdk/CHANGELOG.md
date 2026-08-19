@@ -1,5 +1,37 @@
 # @viu/emporix-sdk
 
+## 2.34.0
+
+### Minor Changes
+
+- [#269](https://github.com/viuteam/emporix-sdk/pull/269) [`1cc5094`](https://github.com/viuteam/emporix-sdk/commit/1cc5094f092529494c166fbf8e5a315adac127b2) Thanks [@amnael1](https://github.com/amnael1)! - Fix the JSON-Patch `op` enum for the Approval service. The upstream spec ships
+  `ADD`/`REMOVE`/`REPLACE`, which the live API rejects with 400; `ApprovalPatch['op']`
+  is now `'add' | 'remove' | 'replace'`. Callers that worked around the wrong type
+  with a cast can drop it. Measured against tenant `viu` on 2026-08-18.
+
+- [#269](https://github.com/viuteam/emporix-sdk/pull/269) [`c2e9993`](https://github.com/viuteam/emporix-sdk/commit/c2e999351b0ca99ae96b8615957cb2d168c2ee34) Thanks [@amnael1](https://github.com/amnael1)! - Add `approvalStatusPatch(status, approverComment?)`, which builds the JSON-Patch for
+  an approval decision. It encodes two measured quirks: the op is lowercase, and the
+  approver comment needs `add` rather than `replace` — `replace` on the absent
+  `approverComment` field answers APPROVAL-400010 and, because PATCH is atomic, drops
+  the status change with it.
+
+- [#269](https://github.com/viuteam/emporix-sdk/pull/269) [`071cb9c`](https://github.com/viuteam/emporix-sdk/commit/071cb9c6022c3dc4cd1f99f114c208fc057344f1) Thanks [@amnael1](https://github.com/amnael1)! - Add `productYrn(tenant, productId)`, the inverse of `productIdFromYrn` and the form
+  `carts.addItem` requires. Also notes in `productIdFromYrn` that approval resource
+  items carry a bare product id rather than a YRN, so callers need the `itemId` fallback.
+
+### Patch Changes
+
+- [#269](https://github.com/viuteam/emporix-sdk/pull/269) [`ab8c607`](https://github.com/viuteam/emporix-sdk/commit/ab8c6078349738867877c3600f3ef52880c82439) Thanks [@amnael1](https://github.com/amnael1)! - Document measured Approval-service behaviour: `createApproval` consumes the cart
+  (404 from the Cart API, not restored by decline or withdrawal), `checkPermitted`
+  answers `true` for the approver as well as the requester, and the approver comment
+  needs `add`. Also corrects the `useCreateApproval` example, which showed the payload
+  nested under `resource` and omitted the mandatory `action`, `approver` and `details`.
+
+- [#269](https://github.com/viuteam/emporix-sdk/pull/269) [`75bf3ef`](https://github.com/viuteam/emporix-sdk/commit/75bf3efae89dbcd19283dc9ac8f6cc609e72ee7b) Thanks [@amnael1](https://github.com/amnael1)! - Warn when `context` is passed at the top level of `EmporixConfig` instead of inside
+  `credentials.storefront`. It was silently dropped, after which `matchByContext`
+  returns an empty list with no error because the anonymous token carries no site,
+  currency or country. `logger: false` is honoured as a request for silence.
+
 ## 2.33.5
 
 ### Patch Changes
