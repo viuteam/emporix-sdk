@@ -164,3 +164,49 @@ describe("CustomerAdminService.searchCustomers — q filter", () => {
     expect((seenBody as { q?: unknown } | null)?.q).toBe("status:active");
   });
 });
+
+const CONFIG = "https://api.emporix.io/customer/acme/config/password-migration-retention";
+
+describe("CustomerAdminService password-migration retention", () => {
+  it("getPasswordMigrationRetention GETs the config path with the service token", async () => {
+    let seenAuth: string | null = null;
+    server.use(
+      http.get(CONFIG, ({ request }) => {
+        seenAuth = request.headers.get("authorization");
+        return HttpResponse.json({ retentionEndDate: "2027-01-31", emailNotificationsEnabled: true });
+      }),
+    );
+    const config = await svc().getPasswordMigrationRetention();
+    expect(seenAuth).toBe("Bearer svc-tok");
+    expect(config).toEqual({ retentionEndDate: "2027-01-31", emailNotificationsEnabled: true });
+  });
+
+  it("configurePasswordMigrationRetention POSTs the body and returns the stored config", async () => {
+    let body: unknown = null;
+    server.use(
+      http.post(CONFIG, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({
+          retentionEndDate: "2027-01-31",
+          emailReminderDate: "2027-01-24",
+          emailNotificationsEnabled: true,
+        });
+      }),
+    );
+    const config = await svc().configurePasswordMigrationRetention({ retentionEndDate: "2027-01-31" });
+    expect(body).toEqual({ retentionEndDate: "2027-01-31" });
+    expect(config.emailReminderDate).toBe("2027-01-24");
+  });
+
+  it("deletePasswordMigrationRetention DELETEs and resolves on 204", async () => {
+    let called = false;
+    server.use(
+      http.delete(CONFIG, () => {
+        called = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await expect(svc().deletePasswordMigrationRetention()).resolves.toBeUndefined();
+    expect(called).toBe(true);
+  });
+});

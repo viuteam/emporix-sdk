@@ -13,6 +13,8 @@ import type {
   AdminCustomerAddressList,
   AdminCustomerAddressInput,
   AdminCustomerAddressUpdate,
+  AdminPasswordMigrationRetention,
+  AdminPasswordMigrationRetentionInput,
 } from "./customer-admin-types";
 
 export type {
@@ -27,6 +29,8 @@ export type {
   AdminCustomerAddressList,
   AdminCustomerAddressInput,
   AdminCustomerAddressUpdate,
+  AdminPasswordMigrationRetention,
+  AdminPasswordMigrationRetentionInput,
 } from "./customer-admin-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -46,6 +50,10 @@ export class CustomerAdminService {
 
   private customerPath(customerNumber: string): string {
     return `${this.base()}/${encodeURIComponent(customerNumber)}`;
+  }
+
+  private configPath(): string {
+    return `/customer/${this.ctx.tenant}/config/password-migration-retention`;
   }
 
   private addressPath(customerNumber: string, addressId: string): string {
@@ -157,5 +165,47 @@ export class CustomerAdminService {
       auth,
       query: { tags: tags.join(",") },
     });
+  }
+
+  // --- Password-migration retention ---
+
+  /**
+   * Retrieves the tenant's password-migration retention config. Requires the
+   * `customer.import_read` scope. An unconfigured tenant answers with an empty
+   * object rather than a 404.
+   */
+  async getPasswordMigrationRetention(auth: AuthContext = SERVICE): Promise<AdminPasswordMigrationRetention> {
+    return this.ctx.http.request<AdminPasswordMigrationRetention>({
+      method: "GET",
+      path: this.configPath(),
+      auth,
+    });
+  }
+
+  /**
+   * Creates or updates the retention config (`POST`). Requires the
+   * `customer.import_manage` scope. **Call this before importing customers with
+   * `legacyAuth`** — that import is rejected without an active config. Re-POST with
+   * an earlier `retentionEndDate` to shorten a running window.
+   */
+  async configurePasswordMigrationRetention(
+    input: AdminPasswordMigrationRetentionInput,
+    auth: AuthContext = SERVICE,
+  ): Promise<AdminPasswordMigrationRetention> {
+    return this.ctx.http.request<AdminPasswordMigrationRetention>({
+      method: "POST",
+      path: this.configPath(),
+      auth,
+      body: input,
+    });
+  }
+
+  /**
+   * Removes the retention config. Requires the `customer.import_manage` scope.
+   * Intended for after the migration window: when the window ends, unmigrated
+   * accounts need a password reset and their legacy credentials are cleared.
+   */
+  async deletePasswordMigrationRetention(auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({ method: "DELETE", path: this.configPath(), auth });
   }
 }

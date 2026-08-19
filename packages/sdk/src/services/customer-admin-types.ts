@@ -12,6 +12,8 @@ import type {
   Address as GenAddress,
   Address2,
   AddressUpdateDto,
+  PasswordMigrationRetentionConfigRequest,
+  PasswordMigrationRetentionConfigResponse,
 } from "../generated/customer-service";
 import type { QueryFor } from "../core/query";
 
@@ -40,3 +42,15 @@ export type AdminCustomerAddressList = AdminCustomerAddress[];
 export type AdminCustomerAddressInput = Address2;
 /** Upsert/patch address body (`PUT`/`PATCH …/addresses/{id}`). */
 export type AdminCustomerAddressUpdate = AddressUpdateDto;
+
+/**
+ * The tenant's password-migration retention window (read shape). Every field is
+ * optional upstream — an unconfigured tenant answers with an empty object.
+ */
+export type AdminPasswordMigrationRetention = PasswordMigrationRetentionConfigResponse;
+/**
+ * Body for `configurePasswordMigrationRetention`. `retentionEndDate` is required.
+ * `emailReminderDate` defaults to 7 days before it (or tomorrow, when that would
+ * already be past); `emailNotificationsEnabled` defaults to `true`.
+ */
+export type AdminPasswordMigrationRetentionInput = PasswordMigrationRetentionConfigRequest;
