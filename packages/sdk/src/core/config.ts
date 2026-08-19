@@ -1,4 +1,4 @@
-import type { LoggerConfig } from "./logger";
+import type { Logger, LoggerConfig } from "./logger";
 import type { TokenProvider } from "./auth";
 
 /** Default Emporix API host. */
@@ -73,6 +73,40 @@ export interface ResolvedConfig {
   fetch: typeof globalThis.fetch | undefined;
 }
 
+/**
+ * `context` belongs inside `credentials.storefront`, and at the top level it is
+ * silently lost.
+ *
+ * `EmporixConfig` has no top-level `context`, so such an object is dropped without a
+ * word — and then `matchByContext` answers `[]` with no error, because the anonymous
+ * token was minted without site, currency and country. Measured on tenant `viu`
+ * (2026-08-18): 0 matches when misplaced, 1 when placed correctly. The expensive part
+ * is the silence: it reads exactly like «no prices configured».
+ *
+ * A warning rather than a throw — configs that misplace it work today (badly), and a
+ * throw would stop them on upgrade. `logger: false` is honoured as an explicit
+ * request for silence; the object form of `LoggerConfig` carries no `warn` method, so
+ * anything that is not a `Logger` instance falls back to the console.
+ */
+function warnOnMisplacedContext(input: EmporixConfig): void {
+  if (!("context" in input)) return;
+  const logger = input.logger;
+  if (logger === false) return;
+  const message =
+    "EmporixConfig has no top-level `context` — it is being ignored. Move it into " +
+    "`credentials.storefront.context`, otherwise the anonymous token carries no " +
+    "site/currency/country and price matching returns an empty list without erroring.";
+  if (logger && typeof (logger as Logger).warn === "function") {
+    (logger as Logger).warn(message);
+    return;
+  }
+  // Same escape hatch as the read-only-storage warning in `session-storage.ts`: this
+  // has to reach a developer who configured no logger at all, which is exactly the
+  // situation the mistake happens in.
+  // eslint-disable-next-line no-console
+  console.warn(`[emporix] ${message}`);
+}
+
 /** Validates user config and applies defaults. Throws on invalid tenant/credentials. */
 export function validateConfig(input: EmporixConfig): ResolvedConfig {
   if (!TENANT_RE.test(input.tenant)) {
@@ -83,6 +117,7 @@ export function validateConfig(input: EmporixConfig): ResolvedConfig {
   if (!input.credentials) {
     throw new Error("credentials is required (provide at least one of backend/storefront/custom)");
   }
+  warnOnMisplacedContext(input);
   return {
     tenant: input.tenant,
     host: input.host ?? DEFAULT_HOST,
