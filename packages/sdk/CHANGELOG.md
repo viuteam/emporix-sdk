@@ -1,5 +1,33 @@
 # @viu/emporix-sdk
 
+## 2.35.0
+
+### Minor Changes
+
+- [#273](https://github.com/viuteam/emporix-sdk/pull/273) [`23406dc`](https://github.com/viuteam/emporix-sdk/commit/23406dc3b99bde255c3c01157f3ee6093bbc490a) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): expose the customer password-migration endpoints
+
+  `client.customerAdmin` gains the four operations Emporix added to the Customer
+  Service: `getPasswordMigrationRetention`, `configurePasswordMigrationRetention`
+  and `deletePasswordMigrationRetention` for the retention window, plus
+  `importCustomers` for the bulk import.
+
+  Together they cover migrating customers off a legacy shop. Configure a retention
+  window, import customers carrying `legacyAuth`, and each legacy password hash is
+  replaced with an Emporix hash on that customer's first successful login. Without
+  an active config the import is rejected — the order matters.
+
+  `importCustomers` answers **207 Multi-Status**, so per-item failures arrive as
+  data with their own `code` rather than throwing. Inspect every entry.
+
+  All four need a service token with `customer.import_read` or
+  `customer.import_manage`, so there are no React hooks — see `docs/customer-admin.md`.
+
+### Patch Changes
+
+- [#272](https://github.com/viuteam/emporix-sdk/pull/272) [`87552e7`](https://github.com/viuteam/emporix-sdk/commit/87552e72d5e2de7d1523c3664c49d3cd2f643214) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+
+  Updated services: customer-service
+
 ## 2.34.0
 
 ### Minor Changes
