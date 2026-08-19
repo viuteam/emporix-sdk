@@ -64,5 +64,43 @@ await client.customerAdmin.deletePasswordMigrationRetention();
 - **Scopes:** `customer.import_read` to read, `customer.import_manage` to write or
   delete. A service client without them gets a `403`.
 
+## Bulk customer import
+
+```ts
+const results = await client.customerAdmin.importCustomers([
+  {
+    firstName: "Ada",
+    lastName: "Lovelace",
+    account: { email: "ada@example.com", passwordHash: "<an Emporix-format hash>" },
+  },
+  {
+    account: {
+      email: "legacy@example.com",
+      legacyAuth: { algorithm: "hybris-sha512-uid-salt", hash: "<legacy hash>" },
+    },
+  },
+]);
+
+const rejected = results.filter((r) => (r.code ?? 0) >= 400);
+```
+
+- **207 Multi-Status: partial failures do not throw.** The call resolves and each
+  entry carries its own `code`. Code that only catches a rejected promise will
+  report a clean import while individual customers were refused — always inspect
+  the entries.
+- **Exactly one credential per item.** `account.passwordHash` or
+  `account.legacyAuth`, never both and never neither.
+- **`legacyAuth` needs an active retention config.** See
+  [Password-migration retention](#password-migration-retention).
+- **Scope:** `customer.import_manage`.
+
 All methods take an optional trailing `auth` argument (default: the `"backend"`
 service credential set).
+
+## Why there is no React hook
+
+The retention and import operations need a service (clientCredentials) token
+carrying `customer.import_read` or `customer.import_manage`. There is no customer
+or anonymous variant, so nothing here can run in a browser — the same reason the
+[Import Service](./import.md) and [Approval Service](./approval.md) have no hooks.
+Drive them from a server route, a script, or a job.

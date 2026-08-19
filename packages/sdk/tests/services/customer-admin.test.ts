@@ -210,3 +210,68 @@ describe("CustomerAdminService password-migration retention", () => {
     expect(called).toBe(true);
   });
 });
+
+describe("CustomerAdminService importCustomers", () => {
+  it("POSTs the array to /customers/import and returns the 207 result", async () => {
+    let body: unknown = null;
+    server.use(
+      http.post(`${BASE}/import`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json([{ index: 0, id: "C1", code: 201 }], { status: 207 });
+      }),
+    );
+    const results = await svc().importCustomers([
+      { account: { email: "a@example.com", passwordHash: "argon2-hash" }, firstName: "Ada" },
+    ]);
+    expect(body).toEqual([
+      { account: { email: "a@example.com", passwordHash: "argon2-hash" }, firstName: "Ada" },
+    ]);
+    expect(results).toEqual([{ index: 0, id: "C1", code: 201 }]);
+  });
+
+  it("surfaces per-item failures from the 207 as data instead of throwing", async () => {
+    server.use(
+      http.post(`${BASE}/import`, () =>
+        HttpResponse.json(
+          [
+            { index: 0, id: "C1", code: 201 },
+            { index: 1, code: 409 },
+          ],
+          { status: 207 },
+        ),
+      ),
+    );
+    const results = await svc().importCustomers([
+      { account: { email: "a@example.com", passwordHash: "h" } },
+      { account: { email: "b@example.com", passwordHash: "h" } },
+    ]);
+    expect(results).toHaveLength(2);
+    expect(results.filter((r) => (r.code ?? 0) >= 400)).toEqual([{ index: 1, code: 409 }]);
+  });
+
+  it("accepts a legacyAuth account instead of a passwordHash", async () => {
+    let body: unknown = null;
+    server.use(
+      http.post(`${BASE}/import`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json([{ index: 0, id: "C2", code: 201 }], { status: 207 });
+      }),
+    );
+    await svc().importCustomers([
+      {
+        account: {
+          email: "legacy@example.com",
+          legacyAuth: { algorithm: "hybris-sha512-uid-salt", hash: "deadbeef" },
+        },
+      },
+    ]);
+    expect(body).toEqual([
+      {
+        account: {
+          email: "legacy@example.com",
+          legacyAuth: { algorithm: "hybris-sha512-uid-salt", hash: "deadbeef" },
+        },
+      },
+    ]);
+  });
+});

@@ -15,6 +15,8 @@ import type {
   AdminCustomerAddressUpdate,
   AdminPasswordMigrationRetention,
   AdminPasswordMigrationRetentionInput,
+  AdminCustomerImport,
+  AdminCustomerImportResult,
 } from "./customer-admin-types";
 
 export type {
@@ -31,6 +33,10 @@ export type {
   AdminCustomerAddressUpdate,
   AdminPasswordMigrationRetention,
   AdminPasswordMigrationRetentionInput,
+  AdminCustomerImport,
+  AdminCustomerImportAccount,
+  AdminCustomerLegacyAuth,
+  AdminCustomerImportResult,
 } from "./customer-admin-types";
 
 const SERVICE: AuthContext = { kind: "service" };
@@ -207,5 +213,28 @@ export class CustomerAdminService {
    */
   async deletePasswordMigrationRetention(auth: AuthContext = SERVICE): Promise<void> {
     await this.ctx.http.request<void>({ method: "DELETE", path: this.configPath(), auth });
+  }
+
+  // --- Bulk import ---
+
+  /**
+   * Bulk-imports customers (`POST /customers/import`). Requires the
+   * `customer.import_manage` scope.
+   *
+   * Responds **207 Multi-Status**: per-item failures do **not** throw — inspect each
+   * entry's `code`. Each item must carry exactly one of `account.passwordHash` or
+   * `account.legacyAuth`, and importing `legacyAuth` requires an active retention
+   * config (see `configurePasswordMigrationRetention`).
+   */
+  async importCustomers(
+    input: AdminCustomerImport[],
+    auth: AuthContext = SERVICE,
+  ): Promise<AdminCustomerImportResult[]> {
+    return this.ctx.http.request<AdminCustomerImportResult[]>({
+      method: "POST",
+      path: `${this.base()}/import`,
+      auth,
+      body: input,
+    });
   }
 }

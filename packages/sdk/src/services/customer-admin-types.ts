@@ -14,6 +14,10 @@ import type {
   AddressUpdateDto,
   PasswordMigrationRetentionConfigRequest,
   PasswordMigrationRetentionConfigResponse,
+  CustomerImportDto,
+  CustomerImportAccountDto,
+  LegacyAuth,
+  CustomerBulkItemResponse,
 } from "../generated/customer-service";
 import type { QueryFor } from "../core/query";
 
@@ -54,3 +58,22 @@ export type AdminPasswordMigrationRetention = PasswordMigrationRetentionConfigRe
  * already be past); `emailNotificationsEnabled` defaults to `true`.
  */
 export type AdminPasswordMigrationRetentionInput = PasswordMigrationRetentionConfigRequest;
+
+/**
+ * One customer of the bulk-import body. Extends the create shape with an `account`
+ * block; every inherited profile field is optional, so `account.email` is the only
+ * hard requirement.
+ */
+export type AdminCustomerImport = CustomerImportDto;
+/**
+ * The `account` block of an import item. Provide **exactly one** of `passwordHash`
+ * or `legacyAuth` — the type permits both, the service does not.
+ */
+export type AdminCustomerImportAccount = CustomerImportAccountDto;
+/** A legacy password hash carried by an import item. */
+export type AdminCustomerLegacyAuth = LegacyAuth;
+/**
+ * One entry of the `207` import result. `code` is the per-item HTTP status, so a
+ * `409` here is a rejected customer inside an otherwise successful call.
+ */
+export type AdminCustomerImportResult = CustomerBulkItemResponse;
