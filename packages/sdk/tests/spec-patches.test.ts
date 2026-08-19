@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { applyPatches, SPEC_PATCHES } from "../scripts/spec-patches";
+import { SPECS } from "../scripts/fetch-specs";
 
 // Minimal reproduction of the upstream schema.yml defects: a dangling
 // BulkItemResponses $ref, and the BulkPatchCustomInstanceRequest schema
@@ -160,5 +161,18 @@ describe("approval-service patches", () => {
     const out = applyPatches("approval-service", APPROVAL_UPPERCASE_OPS);
     expect(out.yaml).toContain("path: /status");
     expect(out.yaml).toContain("value: APPROVED");
+  });
+});
+
+describe("SPEC_PATCHES keys", () => {
+  it("only names specs that fetch-specs actually fetches", () => {
+    // `applyPatches` reads SPEC_PATCHES[name] and returns an empty list for an
+    // unknown key — no error, no warning. A typo in the key therefore makes the
+    // patch a no-op and nothing says so. This test says so. (The key for the
+    // approval service is "approval-service", not "approval".)
+    const known = Object.keys(SPECS);
+    for (const key of Object.keys(SPEC_PATCHES)) {
+      expect(known, `unknown spec key "${key}" in SPEC_PATCHES`).toContain(key);
+    }
   });
 });
