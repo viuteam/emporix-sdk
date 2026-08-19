@@ -3,18 +3,26 @@
  *
  * `fetch-specs.ts` vendors specs verbatim from `emporix/api-references`.
  * Occasionally an upstream spec ships a defect that crashes the whole
- * `generate` step — a dangling `$ref`, or (as with `schema.yml`) a schema
- * mis-indented into `paths:` so it neither resolves nor lets its sibling
- * operation parse. We can't wait for Emporix to fix their published spec, so we
- * apply narrow, documented text patches to the fetched YAML before it is
- * written and hashed. The vendored spec on disk is therefore already correct,
- * and the manifest sha256 stays stable across runs.
+ * `generate` step (a dangling `$ref`, a schema mis-indented into `paths:`) or
+ * that types an operation so it cannot be called (`approval-service.yml`, whose
+ * JSON-Patch `op` enum is uppercase while the live API accepts only lowercase).
+ * We can't wait for Emporix to fix their published spec, so we apply narrow,
+ * documented text patches to the fetched YAML before it is written and hashed.
+ * The vendored spec on disk is therefore already correct, and the manifest
+ * sha256 stays stable across runs.
  *
  * Each patch is idempotent: its `apply` returns the repaired text, or `null`
  * when there is nothing to do (defect absent, or already repaired). When a
  * patch stops matching (upstream fixed the defect, or reshaped the surrounding
  * text), `applyPatches` reports it as `stale` so it can be removed — a dead
  * patch is weight, and one that half-applied could hide a re-introduced bug.
+ *
+ * That removal path is real and has been used: two `schema.yml` patches (the
+ * dangling `BulkItemResponses` ref and the mis-indented
+ * `BulkPatchCustomInstanceRequest`) went stale once Emporix fixed both upstream,
+ * and were dropped on 2026-08-19. Judge staleness from a `fetch:specs` run,
+ * which applies patches to the **raw** download — never by inspecting the
+ * vendored file, which is post-patch and therefore looks clean either way.
  */
 
 /** A single, self-contained, idempotent repair applied to one fetched spec. */
@@ -31,85 +39,11 @@ function replaceAll(find: string, replace: string): (yaml: string) => string | n
 }
 
 /**
- * The `BulkPatchCustomInstanceRequest` schema as upstream mis-placed it: at
- * 2-space indent (a `paths:` sibling) wedged between the bulk `post` and `put`
- * operations. As written it makes `#/components/schemas/BulkPatchCustomInstanceRequest`
- * dangle AND re-parents the `put` bulk-upsert operation onto a bogus path.
- */
-const MISPLACED_BULK_PATCH_SCHEMA = [
-  "  BulkPatchCustomInstanceRequest:",
-  "    type: object",
-  "    required:",
-  "      - id",
-  "      - data",
-  "    properties:",
-  "      id:",
-  "        type: string",
-  "        description: Unique identifier of the custom instance to patch.",
-  "      data:",
-  "        type: array",
-  "        description: List of patch operations to apply to the custom instance.",
-  "        items:",
-  "          type: object",
-].join("\n");
-
-/** The same schema, correctly indented for `components.schemas`. */
-const RELOCATED_BULK_PATCH_SCHEMA = [
-  "    BulkPatchCustomInstanceRequest:",
-  "      type: object",
-  "      required:",
-  "        - id",
-  "        - data",
-  "      properties:",
-  "        id:",
-  "          type: string",
-  "          description: Unique identifier of the custom instance to patch.",
-  "        data:",
-  "          type: array",
-  "          description: List of patch operations to apply to the custom instance.",
-  "          items:",
-  "            type: object",
-].join("\n");
-
-/** Anchor: the first defined schema (`BulkResponse`) under `components.schemas`. */
-const BULK_RESPONSE_ANCHOR = "    BulkResponse:\n      type: array";
-
-/**
- * Relocate `BulkPatchCustomInstanceRequest` from its bogus `paths:` position to
- * `components.schemas`, in one atomic step so the two edits can never drift
- * apart. Idempotent and self-guarding: it only fires while the mis-placed block
- * is present, so it can never insert a duplicate definition. Bails (returns
- * `null`, leaving the defect for the smoke gate to catch loudly) if the anchor
- * is missing, rather than remove the block without re-homing it.
- */
-function relocateBulkPatchSchema(yaml: string): string | null {
-  const misplaced = `\n${MISPLACED_BULK_PATCH_SCHEMA}`;
-  if (!yaml.includes(misplaced)) return null; // defect absent or already fixed
-  if (!yaml.includes(BULK_RESPONSE_ANCHOR)) return null; // no safe place to re-home
-  // Drop the mis-placed copy — the leading "\n" is consumed so the preceding
-  // operation joins directly to the trailing `    put:` line, re-attaching it.
-  const removed = yaml.split(misplaced).join("");
-  return removed.split(BULK_RESPONSE_ANCHOR).join(`${RELOCATED_BULK_PATCH_SCHEMA}\n${BULK_RESPONSE_ANCHOR}`);
-}
-
-/**
  * Per-spec patch registry, keyed by the service name used in `fetch-specs.ts`.
  * Add an entry only for a confirmed upstream defect, with a `reason` that says
  * what is wrong upstream and what the corrected form should be.
  */
 export const SPEC_PATCHES: Record<string, SpecPatch[]> = {
-  schema: [
-    {
-      reason:
-        "upstream: bulk-patch 207 response $refs the undefined schema 'BulkItemResponses'; the intended target is 'BulkResponse' (its array-of-items shape matches the response example).",
-      apply: replaceAll("#/components/schemas/BulkItemResponses", "#/components/schemas/BulkResponse"),
-    },
-    {
-      reason:
-        "upstream: schema 'BulkPatchCustomInstanceRequest' is mis-indented into paths: (2-space) — its $ref dangles and it swallows the sibling 'put' bulk-upsert operation. Move it under components.schemas so both the $ref resolves and 'put' re-attaches to its path.",
-      apply: relocateBulkPatchSchema,
-    },
-  ],
   /**
    * The op enum ships uppercase upstream, and the live API rejects it.
    *
