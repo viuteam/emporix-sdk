@@ -125,3 +125,44 @@ export class ApprovalService {
     });
   }
 }
+
+/** The status transitions a client can request. `PENDING` and `EXPIRED` are set by Emporix. */
+export type ApprovalDecision = "APPROVED" | "DECLINED" | "CLOSED";
+
+/**
+ * Builds the JSON-Patch for an approval decision, with both measured quirks baked in.
+ *
+ * Two things about this patch are counter-intuitive, both measured against tenant
+ * `viu` on 2026-08-18:
+ *
+ * 1. **`replace` is lowercase.** The upstream spec shipped the enum uppercase and the
+ *    live API answers `REPLACE` with 400. That is repaired at the spec level (see
+ *    `scripts/spec-patches.ts`), so the type now guides you correctly.
+ * 2. **The approver comment needs `add`, not `replace`.** `approverComment` does not
+ *    exist on a fresh approval, and `replace` on an absent field answers
+ *    `APPROVAL-400010` «Missing field "approverComment"». Because PATCH is atomic,
+ *    that failure takes the status change down with it — the decision silently does
+ *    not happen. `add` creates the field and overwrites it on a second decision, so
+ *    it is correct in both cases. The upstream spec's own «Add comment by the
+ *    approver» example agrees; only its enum did not.
+ *
+ * Status and comment travel in one request on purpose: since PATCH is atomic, a
+ * rejection can never land without its reason.
+ *
+ * @example
+ * await client.approvals.updateApproval(id, approvalStatusPatch("DECLINED", "Over budget"), auth);
+ */
+export function approvalStatusPatch(
+  status: ApprovalDecision,
+  approverComment?: string,
+): ApprovalPatch {
+  const comment = approverComment?.trim() ?? "";
+  return [
+    { op: "replace", path: "/status", value: status },
+    // `as const` on both fields: the generated type narrows `path` to an enum too, so
+    // a widened `string` from the spread would not be assignable.
+    ...(comment !== ""
+      ? [{ op: "add" as const, path: "/approverComment" as const, value: comment }]
+      : []),
+  ];
+}
