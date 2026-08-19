@@ -13,6 +13,7 @@ servers:
 tags:
   - name: Account and profile
   - name: Addresses
+  - name: Import and migration
   # - name: Assisted buying login
 paths:
   '/customer/{tenant}/customers':
@@ -730,6 +731,200 @@ paths:
   #             Assistant Login:
   #               value:
   #                 customerNumber: C412344
+  '/customer/{tenant}/config/password-migration-retention':
+    parameters:
+      - $ref: '#/components/parameters/Api_Tenant'
+    get:
+      summary: Retrieving password migration retention configuration
+      operationId: GET-customer-tenant-retrieve-password-migration-retention
+      tags:
+        - Import and migration
+      description: |-
+        Retrieves the password migration retention configuration for the tenant.
+      security:
+        - OAuth2:
+            - customer.import_read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordMigrationRetentionConfigResponse'
+              examples:
+                Response example:
+                  value:
+                    retentionEndDate: '2027-01-31'
+                    emailReminderDate: '2027-01-24'
+                    emailNotificationsEnabled: true
+        '401':
+          $ref: '#/components/responses/401_unauthorized'
+        '403':
+          $ref: '#/components/responses/403_forbidden'
+        '404':
+          description: Password migration retention configuration is not set for the tenant.
+    post:
+      summary: Configuring password migration retention
+      operationId: POST-customer-tenant-configure-password-migration-retention
+      tags:
+        - Import and migration
+      description: |-
+        Creates or updates the password migration retention configuration for the tenant.
+
+        Use this configuration before importing customers with `legacyAuth`.
+        For customers with `legacyAuth`, legacy password hashes are silently migrated to Emporix hashes on the first successful login.
+        When the retention period ends, remaining unmigrated accounts require a password reset and legacy credentials are cleared. A password reset email is sent to affected customers when `emailNotificationsEnabled` is `true`.
+        An email reminder requesting a single login is sent on `emailReminderDate` to all unmigrated customers when `emailNotificationsEnabled` is `true`, asking them to log in once so their accounts can be migrated.
+
+        If `emailReminderDate` is omitted, the service defaults to 7 days before `retentionEndDate`, or to tomorrow when that default would fall on or before today.
+        If `emailNotificationsEnabled` is omitted, the service defaults to `true`. When `false`, customers do not receive any emails regarding the migration.
+        
+        If emails should include links to the storefront (password reset or login page), or a non-standard email template is required, please contact Emporix support.
+      security:
+        - OAuth2:
+            - customer.import_manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordMigrationRetentionConfigRequest'
+            examples:
+              Request example:
+                value:
+                  retentionEndDate: '2027-01-31'
+                  emailReminderDate: '2027-01-24'
+                  emailNotificationsEnabled: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordMigrationRetentionConfigResponse'
+              examples:
+                Response example:
+                  value:
+                    retentionEndDate: '2027-01-31'
+                    emailReminderDate: '2027-01-24'
+                    emailNotificationsEnabled: true
+        '400':
+          $ref: '#/components/responses/400_bad_request'
+        '401':
+          $ref: '#/components/responses/401_unauthorized'
+        '403':
+          $ref: '#/components/responses/403_forbidden'
+        '500':
+          description: Configuration could not be saved.
+    delete:
+      summary: Removing password migration retention configuration
+      operationId: DELETE-customer-tenant-remove-password-migration-retention
+      tags:
+        - Import and migration
+      description: |-
+        Removes the password migration retention configuration for the tenant.
+
+        To avoid indefinite storage of potentially sensitive legacy password hashes, the configuration removal is blocked while any customer account still contains a `legacyAuth` record.
+        Complete the migration window first. The configuration may still be updated to move the `retentionEndDate` earlier and complete migration sooner.
+      security:
+        - OAuth2:
+            - customer.import_manage
+      responses:
+        '204':
+          description: No Content
+        '400':
+          description: Configuration removal is not possible until password migration is concluded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          $ref: '#/components/responses/401_unauthorized'
+        '403':
+          $ref: '#/components/responses/403_forbidden'
+  '/customer/{tenant}/customers/import':
+    parameters:
+      - $ref: '#/components/parameters/Api_Tenant'
+    post:
+      summary: Importing customers in bulk
+      operationId: POST-customer-tenant-import-customers
+      tags:
+        - Import and migration
+      description: |-
+        Imports multiple customer profiles in a single request. The maximum batch size is 200.
+
+        Each item must include an `account` object with exactly one of:
+        * `passwordHash` — a precomputed password hash compatible with the Emporix password hashing strategy. In order to determine if your existing strategy is compatible, please contact Emporix support.
+        * `legacyAuth` — a legacy password hash (incompatible with the Emporix password hashing strategy) and algorithm metadata for lazy rehash on first successful login. In order to establish the required algorithm metadata for your case, please contact Emporix support.
+
+        To avoid indefinite storage of potentially sensitive legacy password hashes, importing customers with `legacyAuth` requires an active password migration retention configuration for the tenant.
+
+        Response for a particular customer is returned at the same position (index) at which that customer is located in the request body.
+      security:
+        - OAuth2:
+            - customer.import_manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              maxItems: 200
+              items:
+                $ref: '#/components/schemas/CustomerImportDto'
+            examples:
+              Import with native password hash:
+                value:
+                  - contactEmail: john.doe@emporix.com
+                    firstName: John
+                    lastName: Doe
+                    preferredLanguage: en_US
+                    preferredCurrency: EUR
+                    preferredSite: main
+                    account:
+                      email: john.doe@emporix.com
+                      passwordHash: '1:10000:abcdefgh:ijklmnop'
+              Import with legacyAuth:
+                value:
+                  - contactEmail: jane.doe@emporix.com
+                    firstName: Jane
+                    lastName: Doe
+                    preferredLanguage: en_US
+                    preferredCurrency: EUR
+                    preferredSite: main
+                    account:
+                      email: jane.doe@emporix.com
+                      legacyAuth:
+                        algorithm: hybris-sha512-uid-salt
+                        hash: tBRzNZ+h9FRRm8K1qzDz3aWMgyTlgBihHviEdr+9T82BEODJakLPogHkhkGKF4FGzrhFWMYh6aZ6g5XNN1pmrg==
+                        context:
+                          originalUid: '15TE2000007AE9TOUEILLE 61359'
+      responses:
+        '207':
+          description: Multi-Status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerBulkItemResponse'
+              examples:
+                Multi-Status response example:
+                  value:
+                    - index: 0
+                      id: '13869000'
+                      code: 201
+                      status: Created
+                    - index: 1
+                      code: 400
+                      status: Bad Request
+                      message: Exactly one of 'passwordHash' or 'legacyAuth' must be provided in the account
+        '400':
+          $ref: '#/components/responses/400_bad_request'
+        '401':
+          $ref: '#/components/responses/401_unauthorized'
+        '403':
+          $ref: '#/components/responses/403_forbidden'
 components:
   schemas:
     AccountId:
@@ -1008,6 +1203,134 @@ components:
             password:
               type: string
               description: Initial password for customer
+    CustomerImportDto:
+      allOf:
+        - $ref: '#/components/schemas/CustomerCreateDto'
+        - type: object
+          required:
+            - account
+          properties:
+            id:
+              type: string
+              description: Custom customer identifier. If not provided, it is automatically generated.
+              minLength: 1
+              maxLength: 66
+              pattern: '^[\w-]{1,66}$'
+            contactEmail:
+              type: string
+              description: |
+                Optional contact email. When provided, it must match `account.email` (case-insensitive).
+                If omitted, `account.email` is used as the contact email.
+            account:
+              $ref: '#/components/schemas/CustomerImportAccountDto'
+    CustomerImportAccountDto:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          description: Customer account email address. Used as the account identifier.
+        passwordHash:
+          type: string
+          description: |
+            Precomputed Emporix native password hash.
+
+            Provide exactly one of `passwordHash` or `legacyAuth`.
+            Please, contact Emporix support to determine if your existing password hashing strategy is compatible with the Emporix native password hashing strategy.
+        legacyAuth:
+          $ref: '#/components/schemas/LegacyAuth'
+          description: |
+            Legacy authentication data used for password migration.
+
+            Provide exactly one of `passwordHash` or `legacyAuth`. Requires an active password migration retention configuration for the tenant.
+    LegacyAuth:
+      type: object
+      required:
+        - algorithm
+        - hash
+      properties:
+        algorithm:
+          type: string
+          description: Identifier of the legacy password verifier to use during login. Please, contact Emporix support to determine the correct value for your case.
+          enum:
+            - hybris-sha512-uid-salt
+        hash:
+          type: string
+          description: Raw password hash exported from the source system. Stored only in `legacyAuth`, never in the native password field.
+        context:
+          type: object
+          description: |
+            Algorithm-specific metadata required for verification.
+            Please, contact Emporix support to determine the correct values for your case.
+          additionalProperties:
+            type: string
+          example:
+            originalUid: '15TE2000007AE9TOUEILLE 61359'
+    PasswordMigrationRetentionConfigRequest:
+      type: object
+      required:
+        - retentionEndDate
+      properties:
+        retentionEndDate:
+          type: string
+          format: date
+          description: Future date when the password migration retention window ends.
+        emailReminderDate:
+          type: string
+          format: date
+          description: |
+            Optional date on or after today and before `retentionEndDate` when reminder emails are sent to unmigrated customers.
+            When omitted, defaults to 7 days before `retentionEndDate`, or to tomorrow when that default would fall on or before today.
+        emailNotificationsEnabled:
+          type: boolean
+          default: true
+          description: |
+            Optional flag indicating whether customers receive email notifications about the migration process.
+            When `true`, customers receive reminder and password reset emails. When `false`, customers do not receive any emails regarding the migration.
+            When omitted, defaults to `true`.
+    PasswordMigrationRetentionConfigResponse:
+      type: object
+      properties:
+        retentionEndDate:
+          type: string
+          format: date
+          description: Date when the password migration retention window ends.
+        emailReminderDate:
+          type: string
+          format: date
+          description: Date when reminder emails are sent to unmigrated customers.
+        emailNotificationsEnabled:
+          type: boolean
+          description: |
+            Flag indicating whether customers receive email notifications about the migration process.
+            When `true`, customers receive reminder and password reset emails. When `false`, customers do not receive any emails regarding the migration.
+    CustomerBulkItemResponse:
+      type: object
+      properties:
+        index:
+          type: integer
+          description: Index of the processed item, matching the item position in the request body.
+        id:
+          type: string
+          description: Customer number generated for a successfully imported customer.
+        code:
+          type: integer
+          description: HTTP status code for the processed item.
+        status:
+          type: string
+          description: HTTP status description for the processed item.
+        message:
+          type: string
+          description: Error message when the item failed.
+        details:
+          type: array
+          description: List of problems causing the error.
+          items:
+            type: object
+            properties:
+              message:
+                type: string
     CustomerUpdateBySellerDto:
       allOf:
         - $ref: '#/components/schemas/CustomerCommonDto'
@@ -1439,6 +1762,8 @@ components:
             customer.customer_read_own: Needed by customer to retrieve customer profiles from the same company.
             customer.customer_manage: Needed to manage customer profiles.
             customer.customer_manage_own: Needed by customer to manage customer profiles from the same company.
+            customer.import_read: Needed to retrieve password migration retention configuration.
+            customer.import_manage: Needed to configure password migration retention and import customers in bulk.
           tokenUrl: 'https://api.emporix.io/oauth/token'
   examples:
     CustomerResponseExample:

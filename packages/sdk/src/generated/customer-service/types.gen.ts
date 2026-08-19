@@ -228,6 +228,121 @@ export type CustomerSignupBySellerDto = CustomerCreateDto & {
     password?: string;
 };
 
+export type CustomerImportDto = CustomerCreateDto & {
+    /**
+     * Custom customer identifier. If not provided, it is automatically generated.
+     */
+    id?: string;
+    /**
+     * Optional contact email. When provided, it must match `account.email` (case-insensitive).
+     * If omitted, `account.email` is used as the contact email.
+     *
+     */
+    contactEmail?: string;
+    account: CustomerImportAccountDto;
+};
+
+export type CustomerImportAccountDto = {
+    /**
+     * Customer account email address. Used as the account identifier.
+     */
+    email: string;
+    /**
+     * Precomputed Emporix native password hash.
+     *
+     * Provide exactly one of `passwordHash` or `legacyAuth`.
+     * Please, contact Emporix support to determine if your existing password hashing strategy is compatible with the Emporix native password hashing strategy.
+     *
+     */
+    passwordHash?: string;
+    legacyAuth?: LegacyAuth;
+};
+
+export type LegacyAuth = {
+    /**
+     * Identifier of the legacy password verifier to use during login. Please, contact Emporix support to determine the correct value for your case.
+     */
+    algorithm: 'hybris-sha512-uid-salt';
+    /**
+     * Raw password hash exported from the source system. Stored only in `legacyAuth`, never in the native password field.
+     */
+    hash: string;
+    /**
+     * Algorithm-specific metadata required for verification.
+     * Please, contact Emporix support to determine the correct values for your case.
+     *
+     */
+    context?: {
+        [key: string]: string;
+    };
+};
+
+export type PasswordMigrationRetentionConfigRequest = {
+    /**
+     * Future date when the password migration retention window ends.
+     */
+    retentionEndDate: string;
+    /**
+     * Optional date on or after today and before `retentionEndDate` when reminder emails are sent to unmigrated customers.
+     * When omitted, defaults to 7 days before `retentionEndDate`, or to tomorrow when that default would fall on or before today.
+     *
+     */
+    emailReminderDate?: string;
+    /**
+     * Optional flag indicating whether customers receive email notifications about the migration process.
+     * When `true`, customers receive reminder and password reset emails. When `false`, customers do not receive any emails regarding the migration.
+     * When omitted, defaults to `true`.
+     *
+     */
+    emailNotificationsEnabled?: boolean;
+};
+
+export type PasswordMigrationRetentionConfigResponse = {
+    /**
+     * Date when the password migration retention window ends.
+     */
+    retentionEndDate?: string;
+    /**
+     * Date when reminder emails are sent to unmigrated customers.
+     */
+    emailReminderDate?: string;
+    /**
+     * Flag indicating whether customers receive email notifications about the migration process.
+     * When `true`, customers receive reminder and password reset emails. When `false`, customers do not receive any emails regarding the migration.
+     *
+     */
+    emailNotificationsEnabled?: boolean;
+};
+
+export type CustomerBulkItemResponse = {
+    /**
+     * Index of the processed item, matching the item position in the request body.
+     */
+    index?: number;
+    /**
+     * Customer number generated for a successfully imported customer.
+     */
+    id?: string;
+    /**
+     * HTTP status code for the processed item.
+     */
+    code?: number;
+    /**
+     * HTTP status description for the processed item.
+     */
+    status?: string;
+    /**
+     * Error message when the item failed.
+     */
+    message?: string;
+    /**
+     * List of problems causing the error.
+     */
+    details?: Array<{
+        message?: string;
+    }>;
+};
+
 export type CustomerUpdateBySellerDto = CustomerCommonDto & {
     contactEmail?: string;
     active?: boolean;
@@ -1444,6 +1559,206 @@ export type PostCustomerTenantAddAddressTagsResponses = {
 };
 
 export type PostCustomerTenantAddAddressTagsResponse = PostCustomerTenantAddAddressTagsResponses[keyof PostCustomerTenantAddAddressTagsResponses];
+
+export type DeleteCustomerTenantRemovePasswordMigrationRetentionData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/customer/{tenant}/config/password-migration-retention';
+};
+
+export type DeleteCustomerTenantRemovePasswordMigrationRetentionErrors = {
+    /**
+     * Configuration removal is not possible until password migration is concluded.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     *
+     */
+    403: ErrorMessage;
+};
+
+export type DeleteCustomerTenantRemovePasswordMigrationRetentionError = DeleteCustomerTenantRemovePasswordMigrationRetentionErrors[keyof DeleteCustomerTenantRemovePasswordMigrationRetentionErrors];
+
+export type DeleteCustomerTenantRemovePasswordMigrationRetentionResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteCustomerTenantRemovePasswordMigrationRetentionResponse = DeleteCustomerTenantRemovePasswordMigrationRetentionResponses[keyof DeleteCustomerTenantRemovePasswordMigrationRetentionResponses];
+
+export type GetCustomerTenantRetrievePasswordMigrationRetentionData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/customer/{tenant}/config/password-migration-retention';
+};
+
+export type GetCustomerTenantRetrievePasswordMigrationRetentionErrors = {
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     *
+     */
+    403: ErrorMessage;
+    /**
+     * Password migration retention configuration is not set for the tenant.
+     */
+    404: unknown;
+};
+
+export type GetCustomerTenantRetrievePasswordMigrationRetentionError = GetCustomerTenantRetrievePasswordMigrationRetentionErrors[keyof GetCustomerTenantRetrievePasswordMigrationRetentionErrors];
+
+export type GetCustomerTenantRetrievePasswordMigrationRetentionResponses = {
+    /**
+     * OK
+     */
+    200: PasswordMigrationRetentionConfigResponse;
+};
+
+export type GetCustomerTenantRetrievePasswordMigrationRetentionResponse = GetCustomerTenantRetrievePasswordMigrationRetentionResponses[keyof GetCustomerTenantRetrievePasswordMigrationRetentionResponses];
+
+export type PostCustomerTenantConfigurePasswordMigrationRetentionData = {
+    body: PasswordMigrationRetentionConfigRequest;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/customer/{tenant}/config/password-migration-retention';
+};
+
+export type PostCustomerTenantConfigurePasswordMigrationRetentionErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     *
+     */
+    403: ErrorMessage;
+    /**
+     * Configuration could not be saved.
+     */
+    500: unknown;
+};
+
+export type PostCustomerTenantConfigurePasswordMigrationRetentionError = PostCustomerTenantConfigurePasswordMigrationRetentionErrors[keyof PostCustomerTenantConfigurePasswordMigrationRetentionErrors];
+
+export type PostCustomerTenantConfigurePasswordMigrationRetentionResponses = {
+    /**
+     * OK
+     */
+    200: PasswordMigrationRetentionConfigResponse;
+};
+
+export type PostCustomerTenantConfigurePasswordMigrationRetentionResponse = PostCustomerTenantConfigurePasswordMigrationRetentionResponses[keyof PostCustomerTenantConfigurePasswordMigrationRetentionResponses];
+
+export type PostCustomerTenantImportCustomersData = {
+    body: Array<CustomerImportDto>;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/customer/{tenant}/customers/import';
+};
+
+export type PostCustomerTenantImportCustomersErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     *
+     */
+    403: ErrorMessage;
+};
+
+export type PostCustomerTenantImportCustomersError = PostCustomerTenantImportCustomersErrors[keyof PostCustomerTenantImportCustomersErrors];
+
+export type PostCustomerTenantImportCustomersResponses = {
+    /**
+     * Multi-Status
+     */
+    207: Array<CustomerBulkItemResponse>;
+};
+
+export type PostCustomerTenantImportCustomersResponse = PostCustomerTenantImportCustomersResponses[keyof PostCustomerTenantImportCustomersResponses];
 
 export type ClientOptions = {
     baseUrl: 'https://api.emporix.io' | (string & {});
