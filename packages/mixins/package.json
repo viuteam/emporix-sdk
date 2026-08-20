@@ -1,6 +1,6 @@
 {
   "name": "@viu/emporix-mixins",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Generic toolkit to resolve and sync Emporix mixins as typed values.",
   "license": "MIT",
   "author": {

@@ -1,5 +1,75 @@
 # @viu/emporix-sdk
 
+## 2.36.0
+
+### Minor Changes
+
+- [#278](https://github.com/viuteam/emporix-sdk/pull/278) [`9cb8b15`](https://github.com/viuteam/emporix-sdk/commit/9cb8b15d14a122e5a69a36a4c1d4cce7c1308c3f) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+
+  Updated services: ai-service
+
+  Raised from `patch` to `minor` by hand: this sync reshapes the MCP server model
+  rather than extending it, and a patch would not announce that.
+
+  **`McpServerResponse` is now a union.** Emporix split the single managed-MCP-server
+  shape into a custom and a dynamic variant:
+
+  ```ts
+  // before
+  type McpServerResponse = BaseMcpServer & { … }
+  // after
+  type McpServerResponse = CustomMcpServerResponse | DynamicMcpServerResponse
+  ```
+
+  `McpServerRequest` splits the same way. Since `client.ai.mcpServers` is typed
+  `AgenticCrudResource<McpServer, McpServerInput>` and `McpServer` aliases
+  `McpServerResponse`, code that reads fields off a returned MCP server now has to
+  narrow first. Nothing inside the SDK does, which is why the build stays green — the
+  break lands in consumer code.
+
+  Also in this sync:
+  - `McpServerType` gains `'dynamic'` (was `'custom' | 'predefined'`).
+  - `BaseMcpServer` and `CustomAgentMcpServerResponse` are gone, replaced by
+    `BaseManagedMcpServer` and `AgentMcpServerResponse`.
+  - `AgentMcpServersResponse` changes element type to `Array<AgentMcpServerResponse>`.
+  - Eight new types describe MCP tool invocation: `McpToolRequest`/`Response`,
+    `McpToolConfigRequest`/`Response`, `McpToolInvocationRequest`/`Response`,
+    `McpToolInvocationMethod` and `McpToolInvocationArgsLocation`.
+
+  No facade change: all 57 ai-service operations were already wrapped, and none of
+  the removed type names appear outside the generated file.
+
+### Patch Changes
+
+- [#277](https://github.com/viuteam/emporix-sdk/pull/277) [`f2b5def`](https://github.com/viuteam/emporix-sdk/commit/f2b5def1f125725602ca461f3cdd6b6cb485795c) Thanks [@amnael1](https://github.com/amnael1)! - docs: correct three stale claims in the SDK README, add the missing mixins LICENSE
+
+  Checked every verifiable claim in the sdk, react and mixins READMEs against the
+  code. The react one was clean. Three things in the SDK README were wrong:
+  - **`credentials.backend` was marked «(required)»**. It is not: `validateConfig`
+    requires only that the `credentials` object exists, so `credentials: {}` is a
+    legal credential-free client — which is exactly what `examples/md-module` does,
+    where the Managed Dashboard host owns the token. The table now marks
+    `credentials` itself as required and explains the empty case.
+  - **`customerGroups` was described as «read-only for now»**. It has `addMember`
+    and `removeMember`, and the React README already documented the
+    `useAddGroupMember` / `useRemoveGroupMember` hooks for them — the two READMEs
+    contradicted each other.
+  - **`availability` was described as a read-only service** naming two of its nine
+    methods. It has three reads defaulting to `anonymous` and six writes
+    (`create`, `update`, `delete`, `bulkCreate`, `bulkUpdate`, `bulkDelete`)
+    defaulting to `service`.
+
+  The documented tenant pattern was also the one from the error message
+  (`^[a-z][a-z0-9]+$`) rather than the one the code applies
+  (`^[a-z][a-z0-9]{2,15}$`); the prose «3–16 chars» was already right.
+
+  **`@viu/emporix-mixins` was shipping without a LICENSE file.** Its `files` array
+  has listed `LICENSE` since the changelog-links change, and `package.json`
+  declares `"license": "MIT"`, but the file itself never existed — so the published
+  tarball carried no license text. Added, identical to the other three packages.
+  Its README also gains the CI/npm badges and the Authors and License sections the
+  others have.
+
 ## 2.35.0
 
 ### Minor Changes
