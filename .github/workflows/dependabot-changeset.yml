@@ -1,0 +1,90 @@
+name: Dependabot Changeset
+
+# Dependabot cannot author a changeset, and `changeset-check.yml` fails any PR
+# that touches a package without one — so every npm security PR arrives red on a
+# gate it can never satisfy. This adds an EMPTY changeset, which `changeset
+# status` accepts and which releases nothing:
+#
+#   without      -> error Some packages have been changed but no changesets were found
+#   with `---\n---` -> NO packages to be bumped at patch/minor/major, exit 0
+#
+# An empty changeset rather than a skipped gate on purpose: it shows up in the PR
+# diff, so a reviewer who sees a *runtime* dependency bump (only `jiti`, in
+# @viu/emporix-mixins) can replace it with a real `patch` entry instead of the
+# bump shipping unreleased and unremarked.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  changeset:
+    name: add empty changeset
+    # Only Dependabot's own PRs. `github.actor` is set by GitHub, not by the PR,
+    # so this cannot be spoofed from a branch name or a commit.
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # `pull_request_target` is required, not a shortcut: a `pull_request` run
+      # triggered by Dependabot gets a read-only token and NO access to secrets,
+      # so it could neither mint the app token nor push.
+      #
+      # The usual danger of `pull_request_target` is executing PR code with a
+      # privileged token. Nothing below runs any: no install, no build, no test.
+      # It writes one file and pushes. Keep it that way.
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      # The app token, not GITHUB_TOKEN: a push made with GITHUB_TOKEN does not
+      # trigger downstream workflows, which would leave the `changeset` check
+      # sitting on its old failure forever. Same reason api-sync.yml uses it.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Add an empty changeset unless one is already there
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # Through env, not interpolated into the script: a `${{ }}` expression
+          # spliced into a shell line is an injection vector if the value ever
+          # carries metacharacters. Dependabot's branch names never do, which is
+          # a reason to be careful here rather than a reason not to be.
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          # `gh pr view` rather than `git diff origin/base...HEAD`: the checkout
+          # above is shallow, so the base ref does not exist locally and the diff
+          # would fail. Asking the API needs no history.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          FILE=".changeset/dependabot-${PR_NUMBER}.md"
+
+          # Idempotent: `synchronize` fires again on every force-push Dependabot
+          # makes, and a second changeset would be harmless but noisy.
+          if [ -f "$FILE" ]; then
+            echo "$FILE already present — nothing to do."
+            exit 0
+          fi
+
+          # A human may have added a real changeset to this PR. Adding an empty
+          # one next to it would not break the gate, but it would misreport the
+          # intent, so leave the PR alone.
+          if gh pr view "$PR_NUMBER" --json files --jq '.files[].path' \
+             | grep -qE '^\.changeset/.+\.md$'; then
+            echo "PR already carries a changeset — leaving it alone."
+            exit 0
+          fi
+
+          printf -- '---\n---\n' > "$FILE"
+
+          git config user.name  "viu-release-bot[bot]"
+          git config user.email "viu-release-bot[bot]@users.noreply.github.com"
+          git add "$FILE"
+          git commit -m "chore(deps): add an empty changeset for the dependabot bump"
+          git push origin "HEAD:${HEAD_REF}"
