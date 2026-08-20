@@ -1,5 +1,8 @@
 # @viu/emporix-mixins
 
+[![CI](https://github.com/viuteam/emporix-sdk/actions/workflows/pr-check.yml/badge.svg?branch=main)](https://github.com/viuteam/emporix-sdk/actions/workflows/pr-check.yml)
+[![npm](https://img.shields.io/npm/v/@viu/emporix-mixins)](https://www.npmjs.com/package/@viu/emporix-mixins)
+
 Generic, tenant-agnostic toolkit to resolve Emporix mixins as typed values and
 keep the types in sync with the Schema Service. Ships **no tenant data** — you
 configure a source and generate types into your own repo.
@@ -123,3 +126,12 @@ for one. The per-version history lives here instead:
   the release artifact.
 - [Releases](https://github.com/viuteam/emporix-sdk/releases) — one entry per
   published version, each linking the PR and the commit behind every change.
+
+## Authors
+
+- **Dominic Fritschi** — _Maintainer_ — [VIU](https://www.viu.ch)
+- The **Team at VIU** — _Contributors_ — [VIU](https://www.viu.ch)
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
