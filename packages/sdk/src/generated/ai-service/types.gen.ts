@@ -505,10 +505,7 @@ export type McpServerConfigResponse = McpServerConfig & {
     authorizationHeaderToken?: ExpandableTokenResponse;
 };
 
-/**
- * An object representing customer's own implementation of the MCP server.
- */
-export type BaseMcpServer = {
+export type BaseManagedMcpServer = {
     /**
      * Name of the MCP server.
      */
@@ -520,15 +517,174 @@ export type BaseMcpServer = {
     transport?: CustomMcpServerTransportType;
 };
 
-export type McpServerRequest = BaseMcpServer & {
+/**
+ * Type of the managed MCP server resource. Possible values:
+ * * `custom`
+ * * `dynamic`
+ *
+ * **The `dynamic` value is in preview mode** - some of the features may not be fully operational yet.
+ */
+export type ManagedMcpServerType = 'custom' | 'dynamic';
+
+/**
+ * HTTP method used to invoke the Automation function.
+ */
+export type McpToolInvocationMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+/**
+ * Location of the tool arguments in the HTTP request. Defaults to `body` when omitted.
+ */
+export type McpToolInvocationArgsLocation = 'body' | 'query';
+
+export type McpToolInvocationRequest = {
+    /**
+     * Identifier of the Automation function to invoke when the tool is called.
+     */
+    functionId: string;
+    method: McpToolInvocationMethod;
+    argsLocation?: McpToolInvocationArgsLocation;
+};
+
+export type McpToolInvocationResponse = {
+    /**
+     * Identifier of the Automation function to invoke when the tool is called.
+     */
+    functionId?: string;
+    method?: McpToolInvocationMethod;
+    argsLocation?: McpToolInvocationArgsLocation;
+};
+
+export type McpToolConfigRequest = {
+    /**
+     * OAuth scopes required to invoke the tool.
+     */
+    requiredScopes?: Array<string>;
+    /**
+     * JSON Schema document describing the tool input, provided as a JSON string.
+     */
+    inputSchema: string;
+    invocation: McpToolInvocationRequest;
+};
+
+export type McpToolConfigResponse = {
+    /**
+     * OAuth scopes required to invoke the tool.
+     */
+    requiredScopes?: Array<string>;
+    /**
+     * JSON Schema document describing the tool input, provided as a JSON string.
+     */
+    inputSchema?: string;
+    invocation?: McpToolInvocationResponse;
+};
+
+/**
+ * Tool definition for a dynamic MCP server.
+ *
+ * **Dynamic MCP tools are in preview mode** - some of the features may not be fully operational yet.
+ */
+export type McpToolRequest = {
+    /**
+     * Unique name of the tool. Must not contain whitespace characters.
+     */
+    name: string;
+    /**
+     * Human-readable description of the tool.
+     */
+    description?: string;
+    /**
+     * Prompt that defines when and why the agent should call this tool.
+     */
+    prompt: string;
+    /**
+     * An indicator whether the tool is enabled.
+     */
+    enabled?: boolean;
+    config: McpToolConfigRequest;
+};
+
+/**
+ * Tool definition for a dynamic MCP server.
+ *
+ * **Dynamic MCP tools are in preview mode** - some of the features may not be fully operational yet.
+ */
+export type McpToolResponse = {
+    /**
+     * Unique name of the tool.
+     */
+    name?: string;
+    /**
+     * Human-readable description of the tool.
+     */
+    description?: string;
+    /**
+     * Prompt that defines when and why the agent should call this tool.
+     */
+    prompt?: string;
+    /**
+     * An indicator whether the tool is enabled.
+     */
+    enabled?: boolean;
+    config?: McpToolConfigResponse;
+};
+
+export type CustomMcpServerRequest = BaseManagedMcpServer & {
+    /**
+     * For custom MCP servers it has to be set to `custom` or omitted. Defaults to `custom`.
+     */
+    type?: ManagedMcpServerType;
     config: McpServerConfigRequest;
     metadata?: MetadataRequest;
 };
 
-export type McpServerResponse = BaseMcpServer & {
+export type DynamicMcpServerRequest = BaseManagedMcpServer & {
+    /**
+     * For dynamic MCP servers it has to be set to `dynamic`.
+     */
+    type: ManagedMcpServerType;
+    /**
+     * List of tools exposed by this MCP server.
+     *
+     * **The `tools` field is in preview mode** - some of the features may not be fully operational yet.
+     */
+    tools: Array<McpToolRequest>;
+    metadata?: MetadataRequest;
+};
+
+export type McpServerRequest = CustomMcpServerRequest | DynamicMcpServerRequest;
+
+export type CustomMcpServerResponse = BaseManagedMcpServer & {
+    /**
+     * Unique identifier of the MCP server.
+     */
+    id?: string;
+    /**
+     * Type of the managed MCP server resource.
+     */
+    type?: ManagedMcpServerType;
     config?: McpServerConfigResponse;
     metadata?: MetadataResponse;
 };
+
+export type DynamicMcpServerResponse = BaseManagedMcpServer & {
+    /**
+     * Unique identifier of the MCP server.
+     */
+    id?: string;
+    /**
+     * For dynamic MCP servers it has to be set to `dynamic`.
+     */
+    type?: ManagedMcpServerType;
+    /**
+     * List of tools exposed by this MCP server.
+     *
+     * **The `tools` field is in preview mode** - some of the features may not be fully operational yet.
+     */
+    tools?: Array<McpToolResponse>;
+    metadata?: MetadataResponse;
+};
+
+export type McpServerResponse = CustomMcpServerResponse | DynamicMcpServerResponse;
 
 export type CommerceEventsResponse = {
     /**
@@ -538,9 +694,9 @@ export type CommerceEventsResponse = {
 };
 
 /**
- * Type of the MCP server. The `custom` type allows you to integrate with your own MCP server instance, while the `predefined` type allows you to integrate with one of the instances provided by Emporix.
+ * Type of the MCP server attachment on an agent. The `custom` type references a tenant-managed MCP server with a URL. The `predefined` type references an Emporix domain MCP server. The `dynamic` type references a tenant-managed dynamic MCP server and may include an optional tool-name allow-list.
  */
-export type McpServerType = 'custom' | 'predefined';
+export type McpServerType = 'custom' | 'predefined' | 'dynamic';
 
 /**
  * Type of the communication between the agent and the MCP server. The `streamable_http` protocol is recommended, since the `sse` protocol is deprecated.
@@ -576,19 +732,45 @@ export type CustomAgentMcpServerRequest = BaseAgentMcpServer & {
     };
 };
 
-export type CustomAgentMcpServerResponse = CustomAgentMcpServerRequest & {
+export type DynamicAgentMcpServerRequest = BaseAgentMcpServer & {
+    /**
+     * For a dynamic MCP server attachment it has to be set to `dynamic`.
+     */
+    type?: unknown;
+    mcpServer: {
+        /**
+         * ID of the dynamic MCP server.
+         */
+        id: string;
+    };
+    /**
+     * Optional allow-list of tool names from the dynamic MCP server.
+     */
+    tools?: Array<string>;
+};
+
+export type AgentMcpServerResponse = {
+    type: McpServerType;
     mcpServer?: McpServerResponse & unknown;
+    /**
+     * Present for `predefined` attachments.
+     */
+    domain?: 'customer' | 'extensibility' | 'order' | 'product' | 'frontend';
+    /**
+     * Tool-name allow-list. Present for `predefined` attachments and for `dynamic` attachments when a subset is configured. Omitted on `dynamic` means all enabled tools on the MCP server.
+     */
+    tools?: Array<string>;
 };
 
 /**
  * List of MCP servers which agents should have access to.
  */
-export type AgentMcpServersRequest = Array<CustomAgentMcpServerRequest | PredefinedAgentMcpServer>;
+export type AgentMcpServersRequest = Array<CustomAgentMcpServerRequest | DynamicAgentMcpServerRequest | PredefinedAgentMcpServer>;
 
 /**
  * List of MCP servers which agents should have access to.
  */
-export type AgentMcpServersResponse = Array<CustomAgentMcpServerResponse | PredefinedAgentMcpServer>;
+export type AgentMcpServersResponse = Array<AgentMcpServerResponse>;
 
 export type BaseLlm = {
     /**
@@ -811,11 +993,6 @@ export type TriggerType = 'endpoint' | 'slack' | 'teams';
 export type CommerceEventsTriggerType = 'commerce_events';
 
 /**
- * Comparison operator applied to a commerce event payload field.
- */
-export type CommerceEventTriggerFilterLeafOperator = '$eq' | '$ne' | '$in' | '$notIn' | '$exists' | '$notExists' | '$isEmpty' | '$notEmpty';
-
-/**
  * Logical operator used to combine multiple filter conditions.
  */
 export type CommerceEventTriggerFilterLogicalOperator = '$and' | '$or';
@@ -983,15 +1160,6 @@ export type AgentTemplateResponse = BaseForAgentAndTemplate & {
     id?: string;
     nativeTools?: NativeToolsResponse;
     mcpServers?: AgentMcpServersResponse;
-};
-
-export type AgentHandOffResponse = BaseForAgentAndTemplateAndHandOff & {
-    /**
-     * Identifier of the agent.
-     */
-    id?: string;
-    handOff?: HandOff;
-    metadata?: MetadataResponse;
 };
 
 export type AgentRequest = BaseForAgentRequestAndResponse & {
@@ -2406,7 +2574,7 @@ export type GetAiListAgentsResponses = {
     /**
      * List of agents.
      */
-    200: Array<AgentResponse | AgentHandOffResponse>;
+    200: Array<AgentResponse>;
 };
 
 export type GetAiListAgentsResponse = GetAiListAgentsResponses[keyof GetAiListAgentsResponses];
@@ -2479,7 +2647,7 @@ export type PostAiSearchAgentsResponses = {
     /**
      * List of agents.
      */
-    200: Array<AgentResponse | AgentHandOffResponse>;
+    200: Array<AgentResponse>;
 };
 
 export type PostAiSearchAgentsResponse = PostAiSearchAgentsResponses[keyof PostAiSearchAgentsResponses];
@@ -2592,7 +2760,7 @@ export type GetAiRetrieveAgentResponses = {
     /**
      * A single agent.
      */
-    200: AgentResponse | AgentHandOffResponse;
+    200: AgentResponse;
 };
 
 export type GetAiRetrieveAgentResponse = GetAiRetrieveAgentResponses[keyof GetAiRetrieveAgentResponses];
