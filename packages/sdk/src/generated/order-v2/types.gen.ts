@@ -667,7 +667,9 @@ export type TaxTotal = {
 };
 
 /**
- * Product details.
+ * Product details stored on the order entry as a creation-time snapshot.
+ * For `DYNAMIC_VARIANT` products, the snapshot includes `parentVariantId`, `parentVariantPath`, `ownVariantAttributes`, `inheritedVariantAttributes`, and `sellable` when those fields are present on the source product. The fields are omitted when they are not present, for example on `BASIC` or `VARIANT` products.
+ *
  */
 export type Product = {
     /**
@@ -701,9 +703,9 @@ export type Product = {
      */
     published?: boolean;
     /**
-     * Type of the product (BASIC, VARIANT, BUNDLE).
+     * Type of the product. Possible values: `BASIC`, `VARIANT`, `BUNDLE`, `DYNAMIC_VARIANT`.
      */
-    productType?: 'BASIC' | 'VARIANT' | 'BUNDLE';
+    productType?: 'BASIC' | 'VARIANT' | 'BUNDLE' | 'DYNAMIC_VARIANT';
     /**
      * The collection of products assigned to the bundle.
      */
@@ -719,6 +721,30 @@ export type Product = {
     mixins?: {
         [key: string]: unknown;
     };
+    /**
+     * Identifier of the immediate parent variant. Present only for `DYNAMIC_VARIANT` products that are not root variants.
+     */
+    parentVariantId?: string;
+    /**
+     * Ancestor variant identifiers ordered from the direct parent (index 0) to the root variant. Present only for `DYNAMIC_VARIANT` products.
+     */
+    parentVariantPath?: Array<string>;
+    /**
+     * Variant attributes defined on this `DYNAMIC_VARIANT` product.
+     */
+    ownVariantAttributes?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Read-only variant attributes merged from ancestor variants of this `DYNAMIC_VARIANT` product.
+     */
+    inheritedVariantAttributes?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Flag indicating whether this `DYNAMIC_VARIANT` product can be sold. The value is set per product and is not inherited.
+     */
+    sellable?: boolean;
     metadata?: MixinsMetadata & {
         [key: string]: unknown;
     };

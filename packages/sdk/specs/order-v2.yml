@@ -94,6 +94,8 @@ paths:
             examples:
               Sales Order creation payload example:
                 $ref: '#/components/examples/salesOrderCreation'
+              Sales Order creation with DYNAMIC_VARIANT product:
+                $ref: '#/components/examples/salesOrderCreationDynamicVariant'
             schema:
               $ref: '#/components/schemas/salesOrderCreationDto'
         required: false
@@ -197,6 +199,8 @@ paths:
                   $ref: '#/components/examples/salesOrder2'
                 Sales Order example 2:
                   $ref: '#/components/examples/salesOrder1'
+                Sales Order with DYNAMIC_VARIANT product:
+                  $ref: '#/components/examples/salesOrderDynamicVariant'
               schema:
                 $ref: '#/components/schemas/salesOrder'
         '403':
@@ -463,6 +467,8 @@ paths:
                   $ref: '#/components/examples/salesOrder2'
                 Sales Order example 2:
                   $ref: '#/components/examples/salesOrder1'
+                Sales Order with DYNAMIC_VARIANT product:
+                  $ref: '#/components/examples/salesOrderDynamicVariant'
               schema:
                 $ref: '#/components/schemas/salesOrder'
         '400':
@@ -1478,7 +1484,9 @@ components:
         - inclusive
     product:
       title: Product
-      description: Product details.
+      description: |
+        Product details stored on the order entry as a creation-time snapshot.
+        For `DYNAMIC_VARIANT` products, the snapshot includes `parentVariantId`, `parentVariantPath`, `ownVariantAttributes`, `inheritedVariantAttributes`, and `sellable` when those fields are present on the source product. The fields are omitted when they are not present, for example on `BASIC` or `VARIANT` products.
       type: object
       properties:
         id:
@@ -1505,12 +1513,13 @@ components:
           description: Product published flag.
           type: boolean
         productType:
-          description: 'Type of the product (BASIC, VARIANT, BUNDLE).'
+          description: 'Type of the product. Possible values: `BASIC`, `VARIANT`, `BUNDLE`, `DYNAMIC_VARIANT`.'
           type: string
           enum:
             - BASIC
             - VARIANT
             - BUNDLE
+            - DYNAMIC_VARIANT
         bundledProducts:
           description: The collection of products assigned to the bundle.
           type: array
@@ -1527,6 +1536,25 @@ components:
           description: Product additional information.
           type: object
           additionalProperties: true
+        parentVariantId:
+          description: Identifier of the immediate parent variant. Present only for `DYNAMIC_VARIANT` products that are not root variants.
+          type: string
+        parentVariantPath:
+          description: Ancestor variant identifiers ordered from the direct parent (index 0) to the root variant. Present only for `DYNAMIC_VARIANT` products.
+          type: array
+          items:
+            type: string
+        ownVariantAttributes:
+          description: Variant attributes defined on this `DYNAMIC_VARIANT` product.
+          type: object
+          additionalProperties: true
+        inheritedVariantAttributes:
+          description: Read-only variant attributes merged from ancestor variants of this `DYNAMIC_VARIANT` product.
+          type: object
+          additionalProperties: true
+        sellable:
+          description: Flag indicating whether this `DYNAMIC_VARIANT` product can be sold. The value is set per product and is not inherited.
+          type: boolean
         metadata:
           allOf:
             - $ref: '#/components/schemas/mixinsMetadata'
@@ -4286,6 +4314,89 @@ components:
                   taxCode: REDUCED
                   taxRate: 12
           channel: {}
+    salesOrderCreationDynamicVariant:
+      value:
+        checkout: true
+        status: IN_CHECKOUT
+        entries:
+          - amount: 1
+            orderedAmount: 1
+            effectiveQuantity: 1
+            product:
+              id: mobile-15-pro-l2-retail
+              sku: MOBILE-15-PRO-L2-RETAIL
+              name: Mobile Phone 15 Pro 256 GB Blue Retail box
+              published: true
+              productType: DYNAMIC_VARIANT
+              sellable: true
+              parentVariantId: mobile-15-pro-l1
+              parentVariantPath:
+                - mobile-15-pro-l1
+                - mobile-15-pro
+              ownVariantAttributes:
+                bundleType:
+                  name:
+                    en: Bundle
+                  value:
+                    type: STRING
+                    qualifier: RETAIL_BOX
+                    name:
+                      en: Retail box
+              inheritedVariantAttributes:
+                storageCapacity:
+                  name:
+                    en: Storage
+                  value:
+                    type: STRING
+                    qualifier: 256_GB
+                    name:
+                      en: 256 GB
+              mixins:
+                ranking:
+                  ranking: 2
+    salesOrderDynamicVariant:
+      value:
+        id: EON6279
+        checkout: true
+        status: CREATED
+        entries:
+          - id: 0_mobile-15-pro-l2-retail
+            itemYrn: 'urn:yaas:saasag:caasproduct:product:b2b2cstage;mobile-15-pro-l2-retail'
+            amount: 1
+            orderedAmount: 1
+            effectiveQuantity: 1
+            product:
+              id: mobile-15-pro-l2-retail
+              sku: MOBILE-15-PRO-L2-RETAIL
+              name: Mobile Phone 15 Pro 256 GB Blue Retail box
+              published: true
+              productType: DYNAMIC_VARIANT
+              sellable: true
+              parentVariantId: mobile-15-pro-l1
+              parentVariantPath:
+                - mobile-15-pro-l1
+                - mobile-15-pro
+              ownVariantAttributes:
+                bundleType:
+                  name:
+                    en: Bundle
+                  value:
+                    type: STRING
+                    qualifier: RETAIL_BOX
+                    name:
+                      en: Retail box
+              inheritedVariantAttributes:
+                storageCapacity:
+                  name:
+                    en: Storage
+                  value:
+                    type: STRING
+                    qualifier: 256_GB
+                    name:
+                      en: 256 GB
+              mixins:
+                ranking:
+                  ranking: 2
     salesOrder1:
       value:
         checkout: true
