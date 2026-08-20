@@ -93,8 +93,9 @@ See [`../../docs/mixin-search.md`](../../docs/mixin-search.md) for the capabilit
 
 | Option | Default | Notes |
 | --- | --- | --- |
-| `tenant` (required) | — | lowercase, 3–16 chars, `^[a-z][a-z0-9]+$` |
-| `credentials.backend` (required) | — | `{ clientId, secret, scope? }` — service token |
+| `tenant` (required) | — | lowercase, 3–16 chars, `^[a-z][a-z0-9]{2,15}$` |
+| `credentials` (required) | — | the object itself is required; which sets it holds is up to you |
+| `credentials.backend` | — | `{ clientId, secret, scope? }` — service token |
 | `credentials.storefront` | — | `{ clientId }` — anonymous token (no secret) |
 | `credentials.custom` | — | `Record<name, { clientId, secret, scope? }>` |
 | `host` | `https://api.emporix.io` | |
@@ -103,6 +104,13 @@ See [`../../docs/mixin-search.md`](../../docs/mixin-search.md) for the capabilit
 | `cache` | `{ expirationBufferSeconds: 60, maxLifetimeSeconds: 3600 }` | token cache |
 | `logger` | console @ `warn` | `false`, a `Logger`, or `{ level, services, pretty, redact }` |
 | `tokenProvider` | built-in | inject for SSO/token-exchange |
+
+`credentials: {}` is legal: a client that never mints its own token, for when the
+token comes from outside. The Managed Dashboard module in
+[`examples/md-module`](../../examples/md-module) is built exactly that way — the
+host hands it a customer token and the SDK only passes it through. Pass
+`credentials.backend` when you need a `service` AuthContext, `storefront` for
+anonymous browsing, both when you need both.
 
 ## AuthContext per method
 
@@ -141,8 +149,9 @@ header, guest checkout and deferred payment are covered in
 ## B2B
 
 `sdk.companies` (legal entities), `sdk.contacts` (contact assignments),
-`sdk.locations` (HQ/warehouse/office), `sdk.customerGroups` (IAM groups,
-read-only for now). Switching company scope is a customer-token rescope via
+`sdk.locations` (HQ/warehouse/office), `sdk.customerGroups` (IAM groups —
+`listForCompany` plus `addMember` / `removeMember`). Switching company scope is
+a customer-token rescope via
 `sdk.customers.refresh({ refreshToken, legalEntityId })`. Mutations that the
 customer's role lacks scope for surface as `EmporixInsufficientScopeError`
 (extends `EmporixForbiddenError`, carries `requiredScope`). See
@@ -162,11 +171,16 @@ the Media service directly. See [`../../docs/media.md`](../../docs/media.md).
 
 ## Availability
 
-`sdk.availability` reads site-aware product availability: `get(productId, siteCode)`
-for one product and `getMany(productIds, siteCode)` for a batch (single
-`POST .../search` request, result in input order). The opt-in
+`sdk.availability` covers site-aware product availability in both directions.
+
+**Reads** (default `anonymous`): `get(productId, siteCode)` for one product,
+`getMany(productIds, siteCode)` for a batch (single `POST .../search` request,
+result in input order), and `listForSite(siteCode)`. The opt-in
 `defaultAvailableOnNotFound` returns `{ available: true }` for products without a
-stock record. There is no restock-date field. See [`../../docs/availability.md`](../../docs/availability.md).
+stock record. There is no restock-date field.
+
+**Writes** (default `service`, so server-only): `create`, `update`, `delete`, plus
+`bulkCreate` / `bulkUpdate` / `bulkDelete`. See [`../../docs/availability.md`](../../docs/availability.md).
 
 ## Subpath exports
 
