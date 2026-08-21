@@ -23,5 +23,24 @@
     "@commitlint/config-conventional": "^19.0.0",
     "husky": "^9.1.0",
     "typescript": "^5.6.0"
+  },
+  "pnpm": {
+    "//": "Transitive-only security overrides. Every entry answers a Dependabot alert on a package nothing here declares directly, so there is no manifest to bump — the version has to be forced from the root. None of these reach a consumer: the published packages ship no runtime dependencies except @viu/emporix-mixins -> jiti. Drop an entry once the parent that pulls it has moved on by itself.",
+    "overrides": {
+      "tar": "^7.5.21",
+      "handlebars": "^4.7.9",
+      "js-yaml@3": "^3.15.1",
+      "js-yaml@4": "^4.3.1",
+      "brace-expansion@1": "^1.1.18",
+      "brace-expansion@>=4": "^5.0.9",
+      "postcss": "^8.5.23",
+      "fast-uri": "^3.1.5",
+      "nanoid": "^3.3.18",
+      "ws": "^8.21.0",
+      "form-data": "^4.0.6",
+      "sharp": "^0.35.0",
+      "@babel/core": "^7.29.6",
+      "@remix-run/router": "^1.23.3"
+    }
   }
 }
