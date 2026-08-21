@@ -1293,7 +1293,30 @@ export type ImportedEntity = {
     /**
      * State of the imported entity.
      */
-    state?: 'TO_CREATE' | 'ENABLED' | 'DISABLED' | 'EXISTS';
+    state?: 'TO_CREATE' | 'ENABLED' | 'DISABLED' | 'EXISTS' | 'FAILED';
+    /**
+     * Reasons the entity was skipped, disabled, or failed during import.
+     */
+    details?: Array<ImportDetails>;
+};
+
+export type ImportDetails = {
+    /**
+     * Machine-readable reason code for UI localization.
+     */
+    code?: 'MISSING_FUNCTION' | 'MISSING_TOKEN' | 'NOT_IMPORTABLE' | 'ALREADY_EXISTS' | 'AGENT_IMPORTED_DISABLED' | 'IMPORT_FAILED';
+    /**
+     * ID of the related object, such as a function ID or token ID.
+     */
+    objectId?: string;
+    /**
+     * Display name of the related object, such as a tool name.
+     */
+    objectName?: string;
+    /**
+     * English fallback message when a localized string is not available.
+     */
+    message?: string;
 };
 
 export type JobIdResponse = {
