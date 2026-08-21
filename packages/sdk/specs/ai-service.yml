@@ -3901,6 +3901,34 @@ components:
             - ENABLED
             - DISABLED
             - EXISTS
+            - FAILED
+        details:
+          type: array
+          description: Reasons the entity was skipped, disabled, or failed during import.
+          items:
+            $ref: '#/components/schemas/ImportDetails'
+    ImportDetails:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Machine-readable reason code for UI localization.
+          enum:
+            - MISSING_FUNCTION
+            - MISSING_TOKEN
+            - NOT_IMPORTABLE
+            - ALREADY_EXISTS
+            - AGENT_IMPORTED_DISABLED
+            - IMPORT_FAILED
+        objectId:
+          type: string
+          description: ID of the related object, such as a function ID or token ID.
+        objectName:
+          type: string
+          description: Display name of the related object, such as a tool name.
+        message:
+          type: string
+          description: English fallback message when a localized string is not available.
     JobIdResponse:
       type: object
       properties:
@@ -5292,14 +5320,25 @@ components:
             - id: 346cefda-19be-4603-a471-5d2e990566ba--import-1762257415296
               name: complaint-demo
               state: DISABLED
+              details:
+                - code: AGENT_IMPORTED_DISABLED
+                  objectId: 346cefda-19be-4603-a471-5d2e990566ba--import-1762257415296
+                  objectName: complaint-demo
+                  message: Imported agents start disabled.
           tools:
             - id: 80171fb9-a3cc-4441-8235-ced7edd0635d2
               name: Slack Tool
               state: TO_CREATE
+              details:
+                - code: NOT_IMPORTABLE
+                  objectId: 80171fb9-a3cc-4441-8235-ced7edd0635d2
+                  objectName: Slack Tool
+                  message: Slack/Teams tools cannot be imported. Create them on this tenant.
           mcpServers:
             - id: 80171fb9-a3cc-4441-8235-ced7edd0635d3
               name: Custom MCP Server
               state: ENABLED
+              details: []
         message: "Successfully imported 1 agents, 0 tools, and 1 MCP servers."
         jobId: 6909ea07e0527f327fdead3e
     ImportRequest:
