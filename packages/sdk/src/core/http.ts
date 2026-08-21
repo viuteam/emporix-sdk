@@ -47,6 +47,19 @@ export interface HttpResult<T> {
 /** Construction options for {@link HttpClient}. */
 export interface HttpClientOptions {
   host: string;
+  /**
+   * Tenant, emitted as `Emporix-Tenant` on every request.
+   *
+   * The tenant is already in the path of nearly every endpoint, so this looks
+   * redundant — it is not. Emporix validates dashboard/IAM user tokens against
+   * this header and answers 401 without it, even when `Authorization` is
+   * correct. `@emporix/api-calls`, the client library the Management Dashboard
+   * itself uses, sets it whenever a tenant is known.
+   *
+   * Optional so a bare `new HttpClient(...)` stays constructible; every client
+   * built through `createCore` passes it.
+   */
+  tenant?: string;
   provider: TokenProvider;
   logger: Logger;
   retry: { maxAttempts: number };
@@ -95,6 +108,10 @@ export class HttpClient {
     isFormData: boolean,
   ): Record<string, string> {
     return {
+      // Before `o.headers` on purpose: a caller may override the tenant for a
+      // single request, the way `Accept-Language` can be overridden. Only
+      // `Authorization` is non-negotiable.
+      ...(this.opts.tenant !== undefined ? { "Emporix-Tenant": this.opts.tenant } : {}),
       ...(this.opts.requestContext?.language
         ? { "Accept-Language": this.opts.requestContext.language }
         : {}),
