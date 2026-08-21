@@ -1,5 +1,38 @@
 # @viu/emporix-sdk
 
+## 2.37.0
+
+### Minor Changes
+
+- [#292](https://github.com/viuteam/emporix-sdk/pull/292) [`6efa5b0`](https://github.com/viuteam/emporix-sdk/commit/6efa5b02ab213ab92a7b57edbd09845d1d017a6a) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): wrap the two operations an audit found unwrapped
+
+  An operation-by-operation audit of all 44 vendored specs found the SDK covering
+  every non-deprecated operation except two. Both are now wrapped:
+  - **`client.customers.validateToken(auth)`** — `GET /customer/{tenant}/validateauthtoken`.
+    Reports what a customer token carries: `scope`, `sessionId`, `email`,
+    `legalEntityId`, `expires_in`. A check rather than a predicate — an invalid
+    token answers `401`, which surfaces as `EmporixAuthError`. Useful when the
+    token came from elsewhere (an SSO exchange, a Managed Dashboard host) and you
+    need its scopes before deciding what to render.
+  - **`client.iam.users.getGroup(userId, groupId, auth)`** —
+    `GET /iam/{tenant}/users/{userId}/groups/{groupId}`. The collection read
+    (`users.getGroups`) was already there; the item read was not, so a caller
+    holding both ids had to page the collection to resolve one group.
+
+  `SessionContextService`'s doc comment now states which operations it
+  deliberately does **not** wrap and why: Emporix exposes the same four
+  session-context operations addressed by an explicit session id, which lets a
+  caller read and rewrite someone else's session. That is an administrative
+  surface and does not belong on the object a storefront holds.
+
+  No behaviour changes to existing methods.
+
+### Patch Changes
+
+- [#291](https://github.com/viuteam/emporix-sdk/pull/291) [`15e5f63`](https://github.com/viuteam/emporix-sdk/commit/15e5f63cd682bc528aad7ca9ae898e0249750a69) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+
+  Updated services: ai-service
+
 ## 2.36.1
 
 ### Patch Changes
