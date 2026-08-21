@@ -70,6 +70,7 @@ export function createCore(config: EmporixConfig): EmporixCore {
     logger: root.child({ service }),
     http: new HttpClient({
       host: cfg.host,
+      tenant: cfg.tenant,
       provider: tokenProvider,
       logger: root.child({ service: "http" }),
       retry: cfg.retry,
