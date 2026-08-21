@@ -213,6 +213,26 @@ is a string from `socialLogin` and an integer from `exchangeToken` — the SDK
 normalizes both to a number. `auth.raw(jwt)` and a custom `tokenProvider`
 remain available for any flow the SDK does not model.
 
+## Inspecting a token you did not mint
+
+`customers.validateToken(auth)` asks the tenant what a customer token actually
+carries — `scope` (space-separated), `sessionId`, `email`, `legalEntityId` and
+`expires_in`:
+
+```ts
+const details = await client.customers.validateToken(auth.customer(token));
+if (details.legalEntityId) { /* a B2B-scoped token */ }
+```
+
+It is a **check, not a predicate**: an invalid or expired token answers `401`,
+which surfaces as `EmporixAuthError` rather than a falsy result.
+
+Reach for it when the token came from somewhere else and you need its scopes
+before deciding what to render — an SSO exchange, or a Managed Dashboard host
+handing your module a token whose permissions you do not control (see
+[react.md](./react.md#managed-dashboard-module-host-owned-token)). For a token
+the SDK minted itself the call is redundant; you already know its scopes.
+
 ## Refresh with `legalEntityId` (B2B scope)
 
 `customer.refresh({ refreshToken, legalEntityId })` re-issues a customer token scoped to the given legal entity. Omitting `legalEntityId` re-issues a non-scoped (B2C) token. Used internally by `setActiveCompany` in React; can be called directly from non-React hosts.
