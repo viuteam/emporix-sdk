@@ -187,3 +187,22 @@ describe("iam.groups", () => {
     );
   });
 });
+
+describe("IamService.users.getGroup", () => {
+  it("GETs one user-specific group, alongside the existing collection read", async () => {
+    const req = vi.fn().mockResolvedValue({ id: "g1", name: { en: "Example name" } });
+    const group = await new IamService(ctxWith(req)).users.getGroup("u1", "g1", AUTH);
+    expect(req).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "GET", path: "/iam/acme/users/u1/groups/g1" }),
+    );
+    expect(group.id).toBe("g1");
+  });
+
+  it("escapes both path segments", async () => {
+    const req = vi.fn().mockResolvedValue({});
+    await new IamService(ctxWith(req)).users.getGroup("a/b", "c d", AUTH);
+    expect(req).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "/iam/acme/users/a%2Fb/groups/c%20d" }),
+    );
+  });
+});
