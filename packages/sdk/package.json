@@ -131,7 +131,7 @@
     "generate": "tsx scripts/generate.ts"
   },
   "devDependencies": {
-    "@hey-api/openapi-ts": "^0.64.0",
+    "@hey-api/openapi-ts": "^0.97.3",
     "@types/node": "^24.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
