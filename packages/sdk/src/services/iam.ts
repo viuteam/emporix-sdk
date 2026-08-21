@@ -85,6 +85,18 @@ export class IamService {
         path: `${this.base()}/users/${userId}/groups`,
         auth,
       }),
+    /**
+     * Reads one of a user's groups (`GET /users/{userId}/groups/{groupId}`).
+     * The collection read above returns the same shape per entry; this exists
+     * because Emporix exposes the item separately and a caller holding both ids
+     * should not have to page the collection to resolve one group.
+     */
+    getGroup: async (userId: string, groupId: string, auth: AuthContext): Promise<IamGroup> =>
+      this.ctx.http.request<IamGroup>({
+        method: "GET",
+        path: `${this.base()}/users/${encodeURIComponent(userId)}/groups/${encodeURIComponent(groupId)}`,
+        auth,
+      }),
     getScopes: async (userId: string, auth: AuthContext): Promise<IamUserScopes> =>
       this.ctx.http.request<IamUserScopes>({
         method: "GET",
