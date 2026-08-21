@@ -40,7 +40,8 @@
       "form-data": "^4.0.6",
       "sharp": "^0.35.0",
       "@babel/core": "^7.29.6",
-      "@remix-run/router": "^1.23.3"
+      "@remix-run/router": "^1.23.3",
+      "jiti": "2.6.1"
     }
   }
 }
