@@ -16,7 +16,7 @@
     "@viu/emporix-sdk-react": "workspace:*",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^6.26.0"
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@types/react": "^19.2.16",
