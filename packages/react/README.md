@@ -87,7 +87,7 @@ Every hook now works on the host's token — including the token-gated ones (`us
 | refresh on a customer 401 | only with `autoRefreshCustomerToken` | **never**; `onCustomerSessionExpired` fires and the 401 propagates |
 | a changed `initialCustomerToken` | seeds only an empty slot | **authoritative** — written into storage |
 
-**Five things to get right**
+**Six things to get right**
 
 1. **No `storage` prop.** A federation remote runs on the host's origin, so
    `createLocalStorage()` would write `emporix.customerToken` into the dashboard's own
@@ -100,9 +100,19 @@ Every hook now works on the host's token — including the token-gated ones (`us
 4. **Do not pass `initialSiteCode`** unless the token can read sites. It triggers a site
    fetch whose failure is swallowed.
 5. **Federation `shared`:** keep `react` and `react-dom` shared with the host — two React
-   copies break every hook. Do **not** share `@viu/emporix-sdk`, `@viu/emporix-sdk-react` or
+   copies break every hook. Use the **array** form (`shared: ["react", "react-dom"]`), not the
+   object form with `requiredVersion`: the dashboard provides React with no version metadata,
+   so a version check fails with «provider support react(undefined) is not satisfied», the
+   shared React is discarded, and the first hook dies on `Cannot read properties of null
+   (reading 'useState')`. Do **not** share `@viu/emporix-sdk`, `@viu/emporix-sdk-react` or
    `@tanstack/react-query`; the host does not know your versions, and the module owns its own
    cache.
+6. **Build against the React major the host runs** — 18.3 for the Management Dashboard today.
+   This package's peer range accepts 18 and 19, but that is about *this package*, not about
+   federation. React 18 and 19 produce differently shaped elements (19 drops `ref` from the
+   element and uses a different `$$typeof`), so a React-19 module inside a React-18 host throws
+   React error #31, «Objects are not valid as a React child». Avoiding React-19-only APIs does
+   not help — it is a format break, not an API question.
 
 A working remote is in [`examples/md-module`](../../examples/md-module).
 
