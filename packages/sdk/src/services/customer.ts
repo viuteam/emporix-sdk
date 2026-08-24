@@ -15,6 +15,7 @@ import type {
   ChangeEmailRequestDto,
   UpdateEmail,
   RefreshToken,
+  ValidateTokenResponse,
 } from "../generated/customer";
 
 /**
@@ -56,6 +57,12 @@ export type AddressUpdateInput = AddressUpdateDto;
 export type ChangeEmailInput = ChangeEmailRequestDto;
 export type ConfirmEmailChangeInput = UpdateEmail;
 export type ResendActivationInput = RefreshToken;
+/**
+ * What `validateToken` reports about a customer token: `scope` is the
+ * space-separated scope list, plus `sessionId`, `email`, `legalEntityId` and
+ * `expires_in`. Every field is optional upstream.
+ */
+export type CustomerTokenValidation = ValidateTokenResponse;
 
 /** Union of the wire shapes the four session endpoints return. snake_case is
  * canonical; camelCase is the deprecated fallback (vendored spec, design §2). */
@@ -241,6 +248,25 @@ export class CustomerService {
     return this.ctx.http.request<Customer>({
       method: "GET",
       path: `/customer/${this.ctx.tenant}/me`,
+      auth: requireCustomer(auth),
+    });
+  }
+
+  /**
+   * Validates a customer token and returns what the tenant knows about it —
+   * `scope`, `sessionId`, `email`, `legalEntityId`, `expires_in`
+   * (`GET /validateauthtoken`). Requires customer/raw auth.
+   *
+   * An invalid or expired token answers `401`, which surfaces as
+   * {@link EmporixAuthError} rather than a falsy result: this is a check, not a
+   * predicate. Reach for it when you hold a token from elsewhere — an SSO
+   * exchange, a Managed Dashboard host — and need its scopes before deciding
+   * what to render, instead of discovering them from a failed call.
+   */
+  async validateToken(auth?: AuthContext): Promise<CustomerTokenValidation> {
+    return this.ctx.http.request<CustomerTokenValidation>({
+      method: "GET",
+      path: `/customer/${this.ctx.tenant}/validateauthtoken`,
       auth: requireCustomer(auth),
     });
   }

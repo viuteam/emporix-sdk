@@ -1,5 +1,95 @@
 # @viu/emporix-sdk
 
+## 2.38.0
+
+### Minor Changes
+
+- [#294](https://github.com/viuteam/emporix-sdk/pull/294) [`ebf7e61`](https://github.com/viuteam/emporix-sdk/commit/ebf7e610f21c37e000e96fbe651902860bb0fce0) Thanks [@amnael1](https://github.com/amnael1)! - fix(sdk): send `Emporix-Tenant` on every request
+
+  The tenant is already in the path of nearly every endpoint, so this header looks
+  redundant. It is not: Emporix validates dashboard and IAM user tokens against it
+  and answers **401** without it, even when `Authorization: Bearer …` is correct.
+
+  Found while embedding the SDK in a Management Dashboard perspective. Every read
+  and write failed with 401 despite a valid host-supplied token, and nothing in
+  the request looked wrong — the header is simply absent from the SDK's
+  `buildHeaders`, which is not a diagnosable symptom.
+
+  `@emporix/api-calls`, the client library the Management Dashboard itself uses,
+  sets the header whenever a tenant is known — it is an Emporix convention, not a
+  dashboard-only quirk. So this is unconditional rather than opt-in: `HttpClient`
+  emits it whenever `tenant` is set, and `createCore` always passes it. Every
+  client built through `createEmporixClient` gets it.
+
+  **Behaviour change for every consumer.** Storefront traffic now carries one
+  extra header on each request. It is placed _before_ `RequestOptions.headers`, so
+  a caller can still override it per request — the same escape hatch
+  `Accept-Language` has. Only `Authorization` remains non-negotiable.
+
+  `HttpClientOptions.tenant` is optional so a bare `new HttpClient(...)` stays
+  constructible; the header is then omitted entirely, matching what
+  `@emporix/api-calls` does with an empty tenant.
+
+  Also covers `requestStream` — it shares `buildHeaders`. Token requests
+  (`core/auth.ts`) are unaffected, as with `EmporixConfig.fetch`.
+
+## 2.37.0
+
+### Minor Changes
+
+- [#292](https://github.com/viuteam/emporix-sdk/pull/292) [`6efa5b0`](https://github.com/viuteam/emporix-sdk/commit/6efa5b02ab213ab92a7b57edbd09845d1d017a6a) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): wrap the two operations an audit found unwrapped
+
+  An operation-by-operation audit of all 44 vendored specs found the SDK covering
+  every non-deprecated operation except two. Both are now wrapped:
+  - **`client.customers.validateToken(auth)`** — `GET /customer/{tenant}/validateauthtoken`.
+    Reports what a customer token carries: `scope`, `sessionId`, `email`,
+    `legalEntityId`, `expires_in`. A check rather than a predicate — an invalid
+    token answers `401`, which surfaces as `EmporixAuthError`. Useful when the
+    token came from elsewhere (an SSO exchange, a Managed Dashboard host) and you
+    need its scopes before deciding what to render.
+  - **`client.iam.users.getGroup(userId, groupId, auth)`** —
+    `GET /iam/{tenant}/users/{userId}/groups/{groupId}`. The collection read
+    (`users.getGroups`) was already there; the item read was not, so a caller
+    holding both ids had to page the collection to resolve one group.
+
+  `SessionContextService`'s doc comment now states which operations it
+  deliberately does **not** wrap and why: Emporix exposes the same four
+  session-context operations addressed by an explicit session id, which lets a
+  caller read and rewrite someone else's session. That is an administrative
+  surface and does not belong on the object a storefront holds.
+
+  No behaviour changes to existing methods.
+
+### Patch Changes
+
+- [#291](https://github.com/viuteam/emporix-sdk/pull/291) [`15e5f63`](https://github.com/viuteam/emporix-sdk/commit/15e5f63cd682bc528aad7ca9ae898e0249750a69) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+
+  Updated services: ai-service
+
+## 2.36.1
+
+### Patch Changes
+
+- [#286](https://github.com/viuteam/emporix-sdk/pull/286) [`2d7e496`](https://github.com/viuteam/emporix-sdk/commit/2d7e496c64fc1df4ffe24db436ec10cc1c2ae4b4) Thanks [@amnael1](https://github.com/amnael1)! - chore(sdk): bump the type generator to @hey-api/openapi-ts 0.97.3
+
+  Answers two Dependabot alerts on the codegen. Regenerated from the **same** vendored
+  specs, so no Emporix API surface changes — only how the generator emits it: 88 files,
+  +2051/-352.
+
+  Two generated names disappear, both internal and neither reachable from the package
+  root: `_Error` and `_Object` are now emitted under their real names, `Error` and
+  `Object`. The bundler renames the collision away (`Object$1` in `dist/index.d.ts`), so
+  nothing shadows the globals and no export list mentions either name. Every other
+  exported name is unchanged; 102 are new.
+
+  `jiti` is pinned to `2.6.1` in the root `pnpm.overrides` as part of this change.
+  Bumping the generator pulls `jiti` to 2.7.0 through `c12`, which re-resolves every
+  `vite`, `vitest` and `eslint` peer in the tree — and with that resolution the
+  `packages/react` suite fails intermittently: 2 failures in 6 runs, against 0 in 9 runs
+  without it. Pinning `jiti` restores 6 of 6. The pin is a quarantine, not a diagnosis:
+  the underlying reason jiti 2.7.0 destabilises that suite is unknown and will need
+  finding before the pin can go.
+
 ## 2.36.0
 
 ### Minor Changes

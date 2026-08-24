@@ -16,9 +16,18 @@ export type {
 const ANON: AuthContext = auth.anonymous();
 
 /**
- * Session-context binding for the current storefront session. Both endpoints
- * resolve the session-id from the `Authorization` token — no path/query
- * parameter required.
+ * Session-context binding for the current storefront session. Every method here
+ * hits a `/me/context` path, so the session-id comes from the `Authorization`
+ * token — no path or query parameter required.
+ *
+ * **The service's other half is intentionally not wrapped.** Emporix also exposes
+ * the same four operations addressed by an explicit session id —
+ * `GET`/`PUT /{sessionId}/context`, `POST`/`DELETE` on its attributes. Those are
+ * administrative: they let a caller read and rewrite *someone else's* session,
+ * which is not a storefront capability and needs a service token. Wrapping them
+ * here would put an admin surface on the object a storefront holds. If you need
+ * them, build the request directly — the generated types are in
+ * `../generated/session-context`.
  */
 export class SessionContextService {
   static readonly channel = "session-context" as const;

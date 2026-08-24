@@ -399,3 +399,49 @@ describe("CustomerService storefront completeness methods", () => {
     expect(new URL(url).searchParams.get("tags")).toBe("BILLING");
   });
 });
+
+describe("CustomerService.validateToken", () => {
+  const URL_ = "https://api.emporix.io/customer/acme/validateauthtoken";
+
+  it("GETs the validate path with the customer token and returns the details", async () => {
+    let seenAuth: string | null = null;
+    server.use(
+      http.get(URL_, ({ request }) => {
+        seenAuth = request.headers.get("authorization");
+        return HttpResponse.json({
+          token_type: "Bearer",
+          expires_in: 2591974,
+          scope: "customer.customer_read_own",
+          sessionId: "415c340b",
+          email: "customer@example.com",
+          legalEntityId: "53ac81fd0cce8b26b36f3492",
+        });
+      }),
+    );
+    const details = await svc().validateToken({ kind: "customer", token: "CUST" });
+    expect(seenAuth).toBe("Bearer CUST");
+    expect(details.email).toBe("customer@example.com");
+    expect(details.legalEntityId).toBe("53ac81fd0cce8b26b36f3492");
+  });
+
+  it("propagates the 401 an invalid token produces", async () => {
+    server.use(
+      http.get(URL_, () => HttpResponse.json({ status: 401, message: "invalid" }, { status: 401 })),
+    );
+    await expect(
+      svc().validateToken({ kind: "customer", token: "STALE" }),
+    ).rejects.toBeInstanceOf(EmporixAuthError);
+  });
+
+  it("requires a customer token — an anonymous context is refused before the call", async () => {
+    let called = false;
+    server.use(
+      http.get(URL_, () => {
+        called = true;
+        return HttpResponse.json({});
+      }),
+    );
+    await expect(svc().validateToken({ kind: "anonymous" })).rejects.toThrow();
+    expect(called).toBe(false);
+  });
+});
