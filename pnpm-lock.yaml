@@ -21,6 +21,8 @@ overrides:
   '@remix-run/router': ^1.23.3
   jiti: 2.6.1
 
+packageExtensionsChecksum: sha256-ynYpJQ1a/D6guTTrYEMCqeYK84wAXVfd4mOBATr3EGc=
+
 importers:
 
   .:
@@ -7121,6 +7123,7 @@ snapshots:
     dependencies:
       '@next/env': 16.2.12
       '@swc/helpers': 0.5.15
+      '@types/react': 19.2.16
       baseline-browser-mapping: 2.10.30
       caniuse-lite: 1.0.30001793
       postcss: 8.5.26
