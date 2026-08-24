@@ -22,20 +22,19 @@ export default defineConfig(({ mode }) => {
         name: "extension",
         filename: "remoteEntry.js",
         exposes: { "./RemoteComponent": "./src/RemoteComponent" },
-        shared: {
-          // The HOST supplies React at runtime — that is what `shared` means,
-          // and it is not optional: the host renders our component inside its
-          // own tree, so our hooks run through the host's reconciler. Two React
-          // copies break every hook.
-          //
-          // This example is built against 19 while the upstream template pins
-          // 18.3, so the dashboard may well hand us 18. The range states that
-          // both are acceptable, which matches @viu/emporix-sdk-react's own
-          // peer range. The consequence is a rule: nothing under src/ may use a
-          // React-19-only API.
-          react: { requiredVersion: "^18.0.0 || ^19.0.0" },
-          "react-dom": { requiredVersion: "^18.0.0 || ^19.0.0" },
-        },
+        // The HOST supplies React at runtime — that is what `shared` means,
+        // and it is not optional: the host renders our component inside its own
+        // tree, so our hooks run through the host's reconciler. Two React
+        // copies break every hook.
+        //
+        // ARRAY form, deliberately without `requiredVersion` — the same shape
+        // the upstream template uses. The object form with
+        // `requiredVersion: "^18.0.0 || ^19.0.0"` looks more careful but breaks
+        // against the real dashboard: the host provides React with no version
+        // metadata, so the check fails with «provider support react(undefined)
+        // is not satisfied», the shared React is discarded, and the first hook
+        // dies on `Cannot read properties of null (reading 'useState')`.
+        shared: ["react", "react-dom"],
       }),
     ],
     build: { modulePreload: false, target: "esnext", cssCodeSplit: false },

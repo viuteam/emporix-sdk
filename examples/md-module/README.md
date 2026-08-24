@@ -23,10 +23,14 @@ for the full recipe and the five things to get right.
 - **`src/main.tsx` renders the remote itself** with an `appState` assembled from env vars, so
   `pnpm dev` runs standalone. The federation build is still configured, so the same source is
   loadable by the real dashboard.
-- **React 19 instead of the template's 18.3.** The host supplies React at runtime through
-  federation's `shared`, so the module executes on whatever the dashboard provides. The
-  `shared` entry declares `^18.0.0 || ^19.0.0` to state that both are acceptable — which means
-  nothing under `src/` may use a React-19-only API.
+- **React 18.3, same as the template — and it has to be.** The host supplies React at runtime
+  through federation's `shared`, so the module executes on the dashboard's copy. This example
+  used to build against 19 on the theory that "both are acceptable, so nothing under `src/` may
+  use a React-19-only API". That rule is not sufficient, and the example did not work in a real
+  dashboard: React 18 and 19 produce **differently shaped elements** — 19 drops `ref` from the
+  element and uses a different `$$typeof` — so the host's renderer does not recognise ours and
+  throws React error #31, «Objects are not valid as a React child». It is a format break, not
+  an API question, and no amount of discipline avoids it. Pin the major the host runs.
 - **No `scripts/ensure-cors-origin.mjs`.** The template needs it because the dashboard origin
   lives both in `.env*` and hardcoded in `vite.config.ts`, so the two can drift. Here both the
   allowlist and the API host come from `src/environments.ts`, so there is nothing to guard —
