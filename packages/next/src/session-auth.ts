@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from "@viu/emporix-sdk";
 import { auth, type CustomerSession } from "@viu/emporix-sdk";
+import { reportEmporixError } from "./error-reporting";
 import {
   SESSION_ABSOLUTE_MAX,
   SESSION_EXPIRES_AT,
@@ -139,8 +140,14 @@ async function onboardCart(
       }
       handle.set(STORAGE_KEYS.cartId, customerCartId, SESSION_MAX_AGE.cartId);
     }, opts);
-  } catch {
-    // Ignore — the customer is logged in either way.
+  } catch (cause) {
+    // Ignore — the customer is logged in either way. Unchanged, but a failure
+    // here silently drops the guest cart, so it no longer passes unremarked.
+    reportEmporixError({
+      code: "session.cart_onboarding_failed",
+      degradedTo: "customer is logged in, but their guest cart was not carried over",
+      cause,
+    });
   }
 }
 
@@ -273,8 +280,15 @@ export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promi
         (client) => client.customers.logout(auth.customer(token)),
         opts,
       );
-    } catch {
-      // Ignore — proceed to clear locally.
+    } catch (cause) {
+      // Ignore — proceed to clear locally. The local session goes either way,
+      // but the token stays valid at Emporix until it expires on its own.
+      reportEmporixError({
+        code: "session.logout_upstream_failed",
+        degradedTo: "local session cleared; the customer token was not invalidated upstream",
+        cause,
+        severity: "warning",
+      });
     }
   }
   clearSession(handle);

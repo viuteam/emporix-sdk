@@ -186,6 +186,43 @@ visitors instead of every browser fetching it.
 the bypass. Server Actions already get Next's own origin check; plain Route
 Handlers do not.
 
+### Error reporting
+
+The package reports its own silent degradations to a reporter you register once.
+There is no built-in tool and no runtime dependency is added — you supply the
+implementation, the same way you supply an `EmporixSessionStore`:
+
+```ts
+// instrumentation.ts
+import { setEmporixErrorReporter } from "@viu/emporix-sdk-next/session";
+
+export async function register() {
+  setEmporixErrorReporter((e) =>
+    myTool.capture(e.code, { level: e.severity, extra: e.context, cause: e.cause }),
+  );
+}
+```
+
+`instrumentation.ts` rather than a client option: `getEmporixClient` is memoized
+on a string key, and a function cannot go in a string key — a per-client reporter
+would mean the first caller silently wins for the whole process.
+
+Ten failure points report — a failed session-store read, a guest cart that did not
+survive login, a flush lost while unwinding a Server Action error, a throwing
+webhook handler, and six more. Each event carries a stable `code` to group on
+(never a message: the SDK interpolates tenant and path into those), a `degradedTo`
+naming what the package did instead, and the original `cause`.
+
+**`context` is redacted; `cause` is not** — a scrubbed stack is useless, so
+scrubbing it is your call. A reporter that throws is contained and cannot become
+the failure it was meant to report.
+
+Five other `catch` sites stay deliberately silent, including the per-key retry
+during cookie-secret rotation and the allowlist check on attacker-controlled URLs.
+See [`docs/superpowers/specs/2026-08-24-next-error-reporting-design.md`](https://github.com/viuteam/emporix-sdk/blob/main/docs/superpowers/specs/2026-08-24-next-error-reporting-design.md)
+for the full inventory and the reasoning per site. A working adapter is in
+[`examples/next-server-first/instrumentation.ts`](../../examples/next-server-first/instrumentation.ts).
+
 ## Session cookie hardening
 
 | Control | Default | Configure with |

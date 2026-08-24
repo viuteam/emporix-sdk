@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { revalidateTag } from "next/cache";
 import { emporixTags } from "./tags";
+import { reportEmporixError } from "./error-reporting";
 
 /** An Emporix webhook delivery. */
 export interface EmporixWebhookEvent {
@@ -60,7 +61,14 @@ export function verifyEmporixSignature(
   } else {
     try {
       signedPayload = canonicalJson(JSON.parse(rawBody));
-    } catch {
+    } catch (cause) {
+      reportEmporixError({
+        code: "webhook.body_unparseable",
+        degradedTo: "signature verification fails; the delivery is rejected",
+        cause,
+        severity: "warning",
+        context: { stage: "verify" },
+      });
       return false;
     }
   }
@@ -154,7 +162,14 @@ export function createEmporixWebhookRoute(opts: {
     let event: EmporixWebhookEvent;
     try {
       event = JSON.parse(rawBody) as EmporixWebhookEvent;
-    } catch {
+    } catch (cause) {
+      reportEmporixError({
+        code: "webhook.body_unparseable",
+        degradedTo: "400 to Emporix; nothing revalidated",
+        cause,
+        severity: "warning",
+        context: { stage: "parse" },
+      });
       return new Response("unparseable body", { status: 400 });
     }
 
@@ -166,7 +181,15 @@ export function createEmporixWebhookRoute(opts: {
     if (opts.onEvent) {
       try {
         await opts.onEvent(event);
-      } catch {
+      } catch (cause) {
+        // The consumer's own handler, failing in the consumer's deployment. The
+        // 500 makes Emporix retry; without this they had no stack anywhere.
+        reportEmporixError({
+          code: "webhook.handler_failed",
+          degradedTo: "500 to Emporix, which will retry the delivery",
+          cause,
+          context: { eventType: typeof event.type === "string" ? event.type : "unknown" },
+        });
         return new Response("handler failed", { status: 500 });
       }
     }

@@ -4,6 +4,11 @@ import { randomBytes } from "node:crypto";
 const { cookieEncryptionEnabled, encryptCookie, decryptCookie } = await import(
   "../src/cookie-crypto"
 );
+const { openCookie } = await import("../src/cookie-name");
+const { setEmporixErrorReporter, __resetEmporixErrorReporter } = await import(
+  "../src/error-reporting"
+);
+type EmporixErrorEvent = import("../src/error-reporting").EmporixErrorEvent;
 
 /** A valid 32-byte key, base64url — the format the env var takes. */
 function key(): string {
@@ -94,5 +99,28 @@ describe("turning encryption off", () => {
   it("still passes a genuine plaintext value through", async () => {
     const { openCookie } = await import("../src/cookie-name");
     expect(openCookie("emporix.cartId", "cart-1")).toBe("cart-1");
+  });
+});
+
+describe("a cookie sealed with a key that is gone", () => {
+  afterEach(() => __resetEmporixErrorReporter());
+
+  it("reports at warning and still reads as absent", () => {
+    const seen: EmporixErrorEvent[] = [];
+    setEmporixErrorReporter((e) => seen.push(e));
+
+    // Seal with one key, then configure a different one — the rotation dropped
+    // a key that was still in use.
+    process.env.EMPORIX_COOKIE_SECRET = key();
+    const sealed = encryptCookie("emporix.customerToken", "tok-1");
+    process.env.EMPORIX_COOKIE_SECRET = key();
+
+    // Unchanged: an unreadable cookie behaves like a missing one, which is the
+    // mass-logout lever working as intended. It is just no longer silent.
+    expect(openCookie("emporix.customerToken", sealed)).toBeNull();
+
+    expect(seen.map((e) => e.code)).toEqual(["session.cookie_undecryptable"]);
+    expect(seen[0]?.severity).toBe("warning");
+    expect(seen[0]?.context).toEqual({ cookie: "emporix.customerToken" });
   });
 });

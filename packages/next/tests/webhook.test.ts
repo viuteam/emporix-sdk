@@ -12,6 +12,10 @@ const tagsOf = (): string[] => revalidateTag.mock.calls.map((c) => c[0] as strin
 const { verifyEmporixSignature, createEmporixWebhookRoute, canonicalJson } = await import(
   "../src/webhook"
 );
+const { setEmporixErrorReporter, __resetEmporixErrorReporter } = await import(
+  "../src/error-reporting"
+);
+type EmporixErrorEvent = import("../src/error-reporting").EmporixErrorEvent;
 
 const SECRET = "whsec_test";
 
@@ -96,6 +100,16 @@ describe("verifyEmporixSignature", () => {
 
   it("rejects an unparseable body rather than throwing", () => {
     expect(verifyEmporixSignature("not json", "whatever", SECRET)).toBe(false);
+  });
+
+  it("reports that unparseable body at warning, and still rejects it", () => {
+    const seen: EmporixErrorEvent[] = [];
+    setEmporixErrorReporter((e) => seen.push(e));
+    expect(verifyEmporixSignature("not json", "whatever", SECRET)).toBe(false);
+    expect(seen.map((e) => e.code)).toEqual(["webhook.body_unparseable"]);
+    expect(seen[0]?.severity).toBe("warning");
+    expect(seen[0]?.context).toEqual({ stage: "verify" });
+    __resetEmporixErrorReporter();
   });
 
   it("canonicalize: false signs the raw bytes instead — the escape hatch", () => {
@@ -206,6 +220,26 @@ describe("createEmporixWebhookRoute", () => {
     const res = await route(req(PRODUCT_UPDATED));
 
     expect(res.status).toBe(500);
+  });
+
+  it("reports a throwing onEvent — the consumer's own handler, with the event type", async () => {
+    const seen: EmporixErrorEvent[] = [];
+    setEmporixErrorReporter((e) => seen.push(e));
+    const route = createEmporixWebhookRoute({
+      secret: SECRET,
+      onEvent: () => {
+        throw new Error("downstream down");
+      },
+    });
+
+    const res = await route(req(PRODUCT_UPDATED));
+
+    // The degradation is unchanged: still a 500, so Emporix retries.
+    expect(res.status).toBe(500);
+    expect(seen.map((e) => e.code)).toEqual(["webhook.handler_failed"]);
+    expect(seen[0]?.severity).toBe("error");
+    expect(seen[0]?.context).toEqual({ eventType: "product.updated" });
+    __resetEmporixErrorReporter();
   });
 
   it("returns 200 without revalidating for an unmapped event type", async () => {

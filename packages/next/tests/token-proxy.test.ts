@@ -1,5 +1,10 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
+import {
+  setEmporixErrorReporter,
+  __resetEmporixErrorReporter,
+  type EmporixErrorEvent,
+} from "../src/error-reporting";
 
 const SITE = "emporix.siteCode";
 const TOKEN = "emporix.customerToken";
@@ -157,6 +162,32 @@ describe("store mode", () => {
     });
     await emporixTokenProxy(request, { store });
     expect(refreshCalls).toHaveLength(0);
+  });
+
+  it("reports a failed store read and still continues as logged out", async () => {
+    const seen: EmporixErrorEvent[] = [];
+    setEmporixErrorReporter((e) => seen.push(e));
+    const store = {
+      read: async () => {
+        throw new Error("redis down");
+      },
+      write: async () => {},
+      destroy: async () => {},
+    };
+    const request = new NextRequest("https://shop.test/", {
+      headers: { cookie: "__Host-emporix.sid=sid-1" },
+    });
+
+    // Unchanged degradation: no throw, and no refresh — the request simply
+    // proceeds with no token, exactly as it did while this was silent.
+    await expect(emporixTokenProxy(request, { store })).resolves.toBeDefined();
+    expect(refreshCalls).toHaveLength(0);
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.code).toBe("session.store.read_failed");
+    expect(seen[0]?.severity).toBe("error");
+    expect(seen[0]?.context).toEqual({ site: "token-proxy" });
+    __resetEmporixErrorReporter();
   });
 
   it("injects no cookie in store mode — the record is the source", async () => {

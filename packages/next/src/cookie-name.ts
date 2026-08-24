@@ -4,6 +4,7 @@ import {
   encryptCookie,
   SEAL_MARKER,
 } from "./cookie-crypto";
+import { reportEmporixError } from "./error-reporting";
 
 /**
  * The wire name of a session cookie.
@@ -50,7 +51,18 @@ export function openCookie(name: string, raw: string | undefined): string | null
   }
   try {
     return decryptCookie(name, raw);
-  } catch {
+  } catch (cause) {
+    // Either a rotation dropped a key that is still in use, or the value was
+    // tampered with. Both are worth a signal; neither should 500 the page.
+    reportEmporixError({
+      code: "session.cookie_undecryptable",
+      degradedTo: "cookie reads as absent",
+      cause,
+      severity: "warning",
+      // The cookie NAME, not its value — that is what tells you which rotation
+      // went wrong, and it carries nothing secret.
+      context: { cookie: name },
+    });
     return null;
   }
 }
