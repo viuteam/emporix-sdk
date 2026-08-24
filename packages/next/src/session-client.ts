@@ -82,7 +82,13 @@ function anonymousStore(handle: EmporixSessionHandle): AnonymousSessionStore {
             ? { accessToken: parsed.accessToken!, expiresAt: parsed.expiresAt! }
             : {}),
         };
-      } catch {
+      } catch (cause) {
+        reportEmporixError({
+          code: "session.anonymous_cookie_unparseable",
+          degradedTo: "guest reads as having no anonymous session and gets a fresh one",
+          cause,
+          severity: "warning",
+        });
         return null;
       }
     },

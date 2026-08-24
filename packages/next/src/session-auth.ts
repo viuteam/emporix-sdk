@@ -280,8 +280,15 @@ export async function emporixLogout(opts: WithEmporixSessionOptions = {}): Promi
         (client) => client.customers.logout(auth.customer(token)),
         opts,
       );
-    } catch {
-      // Ignore — proceed to clear locally.
+    } catch (cause) {
+      // Ignore — proceed to clear locally. The local session goes either way,
+      // but the token stays valid at Emporix until it expires on its own.
+      reportEmporixError({
+        code: "session.logout_upstream_failed",
+        degradedTo: "local session cleared; the customer token was not invalidated upstream",
+        cause,
+        severity: "warning",
+      });
     }
   }
   clearSession(handle);

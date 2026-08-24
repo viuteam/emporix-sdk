@@ -313,6 +313,24 @@ describe("emporixLogout", () => {
     await emporixLogout();
     expect(bag.get("emporix.customerToken")).toBeUndefined();
   });
+
+  it("reports the failed upstream logout it clears through", async () => {
+    // Same path as above. The local session goes either way, but the token stays
+    // valid at Emporix until it expires on its own — worth a signal.
+    const seen: EmporixErrorEvent[] = [];
+    setEmporixErrorReporter((e) => seen.push(e));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("nope", { status: 500 })),
+    );
+    bag.set("emporix.customerToken", { name: "emporix.customerToken", value: "cust-tok" });
+    await emporixLogout();
+
+    expect(seen.map((e) => e.code)).toContain("session.logout_upstream_failed");
+    expect(seen[0]?.severity).toBe("warning");
+    expect(bag.get("emporix.customerToken")).toBeUndefined();
+    __resetEmporixErrorReporter();
+  });
 });
 
 describe("assertSameOrigin", () => {

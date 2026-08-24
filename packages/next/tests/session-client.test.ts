@@ -518,3 +518,27 @@ describe("withEmporixSessionMutable — a failed flush during unwind is reported
     expect(seen.map((e) => e.code)).toContain("session.flush_failed");
   });
 });
+
+describe("the anonymous-session cookie", () => {
+  afterEach(() => __resetEmporixErrorReporter());
+
+  it("reports an unparseable value at warning and still reads as a guest", async () => {
+    stubFetch();
+    const seen: EmporixErrorEvent[] = [];
+    setEmporixErrorReporter((e) => seen.push(e));
+    // A cookie the SDK cannot read — format drift or tampering.
+    bag.set("emporix.anonymousSession", {
+      name: "emporix.anonymousSession",
+      value: "{not json",
+    });
+
+    const ctx = await withEmporixSessionMutable(async (_client, c) => c);
+
+    expect(seen.map((e) => e.code)).toContain("session.anonymous_cookie_unparseable");
+    expect(seen[0]?.severity).toBe("warning");
+    // Unchanged degradation: the corrupt cookie reads as no session, so the
+    // request runs as a guest. Asserting a token call instead would be wrong —
+    // the anonymous token is minted lazily, on the first actual request.
+    expect(ctx).toEqual({ kind: "anonymous" });
+  });
+});
