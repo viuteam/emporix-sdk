@@ -23,6 +23,10 @@ const { emporixLogin, emporixLogout, emporixRefresh, assertSameOrigin } = await 
 const { __resetEmporixClients } = await import("../src/client");
 const { SESSION_SID } = await import("../src/session-store");
 type SessionStore = import("../src/session-store").EmporixSessionStore;
+const { setEmporixErrorReporter, __resetEmporixErrorReporter } = await import(
+  "../src/error-reporting"
+);
+type EmporixErrorEvent = import("../src/error-reporting").EmporixErrorEvent;
 
 interface Call {
   url: string;
@@ -228,6 +232,21 @@ describe("emporixLogin cart onboarding", () => {
     await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
     expect(bag.get("emporix.customerToken")?.value).toBe("cust-tok");
     expect(bag.get("emporix.cartId")).toBeUndefined();
+  });
+
+  it("reports the failed cart onboarding it logs in through", async () => {
+    // Same path as the test above — that one asserts the login survives, this
+    // one that the silently dropped guest cart now leaves a trace.
+    const seen: EmporixErrorEvent[] = [];
+    setEmporixErrorReporter((e) => seen.push(e));
+    stubFetch({ cartStatus: 500 });
+    await emporixLogin({ email: "a@b.test", password: "pw" }, SITED);
+
+    expect(seen.map((e) => e.code)).toContain("session.cart_onboarding_failed");
+    expect(seen[0]?.severity).toBe("error");
+    // The degradation is unchanged: the login still stands.
+    expect(bag.get("emporix.customerToken")?.value).toBe("cust-tok");
+    __resetEmporixErrorReporter();
   });
 
   it("skips cart onboarding without a siteCode", async () => {

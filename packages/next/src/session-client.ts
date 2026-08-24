@@ -8,6 +8,7 @@ import {
 import { STORAGE_KEYS } from "@viu/emporix-sdk";
 import { getEmporixClient } from "./client";
 import { SESSION_MAX_AGE, emporixSessionHandle, type EmporixSessionHandle } from "./session-cookies";
+import { reportEmporixError } from "./error-reporting";
 import type { EmporixSessionStore } from "./session-store";
 
 export interface WithEmporixSessionOptions {
@@ -172,7 +173,16 @@ async function run<T>(
     if (!readOnly) await handle.flush();
     return result;
   } catch (e) {
-    if (!readOnly) await handle.flush().catch(() => {});
+    if (!readOnly) {
+      await handle.flush().catch((cause: unknown) => {
+        reportEmporixError({
+          code: "session.flush_failed",
+          degradedTo:
+            "session may still point at a rotated anonymous token; the guest can lose their cart",
+          cause,
+        });
+      });
+    }
     throw e;
   }
 }

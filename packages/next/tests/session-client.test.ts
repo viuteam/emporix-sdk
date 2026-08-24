@@ -21,6 +21,10 @@ vi.mock("next/headers", () => ({
 
 const { withEmporixSession, withEmporixSessionMutable } = await import("../src/session-client");
 const { __resetEmporixClients } = await import("../src/client");
+const { setEmporixErrorReporter, __resetEmporixErrorReporter } = await import(
+  "../src/error-reporting"
+);
+type EmporixErrorEvent = import("../src/error-reporting").EmporixErrorEvent;
 
 function stubFetch(): { tokenCalls: () => number } {
   let tokenCalls = 0;
@@ -479,5 +483,38 @@ describe("cookie hardening", () => {
     bag.set("emporix.customerToken", { name: "emporix.customerToken", value: "legacy-tok" });
     const seen = await withEmporixSession(async (_c, ctx) => ctx);
     expect(seen).toEqual({ kind: "customer", token: "legacy-tok" });
+  });
+});
+
+describe("withEmporixSessionMutable — a failed flush during unwind is reported", () => {
+  afterEach(() => __resetEmporixErrorReporter());
+
+  it("reports the flush failure and still rethrows the caller's error", async () => {
+    stubFetch();
+    const seen: EmporixErrorEvent[] = [];
+    setEmporixErrorReporter((e) => seen.push(e));
+    const store = {
+      read: async () => ({}),
+      write: async () => {
+        throw new Error("redis down");
+      },
+      destroy: async () => {},
+    };
+    const callerError = new Error("the action failed");
+
+    // The handle must be dirty before the throw, or `flush()` is a no-op and
+    // never reaches `store.write` — the first version of this test asserted a
+    // report on a path it never exercised.
+    //
+    // The load-bearing assertion: the flush failure must not replace the error
+    // the caller needs to see.
+    await expect(
+      withEmporixSessionMutable((_client, _ctx, handle) => {
+        handle.set("emporix.cartId", "cart-1", 60);
+        throw callerError;
+      }, { store }),
+    ).rejects.toBe(callerError);
+
+    expect(seen.map((e) => e.code)).toContain("session.flush_failed");
   });
 });
