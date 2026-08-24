@@ -5,6 +5,7 @@ import { SESSION_EXPIRES_AT } from "./session-cookies";
 import { cookieName, readCookie, sealCookie } from "./cookie-name";
 import { SESSION_SID, type EmporixSessionStore } from "./session-store";
 import { emporixSiteProxy, type EmporixSite } from "./proxy";
+import { reportEmporixError } from "./error-reporting";
 
 export interface EmporixTokenProxyOptions {
   /** Forwarded to `emporixSiteProxy`. */
@@ -72,7 +73,18 @@ export async function emporixTokenProxy(
   let expiryRaw: string | null;
   if (opts.store !== undefined) {
     const sid = readCookie(SESSION_SID, read);
-    const record = sid === null ? null : await opts.store.read(sid).catch(() => null);
+    const record =
+      sid === null
+        ? null
+        : await opts.store.read(sid).catch((cause: unknown) => {
+            reportEmporixError({
+              code: "session.store.read_failed",
+              degradedTo: "request continues as a logged-out visitor",
+              cause,
+              context: { site: "token-proxy" },
+            });
+            return null;
+          });
     token = record?.[STORAGE_KEYS.customerToken] ?? null;
     expiryRaw = record?.[SESSION_EXPIRES_AT] ?? null;
   } else {

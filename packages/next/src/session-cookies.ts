@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { requestScoped } from "./request-scope";
 import { cookieName, readCookie, sealCookie } from "./cookie-name";
+import { reportEmporixError } from "./error-reporting";
 import {
   isPublicSessionKey,
   newSessionId,
@@ -185,8 +186,15 @@ async function buildHandle(
   if (sid !== null) {
     try {
       record = (await store.read(sid)) ?? {};
-    } catch {
+    } catch (cause) {
       // A store outage degrades to «logged out», not to a 500 on every page.
+      // Unchanged — but no longer silent.
+      reportEmporixError({
+        code: "session.store.read_failed",
+        degradedTo: "handle resolves with an empty record; the visitor reads as logged out",
+        cause,
+        context: { site: "session-handle" },
+      });
       record = {};
     }
   }
