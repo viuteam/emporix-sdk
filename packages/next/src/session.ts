@@ -51,3 +51,9 @@ export {
 export { emporixLogin, emporixLogout, emporixRefresh, assertSameOrigin } from "./session-auth";
 export { emporixTokenProxy, type EmporixTokenProxyOptions } from "./token-proxy";
 export { createEmporixPublicRoute } from "./public-route";
+export {
+  setEmporixErrorReporter,
+  type EmporixErrorReporter,
+  type EmporixErrorEvent,
+  type EmporixErrorCode,
+} from "./error-reporting";
