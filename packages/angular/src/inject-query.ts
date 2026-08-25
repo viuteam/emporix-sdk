@@ -11,6 +11,7 @@ import {
   type CreateQueryResult,
 } from "@tanstack/angular-query-experimental";
 import { injectEmporix } from "./provide";
+import { injectEmporixSite } from "./site";
 import { customerTokenSignal } from "./storage-signal";
 import { emporixQueryOptions, type EmporixQueryInput } from "./query-options";
 
@@ -51,6 +52,10 @@ export function injectEmporixQuery<T, TArgs extends readonly unknown[]>(
   return runInInjectionContext(injector, () => {
     const { client, storage } = injectEmporix();
     const token = customerTokenSignal(storage, { injector });
+    // A DI lookup, not reactive state, so it is resolved once here. Its
+    // signal READS stay inside the callback below, for the same reason token()
+    // does.
+    const site = injectEmporixSite();
     return injectQuery(
       () =>
         emporixQueryOptions(input(), {
@@ -61,9 +66,8 @@ export function injectEmporixQuery<T, TArgs extends readonly unknown[]>(
           // above the callback compiles, passes a happy-path test, and leaves a
           // logged-out customer looking at their own orders.
           token: token(),
-          // Replaced by the real site signals in the next commit.
-          siteCode: null,
-          language: null,
+          siteCode: site.siteCode(),
+          language: site.language(),
         }),
       { injector },
     );
@@ -80,6 +84,7 @@ export function injectEmporixInfinite<T, TArgs extends readonly unknown[]>(
   return runInInjectionContext(injector, () => {
     const { client, storage } = injectEmporix();
     const token = customerTokenSignal(storage, { injector });
+    const site = injectEmporixSite();
     return injectInfiniteQuery(
       () => {
         const cfg = input();
@@ -87,8 +92,8 @@ export function injectEmporixInfinite<T, TArgs extends readonly unknown[]>(
           ...emporixQueryOptions(cfg, {
             tenant: client.tenant,
             token: token(),
-            siteCode: null,
-            language: null,
+            siteCode: site.siteCode(),
+            language: site.language(),
           }),
           getNextPageParam: cfg.getNextPageParam,
           initialPageParam: cfg.initialPageParam,

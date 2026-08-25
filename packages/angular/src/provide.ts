@@ -6,7 +6,8 @@ import {
   type EmporixClient,
   type EmporixStorage,
 } from "@viu/emporix-sdk";
-import { EMPORIX_CLIENT, EMPORIX_STORAGE } from "./tokens";
+import { EMPORIX_CLIENT, EMPORIX_SITE, EMPORIX_SITE_INTERNAL, EMPORIX_STORAGE } from "./tokens";
+import { createSiteState } from "./site";
 
 export interface EmporixConfig {
   client: EmporixClient;
@@ -14,6 +15,10 @@ export interface EmporixConfig {
   storage?: EmporixStorage;
   /** Bring your own to share one cache with the host application. */
   queryClient?: QueryClient;
+  /** Initial site code. Order: this → storage → client config → null. */
+  initialSiteCode?: string;
+  /** Initial language. Order: this → storage → client config → null. */
+  initialLanguage?: string;
 }
 
 /**
@@ -67,9 +72,15 @@ export function provideEmporix(config: EmporixConfig): EnvironmentProviders {
   const storage = config.storage ?? createMemoryStorage();
   const queryClient = config.queryClient ?? new QueryClient();
   applyEmporixQueryDefaults(queryClient);
+  const site = createSiteState(config.client, storage, {
+    ...(config.initialSiteCode !== undefined ? { siteCode: config.initialSiteCode } : {}),
+    ...(config.initialLanguage !== undefined ? { language: config.initialLanguage } : {}),
+  });
   return makeEnvironmentProviders([
     { provide: EMPORIX_CLIENT, useValue: config.client },
     { provide: EMPORIX_STORAGE, useValue: storage },
+    { provide: EMPORIX_SITE, useValue: site },
+    { provide: EMPORIX_SITE_INTERNAL, useValue: site.internal },
     provideTanStackQuery(queryClient),
   ]);
 }
