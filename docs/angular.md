@@ -5,11 +5,11 @@ one `provideEmporix()`, signal-based `inject*` functions over TanStack Query, an
 the same cache keys and auth resolution as `@viu/emporix-sdk-react` — literally
 the same key builder, asserted by test.
 
-**Status: foundation.** The primitives, the site context, the customer session and
-the account-credential operations are here. The 33 read and mutation injectables
-that mirror the React catalog, cart, checkout and order hooks are not — see
-[What is not here yet](#what-is-not-here-yet), which names the gap in numbers
-rather than leaving you to discover it by failing to import.
+**Status: complete for a storefront.** The primitives, the site context, the
+customer session, the account-credential operations and the 33 read and mutation
+injectables are all here. What is still out is listed in
+[What is not here yet](#what-is-not-here-yet) with counts, so the gap is a number
+rather than something you discover by failing to import.
 
 ## Install
 
@@ -181,6 +181,58 @@ const query = injectEmporixQuery(() => ({ /* … */ }), { injector: myInjector }
 and the `enabled` gate as a plain function with no `@angular/core` import. Useful
 for testing your own query composition without a DI container.
 
+## The injectables
+
+33 of them, grouped by area. Every one is a thin wrapper over
+`injectEmporixQuery` or `injectEmporixInfinite`, so the auth resolution, the cache
+key and the `enabled` gate live in exactly one place. Arguments are **signals**,
+read inside the options callback, so changing one re-keys and refetches.
+
+| Area | Injectables |
+|---|---|
+| Catalog (12) | `injectProduct`, `injectProducts`, `injectProductsInfinite`, `injectProductByCode`, `injectProductSearch`, `injectProductQuery`, `injectProductMedia`, `injectCategory`, `injectCategories`, `injectCategoryTree`, `injectProductsInCategory`, `injectProductsInCategoryInfinite` |
+| Cart (5) | `injectCart`, `injectCartItems`, `injectActiveCart`, `injectCreateCart`, `injectCartMutations` |
+| Checkout (4) | `injectPaymentModes`, `injectShippingZones`, `injectCheckout`, `injectInitializePayment` |
+| Customer (4) | `injectCustomerAddresses`, `injectUpdateCustomer`, `injectAddressMutations`, `injectPasswordReset` |
+| Orders (3) | `injectMyOrders`, `injectMyOrdersInfinite`, `injectOrder` |
+| Prices (3) | `injectMatchPrices`, `injectMatchPricesChunked`, `injectAvailability` |
+| Site (2) | `injectSites`, `injectActiveSite` |
+
+```ts
+export class ProductPage {
+  id = signal("p1")
+  product = injectProduct(this.id)               // re-keys when `id` changes
+  prices = injectMatchPrices(computed(() => ({ items: /* … */ })))
+  cart = injectActiveCart({ create: true })      // bootstraps one if needed
+  mutations = injectCartMutations()              // resolves the id at call time
+}
+```
+
+### Four behaviours worth knowing before you rely on them
+
+**`injectCart` forgets a dead cart.** Emporix allows one open cart per site and
+closes it when its order is placed, so another device holding that id 404s
+*permanently* — a stale id is not `null`, so nothing bootstraps over it. On a 404
+the binding clears the stored id, and only while that id is still the stored one:
+a caller passing some other cart's id cannot wipe this session's.
+
+**`injectCartMutations` resolves the cart id at call time, not construction**, so a
+component that renders before the bootstrap finishes still writes to the right
+cart. It throws a named error when storage is still empty. It has **no optimistic
+updates** — it invalidates. That is a stated gap: optimistic cart surgery has to be
+right per operation or it shows the shopper a basket that does not exist.
+
+**`injectProductMedia` makes no Media-Service call.** It reads `productMedia` off
+the product DTO, because `media.listForProduct` defaults to a service-account
+context and needs a server-only scope. A storefront calling it gets a request that
+never resolves.
+
+**`injectCheckout` owns the parts of checkout that are easy to get wrong:** the
+`saas-token` header for a customer checkout (and no token for a guest), the
+`siteCode` query, and clearing the closed cart on success. What it cannot do for
+you is `customer.id` — present exactly when signed in, or Emporix answers «Cannot
+found customer».
+
 ## Site, currency, language
 
 ```ts
@@ -281,10 +333,9 @@ invalidation model. Hydration is the problem this entry addresses.
 
 ## What is not here yet
 
-`@viu/emporix-sdk-react` exports **107 hooks**. This foundation ships the
-primitives, the site and customer-session layers and the five account-management
-operations; the injectables that mirror the catalog, cart, checkout and order
-hooks are planned as **33**, and the remaining **69** are out of scope for the
+`@viu/emporix-sdk-react` exports **107 hooks**. This package ships the primitives,
+the site and customer-session layers, the five account-management operations and
+the **33** storefront injectables. The remaining **69** are out of scope for the
 first release:
 
 | Area | Count | Area | Count |

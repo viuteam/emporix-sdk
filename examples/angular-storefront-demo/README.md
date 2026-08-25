@@ -19,12 +19,15 @@ built in CI without pointing at anyone's account.
 
 ## What to read, and in what order
 
-**[`src/app/lib/queries.ts`](./src/app/lib/queries.ts) first.** Every Emporix read
-the storefront makes is in that one file. `@viu/emporix-sdk-angular` ships the
-foundation — `provideEmporix`, `injectEmporixQuery`, the site signals, the customer
-session — but not yet the 33 injectables that mirror the React hooks, so this is
-what `docs/angular.md` tells you to do in the meantime: call the SDK through
-`injectEmporixQuery` yourself. It doubles as the blueprint for those injectables.
+**[`src/app/pages/home.ts`](./src/app/pages/home.ts) first**, because it is now
+four lines of data layer: `injectProductsInfinite` for the catalog and
+`injectMatchPrices` for what is on screen. The package ships the 33 injectables, so
+the components call them directly.
+
+[`src/app/lib/queries.ts`](./src/app/lib/queries.ts) is what is left of the local
+query layer — 48 lines, down from 240, holding the one read the 33 do not cover
+(bulk product names for cart lines whose snapshot has none). Keeping it is the
+honest signal that a storefront still needs a lookup the bindings do not.
 
 **[`src/main.ts`](./src/main.ts) second.** Two bootstraps, chosen by whether the
 demo is configured. `provideEmporix` takes a constructed client, so the tenant has
@@ -33,13 +36,14 @@ a factory provider that would have to represent «not configured yet» as a vali
 client.
 
 **[`src/app/pages/product.ts`](./src/app/pages/product.ts) third**, for the
-add-to-cart path. It carries the three details a package-level
-`injectCartMutations` will have to keep, each of which is a real trap:
-`getCurrent({create:true})` returns a `Cart` with `.id` while `create()` returns a
-`CartCreated` with `.cartId`; a cart item needs its matched `price` row because
-Emporix requires `priceId` on internal-type items, so an unpriced product cannot be
-added at all; and the resulting cart id goes into storage, which is what makes the
-header badge update.
+add-to-cart path — and for what the bindings took over. Reading
+`injectActiveCart({ create: true })` bootstraps a cart; `injectCartMutations`
+resolves its id at call time, builds the auth context and invalidates afterwards.
+This component used to do all three by hand.
+
+What it still owns is the `price` row: Emporix requires `priceId` on internal-type
+cart items, so an unpriced product cannot be added at all and the page says so
+instead of letting the button 400.
 
 ## The one rule
 
