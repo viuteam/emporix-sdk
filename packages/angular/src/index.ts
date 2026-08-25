@@ -15,3 +15,5 @@ export type { EmporixSiteState } from "./site";
 export { EMPORIX_SITE } from "./tokens";
 export { injectEmporixSiteSwitch } from "./site-switch";
 export type { EmporixSiteSwitch } from "./site-switch";
+export { injectCustomerSession } from "./customer-session";
+export type { EmporixCustomerSession } from "./customer-session";

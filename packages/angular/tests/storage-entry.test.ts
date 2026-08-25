@@ -39,10 +39,29 @@ describe("no dependency on the React bindings", () => {
     // Guard the probe itself: an empty or mis-rooted listing would make this
     // test pass while checking nothing.
     expect(files.filter((f) => f.endsWith(".ts")).length).toBeGreaterThan(0);
+    // Matches an actual import, not any mention. A plain substring check on the
+    // package name flagged `ssr.ts` for referring to
+    // `@viu/emporix-sdk-react/ssr` in a doc comment — pointing at the sibling
+    // package in prose is legitimate and useful, and a guard that forbids it
+    // would keep firing on documentation.
+    const importsReact = /(?:from|import|require)\s*\(?\s*["']@viu\/emporix-sdk-react/;
     const offenders = files
       .filter((f) => f.endsWith(".ts"))
-      .filter((f) => readFileSync(join(dir, f), "utf8").includes("@viu/emporix-sdk-react"));
+      .filter((f) => importsReact.test(readFileSync(join(dir, f), "utf8")));
     expect(offenders).toEqual([]);
+  });
+
+  it("the import probe actually matches an import", () => {
+    // Without this, sharpening the regex above could silently make the guard
+    // match nothing at all and pass vacuously.
+    const importsReact = /(?:from|import|require)\s*\(?\s*["']@viu\/emporix-sdk-react/;
+    expect(importsReact.test('import { x } from "@viu/emporix-sdk-react";')).toBe(true);
+    expect(importsReact.test('import { x } from "@viu/emporix-sdk-react/storage";')).toBe(true);
+    expect(importsReact.test('const x = require("@viu/emporix-sdk-react")')).toBe(true);
+    expect(importsReact.test('await import("@viu/emporix-sdk-react")')).toBe(true);
+    expect(importsReact.test("// see @viu/emporix-sdk-react/ssr for the React version")).toBe(
+      false,
+    );
   });
 
   it("does not declare the React package as a dependency of any kind", () => {
