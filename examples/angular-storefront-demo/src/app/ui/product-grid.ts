@@ -71,6 +71,9 @@ export class ProductGrid {
   }
 
   protected image(p: Product): string | undefined {
-    return imageOf((p as { media?: Parameters<typeof imageOf>[0] }).media);
+    // `productMedia`, not `media`. Reading the wrong field is why every card in
+    // this grid said «no image» against the live tenant — the DTO carries one and
+    // not the other, and both are optional so nothing complains.
+    return imageOf((p as { productMedia?: Parameters<typeof imageOf>[0] }).productMedia);
   }
 }

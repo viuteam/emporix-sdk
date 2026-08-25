@@ -8,7 +8,7 @@ import {
 } from "@viu/emporix-sdk-angular";
 import { clearConfig } from "./config";
 import { cartLines } from "@viu/emporix-examples-shared";
-import { cartQuery } from "./lib/queries";
+import { injectCart } from "@viu/emporix-sdk-angular";
 
 /**
  * Header, footer and the router outlet.
@@ -89,15 +89,7 @@ export class Shell {
 
   protected readonly tenant = this.emporix.client.tenant;
 
-  /**
-   * The stored cart id, as a signal.
-   *
-   * `cartIdSignal` from the package would do this; it is spelled out here
-   * because the storefront also needs to re-read it after a login writes a
-   * merged customer cart, and seeing that wiring is the point of the example.
-   */
-  private readonly cartId = signal(this.emporix.storage.getCartId());
-  private readonly cart = cartQuery(this.cartId.asReadonly());
+  private readonly cart = injectCart();
 
   protected readonly itemCount = computed(() => cartLines(this.cart.data()).length);
 
@@ -106,15 +98,6 @@ export class Shell {
     const active = this.site.siteCode();
     return active !== null ? [active] : [];
   });
-
-  constructor() {
-    // Storage writes come from anywhere — a login merge, an add-to-cart, a site
-    // switch dropping the id — so the header mirrors them rather than reading
-    // once at construction.
-    this.emporix.storage.subscribeAll?.((key) => {
-      if (key === "cartId") this.cartId.set(this.emporix.storage.getCartId());
-    });
-  }
 
   protected async onSite(code: string): Promise<void> {
     await this.switcher.setSite(code === "" ? null : code);

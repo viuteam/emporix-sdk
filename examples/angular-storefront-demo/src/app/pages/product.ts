@@ -1,19 +1,24 @@
 import { Component, computed, inject, signal } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, RouterLink } from "@angular/router";
-import { auth, type Cart } from "@viu/emporix-sdk";
-import { injectEmporix, injectEmporixSite } from "@viu/emporix-sdk-angular";
 import {
-  imageOf,
+  injectActiveCart,
+  injectCartMutations,
+  injectEmporix,
+  injectMatchPrices,
+  injectProduct,
+  injectProductMedia,
+} from "@viu/emporix-sdk-angular";
+import {
   money,
+  pickText,
   priceForProduct,
+  priceMatchItems,
   productName,
   productYrn,
   stripHtml,
-  pickText,
   type PriceVM,
 } from "@viu/emporix-examples-shared";
-import { priceQuery, productQuery } from "../lib/queries";
 
 @Component({
   selector: "app-product",
@@ -32,10 +37,12 @@ import { priceQuery, productQuery } from "../lib/queries";
         <h1>{{ productName(p) }}</h1>
         <p class="muted small">{{ p.code }}</p>
         <div class="thumb" style="max-width:420px">
-          @if (image(p); as src) {
+          @if (image(); as src) {
             <img [src]="src" [alt]="productName(p)" />
           } @else {
-            <span class="muted small">no image</span>
+            <span class="muted small">
+              {{ product.isPending() ? "loading…" : "no image" }}
+            </span>
           }
         </div>
         @if (description(p); as d) {
@@ -64,10 +71,10 @@ import { priceQuery, productQuery } from "../lib/queries";
           <button
             class="primary"
             type="button"
-            [disabled]="adding() || !purchasable()"
+            [disabled]="mutations.isPending() || !purchasable()"
             (click)="add()"
           >
-            {{ adding() ? "Adding…" : "Add to cart" }}
+            {{ mutations.isPending() ? "Adding…" : "Add to cart" }}
           </button>
         </div>
 
@@ -75,11 +82,11 @@ import { priceQuery, productQuery } from "../lib/queries";
           <div class="notice">
             Not purchasable in this context. Emporix requires a <code>priceId</code> on
             internal-type cart items, so a product with no matched price cannot be added — the
-            API would answer 400. Surfacing it here beats letting the button fail.
+            API would answer 400.
           </div>
         }
-        @if (addError(); as e) {
-          <div class="notice error"><strong>Could not add to cart.</strong> {{ e }}</div>
+        @if (mutations.error(); as e) {
+          <div class="notice error"><strong>Could not add to cart.</strong> {{ e.message }}</div>
         }
         @if (added()) {
           <div class="notice">In the cart. <a routerLink="/cart">Go to cart →</a></div>
@@ -90,30 +97,36 @@ import { priceQuery, productQuery } from "../lib/queries";
 })
 export class ProductPage {
   private readonly emporix = injectEmporix();
-  private readonly site = injectEmporixSite();
   private readonly route = inject(ActivatedRoute);
 
   protected readonly money = money;
   protected readonly productName = productName;
 
-  /**
-   * The route param as a signal.
-   *
-   * From the observable, not a snapshot: Angular reuses the component when only
-   * the id changes, so a snapshot read would leave the page showing the previous
-   * product.
-   */
+  /** From the observable, not a snapshot: Angular reuses the component per id. */
   private readonly params = toSignal(this.route.paramMap, {
     initialValue: this.route.snapshot.paramMap,
   });
   protected readonly productId = computed(() => this.params().get("id") ?? "");
 
-  protected readonly product = productQuery(this.productId);
-  private readonly asList = computed(() => {
+  protected readonly product = injectProduct(this.productId);
+  /** Derived from the product DTO — the Media Service needs a server-only scope. */
+  private readonly media = injectProductMedia(this.productId);
+
+  private readonly priceInput = computed(() => {
     const p = this.product.data();
-    return p === undefined ? [] : [p];
+    return { items: p === undefined ? [] : priceMatchItems([p]) };
   });
-  protected readonly prices = priceQuery(this.asList);
+  protected readonly prices = injectMatchPrices(this.priceInput);
+
+  /**
+   * The cart, created on demand.
+   *
+   * Reading it here is what bootstraps one, so `injectCartMutations` finds an id
+   * by the time the shopper clicks. The mutation resolves the id at call time, so
+   * a race between the two is not possible.
+   */
+  private readonly activeCart = injectActiveCart({ create: true });
+  protected readonly mutations = injectCartMutations();
 
   protected readonly price = computed<PriceVM | undefined>(() =>
     priceForProduct(this.prices.data(), this.productId()),
@@ -121,17 +134,15 @@ export class ProductPage {
   /** Only priced products can be added — see the notice in the template. */
   protected readonly purchasable = computed(() => this.price()?.priceId !== undefined);
 
+  protected readonly image = computed(
+    () => (this.media()?.[0] as { url?: string } | undefined)?.url,
+  );
+
   protected readonly qty = signal(1);
-  protected readonly adding = signal(false);
   protected readonly added = signal(false);
-  protected readonly addError = signal<string | null>(null);
 
   protected setQty(raw: string): void {
     this.qty.set(Math.max(1, Number(raw) || 1));
-  }
-
-  protected image(p: unknown): string | undefined {
-    return imageOf((p as { media?: Parameters<typeof imageOf>[0] }).media);
   }
 
   protected description(p: unknown): string {
@@ -139,62 +150,34 @@ export class ProductPage {
   }
 
   /**
-   * Add to cart, creating the cart if there is none.
+   * Add to cart.
    *
-   * This is the shape a package-level `injectCartMutations` will formalise.
-   * Three details it has to keep:
+   * The whole body is now the payload. The cart bootstrap, the id resolution, the
+   * auth context and the invalidation all live in the bindings — this component
+   * used to carry every one of them.
    *
-   * - `getCurrent({ create: true })` returns a `Cart` with `.id`. Only
-   *   `create()` returns `CartCreated` with `.cartId`; the two are not
-   *   interchangeable.
-   * - The item needs its matched `price` row, not just a quantity. Emporix
-   *   requires `priceId` on internal-type items.
-   * - The resulting cart id goes into storage, which is what makes the header
-   *   badge and the cart page pick it up — they subscribe to that key.
+   * What it still owns is the `price` row: Emporix requires `priceId` on
+   * internal-type items, so an unpriced product cannot be added at all.
    */
   protected async add(): Promise<void> {
     const vm = this.price();
-    const productId = this.productId();
-    if (vm?.priceId === undefined || productId === "") return;
-
-    this.addError.set(null);
+    if (vm?.priceId === undefined) return;
     this.added.set(false);
-    this.adding.set(true);
+    void this.activeCart.data();
     try {
-      const token = this.emporix.storage.getCustomerToken();
-      const ctx = token !== null ? auth.customer(token) : auth.anonymous();
-      const siteCode = this.site.siteCode();
-      let cartId = this.emporix.storage.getCartId();
-      if (cartId === null) {
-        if (siteCode === null) throw new Error("no active site — a cart is always site-bound");
-        // `Cart | null`: getCurrent can answer "no cart" even with create:true.
-        const cart: Cart | null = await this.emporix.client.carts.getCurrent(ctx, {
-          siteCode,
-          create: true,
-        });
-        cartId = cart?.id ?? null;
-        if (cartId === null) throw new Error("cart could not be created");
-        this.emporix.storage.setCartId(cartId);
-      }
-      await this.emporix.client.carts.addItem(
-        cartId,
-        {
-          itemYrn: productYrn(this.emporix.client.tenant, productId),
-          quantity: this.qty(),
-          price: {
-            priceId: vm.priceId,
-            originalAmount: vm.amount,
-            effectiveAmount: vm.amount,
-            currency: vm.currency,
-          },
-        } as never,
-        ctx,
-      );
+      await this.mutations.addItem({
+        itemYrn: productYrn(this.emporix.client.tenant, this.productId()),
+        quantity: this.qty(),
+        price: {
+          priceId: vm.priceId,
+          originalAmount: vm.amount,
+          effectiveAmount: vm.amount,
+          currency: vm.currency,
+        },
+      } as never);
       this.added.set(true);
-    } catch (e) {
-      this.addError.set(e instanceof Error ? e.message : String(e));
-    } finally {
-      this.adding.set(false);
+    } catch {
+      // `mutations.error()` carries it; the template renders that.
     }
   }
 }

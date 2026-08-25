@@ -2,7 +2,7 @@ import { Component, computed, signal } from "@angular/core";
 import { RouterLink } from "@angular/router";
 import { injectCustomerSession, injectEmporixSite } from "@viu/emporix-sdk-angular";
 import { dateFmt, money, orderVM, type OrderVM } from "@viu/emporix-examples-shared";
-import { myOrdersQuery } from "../lib/queries";
+import { injectMyOrders } from "@viu/emporix-sdk-angular";
 
 @Component({
   selector: "app-account",
@@ -99,7 +99,9 @@ export class Account {
   protected readonly site = injectEmporixSite();
   /** The page, as a signal — read inside the query so changing it refetches. */
   protected readonly page = signal(1);
-  protected readonly orders = myOrdersQuery(this.page.asReadonly(), 10);
+  protected readonly orders = injectMyOrders(
+    computed(() => ({ pageNumber: this.page(), pageSize: 10 })),
+  );
 
   protected readonly money = money;
   protected readonly dateFmt = dateFmt;

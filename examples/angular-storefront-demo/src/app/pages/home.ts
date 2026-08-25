@@ -1,5 +1,6 @@
-import { Component, computed } from "@angular/core";
-import { priceQuery, productsInfinite } from "../lib/queries";
+import { Component, computed, signal } from "@angular/core";
+import { injectMatchPrices, injectProductsInfinite } from "@viu/emporix-sdk-angular";
+import { priceMatchItems } from "@viu/emporix-examples-shared";
 import { ProductGrid } from "../ui/product-grid";
 import { QueryState } from "../ui/query-state";
 
@@ -49,7 +50,7 @@ export class Home {
    * the «Load more» button disappears exactly when the server says there is
    * nothing left — no trailing empty request to discover the end.
    */
-  protected readonly products = productsInfinite(12);
+  protected readonly products = injectProductsInfinite(signal(12));
 
   /** Every page flattened. TanStack keeps the pages; the grid wants the items. */
   protected readonly items = computed(() =>
@@ -60,9 +61,10 @@ export class Home {
   /**
    * Prices for everything loaded so far.
    *
-   * Derived from `items`, so loading another page re-resolves prices for the
-   * whole visible set in one call rather than one per page — and a currency
-   * switch re-resolves without re-fetching the catalog.
+   * `priceMatchItems` is the shape Emporix wants; `injectMatchPrices` stays
+   * disabled while it is empty, so the first render costs nothing. Loading a page
+   * re-resolves the whole visible set in one call rather than one per page.
    */
-  protected readonly prices = priceQuery(this.items);
+  private readonly priceInput = computed(() => ({ items: priceMatchItems([...this.items()]) }));
+  protected readonly prices = injectMatchPrices(this.priceInput);
 }

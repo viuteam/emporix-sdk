@@ -1,20 +1,15 @@
 import { Component, computed, linkedSignal, signal } from "@angular/core";
 import { RouterLink } from "@angular/router";
+import { pickFee, resolveZone, type CheckoutInput, type Zone } from "@viu/emporix-sdk";
 import {
-  auth,
-  pickFee,
-  resolveZone,
-  type AuthContext,
-  type CheckoutInput,
-  type Zone,
-} from "@viu/emporix-sdk";
-import {
+  injectCart,
+  injectCheckout,
   injectCustomerSession,
-  injectEmporix,
   injectEmporixSite,
+  injectPaymentModes,
+  injectShippingZones,
 } from "@viu/emporix-sdk-angular";
 import { cartLines, cartTotal, money, pickText } from "@viu/emporix-examples-shared";
-import { cartQuery, paymentModesQuery, shippingZonesQuery } from "../lib/queries";
 
 interface AddressDraft {
   contactName: string;
@@ -194,22 +189,29 @@ interface ShippingChoice {
   `,
 })
 export class Checkout {
-  private readonly emporix = injectEmporix();
   protected readonly site = injectEmporixSite();
   protected readonly session = injectCustomerSession();
 
   protected readonly money = money;
 
-  protected readonly cartId = signal(this.emporix.storage.getCartId());
-  private readonly cart = cartQuery(this.cartId.asReadonly());
+  /**
+   * No cart id, no storage subscription, no manual auth context.
+   *
+   * `injectCart` resolves the stored id itself; `injectCheckout` takes the auth
+   * context and the `saas-token` header from the session, and drops the cart id
+   * when Emporix closes the cart. This component used to carry all of it.
+   */
+  private readonly cart = injectCart();
+  private readonly checkout = injectCheckout();
   protected readonly lines = computed(() => cartLines(this.cart.data()));
   protected readonly total = computed(() => cartTotal(this.cart.data()));
   protected readonly currency = computed(
     () => this.total()?.currency ?? this.site.currency() ?? "CHF",
   );
+  protected readonly cartId = computed(() => this.cart.data()?.id ?? null);
 
-  protected readonly modes = paymentModesQuery();
-  protected readonly zones = shippingZonesQuery(this.site.siteCode);
+  protected readonly modes = injectPaymentModes();
+  protected readonly zones = injectShippingZones();
 
   protected readonly guestEmail = signal("");
 
@@ -242,11 +244,6 @@ export class Checkout {
   protected readonly error = signal<string | null>(null);
   protected readonly orderId = signal<string | null>(null);
 
-  constructor() {
-    this.emporix.storage.subscribeAll?.((key) => {
-      if (key === "cartId") this.cartId.set(this.emporix.storage.getCartId());
-    });
-  }
 
   /** The profile's name, when it has one — otherwise a placeholder. */
   private contactNameFromProfile(): string {
@@ -271,7 +268,7 @@ export class Checkout {
    * should get free shipping.
    */
   protected readonly options = computed<ShippingChoice[]>(() => {
-    const zone = resolveZone(this.zones.data() as Zone[] | undefined, this.ship().country);
+    const zone = resolveZone(this.zones.data() as unknown as Zone[] | undefined, this.ship().country);
     if (zone === undefined) return [];
     const cartAmount = this.total()?.amount ?? 0;
     const out: ShippingChoice[] = [];
@@ -396,23 +393,11 @@ export class Checkout {
    */
   protected async place(): Promise<void> {
     if (this.missing().length > 0) return;
-    this.error.set(null);
-    this.placing.set(true);
-    try {
-      const token = this.emporix.storage.getCustomerToken();
-      const ctx: AuthContext = token !== null ? auth.customer(token) : auth.anonymous();
-      const saasToken = this.session.saasToken();
-      const siteCode = this.site.siteCode();
-      const result = await this.emporix.client.checkout.placeOrder(this.buildInput(), ctx, {
-        ...(this.session.isAuthenticated() && saasToken !== null ? { saasToken } : {}),
-        ...(siteCode !== null ? { siteCode } : {}),
-      });
-      this.orderId.set(result.orderId ?? "(no order id returned)");
-      this.emporix.storage.setCartId(null);
-    } catch (e) {
-      this.error.set(e instanceof Error ? e.message : String(e));
-    } finally {
-      this.placing.set(false);
-    }
+    // Everything this used to do by hand — resolving the auth context, attaching
+    // the saas-token header, passing siteCode, dropping the closed cart — is the
+    // binding's job now.
+    await this.checkout.placeOrder(this.buildInput()).catch(() => {
+      /* surfaced via checkout.error() */
+    });
   }
 }
