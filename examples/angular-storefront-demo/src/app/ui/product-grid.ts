@@ -21,36 +21,7 @@ import type { PriceMatch, Product } from "@viu/emporix-sdk";
 @Component({
   selector: "app-product-grid",
   imports: [RouterLink],
-  template: `
-    @if (products().length === 0) {
-      <p class="muted">Nothing here.</p>
-    } @else {
-      <div class="grid">
-        @for (p of products(); track p.id) {
-          <a class="card" [routerLink]="['/product', p.id]">
-            <div class="thumb">
-              @if (image(p); as src) {
-                <img [src]="src" [alt]="name(p)" loading="lazy" />
-              } @else {
-                <span class="muted small">no image</span>
-              }
-            </div>
-            <div class="small muted">{{ p.code }}</div>
-            <div>{{ name(p) }}</div>
-            <div>
-              @if (price(p); as vm) {
-                <strong>{{ money(vm.amount, vm.currency) }}</strong>
-              } @else if (pricesLoading()) {
-                <span class="muted small">…</span>
-              } @else {
-                <span class="muted small">price unavailable</span>
-              }
-            </div>
-          </a>
-        }
-      </div>
-    }
-  `,
+  templateUrl: "./product-grid.html",
 })
 export class ProductGrid {
   readonly products = input.required<readonly Product[]>();

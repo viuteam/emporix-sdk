@@ -1,0 +1,69 @@
+<p class="small"><a routerLink="/">← Catalog</a></p>
+
+@if (product.isPending()) {
+  <p class="muted">Loading…</p>
+} @else if (product.isError()) {
+  <div class="notice error">
+    <strong>Product not found.</strong> {{ product.error()?.message }}
+  </div>
+} @else if (product.data(); as p) {
+  <div class="stack" style="max-width:640px">
+    <h1>{{ productName(p) }}</h1>
+    <p class="muted small">{{ p.code }}</p>
+    <div class="thumb" style="max-width:420px">
+      @if (image(); as src) {
+        <img [src]="src" [alt]="productName(p)" />
+      } @else {
+        <span class="muted small">
+          {{ product.isPending() ? "loading…" : "no image" }}
+        </span>
+      }
+    </div>
+    @if (description(p); as d) {
+      <p>{{ d }}</p>
+    }
+    <p>
+      @if (price(); as vm) {
+        <strong>{{ money(vm.amount, vm.currency) }}</strong>
+      } @else if (prices.isPending()) {
+        <span class="muted">resolving price…</span>
+      } @else {
+        <span class="muted">price unavailable in this context</span>
+      }
+    </p>
+
+    <div class="row-between card">
+      <label style="margin:0; max-width:120px">
+        <span>Quantity</span>
+        <input
+          type="number"
+          min="1"
+          [value]="qty()"
+          (input)="setQty($any($event.target).value)"
+        />
+      </label>
+      <button
+        class="primary"
+        type="button"
+        [disabled]="mutations.isPending() || !purchasable()"
+        (click)="add()"
+      >
+        {{ mutations.isPending() ? "Adding…" : "Add to cart" }}
+      </button>
+    </div>
+
+    @if (!purchasable() && !prices.isPending()) {
+      <div class="notice">
+        Not purchasable in this context. Emporix requires a <code>priceId</code> on
+        internal-type cart items, so a product with no matched price cannot be added — the
+        API would answer 400.
+      </div>
+    }
+    @if (mutations.error(); as e) {
+      <div class="notice error"><strong>Could not add to cart.</strong> {{ e.message }}</div>
+    }
+    @if (added()) {
+      <div class="notice">In the cart. <a routerLink="/cart">Go to cart →</a></div>
+    }
+  </div>
+}

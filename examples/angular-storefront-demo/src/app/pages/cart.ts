@@ -7,76 +7,7 @@ import { productNamesQuery } from "../lib/queries";
 @Component({
   selector: "app-cart",
   imports: [RouterLink],
-  template: `
-    <h1>Cart</h1>
-
-    @if (cart.isPending()) {
-      <p class="muted">Loading cart…</p>
-    } @else if (cart.isError()) {
-      <div class="notice error">
-        <strong>Could not load the cart.</strong> {{ cart.error()?.message }}
-        <p class="small">
-          A 404 here means the cart was closed by an order on another device. The binding already
-          dropped the id, so the next add-to-cart bootstraps a fresh one — no button needed.
-        </p>
-      </div>
-    } @else if (lines().length === 0) {
-      <p class="muted">Your cart is empty. <a routerLink="/">Browse the catalog →</a></p>
-    } @else {
-      <table>
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Qty</th>
-            <th>Line total</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (l of lines(); track l.id) {
-            <tr>
-              <td>{{ lineName(l) }}</td>
-              <td>{{ l.quantity }}</td>
-              <td>
-                @if (l.lineTotal; as t) {
-                  {{ money(t.amount, t.currency) }}
-                } @else {
-                  —
-                }
-              </td>
-              <td>
-                <button
-                  class="link"
-                  type="button"
-                  [disabled]="mutations.isPending()"
-                  (click)="remove(l.id)"
-                >
-                  remove
-                </button>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-
-      <div class="row-between" style="margin-top:1rem">
-        <strong>
-          @if (total(); as t) {
-            Total {{ money(t.amount, t.currency) }}
-          } @else {
-            Total —
-          }
-        </strong>
-        <a class="card" routerLink="/checkout"><strong>Checkout →</strong></a>
-      </div>
-
-      @if (mutations.error(); as e) {
-        <div class="notice error" style="margin-top:1rem">
-          <strong>Failed.</strong> {{ e.message }}
-        </div>
-      }
-    }
-  `,
+  templateUrl: "./cart.html",
 })
 export class CartPage {
   protected readonly money = money;

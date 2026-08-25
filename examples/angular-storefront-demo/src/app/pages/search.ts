@@ -7,39 +7,7 @@ import { QueryState } from "../ui/query-state";
 @Component({
   selector: "app-search",
   imports: [ProductGrid, QueryState],
-  template: `
-    <h1>Search</h1>
-    <label style="max-width:420px">
-      <span>Product name</span>
-      <input
-        type="search"
-        [value]="term()"
-        (input)="term.set($any($event.target).value)"
-        placeholder="Type at least one character"
-      />
-    </label>
-
-    @if (term().trim() === "") {
-      <p class="muted">
-        Nothing is requested until you type — the query is gated on the term, so an empty
-        search costs no API call.
-      </p>
-    } @else if (results.isPending() || results.isError()) {
-      <app-query-state
-        [fetchStatus]="results.fetchStatus()"
-        [error]="results.error()"
-        label="Search failed."
-        pendingLabel="Searching…"
-      />
-    } @else {
-      <p class="muted small">{{ items().length }} result(s)</p>
-      <app-product-grid
-        [products]="items()"
-        [prices]="prices.data()"
-        [pricesLoading]="prices.isPending()"
-      />
-    }
-  `,
+  templateUrl: "./search.html",
 })
 export class Search {
   /**

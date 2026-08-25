@@ -15,22 +15,7 @@ import { Component, input } from "@angular/core";
  */
 @Component({
   selector: "app-query-state",
-  template: `
-    @if (fetchStatus() === "paused") {
-      <div class="notice error">
-        <strong>Request paused.</strong>
-        The query never reached the tenant, so TanStack is holding the retry. With
-        <code>networkMode: "online"</code> that happens when a request fails before any
-        response headers arrive — most often a wrong tenant or storefront client id, which
-        fails at the CORS boundary rather than with a readable status.
-        <p class="small">Check the configuration in the footer.</p>
-      </div>
-    } @else if (error(); as e) {
-      <div class="notice error"><strong>{{ label() }}</strong> {{ e.message }}</div>
-    } @else {
-      <p class="muted">{{ pendingLabel() }}</p>
-    }
-  `,
+  templateUrl: "./query-state.html",
 })
 export class QueryState {
   readonly fetchStatus = input.required<string>();

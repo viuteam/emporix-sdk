@@ -1,0 +1,154 @@
+<h1>Checkout</h1>
+
+@if (orderId(); as id) {
+  <div class="notice stack" style="max-width:560px">
+    <strong>Order placed.</strong>
+    <div>Order id <code>{{ id }}</code></div>
+    <p class="small">
+      Emporix closes the cart on a successful order, so the local cart id was dropped — the
+      next add-to-cart bootstraps a fresh one. Keeping it would 404 every later cart read.
+    </p>
+    <a routerLink="/account">See it in your orders →</a>
+  </div>
+} @else if (cartId() === null || lines().length === 0) {
+  <p class="muted">Nothing to check out. <a routerLink="/">Browse the catalog →</a></p>
+} @else {
+  <div class="stack" style="max-width:560px">
+    <div class="card row-between">
+      <span>{{ lines().length }} line(s)</span>
+      <strong>
+        @if (total(); as t) {
+          {{ money(t.amount, t.currency) }}
+        } @else {
+          —
+        }
+      </strong>
+    </div>
+
+    <h2>Contact</h2>
+    @if (session.isAuthenticated()) {
+      <p class="small muted">
+        Signed in as <strong>{{ email() }}</strong>. A logged-in checkout identifies the
+        customer by id — Emporix answers «Cannot found customer» without it, and rejects an
+        id a guest is not allowed to claim.
+      </p>
+    } @else {
+      <label>
+        <span>Email</span>
+        <input
+          type="email"
+          required
+          [value]="guestEmail()"
+          (input)="guestEmail.set($any($event.target).value)"
+        />
+      </label>
+    }
+    <div class="row-between" style="gap:0.75rem">
+      <label style="margin:0; flex:1">
+        <span>First name</span>
+        <input [value]="firstName()" (input)="firstName.set($any($event.target).value)" />
+      </label>
+      <label style="margin:0; flex:1">
+        <span>Last name</span>
+        <input [value]="lastName()" (input)="lastName.set($any($event.target).value)" />
+      </label>
+    </div>
+
+    <h2>Shipping address</h2>
+    <label>
+      <span>Contact name</span>
+      <input [value]="ship().contactName" (input)="patch('contactName', $event)" />
+    </label>
+    <div class="row-between" style="gap:0.75rem">
+      <label style="margin:0; flex:3">
+        <span>Street</span>
+        <input [value]="ship().street" (input)="patch('street', $event)" />
+      </label>
+      <label style="margin:0; flex:1">
+        <span>No.</span>
+        <input [value]="ship().streetNumber" (input)="patch('streetNumber', $event)" />
+      </label>
+    </div>
+    <div class="row-between" style="gap:0.75rem">
+      <label style="margin:0; flex:1">
+        <span>Postcode</span>
+        <input [value]="ship().zipCode" (input)="patch('zipCode', $event)" />
+      </label>
+      <label style="margin:0; flex:2">
+        <span>City</span>
+        <input [value]="ship().city" (input)="patch('city', $event)" />
+      </label>
+      <label style="margin:0; flex:1">
+        <span>Country</span>
+        <input maxlength="2" [value]="ship().country" (input)="patch('country', $event)" />
+      </label>
+    </div>
+    <p class="small muted">
+      Billing mirrors shipping here. Emporix requires at least one address of each type; a
+      real storefront would offer a second form.
+    </p>
+
+    <h2>Delivery</h2>
+    @if (zones.isPending()) {
+      <p class="muted small">Loading shipping options…</p>
+    } @else if (options().length === 0) {
+      <p class="muted small">
+        No configured method for <code>{{ ship().country }}</code>, so this falls back to
+        free shipping keyed on the country — visible in the payload below.
+      </p>
+    } @else {
+      <label>
+        <span>Method</span>
+        <select (change)="pickShipping($any($event.target).value)">
+          @for (o of options(); track o.methodId) {
+            <option [value]="o.methodId" [selected]="o.methodId === chosenShipping()?.methodId">
+              {{ o.methodName }} — {{ money(o.amount, currency()) }}
+            </option>
+          }
+        </select>
+      </label>
+    }
+
+    <h2>Payment</h2>
+    @if (modes.isPending()) {
+      <p class="muted small">Loading payment modes…</p>
+    } @else {
+      <label>
+        <span>Mode</span>
+        <select (change)="modeId.set($any($event.target).value || null)">
+          <option value="">custom — no gateway, order stays IN_CHECKOUT</option>
+          @for (m of paymentModes(); track m.id) {
+            <option [value]="m.id" [selected]="m.id === modeId()">{{ m.name ?? m.id }}</option>
+          }
+        </select>
+      </label>
+      <p class="small muted">
+        The <code>custom</code> provider is the default on purpose: it records the order
+        without attempting a capture, which is why every existing order on this tenant reads
+        <code>IN_CHECKOUT</code>. Picking a configured mode routes through the payment
+        gateway for real.
+      </p>
+    }
+
+    @if (error(); as e) {
+      <div class="notice error"><strong>Order failed.</strong> {{ e }}</div>
+    }
+    @if (missing().length > 0) {
+      <div class="notice">Still needed: <strong>{{ missing().join(", ") }}</strong></div>
+    }
+
+    <button
+      class="primary"
+      type="button"
+      [disabled]="placing() || missing().length > 0"
+      (click)="place()"
+    >
+      {{ placing() ? "Placing the order…" : "Place order" }}
+    </button>
+
+    <details>
+      <summary class="small">Show the exact payload this sends</summary>
+      <pre class="small card" style="overflow-x:auto">{{ preview() }}</pre>
+    </details>
+  </div>
+}
