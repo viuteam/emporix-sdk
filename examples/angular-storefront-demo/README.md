@@ -88,15 +88,7 @@ sometimes a string and sometimes a locale map; an order number lives under
 it — the AOT build caught four of those as type errors, and the rest would have
 rendered blank columns.
 
-## What is not here
-
-Compared with `storefront-demo`'s 17 routes, this has 7. The difference is the
-account extras — **shopping lists, reward points and returns**, plus reorder,
-cancel-order, variant pickers, category navigation and the password-reset flow.
-Those sit in the 74 injectables `@viu/emporix-sdk-angular` does not ship yet, so
-building them here would mean hand-rolling a large part of the package's future
-surface inside an example. See the scope table in
-[`docs/angular.md`](../../docs/angular.md).
+## Checkout places real orders
 
 **Checkout is complete and does place orders.** It resolves delivery options from
 the tenant's shipping zones (with the applicable fee via the SDK's `pickFee`),
@@ -119,6 +111,16 @@ The default payment provider is `custom`, which records the order without
 attempting a capture — that is why every existing order on the demo tenant reads
 `IN_CHECKOUT`. Selecting a configured mode routes through the payment gateway for
 real, so pick that only if you mean it.
+
+## What is not here
+
+Compared with `storefront-demo`'s 17 routes, this has 7. The difference is the
+account extras — **shopping lists, reward points and returns**, plus reorder,
+cancel-order, variant pickers, category navigation and the password-reset flow.
+Those sit in the 74 injectables `@viu/emporix-sdk-angular` does not ship yet, so
+building them here would mean hand-rolling a large part of the package's future
+surface inside an example. See the scope table in
+[`docs/angular.md`](../../docs/angular.md).
 
 ## Verified, and not
 
