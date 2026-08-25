@@ -1,0 +1,32 @@
+{
+  "name": "@viu/emporix-examples-angular-storefront",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reference Angular 22 storefront on @viu/emporix-sdk-angular: catalog, cart, checkout, account.",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "build:prod": "ng build --configuration production"
+  },
+  "dependencies": {
+    "@angular/common": "^22.1.3",
+    "@angular/compiler": "^22.1.3",
+    "@angular/core": "^22.1.3",
+    "@angular/forms": "^22.1.3",
+    "@angular/platform-browser": "^22.1.3",
+    "@angular/router": "^22.1.3",
+    "@tanstack/angular-query-experimental": "^5.102.3",
+    "@viu/emporix-examples-shared": "workspace:*",
+    "@viu/emporix-sdk": "workspace:*",
+    "@viu/emporix-sdk-angular": "workspace:*",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.1.5",
+    "@angular/cli": "^22.1.5",
+    "@angular/compiler-cli": "^22.1.3",
+    "typescript": "~6.0.2"
+  }
+}

@@ -1,6 +1,6 @@
 # Examples
 
-Seven runnable consumers of the SDK. None is published — they exist to be read
+Eight runnable consumers of the SDK. None is published — they exist to be read
 and run. Pick by the question you have.
 
 | I want to see… | Example | Stack |
@@ -12,6 +12,7 @@ and run. Pick by the question you have.
 | Next with **no token in the browser** | [`next-server-first`](./next-server-first) | Next 16 App Router |
 | a **Managed Dashboard module** (host-owned token) | [`md-module`](./md-module) | Vite + Module Federation |
 | the smallest Angular integration | [`angular-storefront`](./angular-storefront) | Angular 22 + `@angular/build` |
+| **a complete Angular storefront** | [`angular-storefront-demo`](./angular-storefront-demo) | Angular 22 + signals |
 
 ## `angular-storefront` is a test rig, not a demo
 

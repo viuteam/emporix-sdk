@@ -81,3 +81,10 @@ jobs:
       - name: Build the angular example with AOT
         if: matrix.node != '20'
         run: pnpm -F @viu/emporix-examples-angular exec ng build --configuration production
+
+      # The storefront demo is the second AOT gate and the stricter one: it uses
+      # the generated SDK types across catalog, cart, checkout and orders, so a
+      # facade whose shape changes fails here rather than in a consumer's app.
+      - name: Build the angular storefront demo with AOT
+        if: matrix.node != '20'
+        run: pnpm -F @viu/emporix-examples-angular-storefront exec ng build --configuration production
