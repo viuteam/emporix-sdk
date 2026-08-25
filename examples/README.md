@@ -1,6 +1,6 @@
 # Examples
 
-Five runnable consumers of the SDK. None is published — they exist to be read
+Seven runnable consumers of the SDK. None is published — they exist to be read
 and run. Pick by the question you have.
 
 | I want to see… | Example | Stack |
@@ -11,6 +11,16 @@ and run. Pick by the question you have.
 | Next with client-side hooks | [`next-app-router`](./next-app-router) | Next 16 App Router |
 | Next with **no token in the browser** | [`next-server-first`](./next-server-first) | Next 16 App Router |
 | a **Managed Dashboard module** (host-owned token) | [`md-module`](./md-module) | Vite + Module Federation |
+| the smallest Angular integration | [`angular-storefront`](./angular-storefront) | Angular 22 + `@angular/build` |
+
+## `angular-storefront` is a test rig, not a demo
+
+It is the one example whose job is not to show you how to build something.
+`@viu/emporix-sdk-angular` is built with tsup rather than `ng-packagr`, on the
+premise that a decorator-free Angular library needs no Angular compiler. This app
+exists so `ng build --configuration production` proves that on every PR, and so
+that a value only obtainable through Angular's DI is rendered rather than merely
+compiled. Read its README before copying anything from it.
 
 ## `shared/` is not a demo
 

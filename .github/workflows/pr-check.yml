@@ -22,6 +22,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Angular 22 declares engines.node ^22.22.3 || ^24.15.0 || >=26.0.0, so
+        # `pnpm install` emits EBADENGINE on the 20 row. .npmrc sets no
+        # engine-strict, so it warns rather than fails, and tsc and vitest do not
+        # care — packages/angular's unit tests pass on Node 20. The Angular CLI
+        # is the exception: it checks the version itself and refuses to run, so
+        # the AOT build step below is skipped on 20 rather than expected to pass.
+        # The row stays because the other five packages support Node 20.
         node: [20, 22, 24]
     steps:
       - uses: actions/checkout@v7
@@ -52,6 +59,12 @@ jobs:
       - name: Check next dist "use client" banners
         run: pnpm -F @viu/emporix-sdk-next check:dist
 
+      # packages/angular is built with tsup rather than ng-packagr because it
+      # exports only functions and holds no decorators. Assert that stayed true:
+      # a decorator in the artifact breaks a consumer's AOT build, not ours.
+      - name: Check angular dist has no Angular compiler output
+        run: pnpm -F @viu/emporix-sdk-angular check:dist
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -60,3 +73,11 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # The decorator guard above only matters if a real AOT production build
+      # accepts the artifact. This is the step that would catch that breaking.
+      # Skipped on Node 20: the Angular CLI enforces its own engine requirement
+      # and exits before building (see the matrix comment).
+      - name: Build the angular example with AOT
+        if: matrix.node != '20'
+        run: pnpm -F @viu/emporix-examples-angular exec ng build --configuration production

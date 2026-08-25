@@ -291,11 +291,19 @@ Beyond that, the tests worth naming up front:
   do not include it, and `.husky/commit-msg` rejects unknown scopes — so *every*
   commit of this series fails until this lands. It belongs in the first commit.
 - **`pr-check.yml`:** add the decorator check and a production AOT build of the
-  example app. The `node: [20, 22, 24]` matrix stays; Angular 22 declares
-  `engines.node: ^22.22.3 || ^24.15.0 || >=26.0.0`, so Node 20 emits EBADENGINE.
-  `.npmrc` sets no `engine-strict`, so it warns rather than fails, and `tsc` and
-  `vitest` do not care. That needs a comment at the matrix, or the next reader
-  treats the warning as a break.
+  example app. The `node: [20, 22, 24]` matrix stays, but the AOT step must be
+  **skipped on Node 20**.
+
+  *Corrected after implementation.* This section originally claimed the Node
+  floor was only a warning, because Angular 22 declares
+  `engines.node: ^22.22.3 || ^24.15.0 || >=26.0.0` and `.npmrc` sets no
+  `engine-strict`. Two of the three halves of that hold: `pnpm install` warns
+  rather than fails, and `tsc`/`vitest` genuinely do not care —
+  `packages/angular`'s unit tests pass on Node 20. But **the Angular CLI checks
+  the version itself and exits before building**, which was found by running it:
+  on Node v24.11.1 it refused with "requires a minimum Node.js version of
+  v22.22.3 or v24.15.0 or v26.0.0". So the AOT step is gated with
+  `if: matrix.node != '20'`, and the matrix carries a comment saying why.
 - **`.changeset/config.json`:** unchanged. `linked` pairs `@viu/emporix-sdk` with
   `@viu/emporix-sdk-react` only; Angular stays uncoupled, like `next`.
 - **Docs:** new `docs/angular.md`; workspace table in `CLAUDE.md`; root `README.md`;
@@ -324,12 +332,29 @@ One changeset per PR. The package starts at `0.x` under `minor`, as `next` did.
 
 ## Assumptions to verify before implementing
 
-- **The AOT production build is the whole premise and has not been run.** The
-  conclusion that `tsup` suffices rests on TanStack's published artifact, not on
-  ours. A `tsup` bundle has to survive `ng build --configuration production` with
-  AOT, the optimizer, and `ngJitMode: false`. If it does not, the toolchain
-  decision inverts and phases 2-8 change shape. This is why it is phase 1 and not
-  phase 8.
+- ~~**The AOT production build is the whole premise and has not been run.**~~
+  **Run and confirmed** (2026-08-25). `examples/angular-storefront` on Angular
+  22.1.5 builds with `ng build --configuration production` — 352.86 kB raw /
+  79.27 kB transfer — and the served bundle renders values that only exist if
+  `provideEmporix`'s `InjectionToken`s resolved at runtime, with no console
+  errors. The `/storage` subpath entry resolves through a consumer's bundler too.
+  A `tsup`-built, decorator-free Angular library needs no `ng-packagr`.
+
+  One warning appears in that build, and it is **not** from this package:
+  `packages/sdk/dist/index.js` carries a bare `import './chunk-….js'` that
+  esbuild drops because the SDK declares `sideEffects: false`. Building the SDK
+  from the pre-move commit produces the identical bare import at the identical
+  line with the identical chunk hash, so it predates this work. It is benign —
+  the chunk holds only `requireCustomer` and has no side effects to run.
+
+- **Angular 22 requires TypeScript 6.** `@angular/compiler-cli@22.1.3` peers
+  `typescript: ">=6.0 <6.1"` while the workspace is on 5.9.3. Discovered when the
+  CLI generated the example with `typescript: ~6.0.2`. It is contained: only
+  `examples/angular-storefront` declares TS 6, and `packages/angular` typechecks
+  against Angular 22's declarations with the workspace's 5.9 without complaint.
+  That is a fragility rather than a problem — a future Angular minor could emit
+  declarations 5.9 cannot read, and the fix then is to raise the workspace's
+  TypeScript, not to special-case the package.
 - **The test harness is unresolved** — `Injector.create` or `TestBed`; see
   Testing. A wrong guess here shows up as tests that hang rather than tests that
   fail.
