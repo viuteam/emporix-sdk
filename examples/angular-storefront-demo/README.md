@@ -49,6 +49,26 @@ login, logout and a site switch. [`search.ts`](./src/app/pages/search.ts) is the
 smallest demonstration: typing re-keys the query, with no `effect`, subscription or
 manual refetch anywhere.
 
+## Pagination, in both shapes
+
+The catalog uses `injectEmporixInfinite` with a «Load more» button: pages start at
+1 and the button disappears when Emporix's own `hasNextPage` says there is nothing
+left — no trailing empty request to discover the end. Prices are derived from
+everything loaded so far, so a second page re-resolves the whole visible set in one
+call rather than one per page.
+
+The order history uses **page numbers** instead, driven by a `signal` read inside
+the query's options callback. That is deliberate: an order history is a table you
+jump around in, not a feed you scroll, and each page keeps its own cache entry so
+going back is instant.
+
+Building this is what found a bug in the package: `injectEmporixInfinite` built its
+`queryFn` through `emporixQueryOptions`, whose signature takes no arguments, so
+TanStack's `pageParam` was dropped and every page would have re-fetched page one.
+The interface now takes `fetchPage(pageNumber, ctx)` and owns the cursor logic
+itself, mirroring React's internal `useEmporixInfinite`. Verified live: 24 distinct
+products across two pages, item 13 a different product from item 1.
+
 ## Two things running it taught us
 
 **A paused query looks exactly like a slow one.** Point the demo at a wrong tenant
@@ -102,7 +122,15 @@ no price in a given context — the live tenant returns an empty match list for 
 of its catalog. The product page shows a real `1,00 CHF` for a product that does
 have one, so the path works; a card without a price is the tenant's answer.
 
-**Not verified: the customer paths.** Sign-in, the account order list and the
-guest-cart merge on login need test-customer credentials, which do not belong in
-this repository. And **no order has been placed** — the checkout page shows its
-payload instead of sending it, deliberately.
+**The customer paths are verified too.** Signing in with a test customer stored all
+three tokens, dropped the now-dormant anonymous session, and **merged the guest
+cart into the customer's existing one** — the shared line went from quantity 1 to 2.
+The account page renders the real profile and 19 orders across two pages, and the
+`mode: "customer"` gate flipped from «no request» to «fetched» on the same reads.
+
+A cart line whose stored snapshot has no name rendered as a blank cell until the
+bulk name lookup was added; a cart item carries only an `itemYrn`, so names have to
+be resolved separately. Fixed and verified.
+
+**No order has been placed** — the checkout page shows its payload instead of
+sending it, deliberately. That path stays unverified on purpose.

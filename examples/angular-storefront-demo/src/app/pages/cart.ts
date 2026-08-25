@@ -3,7 +3,7 @@ import { RouterLink } from "@angular/router";
 import { auth } from "@viu/emporix-sdk";
 import { injectEmporix } from "@viu/emporix-sdk-angular";
 import { cartLines, cartTotal, money } from "@viu/emporix-examples-shared";
-import { cartQuery } from "../lib/queries";
+import { cartQuery, productNamesQuery } from "../lib/queries";
 
 @Component({
   selector: "app-cart",
@@ -40,7 +40,7 @@ import { cartQuery } from "../lib/queries";
         <tbody>
           @for (l of lines(); track l.id) {
             <tr>
-              <td>{{ l.name }}</td>
+              <td>{{ lineName(l) }}</td>
               <td>{{ l.quantity }}</td>
               <td>
                 @if (l.lineTotal; as t) {
@@ -91,6 +91,20 @@ export class CartPage {
   protected readonly lines = computed(() => cartLines(this.cart.data()));
   protected readonly total = computed(() => cartTotal(this.cart.data()));
 
+  /**
+   * Names for lines whose stored snapshot has none.
+   *
+   * A cart item carries only an `itemYrn`, so `toCartLine` can end up with an
+   * empty name — which rendered as a blank cell against the live tenant until
+   * this was added. One bulk read for every id on the page.
+   */
+  private readonly lineProductIds = computed(() =>
+    this.lines()
+      .map((l) => l.productId)
+      .filter((id): id is string => id !== undefined && id !== ""),
+  );
+  private readonly names = productNamesQuery(this.lineProductIds);
+
   protected readonly busy = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
 
@@ -100,6 +114,12 @@ export class CartPage {
     this.emporix.storage.subscribeAll?.((key) => {
       if (key === "cartId") this.cartId.set(this.emporix.storage.getCartId());
     });
+  }
+
+  protected lineName(l: { name: string; productId: string }): string {
+    // The snapshot wins when it has one — it is what the shopper saw when they
+    // added the item, even if the product has been renamed since.
+    return l.name !== "" ? l.name : (this.names.data()?.[l.productId] ?? l.productId);
   }
 
   protected async remove(itemId: string): Promise<void> {

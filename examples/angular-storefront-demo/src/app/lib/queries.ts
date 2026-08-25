@@ -28,7 +28,7 @@ import {
   injectEmporixInfinite,
   injectEmporixQuery,
 } from "@viu/emporix-sdk-angular";
-import { priceMatchItems } from "@viu/emporix-examples-shared";
+import { priceMatchItems, productName } from "@viu/emporix-examples-shared";
 import type { Cart, Category, Order, PaginatedItems, PriceMatch, Product } from "@viu/emporix-sdk";
 
 /** Catalog reads are shared across visitors and change rarely. */
@@ -49,14 +49,20 @@ export function productQuery(id: Signal<string>) {
   }));
 }
 
-export function productsQuery(pageSize = 12) {
+/**
+ * The catalog, paginated. Pages start at 1 and stop when Emporix says so.
+ *
+ * `fetchPage` receives the page number — that is the whole difference between a
+ * working infinite query and one that re-fetches page one forever.
+ */
+export function productsInfinite(pageSize = 12) {
   const { client } = injectEmporix();
-  return injectEmporixQuery<PaginatedItems<Product>, readonly [number]>(() => ({
-    resource: "products",
+  return injectEmporixInfinite<Product, readonly [number]>(() => ({
+    resource: "products-infinite",
     args: [pageSize] as const,
     site: "full",
     mode: "read-auth",
-    queryFn: (ctx) => client.products.list({ pageNumber: 1, pageSize }, ctx),
+    fetchPage: (pageNumber, ctx) => client.products.list({ pageNumber, pageSize }, ctx),
     staleTime: CATALOG_STALE,
   }));
 }
@@ -91,17 +97,14 @@ export function categoryQuery(id: Signal<string>) {
 /** Infinite product list for a category. Terminates on `hasNextPage: false`. */
 export function productsInCategoryInfinite(categoryId: Signal<string>, pageSize = 12) {
   const { client } = injectEmporix();
-  return injectEmporixInfinite<PaginatedItems<Product>, readonly [string]>(() => ({
+  return injectEmporixInfinite<Product, readonly [string]>(() => ({
     resource: "products-in-category-infinite",
     args: [categoryId()] as const,
     site: "full",
     mode: "read-auth",
     enabled: categoryId() !== "",
-    queryFn: (ctx) => client.categories.productsIn(categoryId(), { pageSize }, ctx),
-    initialPageParam: 1,
-    // `hasNextPage` is what terminates this; a totals request would be a second
-    // billed call on every scroll.
-    getNextPageParam: (last, all) => (last.hasNextPage ? all.length + 1 : undefined),
+    fetchPage: (pageNumber, ctx) =>
+      client.categories.productsIn(categoryId(), { pageNumber, pageSize }, ctx),
     staleTime: CATALOG_STALE,
   }));
 }
@@ -188,16 +191,57 @@ export function shippingZonesQuery(siteCode: Signal<string | null>) {
 
 // ─── Account ────────────────────────────────────────────────────────────────
 
-/** The customer's orders. `customer` mode, so nothing is fetched for a guest. */
-export function myOrdersQuery(pageSize = 20) {
+/**
+ * The customer's orders, one page at a time.
+ *
+ * Page-number pagination rather than infinite, deliberately: an order history is
+ * a table you jump around in, not a feed you scroll. `page` is a signal read
+ * inside the options callback, so changing it re-keys and refetches — and each
+ * page keeps its own cache entry, which is what makes going back instant.
+ *
+ * `customer` mode, so nothing is fetched for a guest.
+ */
+export function myOrdersQuery(page: Signal<number>, pageSize = 10) {
   const { client } = injectEmporix();
-  return injectEmporixQuery<PaginatedItems<Order>, readonly [number]>(() => ({
+  return injectEmporixQuery<PaginatedItems<Order>, readonly [number, number]>(() => ({
     resource: "my-orders",
-    args: [pageSize] as const,
+    args: [page(), pageSize] as const,
     site: "none",
     mode: "customer",
-    queryFn: (ctx) => client.orders.listMine(ctx, { pageSize }),
+    queryFn: (ctx) => client.orders.listMine(ctx, { pageNumber: page(), pageSize }),
   }));
+}
+
+/**
+ * Display names for cart lines.
+ *
+ * A cart item carries only an `itemYrn`, no product details, so a line whose
+ * stored snapshot has no name renders blank without this. The React demo solves
+ * it the same way — one bulk read, keyed on the sorted id set so two carts with
+ * the same products share the entry.
+ */
+export function productNamesQuery(productIds: Signal<readonly string[]>) {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<Record<string, string>, readonly [string]>(() => {
+    const ids = [...new Set(productIds().filter(Boolean))].sort();
+    return {
+      resource: "product-names",
+      args: [ids.join(",")] as const,
+      site: "language",
+      mode: "read-auth",
+      enabled: ids.length > 0,
+      queryFn: async (ctx) => {
+        const products = await client.products.searchByIds(ids, undefined, ctx);
+        const map: Record<string, string> = {};
+        for (const p of products) {
+          const id = (p as { id?: string }).id;
+          if (id !== undefined) map[id] = productName(p);
+        }
+        return map;
+      },
+      staleTime: 5 * 60_000,
+    };
+  });
 }
 
 export function orderQuery(id: Signal<string>) {

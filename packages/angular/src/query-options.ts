@@ -51,26 +51,44 @@ export interface EmporixQueryOptions<T> {
  * Callers MUST read their signals inside `injectQuery`'s options callback, not
  * before it — see {@link injectEmporixQuery}.
  */
+/**
+ * The auth resolution shared by the plain and the paginated read.
+ *
+ * Exported because `injectEmporixInfinite` needs the same three answers but a
+ * different `queryFn` — it has to bind a page number per call, which the plain
+ * `queryFn` signature cannot express. Deriving them twice would be the kind of
+ * duplication that agrees today and drifts later.
+ */
+export function emporixAuth(
+  mode: "read-auth" | "customer",
+  token: string | null,
+  authOverride?: AuthContext,
+): { authKind: string; ctx: AuthContext; tokenPresent: boolean } {
+  const override = mode === "read-auth" ? authOverride : undefined;
+  const readCtx: AuthContext =
+    override ?? (token !== null ? auth.customer(token) : auth.anonymous());
+  return {
+    // In customer mode the key still distinguishes guest from customer, so a
+    // guest's (never-fetched) entry cannot be served to a customer later.
+    authKind: mode === "customer" ? (token !== null ? "customer" : "anonymous") : readCtx.kind,
+    // Customer mode only reaches the fetch when enabled, i.e. when the token is
+    // non-null; the fallback keeps the type honest without widening it.
+    ctx: mode === "customer" ? auth.customer(token ?? "") : readCtx,
+    tokenPresent: token !== null,
+  };
+}
+
 export function emporixQueryOptions<T, TArgs extends readonly unknown[]>(
   input: EmporixQueryInput<T, TArgs>,
   ctx: EmporixQueryContext,
 ): EmporixQueryOptions<T> {
-  const override = input.mode === "read-auth" ? input.authOverride : undefined;
-  const readCtx: AuthContext =
-    override ?? (ctx.token !== null ? auth.customer(ctx.token) : auth.anonymous());
+  const { authKind, ctx: resolvedCtx, tokenPresent } = emporixAuth(
+    input.mode,
+    ctx.token,
+    input.authOverride,
+  );
 
-  // In customer mode the key still distinguishes guest from customer, so a
-  // guest's (never-fetched) entry cannot be served to a customer later.
-  const authKind =
-    input.mode === "customer" ? (ctx.token !== null ? "customer" : "anonymous") : readCtx.kind;
-
-  // Customer mode only reaches queryFn when enabled, i.e. when the token is
-  // non-null; the fallback keeps the type honest without widening the signature.
-  const resolvedCtx: AuthContext =
-    input.mode === "customer" ? auth.customer(ctx.token ?? "") : readCtx;
-
-  const enabled =
-    (input.enabled ?? true) && (input.mode === "customer" ? ctx.token !== null : true);
+  const enabled = (input.enabled ?? true) && (input.mode === "customer" ? tokenPresent : true);
 
   return {
     queryKey: emporixKey(input.resource, input.args, {

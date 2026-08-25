@@ -1,4 +1,4 @@
-import { Component, computed } from "@angular/core";
+import { Component, computed, signal } from "@angular/core";
 import { RouterLink } from "@angular/router";
 import { injectCustomerSession, injectEmporixSite } from "@viu/emporix-sdk-angular";
 import { dateFmt, money, orderVM, type OrderVM } from "@viu/emporix-examples-shared";
@@ -77,6 +77,18 @@ import { myOrdersQuery } from "../lib/queries";
             }
           </tbody>
         </table>
+
+        <div class="row-between" style="margin-top:1rem">
+          <button type="button" [disabled]="page() === 1 || orders.isFetching()" (click)="prev()">
+            ← Newer
+          </button>
+          <span class="muted small">
+            Page {{ page() }}@if (orders.isFetching()) { · loading… }
+          </span>
+          <button type="button" [disabled]="!hasNext() || orders.isFetching()" (click)="next()">
+            Older →
+          </button>
+        </div>
       }
     }
   `,
@@ -84,7 +96,9 @@ import { myOrdersQuery } from "../lib/queries";
 export class Account {
   protected readonly session = injectCustomerSession();
   protected readonly site = injectEmporixSite();
-  protected readonly orders = myOrdersQuery(20);
+  /** The page, as a signal — read inside the query so changing it refetches. */
+  protected readonly page = signal(1);
+  protected readonly orders = myOrdersQuery(this.page.asReadonly(), 10);
 
   protected readonly money = money;
   protected readonly dateFmt = dateFmt;
@@ -101,6 +115,17 @@ export class Account {
   );
 
   /** `contactEmail` is the field the generated Customer actually carries. */
+  /** Emporix answers `hasNextPage` per page; no total is requested. */
+  protected readonly hasNext = computed(() => this.orders.data()?.hasNextPage ?? false);
+
+  protected prev(): void {
+    this.page.update((p) => Math.max(1, p - 1));
+  }
+
+  protected next(): void {
+    if (this.hasNext()) this.page.update((p) => p + 1);
+  }
+
   protected readonly customerLabel = computed(
     () => this.session.customer()?.contactEmail ?? "…",
   );
