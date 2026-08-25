@@ -139,8 +139,31 @@ injectEmporixQuery(() => ({
   entry can never be served to a customer, but only ever **enabled** with a
   token. Nothing is fetched unauthenticated.
 
-`injectEmporixInfinite` takes the same input plus TanStack's `getNextPageParam`
-and `initialPageParam`.
+### Paginated reads
+
+`injectEmporixInfinite` takes the same input with **`fetchPage` instead of
+`queryFn`**, and nothing else:
+
+```ts
+products = injectEmporixInfinite<Product, readonly [number]>(() => ({
+  resource: "products-infinite",
+  args: [24],
+  site: "full",
+  mode: "read-auth",
+  fetchPage: (pageNumber, ctx) =>
+    this.emporix.client.products.list({ pageNumber, pageSize: 24 }, ctx),
+}))
+```
+
+There is deliberately no `getNextPageParam` or `initialPageParam` to supply. Every
+paginated Emporix endpoint answers with `pageNumber` and `hasNextPage`, so pages
+start at 1 and advance from the server's own `pageNumber + 1` until it says stop —
+one correct way to do it, and no call site restating it. Termination is the
+server's answer, never a trailing empty request.
+
+`fetchPage` receives the page number because it has to: a plain `queryFn()`
+signature cannot see TanStack's `pageParam`, and an earlier version of this
+interface silently re-fetched page one forever for exactly that reason.
 
 ### Outside an injection context
 
