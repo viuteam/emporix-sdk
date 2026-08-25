@@ -31,6 +31,7 @@ import { myOrdersQuery } from "../lib/queries";
         @if (site.siteCode(); as s) {
           <div class="small muted">Active site {{ s }} · {{ site.currency() ?? "—" }}</div>
         }
+        <div><a routerLink="/account/credentials">Password and login email →</a></div>
         @if (session.saasToken()) {
           <div class="small muted">
             A SaaS token is held in this session — customer checkout needs it, and it cannot be

@@ -5,10 +5,11 @@ one `provideEmporix()`, signal-based `inject*` functions over TanStack Query, an
 the same cache keys and auth resolution as `@viu/emporix-sdk-react` — literally
 the same key builder, asserted by test.
 
-**Status: foundation.** The primitives, the site context and the customer session
-are here. The 33 read and mutation injectables that mirror the React hooks are
-not — see [What is not here yet](#what-is-not-here-yet), which names the gap in
-numbers rather than leaving you to discover it by failing to import.
+**Status: foundation.** The primitives, the site context, the customer session and
+the account-credential operations are here. The 33 read and mutation injectables
+that mirror the React catalog, cart, checkout and order hooks are not — see
+[What is not here yet](#what-is-not-here-yet), which names the gap in numbers
+rather than leaving you to discover it by failing to import.
 
 ## Install
 
@@ -222,7 +223,7 @@ export class Login {
 ```
 
 `token`, `refreshToken`, `saasToken`, `customer`, `isAuthenticated`, `isLoading`,
-`isPending`, `error` are signals. `login`, `signup`, `logout` and
+`isPending`, `error` are signals. `login`, `signup`, `confirmSignup`, `logout` and
 `refreshSession` are the actions.
 
 `login` does more than store a token, and the extras are the part worth knowing:
@@ -235,10 +236,41 @@ export class Login {
 3. Switches to the customer's `preferredSite` if it differs, sharing the profile
    cache entry so `/customer/me` is one billed call rather than two.
 
+`confirmSignup(token)` completes a double opt-in signup **and signs the customer
+in** — the response is a full session, so it runs the same path as `login`. That
+diverges from React's `useConfirmSignup`, which returns the session and leaves
+installing it to a caller who has no supported way to do so. Returning a session
+nobody can use is a gap, not a contract worth copying.
+
 `logout` calls the server best-effort, then clears locally regardless, and
 **removes** rather than invalidates the `["emporix"]` cache. Customer-scoped
 entries are keyed by auth kind with no user id, so a later login as a different
 customer would otherwise be served the previous customer's data.
+
+## Credentials and email
+
+`injectCustomerCredentials()` covers the account-management operations, and it is
+split along the one boundary that matters:
+
+```ts
+creds = injectCustomerCredentials()
+// Require a signed-in customer:
+creds.changePassword({ currentPassword, newPassword })
+creds.changeEmail({ newEmail, password })
+// Anonymous by design:
+creds.confirmEmailChange({ token })
+creds.resendActivation({ email })
+```
+
+The two anonymous ones are anonymous on purpose. Their input is a token or an
+address that arrived by email, at a point where the visitor has **no session** —
+gating them on a login would make a confirmation link dead. The two
+customer-scoped ones throw locally when no token is stored, naming the operation,
+rather than letting the SDK reject an unauthenticated call.
+
+`changePassword` invalidates nothing: no read query surfaces a password, so there
+is nothing stale to drop. `changeEmail` refetches the profile, because Emporix
+sends a confirmation first and the profile carries the pending state.
 
 ## Server-side rendering
 
@@ -250,14 +282,15 @@ invalidation model. Hydration is the problem this entry addresses.
 ## What is not here yet
 
 `@viu/emporix-sdk-react` exports **107 hooks**. This foundation ships the
-primitives plus the site and customer-session layers; the injectables that mirror
-those hooks are planned as **33**, and the remaining **74** are out of scope for
-the first release:
+primitives, the site and customer-session layers and the five account-management
+operations; the injectables that mirror the catalog, cart, checkout and order
+hooks are planned as **33**, and the remaining **69** are out of scope for the
+first release:
 
 | Area | Count | Area | Count |
 |---|---|---|---|
 | companies / B2B | 17 | reward points | 4 |
-| customer account extras | 10 | approvals | 4 |
+| customer account extras | 5 | approvals | 4 |
 | catalog extras | 9 | returns | 3 |
 | segments | 7 | coupons | 2 |
 | shopping lists | 6 | cloud functions | 2 |

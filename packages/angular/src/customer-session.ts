@@ -33,6 +33,22 @@ export interface EmporixCustomerSession {
   error: Signal<Error | null>;
   login(input: { email: string; password: string }): Promise<void>;
   signup(input: { email: string; password: string }): Promise<void>;
+  /**
+   * Completes double opt-in signup with the emailed token and **signs the
+   * customer in**.
+   *
+   * Anonymous on the wire — the visitor following a confirmation link has no
+   * session yet — but the response is a full `CustomerSession`, so this applies it
+   * the same way `login` does: tokens stored, guest session dropped, guest cart
+   * merged, `preferredSite` honoured.
+   *
+   * That is a deliberate divergence from `@viu/emporix-sdk-react`, whose
+   * `useConfirmSignup` returns the session and leaves installing it to the
+   * caller — which the caller cannot do, because the equivalent of `applySession`
+   * is private there. Returning a session nobody can use is a gap, not a contract
+   * worth copying.
+   */
+  confirmSignup(token: string): Promise<void>;
   /** Best-effort server logout, then clears the local session unconditionally. */
   logout(): Promise<void>;
   /**
@@ -133,6 +149,13 @@ export function injectCustomerSession(): EmporixCustomerSession {
     signup: (input) =>
       run(async () => {
         await client.customers.signup(input);
+      }),
+
+    confirmSignup: (token) =>
+      run(async () => {
+        // Anonymous: the token came from an email and there is no session yet.
+        const incoming = await client.customers.confirmSignup(token, auth.anonymous());
+        await applySession(incoming);
       }),
 
     logout: () =>

@@ -12,9 +12,18 @@ same key builder, asserted by test over four site/token combinations.
 
 Also in this release: the site context as signals with `setSite` / `setCurrency` /
 `setLanguage` (optimistic, with `switchError` and no rollback), and
-`injectCustomerSession` with login, signup, logout and `refreshSession` — login
-included, meaning guest-cart merge and `preferredSite` handling, not just a token
-write.
+`injectCustomerSession` with login, signup, `confirmSignup`, logout and
+`refreshSession` — login included, meaning guest-cart merge and `preferredSite`
+handling, not just a token write.
+
+`injectCustomerCredentials` covers the account-management operations, split along
+the boundary that matters: `changePassword` and `changeEmail` require a signed-in
+customer, while `confirmEmailChange` and `resendActivation` are anonymous by
+design — their input arrived by email, at a point where there is no session, so
+gating them on a login would make a confirmation link dead. `confirmSignup` sits
+on the session instead and **signs the customer in**, because its response is a
+full session; React's `useConfirmSignup` returns one the caller has no supported
+way to install.
 
 **Built with tsup, not ng-packagr.** The package exports only functions
 (`inject*`, `provide*`, `InjectionToken`) and contains no decorators, so it needs
