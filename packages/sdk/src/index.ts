@@ -38,6 +38,26 @@ export type {
   ServerCookieJar,
   TokenStorage,
 } from "./core/session-storage";
+// The browser backends of the same contract. Named factories plus
+// `sideEffects: false`, so a Node consumer bundles none of them.
+export {
+  createListenerSet,
+  createMemoryStorage,
+  createLocalStorage,
+  createLocalStorageStorage,
+  createSessionStorage,
+  createCookieStorage,
+  fromWebStorage,
+} from "./core/browser-storage";
+// The cache-key shape and the customer-session store: shared by every framework
+// binding, so neither can live in one of them.
+export { emporixKey, siteMeta } from "./core/query-keys";
+export type { SiteFields } from "./core/query-keys";
+export { getCustomerSessionStore } from "./core/customer-session-store";
+export type {
+  CustomerSessionState,
+  CustomerSessionStore,
+} from "./core/customer-session-store";
 export { HttpClient } from "./core/http";
 export type { RequestOptions, HttpClientOptions, HttpResult } from "./core/http";
 export { EmporixClient } from "./client";
