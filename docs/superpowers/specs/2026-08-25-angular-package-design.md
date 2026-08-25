@@ -185,8 +185,15 @@ cut**, in "customer account extras". A storefront with a login also has signup
 confirmation and password change. The cut was reasoned from what a catalog and
 checkout render, and it under-serves account management. Either phase 7 absorbs
 those five, or `docs/angular.md` says plainly that account management is
-incomplete. Left as an open decision rather than silently widened — see
-[Assumptions](#assumptions-to-verify-before-implementing).
+incomplete.
+
+**Resolved (2026-08-25): the five shipped.** They are `injectCustomerCredentials`
+plus `confirmSignup` on the session, which brings the excluded set to 69. The
+numbers above are the design-time figures and are left as written; `docs/angular.md`
+carries the current ones. The implementation also settled a question this section
+did not ask: the five do not share one auth model — two require a customer and
+three are anonymous, because their input arrives by email at a point where no
+session exists.
 
 ### What moves down into `packages/sdk`
 

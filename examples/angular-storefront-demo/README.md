@@ -114,13 +114,16 @@ real, so pick that only if you mean it.
 
 ## What is not here
 
-Compared with `storefront-demo`'s 17 routes, this has 7. The difference is the
-account extras — **shopping lists, reward points and returns**, plus reorder,
-cancel-order, variant pickers, category navigation and the password-reset flow.
-Those sit in the 74 injectables `@viu/emporix-sdk-angular` does not ship yet, so
-building them here would mean hand-rolling a large part of the package's future
-surface inside an example. See the scope table in
-[`docs/angular.md`](../../docs/angular.md).
+Compared with `storefront-demo`'s 17 routes, this has 8. The difference is
+**shopping lists, reward points and returns**, plus reorder, cancel-order, variant
+pickers, category navigation and the password-reset flow. Those sit in the 69
+injectables `@viu/emporix-sdk-angular` does not ship yet, so building them here
+would mean hand-rolling a large part of the package's future surface inside an
+example. See the scope table in [`docs/angular.md`](../../docs/angular.md).
+
+Password and login-email management **is** here, at `/account/credentials` — those
+five operations were originally in the excluded set and were pulled forward,
+because a storefront with a login needs them.
 
 ## Verified, and not
 
