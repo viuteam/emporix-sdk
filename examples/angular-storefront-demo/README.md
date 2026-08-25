@@ -85,11 +85,24 @@ example should not have.
 
 ## Verified, and not
 
-Verified: the production AOT build, every route rendering, lazy chunks loading,
-the setup gate, the guest-vs-customer gating (`mode: "customer"` issues no request
-without a token), and the paused-state surface.
+**Verified live** against the `viu` tenant (`main` / CHF / CH): the catalog and
+search load real products, `searchByName` returns live results and re-keys purely
+from the term signal, a product loads by id with its description and a resolved
+price, a guest cart is created and an item added with the right YRN and price row,
+the cart page renders line, quantity and total, and the header badge follows the
+stored cart id across components.
 
-**Not verified: loading real data.** Nobody has run this against a tenant with
-valid credentials, because none belong in this repository. Every observation above
-was made against a deliberately invalid tenant, which exercises the error paths and
-nothing else.
+Also verified: the production AOT build, every route rendering, lazy chunks
+loading, the setup gate, the guest-vs-customer gating (`mode: "customer"` issues no
+request without a token), and the paused-state surface.
+
+**«price unavailable» on a catalog card is usually correct, not a bug.** Emporix
+resolves price per currency, site and target location, and plenty of products have
+no price in a given context — the live tenant returns an empty match list for most
+of its catalog. The product page shows a real `1,00 CHF` for a product that does
+have one, so the path works; a card without a price is the tenant's answer.
+
+**Not verified: the customer paths.** Sign-in, the account order list and the
+guest-cart merge on login need test-customer credentials, which do not belong in
+this repository. And **no order has been placed** — the checkout page shows its
+payload instead of sending it, deliberately.
