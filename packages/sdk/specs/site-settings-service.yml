@@ -56,6 +56,7 @@ paths:
                         location:
                           latitude: 40.7568658044745
                           longitude: -73.9858713458565
+                        timezone: America/New_York
                       shipToCountries:
                         - US
                       assistedBuying:
@@ -145,6 +146,7 @@ paths:
                     address:
                       country: GB
                       zipCode: '12345'
+                    timezone: Europe/London
                   shipToCountries:
                     - GB
                   mixins: {}
@@ -236,6 +238,7 @@ paths:
                     address:
                       country: GB
                       zipCode: '12345'
+                    timezone: Europe/London
                   shipToCountries:
                     - GB
                   mixins: {}
@@ -1308,6 +1311,7 @@ components:
                   address:
                     zipCode: '12345'
                     country: GB
+                  timezone: Europe/London
                 shipToCountries:
                   - GB
                 metadata:
