@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 2.38.1
+
+### Patch Changes
+
+- [#299](https://github.com/viuteam/emporix-sdk/pull/299) [`6d446df`](https://github.com/viuteam/emporix-sdk/commit/6d446dff17521e0124aca8a6a286ef3f46200bd6) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+
+  Updated services: site-settings-service
+
 ## 2.38.0
 
 ### Minor Changes
