@@ -98,10 +98,27 @@ building them here would mean hand-rolling a large part of the package's future
 surface inside an example. See the scope table in
 [`docs/angular.md`](../../docs/angular.md).
 
-**Checkout stops before submitting.** The page gathers what
-`client.checkout.placeOrder` needs and shows the payload, but does not send it.
-Placing real orders on whatever tenant someone points this at is a side effect an
-example should not have.
+**Checkout is complete and does place orders.** It resolves delivery options from
+the tenant's shipping zones (with the applicable fee via the SDK's `pickFee`),
+offers the configured payment modes, assembles the `CheckoutInput` and calls
+`client.checkout.placeOrder`. The payload is shown in a `<details>` block above the
+button, so you can read exactly what will be sent before sending it.
+
+Four things it has to get right, each of which Emporix rejects otherwise:
+
+- **`customer.id` present exactly when signed in.** Without it a customer
+  checkout answers «Cannot found customer»; with it, a guest is claiming an
+  account it does not own.
+- **The `saas-token` header on a customer checkout.** That token comes from login
+  and cannot be re-minted by a refresh, which is why the session persists it.
+- **One `SHIPPING` and one `BILLING` address.** Billing mirrors shipping here.
+- **Dropping the local cart id on success.** Emporix closes the cart, so a kept
+  id makes every later cart read 404 with nothing to bootstrap over.
+
+The default payment provider is `custom`, which records the order without
+attempting a capture — that is why every existing order on the demo tenant reads
+`IN_CHECKOUT`. Selecting a configured mode routes through the payment gateway for
+real, so pick that only if you mean it.
 
 ## Verified, and not
 
@@ -132,5 +149,8 @@ A cart line whose stored snapshot has no name rendered as a blank cell until the
 bulk name lookup was added; a cart item carries only an `itemYrn`, so names have to
 be resolved separately. Fixed and verified.
 
-**No order has been placed** — the checkout page shows its payload instead of
-sending it, deliberately. That path stays unverified on purpose.
+**The order path is implemented and its payload verified against the live
+tenant** — real customer id, real shipping method resolved from the tenant's zones
+(`methodId: "free"`, `zoneId: "CH"`, `shippingTaxCode: "ZERO"`), `custom` provider
+at the cart total. Whether an order has actually been submitted is a decision for
+whoever runs it; nothing here submits on load.

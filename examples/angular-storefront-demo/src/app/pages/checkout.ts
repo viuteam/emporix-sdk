@@ -1,13 +1,37 @@
-import { Component, computed, signal } from "@angular/core";
+import { Component, computed, linkedSignal, signal } from "@angular/core";
 import { RouterLink } from "@angular/router";
-import { auth } from "@viu/emporix-sdk";
+import {
+  auth,
+  pickFee,
+  resolveZone,
+  type AuthContext,
+  type CheckoutInput,
+  type Zone,
+} from "@viu/emporix-sdk";
 import {
   injectCustomerSession,
   injectEmporix,
   injectEmporixSite,
 } from "@viu/emporix-sdk-angular";
-import { cartLines } from "@viu/emporix-examples-shared";
+import { cartLines, cartTotal, money, pickText } from "@viu/emporix-examples-shared";
 import { cartQuery, paymentModesQuery, shippingZonesQuery } from "../lib/queries";
+
+interface AddressDraft {
+  contactName: string;
+  street: string;
+  streetNumber: string;
+  zipCode: string;
+  city: string;
+  country: string;
+}
+
+interface ShippingChoice {
+  methodId: string;
+  zoneId: string;
+  methodName: string;
+  amount: number;
+  shippingTaxCode?: string;
+}
 
 @Component({
   selector: "app-checkout",
@@ -15,79 +39,155 @@ import { cartQuery, paymentModesQuery, shippingZonesQuery } from "../lib/queries
   template: `
     <h1>Checkout</h1>
 
-    @if (cartId() === null) {
+    @if (orderId(); as id) {
+      <div class="notice stack" style="max-width:560px">
+        <strong>Order placed.</strong>
+        <div>Order id <code>{{ id }}</code></div>
+        <p class="small">
+          Emporix closes the cart on a successful order, so the local cart id was dropped — the
+          next add-to-cart bootstraps a fresh one. Keeping it would 404 every later cart read.
+        </p>
+        <a routerLink="/account">See it in your orders →</a>
+      </div>
+    } @else if (cartId() === null || lines().length === 0) {
       <p class="muted">Nothing to check out. <a routerLink="/">Browse the catalog →</a></p>
     } @else {
       <div class="stack" style="max-width:560px">
-        <div class="card">
-          <div class="row-between">
-            <span>Cart</span>
-            <strong>{{ itemCount() }} item(s)</strong>
-          </div>
+        <div class="card row-between">
+          <span>{{ lines().length }} line(s)</span>
+          <strong>
+            @if (total(); as t) {
+              {{ money(t.amount, t.currency) }}
+            } @else {
+              —
+            }
+          </strong>
         </div>
 
         <h2>Contact</h2>
-        <label>
-          <span>Email</span>
-          <input
-            type="email"
-            required
-            [value]="email()"
-            (input)="email.set($any($event.target).value)"
-          />
-        </label>
+        @if (session.isAuthenticated()) {
+          <p class="small muted">
+            Signed in as <strong>{{ email() }}</strong>. A logged-in checkout identifies the
+            customer by id — Emporix answers «Cannot found customer» without it, and rejects an
+            id a guest is not allowed to claim.
+          </p>
+        } @else {
+          <label>
+            <span>Email</span>
+            <input
+              type="email"
+              required
+              [value]="guestEmail()"
+              (input)="guestEmail.set($any($event.target).value)"
+            />
+          </label>
+        }
+        <div class="row-between" style="gap:0.75rem">
+          <label style="margin:0; flex:1">
+            <span>First name</span>
+            <input [value]="firstName()" (input)="firstName.set($any($event.target).value)" />
+          </label>
+          <label style="margin:0; flex:1">
+            <span>Last name</span>
+            <input [value]="lastName()" (input)="lastName.set($any($event.target).value)" />
+          </label>
+        </div>
 
         <h2>Shipping address</h2>
         <label>
-          <span>Street and number</span>
-          <input [value]="street()" (input)="street.set($any($event.target).value)" />
+          <span>Contact name</span>
+          <input [value]="ship().contactName" (input)="patch('contactName', $event)" />
         </label>
-        <label>
-          <span>Postcode and city</span>
-          <input [value]="city()" (input)="city.set($any($event.target).value)" />
-        </label>
-        <label>
-          <span>Country (ISO-2)</span>
-          <input
-            maxlength="2"
-            [value]="country()"
-            (input)="country.set($any($event.target).value.toUpperCase())"
-          />
-        </label>
+        <div class="row-between" style="gap:0.75rem">
+          <label style="margin:0; flex:3">
+            <span>Street</span>
+            <input [value]="ship().street" (input)="patch('street', $event)" />
+          </label>
+          <label style="margin:0; flex:1">
+            <span>No.</span>
+            <input [value]="ship().streetNumber" (input)="patch('streetNumber', $event)" />
+          </label>
+        </div>
+        <div class="row-between" style="gap:0.75rem">
+          <label style="margin:0; flex:1">
+            <span>Postcode</span>
+            <input [value]="ship().zipCode" (input)="patch('zipCode', $event)" />
+          </label>
+          <label style="margin:0; flex:2">
+            <span>City</span>
+            <input [value]="ship().city" (input)="patch('city', $event)" />
+          </label>
+          <label style="margin:0; flex:1">
+            <span>Country</span>
+            <input maxlength="2" [value]="ship().country" (input)="patch('country', $event)" />
+          </label>
+        </div>
+        <p class="small muted">
+          Billing mirrors shipping here. Emporix requires at least one address of each type; a
+          real storefront would offer a second form.
+        </p>
 
-        <h2>Shipping</h2>
+        <h2>Delivery</h2>
         @if (zones.isPending()) {
           <p class="muted small">Loading shipping options…</p>
-        } @else if (zones.isError()) {
-          <p class="muted small">No shipping options could be loaded.</p>
-        } @else {
+        } @else if (options().length === 0) {
           <p class="muted small">
-            Shipping zones resolved for site <code>{{ site.siteCode() ?? "—" }}</code>.
+            No configured method for <code>{{ ship().country }}</code>, so this falls back to
+            free shipping keyed on the country — visible in the payload below.
           </p>
+        } @else {
+          <label>
+            <span>Method</span>
+            <select (change)="pickShipping($any($event.target).value)">
+              @for (o of options(); track o.methodId) {
+                <option [value]="o.methodId" [selected]="o.methodId === chosenShipping()?.methodId">
+                  {{ o.methodName }} — {{ money(o.amount, currency()) }}
+                </option>
+              }
+            </select>
+          </label>
         }
 
         <h2>Payment</h2>
         @if (modes.isPending()) {
           <p class="muted small">Loading payment modes…</p>
-        } @else if (modes.isError()) {
-          <p class="muted small">No payment modes could be loaded.</p>
         } @else {
-          <p class="muted small">
-            Payment modes load for guests too — the endpoint needs a bearer token but no
-            customer scope, so gating them on a login would hide them from every guest.
+          <label>
+            <span>Mode</span>
+            <select (change)="modeId.set($any($event.target).value || null)">
+              <option value="">custom — no gateway, order stays IN_CHECKOUT</option>
+              @for (m of paymentModes(); track m.id) {
+                <option [value]="m.id" [selected]="m.id === modeId()">{{ m.name ?? m.id }}</option>
+              }
+            </select>
+          </label>
+          <p class="small muted">
+            The <code>custom</code> provider is the default on purpose: it records the order
+            without attempting a capture, which is why every existing order on this tenant reads
+            <code>IN_CHECKOUT</code>. Picking a configured mode routes through the payment
+            gateway for real.
           </p>
         }
 
-        <div class="notice">
-          <strong>This example stops here.</strong>
-          It gathers what <code>client.checkout.placeOrder</code> needs and shows the payload,
-          but does not submit it — placing a real order on a tenant is a side effect an example
-          should not have. Wire the button to <code>placeOrder</code> in your own storefront.
-        </div>
+        @if (error(); as e) {
+          <div class="notice error"><strong>Order failed.</strong> {{ e }}</div>
+        }
+        @if (missing().length > 0) {
+          <div class="notice">Still needed: <strong>{{ missing().join(", ") }}</strong></div>
+        }
+
+        <button
+          class="primary"
+          type="button"
+          [disabled]="placing() || missing().length > 0"
+          (click)="place()"
+        >
+          {{ placing() ? "Placing the order…" : "Place order" }}
+        </button>
 
         <details>
-          <summary class="small">Show the payload this page would send</summary>
-          <pre class="small card" style="overflow-x:auto">{{ payload() }}</pre>
+          <summary class="small">Show the exact payload this sends</summary>
+          <pre class="small card" style="overflow-x:auto">{{ preview() }}</pre>
         </details>
       </div>
     }
@@ -96,19 +196,51 @@ import { cartQuery, paymentModesQuery, shippingZonesQuery } from "../lib/queries
 export class Checkout {
   private readonly emporix = injectEmporix();
   protected readonly site = injectEmporixSite();
-  private readonly session = injectCustomerSession();
+  protected readonly session = injectCustomerSession();
+
+  protected readonly money = money;
 
   protected readonly cartId = signal(this.emporix.storage.getCartId());
   private readonly cart = cartQuery(this.cartId.asReadonly());
-  protected readonly itemCount = computed(() => cartLines(this.cart.data()).length);
+  protected readonly lines = computed(() => cartLines(this.cart.data()));
+  protected readonly total = computed(() => cartTotal(this.cart.data()));
+  protected readonly currency = computed(
+    () => this.total()?.currency ?? this.site.currency() ?? "CHF",
+  );
 
   protected readonly modes = paymentModesQuery();
   protected readonly zones = shippingZonesQuery(this.site.siteCode);
 
-  protected readonly email = signal("");
-  protected readonly street = signal("");
-  protected readonly city = signal("");
-  protected readonly country = signal("CH");
+  protected readonly guestEmail = signal("");
+
+  /**
+   * Prefilled from the profile, still editable.
+   *
+   * `linkedSignal`, not `signal`: the profile arrives asynchronously, so a plain
+   * signal initialised in the constructor would keep "Guest" forever for a
+   * customer who is already signed in. This follows the source until the shopper
+   * types, and re-derives if the source changes — which is exactly the case a
+   * one-shot read gets wrong.
+   */
+  protected readonly firstName = linkedSignal(
+    () => this.session.customer()?.firstName ?? "Guest",
+  );
+  protected readonly lastName = linkedSignal(() => this.session.customer()?.lastName ?? "Shopper");
+
+  protected readonly ship = linkedSignal<AddressDraft>(() => ({
+    contactName: this.contactNameFromProfile(),
+    street: "Rennweg",
+    streetNumber: "38",
+    zipCode: "8001",
+    city: "Zürich",
+    country: "CH",
+  }));
+  protected readonly modeId = signal<string | null>(null);
+  private readonly shippingOverride = signal<string | null>(null);
+
+  protected readonly placing = signal(false);
+  protected readonly error = signal<string | null>(null);
+  protected readonly orderId = signal<string | null>(null);
 
   constructor() {
     this.emporix.storage.subscribeAll?.((key) => {
@@ -116,44 +248,171 @@ export class Checkout {
     });
   }
 
-  /**
-   * The checkout payload, rendered instead of sent.
-   *
-   * Shown rather than submitted on purpose: an example that places orders leaves
-   * real rows on whatever tenant someone points it at.
-   */
-  protected readonly payload = computed(() =>
-    JSON.stringify(
-      {
-        cartId: this.cartId(),
-        customer: this.session.isAuthenticated()
-          ? {
-              id: this.session.customer()?.id,
-              // `contactEmail`, not `email` — the generated Customer has no `email`.
-              email: this.session.customer()?.contactEmail,
-            }
-          : { email: this.email() },
-        addresses: [
-          {
-            type: "SHIPPING",
-            street: this.street(),
-            city: this.city(),
-            country: this.country(),
-          },
-        ],
-        // The auth context the call would carry, by kind only — never the token.
-        authKind: this.emporix.storage.getCustomerToken() !== null ? "customer" : "anonymous",
-        siteCode: this.site.siteCode(),
-        currency: this.site.currency(),
-      },
-      null,
-      2,
-    ),
+  /** The profile's name, when it has one — otherwise a placeholder. */
+  private contactNameFromProfile(): string {
+    const c = this.session.customer();
+    const parts = [c?.firstName, c?.lastName].filter((v): v is string => typeof v === "string");
+    return parts.length > 0 ? parts.join(" ") : "Guest Shopper";
+  }
+
+  /** A logged-in customer checks out under their account email. */
+  protected readonly email = computed(() =>
+    this.session.isAuthenticated()
+      ? (this.session.customer()?.contactEmail ?? this.guestEmail())
+      : this.guestEmail(),
   );
 
-  /** Kept so the import is exercised and the shape is visible to a reader. */
-  protected authContext(): ReturnType<typeof auth.anonymous> {
-    const token = this.emporix.storage.getCustomerToken();
-    return token !== null ? auth.customer(token) : auth.anonymous();
+  /**
+   * Delivery options for the typed country, each with its applicable fee.
+   *
+   * `resolveZone` and `pickFee` come from the SDK rather than being re-derived
+   * here: the fee rule is «highest `minOrderValue` at or below the cart total»,
+   * and the `<=` matters — a total that exactly meets a free-shipping threshold
+   * should get free shipping.
+   */
+  protected readonly options = computed<ShippingChoice[]>(() => {
+    const zone = resolveZone(this.zones.data() as Zone[] | undefined, this.ship().country);
+    if (zone === undefined) return [];
+    const cartAmount = this.total()?.amount ?? 0;
+    const out: ShippingChoice[] = [];
+    // Skip inactive methods and ones with no fee table: neither is selectable,
+    // and offering them means an order Emporix rejects.
+    const selectable = (zone.methods ?? []).filter(
+      (m) => m.active !== false && (m.fees?.length ?? 0) > 0,
+    );
+    for (const method of selectable) {
+      const fee = pickFee(method.fees, cartAmount);
+      if (fee === undefined || method.id === undefined || zone.id === undefined) continue;
+      out.push({
+        methodId: method.id,
+        zoneId: zone.id,
+        methodName: pickText(method.name, method.id),
+        amount: fee.cost?.amount ?? 0,
+        ...(method.shippingTaxCode !== undefined
+          ? { shippingTaxCode: method.shippingTaxCode }
+          : {}),
+      });
+    }
+    return out;
+  });
+
+  protected readonly chosenShipping = computed<ShippingChoice | undefined>(() => {
+    const all = this.options();
+    const override = this.shippingOverride();
+    return all.find((o) => o.methodId === override) ?? all[0];
+  });
+
+  protected readonly paymentModes = computed(
+    () => (this.modes.data() as Array<{ id?: string; name?: string }> | undefined) ?? [],
+  );
+
+  /** What the form still lacks, so the disabled button says why. */
+  protected readonly missing = computed(() => {
+    const out: string[] = [];
+    const a = this.ship();
+    if (this.email().trim() === "") out.push("email");
+    if (a.contactName.trim() === "") out.push("contact name");
+    if (a.street.trim() === "") out.push("street");
+    if (a.zipCode.trim() === "") out.push("postcode");
+    if (a.city.trim() === "") out.push("city");
+    if (a.country.trim().length !== 2) out.push("country (ISO-2)");
+    return out;
+  });
+
+  protected patch(key: keyof AddressDraft, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.ship.update((a) => ({ ...a, [key]: key === "country" ? value.toUpperCase() : value }));
+  }
+
+  protected pickShipping(methodId: string): void {
+    this.shippingOverride.set(methodId === "" ? null : methodId);
+  }
+
+  /** The payload, rendered so a reader can check it before pressing the button. */
+  protected readonly preview = computed(() => JSON.stringify(this.buildInput(), null, 2));
+
+  private buildInput(): CheckoutInput {
+    const a = this.ship();
+    const address = (type: "SHIPPING" | "BILLING") => ({
+      contactName: a.contactName,
+      street: a.street,
+      ...(a.streetNumber !== "" ? { streetNumber: a.streetNumber } : {}),
+      zipCode: a.zipCode,
+      city: a.city,
+      country: a.country,
+      type,
+    });
+    const chosen = this.chosenShipping();
+    const amount = this.total()?.amount ?? 0;
+    const customerId = this.session.customer()?.id;
+    const authenticated = this.session.isAuthenticated();
+
+    return {
+      cartId: this.cartId() ?? "",
+      customer: {
+        // Present iff logged in. Emporix answers "Cannot found customer" when a
+        // customer checkout omits the id, and rejects an id a guest claims.
+        ...(authenticated && customerId !== undefined ? { id: customerId } : {}),
+        email: this.email(),
+        firstName: this.firstName(),
+        lastName: this.lastName(),
+        guest: !authenticated,
+      },
+      // At least one SHIPPING and one BILLING are required by the API.
+      addresses: [address("SHIPPING"), address("BILLING")],
+      shipping:
+        chosen !== undefined
+          ? {
+              methodId: chosen.methodId,
+              zoneId: chosen.zoneId,
+              methodName: chosen.methodName,
+              amount: chosen.amount,
+              ...(chosen.shippingTaxCode !== undefined
+                ? { shippingTaxCode: chosen.shippingTaxCode }
+                : {}),
+            }
+          : { methodId: "free", zoneId: a.country, methodName: "Free Shipping", amount: 0 },
+      paymentMethods:
+        this.modeId() !== null
+          ? [
+              {
+                provider: "payment-gateway",
+                customAttributes: { modeId: this.modeId() as string },
+                amount,
+              },
+            ]
+          : [{ provider: "custom", amount }],
+      currency: this.currency(),
+    };
+  }
+
+  /**
+   * Place the order.
+   *
+   * Three things Emporix rejects otherwise: the customer id present exactly when
+   * logged in, the `saas-token` header on a customer checkout, and dropping the
+   * local cart id on success — the cart is closed server-side, so a kept id makes
+   * every later cart read 404 with nothing to bootstrap over.
+   */
+  protected async place(): Promise<void> {
+    if (this.missing().length > 0) return;
+    this.error.set(null);
+    this.placing.set(true);
+    try {
+      const token = this.emporix.storage.getCustomerToken();
+      const ctx: AuthContext = token !== null ? auth.customer(token) : auth.anonymous();
+      const saasToken = this.session.saasToken();
+      const siteCode = this.site.siteCode();
+      const result = await this.emporix.client.checkout.placeOrder(this.buildInput(), ctx, {
+        ...(this.session.isAuthenticated() && saasToken !== null ? { saasToken } : {}),
+        ...(siteCode !== null ? { siteCode } : {}),
+      });
+      this.orderId.set(result.orderId ?? "(no order id returned)");
+      this.emporix.storage.setCartId(null);
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : String(e));
+    } finally {
+      this.placing.set(false);
+    }
   }
 }
