@@ -1,14 +1,14 @@
-import { Component, computed, inject, signal } from "@angular/core";
+import { Component, computed, inject } from "@angular/core";
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from "@angular/router";
 import {
+  injectCart,
   injectCustomerSession,
   injectEmporix,
   injectEmporixSite,
   injectEmporixSiteSwitch,
 } from "@viu/emporix-sdk-angular";
-import { clearConfig } from "./config";
 import { cartLines } from "@viu/emporix-examples-shared";
-import { injectCart } from "@viu/emporix-sdk-angular";
+import { clearConfig } from "./config";
 
 /**
  * Header, footer and the router outlet.
