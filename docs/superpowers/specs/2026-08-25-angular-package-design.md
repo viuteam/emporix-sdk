@@ -337,6 +337,15 @@ toolchain premise before anything is built on it.
 
 One changeset per PR. The package starts at `0.x` under `minor`, as `next` did.
 
+**Status (2026-08-25): phases 1–7 are done and phase 8 is partial.** Phases 4–7
+landed directly rather than through their own plan — see the resolution note in
+[the implementation plan](../plans/2026-08-25-angular-package-foundation.md). Of
+phase 8, the docs, the READMEs and the example app are complete; **the e2e suite is
+not**. `e2e/playwright.config.ts` boots `examples/vite-spa` only, so no CI job
+drives the Angular storefront through a browser. Everything Angular-side has been
+verified by hand against the `viu` tenant instead, up to and including a placed
+order — which is evidence, but not a regression gate.
+
 ## Assumptions to verify before implementing
 
 - ~~**The AOT production build is the whole premise and has not been run.**~~

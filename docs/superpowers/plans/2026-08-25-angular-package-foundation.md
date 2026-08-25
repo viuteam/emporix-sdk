@@ -14,6 +14,26 @@
 
 The spec defines eight phases. **This plan covers phases 1–3 only** — the foundation.
 
+**Resolved (2026-08-25): phases 4–7 landed without the follow-up plan this
+document anticipated.** The reason for deferring them was that their test shape
+depended on an unresolved question — which Angular test harness works under
+Vitest. Task 1 answered it (`TestBed` with `@angular/platform-browser/testing`,
+reset in the setup file, positive assertions through a bounded `settleUntil`), and
+with that answered the 33 injectables were mechanical enough to write directly:
+seven area files, 79 tests, no new architectural decisions. Writing a second plan
+to describe mechanical work would have been ceremony.
+
+Two things that only appeared while building them, neither of which a plan would
+have predicted: `injectProductMedia` must not call the Media Service (it defaults
+to a service-account context), and `injectEmporixInfinite` was dropping TanStack's
+`pageParam` — a bug this plan's own Task 6 shipped and nothing caught until a
+consumer needed page two.
+
+**Phase 8 is partially done.** `docs/angular.md`, the READMEs and the example app
+are complete. **The e2e suite is not**: `e2e/playwright.config.ts` still boots
+`examples/vite-spa` only, so nothing in CI drives the Angular storefront through a
+browser. That is the last open item from the spec's eight phases.
+
 That is a deliberate split, not a shortcut. Phases 4–7 are 33 injectables written against one pattern, and the shape of every one of their tests depends on a question this plan settles empirically in Task 1 (which Angular test harness works under Vitest). Writing 33 injectables' worth of test code before that answer exists means writing it twice. Phases 4–8 get their own plan, authored after Task 6 lands.
 
 What this plan delivers is working, usable software on its own: a consumer can `provideEmporix(...)`, write their own queries through `injectEmporixQuery`, read and switch the active site, and log a customer in — all with no token-freshness or cache-key bugs, and all proven against a real production build.
