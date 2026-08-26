@@ -77,6 +77,13 @@ function makeClient() {
     checkout: { placeOrder: vi.fn(async () => ({ orderId: "EON1" })) },
     orders: { listMine: listFn(), get: fn(), cancel: fn(), transition: fn() },
     salesOrders: { get: fn(), update: fn() },
+    segments: {
+      list: vi.fn(async () => []),
+      listItems: vi.fn(async () => []),
+      listMyProducts: listFn(),
+      listMyCategories: listFn(),
+      getCategoryTree: vi.fn(async () => ({ children: [] })),
+    },
     rewardPoints: {
       getMyPoints: vi.fn(async () => 0),
       getMySummary: fn(),
@@ -230,6 +237,13 @@ const customerReads: Array<{
   { name: "injectRedeemOptions", resource: "reward-redeem-options", run: () => I.injectRedeemOptions(), called: () => client.rewardPoints.listRedeemOptions },
   { name: "injectMyReturns", resource: "returns", run: () => I.injectMyReturns(signal({})), called: () => client.returns.listReturns },
   { name: "injectReturn", resource: "return", run: () => I.injectReturn(signal("r1")), called: () => client.returns.getReturn },
+  { name: "injectMySegments", resource: "segments", run: () => I.injectMySegments(signal({})), called: () => client.segments.list },
+  { name: "injectMySegmentItems", resource: "segment-items", run: () => I.injectMySegmentItems(signal({})), called: () => client.segments.listItems },
+  { name: "injectMySegmentProducts", resource: "segment-products", run: () => I.injectMySegmentProducts(signal({})), called: () => client.segments.listMyProducts },
+  { name: "injectMySegmentProductsInfinite", resource: "segment-products-infinite", run: () => I.injectMySegmentProductsInfinite(signal({}), signal(10)), called: () => client.segments.listMyProducts },
+  { name: "injectMySegmentCategories", resource: "segment-categories", run: () => I.injectMySegmentCategories(signal({})), called: () => client.segments.listMyCategories },
+  { name: "injectMySegmentCategoriesInfinite", resource: "segment-categories-infinite", run: () => I.injectMySegmentCategoriesInfinite(signal({}), signal(10)), called: () => client.segments.listMyCategories },
+  { name: "injectMySegmentCategoryTree", resource: "segment-category-tree", run: () => I.injectMySegmentCategoryTree(signal({})), called: () => client.segments.getCategoryTree },
 ];
 
 describe.each(customerReads)("$name", ({ resource, run, called }) => {

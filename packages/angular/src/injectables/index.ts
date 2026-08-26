@@ -17,5 +17,6 @@ export * from "./customer";
 export * from "./orders";
 export * from "./loyalty";
 export * from "./returns";
+export * from "./segments";
 export * from "./shopping-lists";
 export * from "./site";

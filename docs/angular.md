@@ -5,6 +5,13 @@ one `provideEmporix()`, signal-based `inject*` functions over TanStack Query, an
 the same cache keys and auth resolution as `@viu/emporix-sdk-react` — literally
 the same key builder, asserted by test.
 
+**One exception to that key parity: the seven segment reads.** React's segment
+hooks hand-roll `["emporix", "segment", "list", { … }]` instead of calling
+`emporixKey`, so their keys differ from the ones here, which go through the
+shared builder like every other read (`["emporix", "segments", …]`). Closing the
+gap means fixing the React side; hand-rolling keys here would also drop them out
+of the `["emporix"]`-scoped defaults and invalidation.
+
 **Status: complete for a storefront.** The primitives, the site context, the
 customer session, the account-credential operations and the 33 read and mutation
 injectables are all here. What is still out is listed in
