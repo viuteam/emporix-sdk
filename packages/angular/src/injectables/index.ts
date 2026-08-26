@@ -9,8 +9,11 @@
  * `injectEmporixInfinite`. That is deliberate — the auth resolution, the cache key
  * and the `enabled` gate live in one place, so an area cannot drift from the rest.
  */
+export * from "./approvals";
 export * from "./catalog";
+export * from "./cloud-functions";
 export * from "./price";
+export * from "./session-attributes";
 export * from "./cart";
 export * from "./checkout";
 export * from "./customer";

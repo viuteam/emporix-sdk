@@ -77,6 +77,13 @@ function makeClient() {
     checkout: { placeOrder: vi.fn(async () => ({ orderId: "EON1" })) },
     orders: { listMine: listFn(), get: fn(), cancel: fn(), transition: fn() },
     salesOrders: { get: fn(), update: fn() },
+    approvals: {
+      listApprovals: vi.fn(async () => ({ items: [] })),
+      getApproval: fn(),
+      createApproval: vi.fn(async () => ({ id: "ap1" })),
+      updateApproval: fn(),
+    },
+    cloudFunctions: { invoke: fn() },
     segments: {
       list: vi.fn(async () => []),
       listItems: vi.fn(async () => []),
@@ -204,6 +211,7 @@ const guestReads: Array<{
   { name: "injectPaymentModes", resource: "payment-modes", run: () => I.injectPaymentModes(), called: () => client.payments.listPaymentModes },
   { name: "injectShippingZones", resource: "shipping-zones", run: () => I.injectShippingZones(), called: () => client.shipping.listZones },
   { name: "injectSites", resource: "sites", run: () => I.injectSites(), called: () => client.sites.list },
+  { name: "injectCloudFunction", resource: "cloud-function", run: () => I.injectCloudFunction(signal("fn1")), called: () => client.cloudFunctions.invoke },
 ];
 
 describe.each(guestReads)("$name", ({ resource, run, called }) => {
@@ -244,6 +252,8 @@ const customerReads: Array<{
   { name: "injectMySegmentCategories", resource: "segment-categories", run: () => I.injectMySegmentCategories(signal({})), called: () => client.segments.listMyCategories },
   { name: "injectMySegmentCategoriesInfinite", resource: "segment-categories-infinite", run: () => I.injectMySegmentCategoriesInfinite(signal({}), signal(10)), called: () => client.segments.listMyCategories },
   { name: "injectMySegmentCategoryTree", resource: "segment-category-tree", run: () => I.injectMySegmentCategoryTree(signal({})), called: () => client.segments.getCategoryTree },
+  { name: "injectApprovals", resource: "approvals", run: () => I.injectApprovals(signal({})), called: () => client.approvals.listApprovals },
+  { name: "injectApproval", resource: "approval", run: () => I.injectApproval(signal("ap1")), called: () => client.approvals.getApproval },
 ];
 
 describe.each(customerReads)("$name", ({ resource, run, called }) => {
