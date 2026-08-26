@@ -1,7 +1,6 @@
 import { computed, inject, signal, type Injector, type Signal } from "@angular/core";
 import { injectQueryClient, type CreateQueryResult } from "@tanstack/angular-query-experimental";
 import {
-  auth,
   EmporixError,
   EmporixNotFoundError,
   type AuthContext,
@@ -20,6 +19,7 @@ import { injectEmporix } from "../provide";
 import { injectEmporixQuery } from "../inject-query";
 import { injectEmporixSite } from "../site";
 import { cartIdSignal } from "../storage-signal";
+import { ctxFor, writeBundle } from "../write-bundle";
 
 export interface CartOpts {
   injector?: Injector;
@@ -28,11 +28,6 @@ export interface CartOpts {
 
 const pass = (o: CartOpts): { injector?: Injector } =>
   o.injector !== undefined ? { injector: o.injector } : {};
-
-const ctxFor = (storage: EmporixStorage): AuthContext => {
-  const token = storage.getCustomerToken();
-  return token !== null ? auth.customer(token) : auth.anonymous();
-};
 
 /**
  * A cart by id, falling back to the stored cart id.
@@ -225,10 +220,16 @@ export interface EmporixCartMutations {
 export function injectCartMutations(cartId?: Signal<string | null>): EmporixCartMutations {
   const client: EmporixClient = inject(EMPORIX_CLIENT);
   const storage: EmporixStorage = inject(EMPORIX_STORAGE);
-  const qc = injectQueryClient();
-  const isPending = signal(false);
-  const error = signal<Error | null>(null);
+  const b = writeBundle([
+    ["emporix", "cart"],
+    ["emporix", "cart-items"],
+  ]);
 
+  /**
+   * Stays here rather than moving into `writeBundle`: resolving a cart id at
+   * call time is a cart concern, and every other bundle takes its ids from the
+   * caller.
+   */
   const resolveId = (): string => {
     const id = cartId?.() ?? storage.getCartId();
     if (id === null || id === undefined) {
@@ -239,26 +240,13 @@ export function injectCartMutations(cartId?: Signal<string | null>): EmporixCart
     return id;
   };
 
-  const write = async <T>(work: (id: string, ctx: AuthContext) => Promise<T>): Promise<T> => {
-    error.set(null);
-    isPending.set(true);
-    try {
-      const result = await work(resolveId(), ctxFor(storage));
-      await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
-      await qc.invalidateQueries({ queryKey: ["emporix", "cart-items"] });
-      return result;
-    } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      error.set(err);
-      throw err;
-    } finally {
-      isPending.set(false);
-    }
-  };
+  /** Thrown inside the bundle's `write`, so a missing cart id lands on `error()`. */
+  const write = <T>(work: (id: string, ctx: AuthContext) => Promise<T>): Promise<T> =>
+    b.write((ctx) => work(resolveId(), ctx));
 
   return {
-    isPending: isPending.asReadonly(),
-    error: error.asReadonly(),
+    isPending: b.isPending,
+    error: b.error,
     addItem: (item) => write((id, ctx) => client.carts.addItem(id, item, ctx)),
     updateItem: (v) =>
       write((id, ctx) =>

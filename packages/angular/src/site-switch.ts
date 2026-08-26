@@ -1,8 +1,9 @@
 import { inject } from "@angular/core";
 import { injectQueryClient } from "@tanstack/angular-query-experimental";
-import { auth, type AuthContext, type EmporixClient, type EmporixStorage } from "@viu/emporix-sdk";
+import type { EmporixClient, EmporixStorage } from "@viu/emporix-sdk";
 import { EMPORIX_CLIENT, EMPORIX_SITE_INTERNAL, EMPORIX_STORAGE } from "./tokens";
 import type { SiteStateWritables } from "./site";
+import { ctxFor } from "./write-bundle";
 
 /**
  * The `isSwitching`-bracketed async tail shared by all three switches: flip the
@@ -23,12 +24,6 @@ async function runSwitch(work: () => Promise<unknown>, w: SiteStateWritables): P
     w.isSwitching.set(false);
   }
 }
-
-/** Resolve the auth context from whatever token is stored right now. */
-const ctxFor = (storage: EmporixStorage): AuthContext => {
-  const token = storage.getCustomerToken();
-  return token !== null ? auth.customer(token) : auth.anonymous();
-};
 
 export interface EmporixSiteSwitch {
   /** Switch the active site. `null` unbinds it. Optimistic; the cart is dropped. */

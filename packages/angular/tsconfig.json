@@ -5,7 +5,8 @@
     "lib": ["ES2022", "DOM"],
     "types": ["node"],
     "experimentalDecorators": false,
-    "emitDecoratorMetadata": false
+    "emitDecoratorMetadata": false,
+    "noUnusedLocals": true
   },
   "include": ["src", "tests", "vitest.setup.ts"]
 }
