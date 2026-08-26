@@ -11,6 +11,7 @@
  */
 export * from "./approvals";
 export * from "./catalog";
+export * from "./companies";
 export * from "./cloud-functions";
 export * from "./price";
 export * from "./session-attributes";

@@ -6,8 +6,17 @@ import {
   type EmporixClient,
   type EmporixStorage,
 } from "@viu/emporix-sdk";
-import { EMPORIX_CLIENT, EMPORIX_SITE, EMPORIX_SITE_INTERNAL, EMPORIX_STORAGE } from "./tokens";
+import {
+  EMPORIX_CLIENT,
+  EMPORIX_COMPANY,
+  EMPORIX_COMPANY_INTERNAL,
+  EMPORIX_SITE,
+  EMPORIX_SITE_INTERNAL,
+  EMPORIX_STORAGE,
+} from "./tokens";
 import { createSiteState } from "./site";
+import { createCompanyState } from "./company";
+import { createRescope } from "./company-switch";
 
 export interface EmporixConfig {
   client: EmporixClient;
@@ -19,6 +28,13 @@ export interface EmporixConfig {
   initialSiteCode?: string;
   /** Initial language. Order: this → storage → client config → null. */
   initialLanguage?: string;
+  /**
+   * Initial active legal entity. Order: this → storage → null.
+   *
+   * Matched against what the tenant says the customer is assigned to, so an id
+   * they no longer belong to does not stay active.
+   */
+  initialLegalEntityId?: string;
 }
 
 /**
@@ -76,11 +92,24 @@ export function provideEmporix(config: EmporixConfig): EnvironmentProviders {
     ...(config.initialSiteCode !== undefined ? { siteCode: config.initialSiteCode } : {}),
     ...(config.initialLanguage !== undefined ? { language: config.initialLanguage } : {}),
   });
+  // One rescope queue per injector, built here rather than in
+  // `injectCompanySwitch`, so the bootstrap's auto-pick and every user click
+  // serialize against each other. See `createRescope`.
+  const company = createCompanyState(
+    config.client,
+    storage,
+    config.initialLegalEntityId !== undefined
+      ? { legalEntityId: config.initialLegalEntityId }
+      : {},
+    createRescope(config.client, storage, queryClient),
+  );
   return makeEnvironmentProviders([
     { provide: EMPORIX_CLIENT, useValue: config.client },
     { provide: EMPORIX_STORAGE, useValue: storage },
     { provide: EMPORIX_SITE, useValue: site },
     { provide: EMPORIX_SITE_INTERNAL, useValue: site.internal },
+    { provide: EMPORIX_COMPANY, useValue: company },
+    { provide: EMPORIX_COMPANY_INTERNAL, useValue: company },
     provideTanStackQuery(queryClient),
   ]);
 }

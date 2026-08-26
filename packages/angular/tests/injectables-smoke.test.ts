@@ -77,6 +77,20 @@ function makeClient() {
     checkout: { placeOrder: vi.fn(async () => ({ orderId: "EON1" })) },
     orders: { listMine: listFn(), get: fn(), cancel: fn(), transition: fn() },
     salesOrders: { get: fn(), update: fn() },
+    companies: {
+      listMine: vi.fn(async () => []),
+      get: fn(),
+      create: fn(),
+      update: fn(),
+      delete: fn(),
+    },
+    contacts: { listForCompany: vi.fn(async () => []), assign: fn(), update: fn(), unassign: fn() },
+    locations: { listForCompany: vi.fn(async () => []), create: fn(), update: fn(), delete: fn() },
+    customerGroups: {
+      listForCompany: vi.fn(async () => []),
+      addMember: fn(),
+      removeMember: fn(),
+    },
     approvals: {
       listApprovals: vi.fn(async () => ({ items: [] })),
       getApproval: fn(),
@@ -254,6 +268,11 @@ const customerReads: Array<{
   { name: "injectMySegmentCategoryTree", resource: "segment-category-tree", run: () => I.injectMySegmentCategoryTree(signal({})), called: () => client.segments.getCategoryTree },
   { name: "injectApprovals", resource: "approvals", run: () => I.injectApprovals(signal({})), called: () => client.approvals.listApprovals },
   { name: "injectApproval", resource: "approval", run: () => I.injectApproval(signal("ap1")), called: () => client.approvals.getApproval },
+  { name: "injectMyCompanies", resource: "my-companies", run: () => I.injectMyCompanies(), called: () => client.companies.listMine },
+  { name: "injectCompany", resource: "company", run: () => I.injectCompany(signal("le1")), called: () => client.companies.get },
+  { name: "injectCompanyContacts", resource: "company-contacts", run: () => I.injectCompanyContacts(signal("le1")), called: () => client.contacts.listForCompany },
+  { name: "injectCompanyGroups", resource: "company-groups", run: () => I.injectCompanyGroups(signal("le1")), called: () => client.customerGroups.listForCompany },
+  { name: "injectCompanyLocations", resource: "company-locations", run: () => I.injectCompanyLocations(signal("le1")), called: () => client.locations.listForCompany },
 ];
 
 describe.each(customerReads)("$name", ({ resource, run, called }) => {
