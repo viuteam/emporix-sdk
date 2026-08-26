@@ -3,9 +3,10 @@ import type { Routes } from "@angular/router";
 /**
  * Lazy per route, so the initial bundle carries the shell and the catalog only.
  *
- * The React demo has 17 routes; this one has 8 real ones. The difference is the
- * account extras — shopping lists, rewards and returns — whose injectables are in
- * the 74 that `@viu/emporix-sdk-angular` does not ship yet. See the README.
+ * Ten routes. The two account extras exist to exercise the parts of the package
+ * that unit tests can only mock: `/account/lists` drives a mutation bundle end to
+ * end, and `/account/company` renders all three B2B modes including the
+ * `unresolved` picker.
  */
 export const routes: Routes = [
   { path: "", loadComponent: () => import("./pages/home").then((m) => m.Home) },
@@ -21,6 +22,11 @@ export const routes: Routes = [
   {
     path: "account/credentials",
     loadComponent: () => import("./pages/credentials").then((m) => m.Credentials),
+  },
+  { path: "account/lists", loadComponent: () => import("./pages/lists").then((m) => m.Lists) },
+  {
+    path: "account/company",
+    loadComponent: () => import("./pages/company").then((m) => m.CompanyPage),
   },
   { path: "**", redirectTo: "" },
 ];

@@ -1,0 +1,90 @@
+<p class="small"><a routerLink="/account">← Account</a></p>
+<h1>Company</h1>
+
+@if (!session.isAuthenticated()) {
+  <div class="notice">
+    <strong>Not signed in.</strong> The company context issues no request without a customer
+    token, and stays in <code>b2c</code>. <a routerLink="/login">Sign in →</a>
+  </div>
+} @else {
+  <div class="stack" style="max-width:560px">
+    <div class="card stack">
+      <div class="row-between">
+        <strong>Mode</strong>
+        <code>{{ company.mode() }}</code>
+      </div>
+      <div class="row-between">
+        <span class="muted">Status</span>
+        <code>{{ company.status() }}</code>
+      </div>
+      <div class="row-between">
+        <span class="muted">Active company</span>
+        <span>{{ company.activeCompany() ? nameOf(company.activeCompany()) : "—" }}</span>
+      </div>
+    </div>
+
+    @switch (company.mode()) {
+      @case ("unresolved") {
+        <div class="notice">
+          <strong>Pick a company.</strong> You are assigned to
+          {{ options().length }} of them and none is active. This state exists so a storefront
+          cannot guess — guessing shows one company's prices to a buyer who belongs to another.
+        </div>
+      }
+      @case ("b2b") {
+        <div class="notice">
+          Prices, carts and orders on this session are scoped to
+          <strong>{{ nameOf(company.activeCompany()) }}</strong>. Switching rotates the
+          customer token server-side and drops the cart.
+        </div>
+      }
+      @case ("b2c") {
+        <div class="notice">
+          No company active. @if (options().length === 0) {
+            This customer is not assigned to any legal entity on this tenant.
+          } @else {
+            A single-company customer is switched in automatically, so seeing this with one
+            option available means the rescope failed — check the error below.
+          }
+        </div>
+      }
+    }
+
+    @if (errorText(); as message) {
+      <div class="notice error"><strong>Switch failed.</strong> {{ message }}</div>
+    }
+
+    @if (options().length > 0) {
+      <div class="card stack">
+        <strong>Switch</strong>
+        @for (entity of options(); track idOf(entity)) {
+          <button
+            type="button"
+            [disabled]="switcher.isSwitching() || idOf(entity) === idOf(company.activeCompany())"
+            (click)="pick(idOf(entity))"
+          >
+            {{ nameOf(entity) }}
+            @if (idOf(entity) === idOf(company.activeCompany())) {
+              <span class="muted small">— active</span>
+            }
+          </button>
+        }
+        <button
+          type="button"
+          [disabled]="switcher.isSwitching() || company.activeCompany() === null"
+          (click)="pick('')"
+        >
+          Back to B2C
+        </button>
+        @if (switcher.isSwitching()) {
+          <p class="muted small">Rescoping the session…</p>
+        }
+        <p class="small muted">
+          Concurrent switches are queued, not raced: both would read the same refresh token,
+          and Emporix rotates it server-side, so the second would spend one the first already
+          consumed.
+        </p>
+      </div>
+    }
+  </div>
+}
