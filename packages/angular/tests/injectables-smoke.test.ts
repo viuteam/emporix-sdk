@@ -75,7 +75,8 @@ function makeClient() {
     payments: { listPaymentModes: vi.fn(async () => []), getMode: fn(), initialize: fn() },
     shipping: { listZones: vi.fn(async () => []) },
     checkout: { placeOrder: vi.fn(async () => ({ orderId: "EON1" })) },
-    orders: { listMine: listFn(), get: fn() },
+    orders: { listMine: listFn(), get: fn(), cancel: fn(), transition: fn() },
+    salesOrders: { get: fn(), update: fn() },
     customers: {
       me: vi.fn(async () => ({ id: "c1" })),
       update: fn(),
@@ -202,6 +203,7 @@ const customerReads: Array<{
   { name: "injectOrder", resource: "order", run: () => I.injectOrder(signal("o1")), called: () => client.orders.get },
   { name: "injectCustomerAddresses", resource: "customer-addresses", run: () => I.injectCustomerAddresses(), called: () => client.customers.addresses.list },
   { name: "injectCustomerAddress", resource: "customer-address", run: () => I.injectCustomerAddress(signal("a1")), called: () => client.customers.addresses.get },
+  { name: "injectSalesOrder", resource: "sales-order", run: () => I.injectSalesOrder(signal("EON1")), called: () => client.salesOrders.get },
 ];
 
 describe.each(customerReads)("$name", ({ resource, run, called }) => {
