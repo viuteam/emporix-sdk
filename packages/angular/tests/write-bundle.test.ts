@@ -82,6 +82,31 @@ describe("writeBundle", () => {
     expect(b.error()).toBeNull();
   });
 
+  /**
+   * Customer-only writes must fail locally, not at the server. An anonymous
+   * request to a customer-scoped endpoint spends a billed call to come back with
+   * a generic scope error; throwing here names the operation and costs nothing.
+   */
+  it("customerOnly throws locally, naming the operation, and spends no request", async () => {
+    const work = vi.fn(async () => "never");
+    const b = TestBed.runInInjectionContext(() =>
+      writeBundle([["emporix", "shopping-lists"]], { customerOnly: true }),
+    );
+    await expect(b.write(work, "createShoppingList")).rejects.toThrow(
+      "createShoppingList requires a signed-in customer",
+    );
+    expect(work).not.toHaveBeenCalled();
+    expect(b.error()?.message).toContain("createShoppingList");
+  });
+
+  it("customerOnly passes the customer context once a token is stored", async () => {
+    storage.setCustomerToken("t1");
+    const b = TestBed.runInInjectionContext(() =>
+      writeBundle([["emporix", "x"]], { customerOnly: true }),
+    );
+    await expect(b.write(async (ctx) => ctx.kind, "op")).resolves.toBe("customer");
+  });
+
   it("passes a customer context when a token is stored, anonymous otherwise", async () => {
     const b = TestBed.runInInjectionContext(() => writeBundle([["emporix", "x"]]));
     const guest = await b.write(async (ctx) => ctx.kind);

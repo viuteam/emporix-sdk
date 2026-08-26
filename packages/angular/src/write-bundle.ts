@@ -15,13 +15,40 @@ export const ctxFor = (storage: EmporixStorage): AuthContext => {
   return token !== null ? auth.customer(token) : auth.anonymous();
 };
 
+/**
+ * A customer context, or a thrown error naming the operation.
+ *
+ * Thrown locally rather than letting the server reject an unauthenticated call:
+ * the request is not spent, and the message says which operation was attempted
+ * without a session instead of a generic scope error.
+ */
+export const requireCustomer = (storage: EmporixStorage, operation: string): AuthContext => {
+  const token = storage.getCustomerToken();
+  if (token === null) throw new Error(`${operation} requires a signed-in customer`);
+  return auth.customer(token);
+};
+
 export interface WriteBundle {
   /** True while any write from this bundle is in flight. */
   isPending: Signal<boolean>;
   /** The last write's failure, cleared when the next one starts. */
   error: Signal<Error | null>;
-  /** Runs `work`, then invalidates the bundle's keys. Rethrows after recording. */
-  write: <T>(work: (ctx: AuthContext) => Promise<T>) => Promise<T>;
+  /**
+   * Runs `work`, then invalidates the bundle's keys. Rethrows after recording.
+   *
+   * `operation` names the call in the error a `customerOnly` bundle throws when
+   * no one is signed in. Ignored otherwise.
+   */
+  write: <T>(work: (ctx: AuthContext) => Promise<T>, operation?: string) => Promise<T>;
+}
+
+export interface WriteBundleOpts {
+  /**
+   * Resolve a customer context and throw locally when there is none, instead of
+   * falling back to anonymous. Set this for any endpoint that needs a customer
+   * scope — an anonymous request there buys a 401 with a generic message.
+   */
+  customerOnly?: boolean;
 }
 
 /**
@@ -37,7 +64,10 @@ export interface WriteBundle {
  * renders state reads the signal, one that needs to branch after the call awaits
  * it, and swallowing the rejection would break the second.
  */
-export function writeBundle(keys: readonly (readonly string[])[]): WriteBundle {
+export function writeBundle(
+  keys: readonly (readonly string[])[],
+  opts: WriteBundleOpts = {},
+): WriteBundle {
   const storage: EmporixStorage = inject(EMPORIX_STORAGE);
   const qc = injectQueryClient();
   const isPending = signal(false);
@@ -46,11 +76,15 @@ export function writeBundle(keys: readonly (readonly string[])[]): WriteBundle {
   return {
     isPending: isPending.asReadonly(),
     error: error.asReadonly(),
-    write: async <T>(work: (ctx: AuthContext) => Promise<T>): Promise<T> => {
+    write: async <T>(work: (ctx: AuthContext) => Promise<T>, operation?: string): Promise<T> => {
       error.set(null);
       isPending.set(true);
       try {
-        const result = await work(ctxFor(storage));
+        const ctx =
+          opts.customerOnly === true
+            ? requireCustomer(storage, operation ?? "this operation")
+            : ctxFor(storage);
+        const result = await work(ctx);
         for (const key of keys) await qc.invalidateQueries({ queryKey: [...key] });
         return result;
       } catch (e) {
