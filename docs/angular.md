@@ -12,11 +12,13 @@ shared builder like every other read (`["emporix", "segments", …]`). Closing t
 gap means fixing the React side; hand-rolling keys here would also drop them out
 of the `["emporix"]`-scoped defaults and invalidation.
 
-**Status: complete for a storefront.** The primitives, the site context, the
-customer session, the account-credential operations and the 33 read and mutation
-injectables are all here. What is still out is listed in
-[What is not here yet](#what-is-not-here-yet) with counts, so the gap is a number
-rather than something you discover by failing to import.
+**Status: at parity with the React bindings.** 86 injectables covering 109 of
+React's 111 hooks — the primitives, the site context, the customer session, the
+account-credential operations, every storefront read, eleven mutation bundles and
+the B2B company context. The two that are missing and the four deliberate
+deviations are named in
+[Coverage against the React bindings](#coverage-against-the-react-bindings), so
+the gap is a list rather than something you discover by failing to import.
 
 ## Install
 
@@ -190,20 +192,33 @@ for testing your own query composition without a DI container.
 
 ## The injectables
 
-33 of them, grouped by area. Every one is a thin wrapper over
-`injectEmporixQuery` or `injectEmporixInfinite`, so the auth resolution, the cache
-key and the `enabled` gate live in exactly one place. Arguments are **signals**,
+79 of them beside the seven primitives, grouped by area. Every read is a thin
+wrapper over `injectEmporixQuery` or `injectEmporixInfinite` and every write over
+`writeBundle`, so the auth resolution, the cache key, the `enabled` gate and the
+post-write invalidation each live in exactly one place. Arguments are **signals**,
 read inside the options callback, so changing one re-keys and refetches.
 
 | Area | Injectables |
 |---|---|
-| Catalog (12) | `injectProduct`, `injectProducts`, `injectProductsInfinite`, `injectProductByCode`, `injectProductNameSearch`, `injectProductSearch`, `injectProductMedia`, `injectCategory`, `injectCategories`, `injectCategoryTree`, `injectProductsInCategory`, `injectProductsInCategoryInfinite` |
-| Cart (5) | `injectCart`, `injectCartItems`, `injectActiveCart`, `injectCreateCart`, `injectCartMutations` |
-| Checkout (4) | `injectPaymentModes`, `injectShippingZones`, `injectCheckout`, `injectInitializePayment` |
-| Customer (4) | `injectCustomerAddresses`, `injectUpdateCustomer`, `injectAddressMutations`, `injectPasswordReset` |
-| Orders (3) | `injectMyOrders`, `injectMyOrdersInfinite`, `injectOrder` |
-| Prices (3) | `injectMatchPrices`, `injectMatchPricesChunked`, `injectAvailability` |
-| Site (2) | `injectSites`, `injectActiveSite` |
+| Catalog (20) | `injectProduct`, `injectProducts`, `injectProductsInfinite`, `injectProductByCode`, `injectProductNameSearch`, `injectProductSearch`, `injectProductsByCodes`, `injectProductMedia`, `injectVariantChildren`, `injectCategory`, `injectCategories`, `injectCategoriesInfinite`, `injectCategoryTree`, `injectCategoryTreeById`, `injectCategoryParents`, `injectChildCategories`, `injectSubcategories`, `injectCategorySearch`, `injectProductsInCategory`, `injectProductsInCategoryInfinite` |
+| Cart (6) | `injectCart`, `injectCartItems`, `injectCartValidation`, `injectActiveCart`, `injectCreateCart`, `injectCartMutations` |
+| Checkout (5) | `injectPaymentModes`, `injectPaymentMode`, `injectShippingZones`, `injectCheckout`, `injectInitializePayment` |
+| Customer (5) | `injectCustomerAddresses`, `injectCustomerAddress`, `injectUpdateCustomer`, `injectAddressMutations`, `injectPasswordReset` |
+| Orders (5) | `injectMyOrders`, `injectMyOrdersInfinite`, `injectOrder`, `injectSalesOrder`, `injectOrderMutations` |
+| Prices (4) | `injectMatchPrices`, `injectMatchPricesChunked`, `injectAvailability`, `injectAvailabilities` |
+| Site (3) | `injectSites`, `injectActiveSite`, `injectDefaultSite` |
+| Shopping lists (2) | `injectShoppingLists`, `injectShoppingListMutations` |
+| Loyalty (5) | `injectMyRewardPoints`, `injectMyRewardPointsSummary`, `injectRedeemOptions`, `injectRewardPointMutations`, `injectCouponMutations` |
+| Returns (3) | `injectMyReturns`, `injectReturn`, `injectReturnMutations` |
+| Segments (7) | `injectMySegments`, `injectMySegmentItems`, `injectMySegmentProducts`, `injectMySegmentProductsInfinite`, `injectMySegmentCategories`, `injectMySegmentCategoriesInfinite`, `injectMySegmentCategoryTree` |
+| Approvals (3) | `injectApprovals`, `injectApproval`, `injectApprovalMutations` |
+| B2B (8) | `injectEmporixCompany`, `injectCompanySwitch`, `injectMyCompanies`, `injectCompany`, `injectCompanyContacts`, `injectCompanyGroups`, `injectCompanyLocations`, `injectCompanyMutations` |
+| Other (3) | `injectCloudFunction`, `injectCloudFunctions`, `injectSessionAttributeMutations` |
+
+`injectDefaultSite` and `injectActiveSite` are **signals, not query results** —
+both derive from `injectSites` rather than fetching. `sites.current()` is itself a
+list call that picks the default, so a query of its own would bill twice for one
+answer. Use `injectSites().isPending()` for their loading state.
 
 **The two searches are easy to mix up.** `injectProductNameSearch(term)` is the
 free-text search (`products.searchByName`); `injectProductSearch(filter)` takes a
@@ -345,38 +360,71 @@ There is no cache-tag layer here and there will not be one: tags and
 `revalidateTag` are Next concepts, and Angular SSR has no equivalent
 invalidation model. Hydration is the problem this entry addresses.
 
-## What is not here yet
+## Coverage against the React bindings
 
-`@viu/emporix-sdk-react` exports **107 hooks**. This package ships the primitives,
-the site and customer-session layers, the five account-management operations and
-the **33** storefront injectables. The remaining **69** are out of scope for the
-first release:
+`@viu/emporix-sdk-react` exports **111 hooks** (107 from `./hooks`, four more from
+its root). **109 of them have an equivalent here.** The counts below come from the
+built `.d.ts` of both packages, not from prose:
 
-| Area | Count | Area | Count |
-|---|---|---|---|
-| companies / B2B | 17 | reward points | 4 |
-| customer account extras | 5 | approvals | 4 |
-| catalog extras | 9 | returns | 3 |
-| segments | 7 | coupons | 2 |
-| shopping lists | 6 | cloud functions | 2 |
-| orders extras | 5 | other | 5 |
+| | Count |
+|---|---|
+| Angular `inject*` functions | 86 |
+| React hooks with a same-named injectable | 70 |
+| React hooks covered under a different name or shape | 39 |
+| **React hooks with no equivalent** | **2** |
 
-Also deliberately absent:
+The mapping is not one-to-one, and deliberately so: **31 write operations are
+grouped into 11 mutation bundles**, because a component wants one `isPending` for
+«the shopping list is saving», not five. `injectShoppingListMutations()` covers
+five React hooks; `injectCompanyMutations()` covers eleven.
 
-- **Telemetry.** React's `EmporixTelemetryEvent` union is a React-Query lifecycle
-  (`cache.hit`, `query.refetch`); porting it is its own design question.
+### The two that are missing
+
+- **`useEmporixTelemetry`.** React's `EmporixTelemetryEvent` union is a React-Query
+  lifecycle (`cache.hit`, `query.refetch`). Porting it is its own design question,
+  not a wrapper.
+- **`useEmporixErrorHandler`.** React's error-boundary helper. Angular's error
+  handling goes through `ErrorHandler`, so the equivalent is a provider, not a
+  hook — again a design question rather than a port.
+
+Both are provider infrastructure. No storefront read or write is missing.
+
+### Also deliberately absent
+
 - **Customer-token auto-refresh.** Opt-in and default `false` in React, so this
   matches React's default behaviour rather than lacking a feature. Call
   `refreshSession()` yourself.
 - **`socialLogin` / `exchangeToken`.** Same call as in
   `@viu/emporix-sdk-next`: both need an IdP configured at the tenant, and an SSO
   surface nobody can exercise is an untested one.
-- **B2B company context.** The largest excluded area, and independent of
-  everything above.
 
-Until an area lands, call the SDK directly through `injectEmporix().client` and
-wrap it in `injectEmporixQuery` yourself — that is exactly what the shipped
-injectables do.
+If you need something that is not here, call the SDK directly through
+`injectEmporix().client` and wrap it in `injectEmporixQuery` yourself — that is
+exactly what the shipped injectables do.
+
+### Four places this deviates from React on purpose
+
+Each is a decision with a reason, not a porting gap.
+
+1. **Customer-scoped reads gate; they do not throw.** React's `useShoppingLists`,
+   `useMySegments`, `useApprovals`, `useMyReturns` and the reward-point reads call
+   `useCustomerOnlyCtx()` in the hook body, which **throws during render** with no
+   token. Here they are `mode: "customer"`, so a logged-out storefront renders
+   empty and issues no request.
+2. **Session attributes are written with the live context, not forced anonymous.**
+   The endpoint is `/session-context/{tenant}/me/context/attributes`, so `me` is
+   whoever the bearer is. React forces `auth.anonymous()` in
+   `useAddSessionAttribute` while its own site context passes the live context to
+   `sessionContext.patch` — the two can land on different sessions.
+3. **The company switch is a queue, not a race.** Two concurrent switches both
+   read the refresh token, and Emporix rotates it server-side, so the second would
+   spend one the first consumed. `injectEmporixSiteSwitch` can use a race guard
+   because it rotates nothing; this cannot.
+4. **The five company reads key under their own resources.** React keys four of
+   them under one `"companies"` key, so adding a location refetches every company
+   panel on the page — and Emporix bills per request.
+
+Two of those (1 and 2) are defects on the React side worth their own fix.
 
 ## Why there is no `ng-packagr`
 

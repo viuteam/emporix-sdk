@@ -2,7 +2,7 @@
 "@viu/emporix-sdk-angular": minor
 ---
 
-feat(angular): add Angular bindings — provideEmporix, injectEmporixQuery, site and customer-session signals
+feat(angular): add Angular bindings — provideEmporix, 86 signal-based injectables at React parity
 
 First release of `@viu/emporix-sdk-angular`. One `provideEmporix()` wires the SDK,
 a storage backend and TanStack Query into an Angular application;
@@ -39,12 +39,45 @@ Peers: `@angular/core` and `@angular/common` `>=20.0.0 <23.0.0`,
 ships no CommonJS entry and Angular applications always bundle, so a CJS half
 would exist for no consumer.
 
-**Scope.** This is the foundation, not the full surface. The 33 injectables that
-mirror React's catalog, cart, checkout and order hooks are planned but not here;
-`docs/angular.md` names the excluded areas with counts rather than leaving you to
-find the gap by failing to import. Telemetry, customer-token auto-refresh, SSO
-(`socialLogin` / `exchangeToken`) and the B2B company context are deliberately
-absent, each for a stated reason.
+**Scope: at parity with the React bindings.** 86 injectables covering 109 of
+React's 111 hooks — catalog, cart, checkout, orders, customer, prices, site,
+shopping lists, reward points, coupons, returns, segments, approvals, cloud
+functions, session attributes and the B2B company context.
+
+The mapping is deliberately not one-to-one: **31 write operations are grouped
+into 11 mutation bundles**, because a component wants one `isPending` for «the
+shopping list is saving», not five. `injectShoppingListMutations()` replaces five
+React hooks; `injectCompanyMutations()` replaces eleven. Every bundle shares one
+`writeBundle`, so the pending flag, the error signal and the post-write
+invalidation cannot drift between areas.
+
+Two React hooks have no equivalent, both provider infrastructure rather than
+storefront surface: `useEmporixTelemetry` (a React-Query lifecycle union) and
+`useEmporixErrorHandler` (an error-boundary helper; Angular's equivalent is an
+`ErrorHandler` provider, not a hook). Customer-token auto-refresh and SSO
+(`socialLogin` / `exchangeToken`) remain deliberately absent — the first matches
+React's own default of `false`, the second needs an IdP configured at the tenant.
+
+**Four places this deviates from React on purpose**, each documented in
+`docs/angular.md`:
+
+- Customer-scoped reads **gate rather than throw**. React's `useShoppingLists`,
+  `useMySegments`, `useApprovals`, `useMyReturns` and the reward-point reads throw
+  during render when no token is stored; these issue no request and render empty.
+- Session attributes are written with the **live** context. The endpoint is
+  `/session-context/{tenant}/me/context/attributes`, so `me` is whoever the bearer
+  is — writing anonymously while signed in lands on a different session.
+- The company switch is a **queue, not a race guard**. Two concurrent switches
+  both read the refresh token, and Emporix rotates it server-side, so the second
+  would spend one the first consumed.
+- The five company reads key under **their own resources**, where React keys four
+  under one `"companies"` key — one shared key means adding a location refetches
+  every company panel on the page.
+
+**Breaking within this release** (nothing published yet, so no consumer is
+affected): the two product searches were crossed against React's names and are
+now `injectProductNameSearch` (term search, `products.searchByName`) and
+`injectProductSearch` (filter search, `products.search`).
 
 One thing to know before writing your first query: **read signals inside
 `injectQuery`'s options callback, not before it.** Read outside, the cache key and

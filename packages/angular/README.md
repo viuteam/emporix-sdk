@@ -11,5 +11,8 @@ functions and contains no decorators — see
 [the design spec](../../docs/superpowers/specs/2026-08-25-angular-package-design.md)
 for why.
 
-**Status: foundation.** 33 of the React package's 107 hooks are planned; see
-`docs/angular.md` for what is and is not here yet.
+**Status: at parity with the React bindings.** 86 injectables covering 109 of
+React's 111 hooks. The mapping is not one-to-one — 31 write operations are grouped
+into 11 mutation bundles. The two hooks with no equivalent
+(`useEmporixTelemetry`, `useEmporixErrorHandler`, both provider infrastructure)
+and the four deliberate deviations are listed in `docs/angular.md`.

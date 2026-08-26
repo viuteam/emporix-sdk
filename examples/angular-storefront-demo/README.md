@@ -21,13 +21,13 @@ built in CI without pointing at anyone's account.
 
 **[`src/app/pages/home.ts`](./src/app/pages/home.ts) first**, because it is now
 four lines of data layer: `injectProductsInfinite` for the catalog and
-`injectMatchPrices` for what is on screen. The package ships the 33 injectables, so
+`injectMatchPrices` for what is on screen. The package ships 86 injectables, so
 the components call them directly.
 
 [`src/app/lib/queries.ts`](./src/app/lib/queries.ts) is what is left of the local
-query layer — 48 lines, down from 240, holding the one read the 33 do not cover
-(bulk product names for cart lines whose snapshot has none). Keeping it is the
-honest signal that a storefront still needs a lookup the bindings do not.
+query layer — 48 lines, down from 240, holding the one read the package does not
+cover (bulk product names for cart lines whose snapshot has none). Keeping it is
+the honest signal that a storefront still needs a lookup the bindings do not.
 
 **[`src/main.ts`](./src/main.ts) second.** Two bootstraps, chosen by whether the
 demo is configured. `provideEmporix` takes a constructed client, so the tenant has
@@ -118,16 +118,21 @@ real, so pick that only if you mean it.
 
 ## What is not here
 
-Compared with `storefront-demo`'s 17 routes, this has 8. The difference is
-**shopping lists, reward points and returns**, plus reorder, cancel-order, variant
-pickers, category navigation and the password-reset flow. Those sit in the 69
-injectables `@viu/emporix-sdk-angular` does not ship yet, so building them here
-would mean hand-rolling a large part of the package's future surface inside an
-example. See the scope table in [`docs/angular.md`](../../docs/angular.md).
+Compared with `storefront-demo`'s 17 routes, this has 10. The gap is no longer the
+package — `@viu/emporix-sdk-angular` now covers the whole storefront surface — it
+is that a reference app does not need a route per injectable. Missing here but
+available in the package: reward points, returns, coupons, segments, approvals,
+variant pickers, category navigation and reorder.
 
-Password and login-email management **is** here, at `/account/credentials` — those
-five operations were originally in the excluded set and were pulled forward,
-because a storefront with a login needs them.
+The two account extras exist for a specific reason: they exercise what unit tests
+can only mock. `/account/lists` drives a mutation bundle end to end, and
+`/account/company` renders all three B2B modes including the `unresolved` picker.
+
+**The B2B modes are not live-verified.** The `viu` tenant answers
+`legal-entities` with an empty array for the test customer, so `mode: "b2c"` is
+the correct result and `unresolved`, `b2b` and the single-company auto-pick never
+run here. They are covered by unit tests. Verifying them live needs a test
+customer assigned to two or more legal entities.
 
 ## Verified, and not
 
