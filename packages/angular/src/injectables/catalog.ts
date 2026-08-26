@@ -232,6 +232,68 @@ export function injectProductMedia(
   );
 }
 
+/**
+ * Bulk-fetches products by `code`.
+ *
+ * **Order is not guaranteed** — the SDK chunks the request, so re-index by
+ * `code` if the caller depends on order. Disabled while `codes` is empty; the
+ * facade short-circuits there too, but gating avoids an empty cache entry.
+ */
+export function injectProductsByCodes(
+  codes: Signal<readonly string[]>,
+  opts: CatalogOpts & { chunkSize?: number } = {},
+): CreateQueryResult<Product[]> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<Product[], readonly [string]>(
+    () => {
+      // Sorted and joined: the same set in a different order is the same query,
+      // and the facade de-duplicates anyway.
+      const list = [...codes()].sort();
+      return {
+        resource: "products-by-codes",
+        args: [list.join(",")] as const,
+        site: "full",
+        mode: "read-auth",
+        enabled: (opts.enabled ?? true) && list.length > 0,
+        queryFn: (ctx) =>
+          client.products.searchByCodes(
+            list,
+            opts.chunkSize !== undefined ? { chunkSize: opts.chunkSize } : {},
+            ctx,
+          ),
+        staleTime: PRODUCTS_STALE,
+      };
+    },
+    pass(opts),
+  );
+}
+
+/**
+ * Every VARIANT child of a PARENT_VARIANT product, flattened across pages.
+ *
+ * The facade loads all pages and answers `[]` rather than throwing when there
+ * are none, so there is no infinite variant of this read to add.
+ */
+export function injectVariantChildren(
+  parentVariantId: Signal<string>,
+  params: Signal<{ pageSize?: number }>,
+  opts: CatalogOpts = {},
+): CreateQueryResult<Product[]> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<Product[], readonly [string, { pageSize?: number }]>(
+    () => ({
+      resource: "variant-children",
+      args: [parentVariantId(), params()] as const,
+      site: "full",
+      mode: "read-auth",
+      enabled: (opts.enabled ?? true) && parentVariantId() !== "",
+      queryFn: (ctx) => client.products.listVariantChildren(parentVariantId(), params(), ctx),
+      staleTime: PRODUCTS_STALE,
+    }),
+    pass(opts),
+  );
+}
+
 // ─── Categories ─────────────────────────────────────────────────────────────
 
 /** One category by id. */

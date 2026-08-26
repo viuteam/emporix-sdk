@@ -37,6 +37,8 @@ function makeClient() {
       search: listFn(),
       searchByName: listFn(),
       searchByIds: vi.fn(async () => []),
+      searchByCodes: vi.fn(async () => []),
+      listVariantChildren: vi.fn(async () => []),
     },
     categories: {
       get: fn(),
@@ -147,6 +149,8 @@ const guestReads: Array<{
   { name: "injectProductByCode", resource: "product-by-code", run: () => I.injectProductByCode(signal("code-1")), called: () => client.products.getByCode },
   { name: "injectProductNameSearch", resource: "product-name-search", run: () => I.injectProductNameSearch(signal("shoe")), called: () => client.products.searchByName },
   { name: "injectProductSearch", resource: "product-search", run: () => I.injectProductSearch(signal("name:x" as never), signal({})), called: () => client.products.search },
+  { name: "injectProductsByCodes", resource: "products-by-codes", run: () => I.injectProductsByCodes(signal(["b", "a"])), called: () => client.products.searchByCodes },
+  { name: "injectVariantChildren", resource: "variant-children", run: () => I.injectVariantChildren(signal("v1"), signal({})), called: () => client.products.listVariantChildren },
   { name: "injectCategory", resource: "category", run: () => I.injectCategory(signal("c1")), called: () => client.categories.get },
   { name: "injectCategories", resource: "categories", run: () => I.injectCategories(signal({})), called: () => client.categories.list },
   { name: "injectCategoryTree", resource: "category-tree", run: () => I.injectCategoryTree(), called: () => client.categories.tree },
