@@ -77,6 +77,18 @@ function makeClient() {
     checkout: { placeOrder: vi.fn(async () => ({ orderId: "EON1" })) },
     orders: { listMine: listFn(), get: fn(), cancel: fn(), transition: fn() },
     salesOrders: { get: fn(), update: fn() },
+    rewardPoints: {
+      getMyPoints: vi.fn(async () => 0),
+      getMySummary: fn(),
+      listRedeemOptions: vi.fn(async () => []),
+      redeemMyPoints: fn(),
+    },
+    returns: {
+      listReturns: vi.fn(async () => []),
+      getReturn: fn(),
+      createReturn: vi.fn(async () => ({ id: "r1" })),
+    },
+    coupons: { validateCoupon: fn(), redeemCoupon: vi.fn(async () => ({ id: "red1" })) },
     shoppingLists: {
       list: vi.fn(async () => []),
       create: vi.fn(async () => ({ id: "l1" })),
@@ -213,6 +225,11 @@ const customerReads: Array<{
   { name: "injectCustomerAddress", resource: "customer-address", run: () => I.injectCustomerAddress(signal("a1")), called: () => client.customers.addresses.get },
   { name: "injectSalesOrder", resource: "sales-order", run: () => I.injectSalesOrder(signal("EON1")), called: () => client.salesOrders.get },
   { name: "injectShoppingLists", resource: "shopping-lists", run: () => I.injectShoppingLists(), called: () => client.shoppingLists.list },
+  { name: "injectMyRewardPoints", resource: "reward-points", run: () => I.injectMyRewardPoints(), called: () => client.rewardPoints.getMyPoints },
+  { name: "injectMyRewardPointsSummary", resource: "reward-points-summary", run: () => I.injectMyRewardPointsSummary(), called: () => client.rewardPoints.getMySummary },
+  { name: "injectRedeemOptions", resource: "reward-redeem-options", run: () => I.injectRedeemOptions(), called: () => client.rewardPoints.listRedeemOptions },
+  { name: "injectMyReturns", resource: "returns", run: () => I.injectMyReturns(signal({})), called: () => client.returns.listReturns },
+  { name: "injectReturn", resource: "return", run: () => I.injectReturn(signal("r1")), called: () => client.returns.getReturn },
 ];
 
 describe.each(customerReads)("$name", ({ resource, run, called }) => {

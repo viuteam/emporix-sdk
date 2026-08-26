@@ -15,5 +15,7 @@ export * from "./cart";
 export * from "./checkout";
 export * from "./customer";
 export * from "./orders";
+export * from "./loyalty";
+export * from "./returns";
 export * from "./shopping-lists";
 export * from "./site";
