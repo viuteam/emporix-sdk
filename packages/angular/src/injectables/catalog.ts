@@ -24,6 +24,8 @@ import type {
  * endpoint paginates.
  */
 type CategoryTreeResult = Awaited<ReturnType<EmporixClient["categories"]["tree"]>>;
+/** One subtree, from `categories.getTree` — a node, not an array of them. */
+type CategoryNodeResult = Awaited<ReturnType<EmporixClient["categories"]["getTree"]>>;
 /** One entry of the product DTO's own `productMedia` array. */
 type ProductMedia = NonNullable<(Product & { productMedia?: unknown[] })["productMedia"]>[number];
 
@@ -288,6 +290,144 @@ export function injectCategoryTree(
       mode: "read-auth",
       ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
       queryFn: (ctx) => client.categories.tree(ctx),
+      staleTime: CATEGORIES_STALE,
+    }),
+    pass(opts),
+  );
+}
+
+/** One page of categories, as an infinite query. Pages start at 1. */
+export function injectCategoriesInfinite(
+  pageSize: Signal<number>,
+  opts: CatalogOpts = {},
+): CreateInfiniteQueryResult<InfiniteData<PaginatedItems<Category>, number>> {
+  const { client } = injectEmporix();
+  return injectEmporixInfinite<Category, readonly [number]>(
+    () => ({
+      resource: "categories-infinite",
+      args: [pageSize()] as const,
+      site: "full",
+      mode: "read-auth",
+      ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
+      fetchPage: (pageNumber, ctx) =>
+        client.categories.list({ pageNumber, pageSize: pageSize() }, ctx),
+      staleTime: CATEGORIES_STALE,
+    }),
+    pass(opts),
+  );
+}
+
+/** Ancestors of a category, root first. Disabled while the id is empty. */
+export function injectCategoryParents(
+  categoryId: Signal<string>,
+  opts: CatalogOpts = {},
+): CreateQueryResult<Category[]> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<Category[], readonly [string]>(
+    () => ({
+      resource: "category-parents",
+      args: [categoryId()] as const,
+      site: "full",
+      mode: "read-auth",
+      enabled: (opts.enabled ?? true) && categoryId() !== "",
+      queryFn: (ctx) => client.categories.parents(categoryId(), ctx),
+      staleTime: CATEGORIES_STALE,
+    }),
+    pass(opts),
+  );
+}
+
+/**
+ * Direct children of a category, from `…/subcategories`.
+ *
+ * Not the same read as {@link injectSubcategories}, which goes through
+ * category-to-category assignments. The SDK keeps both because tenants populate
+ * them differently; this is the one to drill down with.
+ */
+export function injectChildCategories(
+  categoryId: Signal<string>,
+  opts: CatalogOpts = {},
+): CreateQueryResult<Category[]> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<Category[], readonly [string]>(
+    () => ({
+      resource: "child-categories",
+      args: [categoryId()] as const,
+      site: "full",
+      mode: "read-auth",
+      enabled: (opts.enabled ?? true) && categoryId() !== "",
+      queryFn: (ctx) => client.categories.childCategories(categoryId(), ctx),
+      staleTime: CATEGORIES_STALE,
+    }),
+    pass(opts),
+  );
+}
+
+/** Child categories via category-to-category assignments. See {@link injectChildCategories}. */
+export function injectSubcategories(
+  categoryId: Signal<string>,
+  params: Signal<{ pageNumber?: number; pageSize?: number }>,
+  opts: CatalogOpts = {},
+): CreateQueryResult<Category[]> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<
+    Category[],
+    readonly [string, { pageNumber?: number; pageSize?: number }]
+  >(
+    () => ({
+      resource: "subcategories",
+      args: [categoryId(), params()] as const,
+      site: "full",
+      mode: "read-auth",
+      enabled: (opts.enabled ?? true) && categoryId() !== "",
+      queryFn: (ctx) => client.categories.subcategories(categoryId(), params(), ctx),
+      staleTime: CATEGORIES_STALE,
+    }),
+    pass(opts),
+  );
+}
+
+/** A built Emporix filter query against categories. Disabled while the filter is empty. */
+export function injectCategorySearch(
+  query: Signal<QueryFor<"CATEGORY"> | undefined>,
+  params: Signal<{ pageNumber?: number; pageSize?: number; totalCount?: boolean }>,
+  opts: CatalogOpts = {},
+): CreateQueryResult<PaginatedItems<Category>> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<PaginatedItems<Category>, readonly [string, unknown]>(
+    () => {
+      const q = query();
+      // The stringified filter is the key, not the builder object: two builders
+      // that produce the same filter must share one cache entry.
+      const asString = q === undefined ? "" : String(q);
+      return {
+        resource: "category-search",
+        args: [asString, params()] as const,
+        site: "full",
+        mode: "read-auth",
+        enabled: (opts.enabled ?? true) && asString.trim() !== "",
+        queryFn: (ctx) => client.categories.search(q as QueryFor<"CATEGORY">, params(), ctx),
+        staleTime: CATEGORIES_STALE,
+      };
+    },
+    pass(opts),
+  );
+}
+
+/** The subtree below one category. Disabled while the id is empty. */
+export function injectCategoryTreeById(
+  categoryId: Signal<string>,
+  opts: CatalogOpts = {},
+): CreateQueryResult<CategoryNodeResult> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<CategoryNodeResult, readonly [string]>(
+    () => ({
+      resource: "category-tree-by-id",
+      args: [categoryId()] as const,
+      site: "full",
+      mode: "read-auth",
+      enabled: (opts.enabled ?? true) && categoryId() !== "",
+      queryFn: (ctx) => client.categories.getTree(categoryId(), ctx),
       staleTime: CATEGORIES_STALE,
     }),
     pass(opts),
