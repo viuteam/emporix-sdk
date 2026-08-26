@@ -15,6 +15,7 @@ import { injectEmporix } from "../provide";
 import { injectEmporixQuery } from "../inject-query";
 
 type AddressList = Awaited<ReturnType<EmporixClient["customers"]["addresses"]["list"]>>;
+type AddressResult = Awaited<ReturnType<EmporixClient["customers"]["addresses"]["get"]>>;
 type AddressAddInput = Parameters<EmporixClient["customers"]["addresses"]["add"]>[0];
 type AddressUpdateInput = Parameters<EmporixClient["customers"]["addresses"]["update"]>[1];
 
@@ -52,6 +53,25 @@ export function injectCustomerAddresses(
       mode: "customer",
       ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
       queryFn: (ctx) => client.customers.addresses.list(ctx),
+    }),
+    pass(opts),
+  );
+}
+
+/** One of the signed-in customer's addresses. Disabled while the id is empty. */
+export function injectCustomerAddress(
+  id: Signal<string>,
+  opts: CustomerOpts = {},
+): CreateQueryResult<AddressResult> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<AddressResult, readonly [string]>(
+    () => ({
+      resource: "customer-address",
+      args: [id()] as const,
+      site: "none",
+      mode: "customer",
+      enabled: (opts.enabled ?? true) && id() !== "",
+      queryFn: (ctx) => client.customers.addresses.get(id(), ctx),
     }),
     pass(opts),
   );

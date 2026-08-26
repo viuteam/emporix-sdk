@@ -57,3 +57,20 @@ export function injectActiveSite(opts: SiteOpts = {}): Signal<Site | undefined> 
     return sites.data()?.find((s) => s.code === code);
   });
 }
+
+/**
+ * The tenant's default site, or `undefined` while the list is loading or when no
+ * site is flagged `default`.
+ *
+ * Derived from {@link injectSites} for the same reason {@link injectActiveSite}
+ * is — and here the reason is sharper: the SDK's `sites.current()` *is* a list
+ * call that picks the default, so a query of its own would bill twice for one
+ * answer. React's `useDefaultSite` does exactly that; this does not.
+ *
+ * A signal, not a query result. Use `injectSites().isPending()` for the loading
+ * state.
+ */
+export function injectDefaultSite(opts: SiteOpts = {}): Signal<Site | undefined> {
+  const sites = injectSites(opts);
+  return computed(() => sites.data()?.find((s) => s.default === true));
+}

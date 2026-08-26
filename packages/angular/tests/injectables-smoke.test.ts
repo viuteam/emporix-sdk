@@ -53,12 +53,13 @@ function makeClient() {
     },
     media: { listForProduct: listFn() },
     prices: { matchByContext: vi.fn(async () => []), matchByContextChunked: vi.fn(async () => []) },
-    availability: { get: fn() },
+    availability: { get: fn(), getMany: vi.fn(async () => []) },
     carts: {
       get: vi.fn(async () => ({ id: "cart-1", items: [] })),
       getCurrent: vi.fn(async () => ({ id: "cart-1", items: [] })),
       listItems: vi.fn(async () => []),
       create: vi.fn(async () => ({ cartId: "cart-2" })),
+      validate: vi.fn(async () => ({ valid: true })),
       addItem: fn(),
       updateItem: fn(),
       removeItem: fn(),
@@ -71,7 +72,7 @@ function makeClient() {
       setShippingAddress: fn(),
       setBillingAddress: fn(),
     },
-    payments: { listPaymentModes: vi.fn(async () => []), initialize: fn() },
+    payments: { listPaymentModes: vi.fn(async () => []), getMode: fn(), initialize: fn() },
     shipping: { listZones: vi.fn(async () => []) },
     checkout: { placeOrder: vi.fn(async () => ({ orderId: "EON1" })) },
     orders: { listMine: listFn(), get: fn() },
@@ -80,6 +81,7 @@ function makeClient() {
       update: fn(),
       addresses: {
         list: vi.fn(async () => []),
+        get: fn(),
         add: fn(),
         update: fn(),
         remove: fn(),
@@ -165,6 +167,9 @@ const guestReads: Array<{
   { name: "injectMatchPrices", resource: "match-prices", run: () => I.injectMatchPrices(signal({ items: [{ itemId: { itemType: "PRODUCT", id: "p1" } }] } as never)), called: () => client.prices.matchByContext },
   { name: "injectMatchPricesChunked", resource: "match-prices-chunked", run: () => I.injectMatchPricesChunked(signal({ items: [{ itemId: { itemType: "PRODUCT", id: "p1" } }] } as never)), called: () => client.prices.matchByContextChunked },
   { name: "injectAvailability", resource: "availability", run: () => I.injectAvailability(signal("p1"), signal("main")), called: () => client.availability.get },
+  { name: "injectAvailabilities", resource: "availabilities", run: () => I.injectAvailabilities(signal(["p2", "p1"]), signal("main")), called: () => client.availability.getMany },
+  { name: "injectCartValidation", resource: "cart-validation", run: () => I.injectCartValidation(signal("cart-1")), called: () => client.carts.validate },
+  { name: "injectPaymentMode", resource: "payment-mode", run: () => I.injectPaymentMode(signal("pm1")), called: () => client.payments.getMode },
   { name: "injectCart", resource: "cart", run: () => I.injectCart(signal("cart-1")), called: () => client.carts.get },
   { name: "injectCartItems", resource: "cart-items", run: () => I.injectCartItems(signal("cart-1")), called: () => client.carts.listItems },
   { name: "injectActiveCart", resource: "cart-bootstrap", run: () => I.injectActiveCart({ create: true }), called: () => client.carts.getCurrent },
@@ -196,6 +201,7 @@ const customerReads: Array<{
   { name: "injectMyOrdersInfinite", resource: "my-orders-infinite", run: () => I.injectMyOrdersInfinite(signal(5)), called: () => client.orders.listMine },
   { name: "injectOrder", resource: "order", run: () => I.injectOrder(signal("o1")), called: () => client.orders.get },
   { name: "injectCustomerAddresses", resource: "customer-addresses", run: () => I.injectCustomerAddresses(), called: () => client.customers.addresses.list },
+  { name: "injectCustomerAddress", resource: "customer-address", run: () => I.injectCustomerAddress(signal("a1")), called: () => client.customers.addresses.get },
 ];
 
 describe.each(customerReads)("$name", ({ resource, run, called }) => {

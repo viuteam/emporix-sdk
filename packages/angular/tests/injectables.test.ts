@@ -11,6 +11,7 @@ import {
   injectCartMutations,
   injectCategoryTree,
   injectCheckout,
+  injectDefaultSite,
   injectMatchPrices,
   injectMyOrders,
   injectOrder,
@@ -407,6 +408,32 @@ describe("customer and order injectables", () => {
       tenant: "acme",
       authKind: "anonymous",
     });
+  });
+
+  /**
+   * `injectDefaultSite` derives from the sites list rather than calling
+   * `sites.current`, which itself just lists and picks the default — a query of
+   * its own would bill a second time for a list already cached for ten minutes.
+   * This asserts the derivation: one HTTP call, both answers.
+   */
+  it("injectDefaultSite derives from the sites list without a second request", async () => {
+    const withDefault = setup({
+      sitesList: vi.fn(async () => [
+        { code: "main", default: false },
+        { code: "ch", default: true },
+      ]),
+    });
+    const site = TestBed.runInInjectionContext(() => injectDefaultSite());
+    await settleUntil(() => expect(site()?.code).toBe("ch"));
+    expect(withDefault.calls.sitesList).toHaveBeenCalledOnce();
+  });
+
+  it("injectDefaultSite is undefined when no site is flagged default", async () => {
+    setup({ sitesList: vi.fn(async () => [{ code: "main" }, { code: "ch" }]) });
+    const site = TestBed.runInInjectionContext(() => injectDefaultSite());
+    const list = TestBed.runInInjectionContext(() => injectSites());
+    await settleUntil(() => expect(list.data()?.length).toBe(2));
+    expect(site()).toBeUndefined();
   });
 });
 

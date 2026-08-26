@@ -14,6 +14,7 @@ import { injectEmporixQuery } from "../inject-query";
 import { injectEmporixSite } from "../site";
 
 type PaymentModesResult = Awaited<ReturnType<EmporixClient["payments"]["listPaymentModes"]>>;
+type PaymentModeResult = Awaited<ReturnType<EmporixClient["payments"]["getMode"]>>;
 type ShippingZonesResult = Awaited<ReturnType<EmporixClient["shipping"]["listZones"]>>;
 type PaymentInitResult = Awaited<ReturnType<EmporixClient["payments"]["initialize"]>>;
 
@@ -48,6 +49,34 @@ export function injectPaymentModes(
       mode: "read-auth",
       ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
       queryFn: (ctx) => client.payments.listPaymentModes(ctx),
+      staleTime: CONFIG_STALE,
+    }),
+    pass(opts),
+  );
+}
+
+/**
+ * One payment mode by id.
+ *
+ * `site: "none"` like {@link injectPaymentModes}, and for a checkable reason:
+ * both endpoints are `/payment-gateway/{tenant}/paymentmodes/frontend[/{id}]` —
+ * tenant in the path, no site anywhere. The answer cannot vary by site, so
+ * keying by one would fragment the cache and bill once per site for the same
+ * response. React keys both with `site: "full"`; that is the deviation, not this.
+ */
+export function injectPaymentMode(
+  id: Signal<string>,
+  opts: CheckoutOpts = {},
+): CreateQueryResult<PaymentModeResult> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<PaymentModeResult, readonly [string]>(
+    () => ({
+      resource: "payment-mode",
+      args: [id()] as const,
+      site: "none",
+      mode: "read-auth",
+      enabled: (opts.enabled ?? true) && id() !== "",
+      queryFn: (ctx) => client.payments.getMode(id(), ctx),
       staleTime: CONFIG_STALE,
     }),
     pass(opts),

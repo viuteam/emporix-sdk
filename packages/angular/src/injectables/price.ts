@@ -5,6 +5,7 @@ import { injectEmporixQuery } from "../inject-query";
 import type { EmporixClient, PriceMatch, PriceMatchByContextInput } from "@viu/emporix-sdk";
 
 type AvailabilityResult = Awaited<ReturnType<EmporixClient["availability"]["get"]>>;
+type AvailabilitiesResult = Awaited<ReturnType<EmporixClient["availability"]["getMany"]>>;
 
 /** 1 minute — prices move with promotions. */
 const PRICES_STALE = 60_000;
@@ -108,6 +109,43 @@ export function injectAvailability(
         }),
       staleTime: AVAILABILITY_STALE,
     }),
+    pass(opts),
+  );
+}
+
+/**
+ * Stock for many products at one site, in one request.
+ *
+ * The id list is sorted into the cache key: the same set in a different order is
+ * the same question. `defaultAvailableOnNotFound` lands in the key for the same
+ * reason it does on {@link injectAvailability} — it changes the answer.
+ *
+ * Disabled while the list is empty. The facade short-circuits there as well, but
+ * gating keeps an empty entry out of the cache.
+ */
+export function injectAvailabilities(
+  productIds: Signal<readonly string[]>,
+  siteCode: Signal<string | null>,
+  opts: PriceOpts & { defaultAvailableOnNotFound?: boolean } = {},
+): CreateQueryResult<AvailabilitiesResult> {
+  const { client } = injectEmporix();
+  const fallback = opts.defaultAvailableOnNotFound ?? false;
+  return injectEmporixQuery<AvailabilitiesResult, readonly [string, string | null, boolean]>(
+    () => {
+      const ids = [...productIds()].sort();
+      return {
+        resource: "availabilities",
+        args: [ids.join(","), siteCode(), fallback] as const,
+        site: "none",
+        mode: "read-auth",
+        enabled: (opts.enabled ?? true) && ids.length > 0 && siteCode() !== null,
+        queryFn: (ctx) =>
+          client.availability.getMany(ids, siteCode() as string, ctx, {
+            defaultAvailableOnNotFound: fallback,
+          }),
+        staleTime: AVAILABILITY_STALE,
+      };
+    },
     pass(opts),
   );
 }

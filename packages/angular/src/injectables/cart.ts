@@ -10,6 +10,7 @@ import {
   type CartItem,
   type CartItemInput,
   type CartItemUpdate,
+  type CartValidationResult,
   type CreateCartInput,
   type EmporixClient,
   type EmporixStorage,
@@ -92,6 +93,32 @@ export function injectCartItems(
       mode: "read-auth",
       enabled: (opts.enabled ?? true) && cartId() !== null,
       queryFn: (ctx) => client.carts.listItems(cartId() as string, ctx),
+    }),
+    pass(opts),
+  );
+}
+
+/**
+ * Validates a cart against current stock and pricing.
+ *
+ * `staleTime: 0` is the point of this read, not an oversight: the answer is about
+ * right-now availability, and a cached «valid» is the one result that must never
+ * be served from memory — it is what the checkout button trusts.
+ */
+export function injectCartValidation(
+  cartId: Signal<string | null>,
+  opts: CartOpts = {},
+): CreateQueryResult<CartValidationResult> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<CartValidationResult, readonly [string | null]>(
+    () => ({
+      resource: "cart-validation",
+      args: [cartId()] as const,
+      site: "full",
+      mode: "read-auth",
+      enabled: (opts.enabled ?? true) && cartId() !== null,
+      queryFn: (ctx) => client.carts.validate(cartId() as string, ctx),
+      staleTime: 0,
     }),
     pass(opts),
   );
