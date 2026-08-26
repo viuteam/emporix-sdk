@@ -190,13 +190,20 @@ read inside the options callback, so changing one re-keys and refetches.
 
 | Area | Injectables |
 |---|---|
-| Catalog (12) | `injectProduct`, `injectProducts`, `injectProductsInfinite`, `injectProductByCode`, `injectProductSearch`, `injectProductQuery`, `injectProductMedia`, `injectCategory`, `injectCategories`, `injectCategoryTree`, `injectProductsInCategory`, `injectProductsInCategoryInfinite` |
+| Catalog (12) | `injectProduct`, `injectProducts`, `injectProductsInfinite`, `injectProductByCode`, `injectProductNameSearch`, `injectProductSearch`, `injectProductMedia`, `injectCategory`, `injectCategories`, `injectCategoryTree`, `injectProductsInCategory`, `injectProductsInCategoryInfinite` |
 | Cart (5) | `injectCart`, `injectCartItems`, `injectActiveCart`, `injectCreateCart`, `injectCartMutations` |
 | Checkout (4) | `injectPaymentModes`, `injectShippingZones`, `injectCheckout`, `injectInitializePayment` |
 | Customer (4) | `injectCustomerAddresses`, `injectUpdateCustomer`, `injectAddressMutations`, `injectPasswordReset` |
 | Orders (3) | `injectMyOrders`, `injectMyOrdersInfinite`, `injectOrder` |
 | Prices (3) | `injectMatchPrices`, `injectMatchPricesChunked`, `injectAvailability` |
 | Site (2) | `injectSites`, `injectActiveSite` |
+
+**The two searches are easy to mix up.** `injectProductNameSearch(term)` is the
+free-text search (`products.searchByName`); `injectProductSearch(filter)` takes a
+built Emporix filter (`products.search`). They pair with React's
+`useProductNameSearch` and `useProductSearch` respectively. Both answer
+`PaginatedItems<Product>`, so reaching for the wrong one typechecks and silently
+queries the wrong endpoint.
 
 ```ts
 export class ProductPage {

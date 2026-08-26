@@ -17,6 +17,7 @@ import {
   injectPasswordReset,
   injectPaymentModes,
   injectProduct,
+  injectProductNameSearch,
   injectProductSearch,
   injectProductsInfinite,
   injectSites,
@@ -37,6 +38,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     productGet: vi.fn(async () => ({ id: "p1" })),
     productList: vi.fn(async (p: { pageNumber?: number }) => page([{ id: `p${p.pageNumber ?? 1}` }], p.pageNumber ?? 1, (p.pageNumber ?? 1) < 2)),
     searchByName: vi.fn(async () => page([{ id: "p1" }])),
+    productSearch: vi.fn(async () => page([{ id: "p1" }])),
     listForProduct: vi.fn(async () => page([{ id: "m1" }])),
     categoryTree: vi.fn(async () => [{ id: "c1" }]),
     matchByContext: vi.fn(async () => [{ priceId: "pr1" }]),
@@ -60,7 +62,12 @@ function setup(overrides: Record<string, unknown> = {}) {
     sites: { get: async () => ({ currency: "CHF" }), list: calls.sitesList },
     sessionContext: { patch: async () => true },
     setStorefrontContext: vi.fn(),
-    products: { get: calls.productGet, list: calls.productList, searchByName: calls.searchByName },
+    products: {
+      get: calls.productGet,
+      list: calls.productList,
+      searchByName: calls.searchByName,
+      search: calls.productSearch,
+    },
     categories: { tree: calls.categoryTree },
     media: { listForProduct: calls.listForProduct },
     prices: { matchByContext: calls.matchByContext },
@@ -139,13 +146,34 @@ describe("catalog injectables", () => {
     expect("language" in (meta ?? {})).toBe(true);
   });
 
-  it("injectProductSearch stays idle on a blank term", async () => {
+  it("injectProductNameSearch stays idle on a blank term", async () => {
     const term = signal("   ");
-    TestBed.runInInjectionContext(() => injectProductSearch(term));
+    TestBed.runInInjectionContext(() => injectProductNameSearch(term));
     await settle();
     expect(ctx.calls.searchByName).not.toHaveBeenCalled();
     term.set("shoe");
     await settleUntil(() => expect(ctx.calls.searchByName).toHaveBeenCalledWith("shoe", {}, expect.anything()));
+  });
+
+  /**
+   * The two search injectables are named after React's hooks, and React crosses
+   * them: `useProductSearch` is the filter search, `useProductNameSearch` the
+   * term search. This package had them swapped, so a ported storefront changed
+   * endpoint silently — both return `PaginatedItems<Product>`, so nothing failed
+   * to typecheck. These two assertions are what pins the mapping down.
+   */
+  it("injectProductSearch calls products.search, not searchByName", async () => {
+    TestBed.runInInjectionContext(() =>
+      injectProductSearch(signal("name:(~shoe)" as never), signal({})),
+    );
+    await settleUntil(() => expect(ctx.calls.productSearch).toHaveBeenCalled());
+    expect(ctx.calls.searchByName).not.toHaveBeenCalled();
+  });
+
+  it("injectProductNameSearch calls products.searchByName, not search", async () => {
+    TestBed.runInInjectionContext(() => injectProductNameSearch(signal("shoe")));
+    await settleUntil(() => expect(ctx.calls.searchByName).toHaveBeenCalled());
+    expect(ctx.calls.productSearch).not.toHaveBeenCalled();
   });
 
   it("injectProductsInfinite advances the page number", async () => {

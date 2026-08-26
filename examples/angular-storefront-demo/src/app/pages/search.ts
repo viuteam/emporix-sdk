@@ -1,5 +1,5 @@
 import { Component, computed, signal } from "@angular/core";
-import { injectMatchPrices, injectProductSearch } from "@viu/emporix-sdk-angular";
+import { injectMatchPrices, injectProductNameSearch } from "@viu/emporix-sdk-angular";
 import { priceMatchItems } from "@viu/emporix-examples-shared";
 import { ProductGrid } from "../ui/product-grid";
 import { QueryState } from "../ui/query-state";
@@ -17,7 +17,11 @@ export class Search {
    * and re-runs it, with no `effect`, subscription or manual refetch involved.
    */
   protected readonly term = signal("");
-  protected readonly results = injectProductSearch(this.term.asReadonly(), signal({ pageSize: 24 }));
+  /** The term search, not `injectProductSearch` — that one takes a built filter. */
+  protected readonly results = injectProductNameSearch(
+    this.term.asReadonly(),
+    signal({ pageSize: 24 }),
+  );
   protected readonly items = computed(() => this.results.data()?.items ?? []);
   private readonly priceInput = computed(() => ({ items: priceMatchItems([...this.items()]) }));
   protected readonly prices = injectMatchPrices(this.priceInput);

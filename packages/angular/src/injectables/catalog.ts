@@ -140,12 +140,17 @@ export function injectProductByCode(
 }
 
 /**
- * Free-text product search by name.
+ * Free-text product search by name (builds the Emporix `name:(~…)` filter).
  *
  * Disabled while the term is blank rather than searching for nothing — an empty
  * typeahead keystroke should cost no billed call.
+ *
+ * Named after React's `useProductNameSearch`, and deliberately not
+ * `injectProductSearch`: that name belongs to the filter search below, which is
+ * a different endpoint. Getting these two the wrong way round is invisible —
+ * both answer `PaginatedItems<Product>`.
  */
-export function injectProductSearch(
+export function injectProductNameSearch(
   term: Signal<string>,
   params: Signal<{ pageNumber?: number; pageSize?: number }> = (() => ({})) as Signal<{
     pageNumber?: number;
@@ -171,8 +176,11 @@ export function injectProductSearch(
   );
 }
 
-/** A built Emporix filter query against products. Disabled while the filter is empty. */
-export function injectProductQuery(
+/**
+ * A built Emporix filter query against products. Disabled while the filter is
+ * empty. Matches React's `useProductSearch`.
+ */
+export function injectProductSearch(
   query: Signal<QueryFor<"PRODUCT"> | undefined>,
   params: Signal<{ pageNumber?: number; pageSize?: number; totalCount?: boolean }>,
   opts: CatalogOpts = {},
