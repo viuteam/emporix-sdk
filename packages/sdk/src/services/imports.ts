@@ -5,6 +5,11 @@ import type { Page } from "../generated/import-service";
 import type {
   ImportCancelResult,
   ImportConfig,
+  ImportHealthThresholds,
+  ImportJobGroup,
+  ImportLicense,
+  ImportStats,
+  ImportStatsQuery,
   ImportErrorRecord,
   ImportPage,
   ImportRecordOutcome,
@@ -375,4 +380,101 @@ export class ImportService {
     });
     return toPage(wire, args);
   }
+
+  // ─── Analytics and retry (upstream release 2026-08-26) ─────────────────────
+
+  /**
+   * Aggregated import analytics.
+   *
+   * Every section is optional in the response, and `sections` is what decides
+   * which the service computes — asking for all of them on a tenant with a long
+   * history is the expensive call, so name the ones you render.
+   *
+   * `from` / `to` are ISO timestamps. Omitted, the service picks its own window;
+   * do not assume it is «everything».
+   *
+   * **Preview upstream**: the contract may change without a major bump.
+   */
+  async stats(
+    query: ImportStatsQuery = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ImportStats> {
+    return this.ctx.http.request<ImportStats>({
+      method: "GET",
+      path: `${this.base()}/stats`,
+      query: { ...query },
+      auth,
+    });
+  }
+
+  /**
+   * The dashboard's job groups: configurations with their runs grouped under
+   * them.
+   *
+   * Named after the path rather than the summary («Retrieving job groups»)
+   * because the resource lives under `/dashboard` and is shaped for that view —
+   * a caller wanting plain run history wants {@link listRuns}.
+   *
+   * **Preview upstream**: the contract may change without a major bump.
+   */
+  async listJobGroups(auth: AuthContext = SERVICE): Promise<ImportJobGroup[]> {
+    return this.ctx.http.request<ImportJobGroup[]>({
+      method: "GET",
+      path: `${this.base()}/dashboard/job-groups`,
+      auth,
+    });
+  }
+
+  /**
+   * The tenant's health thresholds — the error rates above which a stream counts
+   * as degraded or failing in {@link stats}.
+   *
+   * Read-only here: changing them needs `importtool.import_manage`, which this
+   * service does not cover.
+   *
+   * **Preview upstream**: the contract may change without a major bump.
+   */
+  async getHealthThresholds(
+    auth: AuthContext = SERVICE,
+  ): Promise<ImportHealthThresholds> {
+    return this.ctx.http.request<ImportHealthThresholds>({
+      method: "GET",
+      path: `${this.base()}/settings/health-thresholds`,
+      auth,
+    });
+  }
+
+  /**
+   * The tenant's import limits and current consumption.
+   *
+   * **Preview upstream**: the contract may change without a major bump.
+   */
+  async getLicense(auth: AuthContext = SERVICE): Promise<ImportLicense> {
+    return this.ctx.http.request<ImportLicense>({
+      method: "GET",
+      path: `${this.base()}/license`,
+      auth,
+    });
+  }
+
+  /**
+   * Retry only the failed records of a finished run.
+   *
+   * Returns a **new** run — the retry is its own run with `retry: true`, not a
+   * mutation of the original. Poll it with {@link getRun} or follow it with
+   * {@link streamRun} exactly as you would a triggered run.
+   *
+   * Not retried on a 5xx, for the same reason {@link triggerRun} is not: a POST
+   * that timed out may already have queued the retry.
+   *
+   * **Preview upstream**: the contract may change without a major bump.
+   */
+  async retryRun(runId: string, auth: AuthContext = SERVICE): Promise<ImportRun> {
+    return this.ctx.http.request<ImportRun>({
+      method: "POST",
+      path: `${this.base()}/runs/${encodeURIComponent(runId)}/retry`,
+      auth,
+    });
+  }
+
 }
