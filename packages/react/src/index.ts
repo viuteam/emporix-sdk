@@ -1,4 +1,13 @@
 export { EmporixProvider, useEmporix } from "./provider";
+/**
+ * The read-query factory, public so consumers can wrap operations this package
+ * does not — see the Managed Dashboard section of the README. Angular's
+ * `injectEmporixQuery` has been public since its first release; this closes that
+ * asymmetry.
+ */
+export { useEmporixQuery } from "./hooks/internal/use-emporix-query";
+export type { EmporixQueryConfig } from "./hooks/internal/use-emporix-query";
+export { useEmporixInfinite } from "./hooks/internal/use-emporix-infinite";
 export type { EmporixProviderProps, SiteContextValue } from "./provider";
 export type { TokenStorage, EmporixStorage, PersistedAnonymousSession } from "./storage/index";
 export {
