@@ -591,7 +591,7 @@ export type McpToolConfigResponse = {
  */
 export type McpToolRequest = {
     /**
-     * Unique name of the tool. Must not contain whitespace characters.
+     * Unique name of the tool. Must contain only letters, numbers, and underscores.
      */
     name: string;
     /**
@@ -616,7 +616,7 @@ export type McpToolRequest = {
  */
 export type McpToolResponse = {
     /**
-     * Unique name of the tool.
+     * Unique name of the tool. Contains only letters, numbers, and underscores.
      */
     name?: string;
     /**

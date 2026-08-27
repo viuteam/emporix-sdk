@@ -2918,7 +2918,8 @@ components:
       properties:
         name:
           type: string
-          description: Unique name of the tool. Must not contain whitespace characters.
+          description: Unique name of the tool. Must contain only letters, numbers, and underscores.
+          pattern: '^[A-Za-z0-9_]+$'
         description:
           type: string
           description: Human-readable description of the tool.
@@ -2944,7 +2945,7 @@ components:
       properties:
         name:
           type: string
-          description: Unique name of the tool.
+          description: Unique name of the tool. Contains only letters, numbers, and underscores.
         description:
           type: string
           description: Human-readable description of the tool.
@@ -4814,7 +4815,7 @@ components:
                 - op: REPLACE
                   path: /tools
                   value:
-                    - name: get-order
+                    - name: get_order
                       prompt: Use this tool to retrieve an order by ID.
                       enabled: true
                       config:
@@ -4969,7 +4970,7 @@ components:
           enabled: true
           transport: streamable_http
           tools:
-            - name: get-order
+            - name: get_order
               description: Retrieves an order by ID.
               prompt: Use this tool when the user asks for order details.
               enabled: true
@@ -5144,7 +5145,7 @@ components:
         type: dynamic
         enabled: true
         tools:
-          - name: get-order
+          - name: get_order
             description: Retrieves an order by ID.
             prompt: Use this tool when the user asks for order details.
             enabled: true
@@ -5176,7 +5177,7 @@ components:
         enabled: true
         transport: streamable_http
         tools:
-          - name: get-order
+          - name: get_order
             description: Retrieves an order by ID.
             prompt: Use this tool when the user asks for order details.
             enabled: true
