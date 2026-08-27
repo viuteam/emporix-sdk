@@ -794,3 +794,65 @@ and `prefetchOrder` remain as convenience wrappers.
 
 See [`examples/next-app-router`](../examples/next-app-router) and
 [`examples/vite-spa`](../examples/vite-spa) for working setups.
+
+## Back-office operations: why there are no admin hooks
+
+**Decision, 2026-08-27: the query factory is the supported path, and no admin
+hooks ship in this package.** Written down so the question is not reopened from
+scratch — including what would reverse it.
+
+### The situation
+
+Measured from the built artifacts: the SDK exposes **492** public async methods
+across 48 service files, **336** of them defaulting to a service context. The
+hooks here call **120** distinct operations, and **21** service files have no hook
+at all — `brand`, `label`, `catalog`, `client-config`, `country`, `currency`,
+`fee`, `imports`, `indexing`, `invoice`, `pick-pack`, `quote`, `schema`,
+`sequential-id`, `tax`, `tenant-config`, `unit-handling`, `vendor`, `webhook`,
+`ai-resources`, `ai-rag-indexer`.
+
+They have no hook because a storefront token cannot call them. A **Managed
+Dashboard** module is the case where the host's token can, which is what raised
+the question: should this package ship hooks for them?
+
+### The evidence
+
+Two domains were built for real in [`examples/md-module`](../examples/md-module)
+and verified against the live tenant — brands and labels, reads and writes, one
+full create/delete cycle. What that produced:
+
+| Question | Answer |
+| --- | --- |
+| Does the shape port to a second facade unchanged? | **Yes** — 22 of 23 assertions passed against the label facade with no structural change |
+| How much code would a wrapper save? | **Little.** Of ~12 lines per read, ~4 are the facade call; the rest is `mode` / `site` / `resource` / `staleTime` |
+| Is the cache-key convention the real value? | **Yes** — `site: "none"` vs `"full"` and `mode: "customer"` vs `"read-auth"` are both silently wrong when wrong |
+| How many facades would follow the first two? | **Unknown.** There is no roadmap naming them |
+
+### Why that adds up to «no»
+
+The fourth answer decides it. Shipping an `/admin` entry with two hooks and no
+basis for what joins them is how a package grows surface nobody imports — and
+every one of those wrappers is then maintenance on each `api-sync`. Two proven
+domains are not a mandate for twenty-one.
+
+The third answer is the real counter-argument, and it is answered by
+documentation rather than by wrappers: the Managed Dashboard section of
+[`packages/react/README.md`](../packages/react/README.md) now states what the
+factory gives you that a hand-rolled `useQuery` does not, and names the trap that
+admin facade methods default their `auth` to a service context. That is the part a
+consumer could get silently wrong, and it now has a written answer.
+
+### What would reverse this
+
+Any one of these:
+
+- **A named list of facades** a dashboard needs. Four or five concrete domains is
+  a surface worth designing; an open list is not.
+- **A second consumer.** One module can carry its own hooks. Two copying from each
+  other is duplication that belongs upstream.
+- **A divergence the factory cannot express** — an admin read needing a different
+  auth resolution, or a write needing shared optimistic-update logic.
+
+Until then: wrap what you need with `useEmporixQuery`, and copy
+[`src/admin/useBrands.ts`](../examples/md-module/src/admin/useBrands.ts) as the
+reference. It is twelve lines and it is deliberately not hidden in a package.
