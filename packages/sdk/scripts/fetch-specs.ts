@@ -42,7 +42,6 @@ export const SPECS: Record<string, string> = {
   shipping: `${BASE}/delivery-and-shipping/shipping/api-reference/api.yml`,
   "order-v2": `${BASE}/orders/order/api-reference/api.yml`,
   returns: `${BASE}/orders/returns/api-reference/api.yml`,
-  "sepa-export": `${BASE}/orders/sepa-export/api-reference/api.yml`,
   "indexing-service": `${BASE}/configuration/indexing-service/api-reference/api.yml`,
   "unit-handling-service": `${BASE}/configuration/unit-handling-service/api-reference/api.yml`,
   catalog: `${BASE}/catalogs-and-categories/catalog/api-reference/api.yml`,
