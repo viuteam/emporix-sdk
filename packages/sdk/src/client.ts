@@ -41,7 +41,6 @@ import { ShippingService } from "./services/shipping";
 import { InvoiceService } from "./services/invoice";
 import { QuoteService } from "./services/quote";
 import { ReturnsService } from "./services/returns";
-import { SepaExportService } from "./services/sepa-export";
 import { IndexingService } from "./services/indexing";
 import { ImportService } from "./services/imports";
 import { UnitHandlingService } from "./services/unit-handling";
@@ -93,7 +92,6 @@ export class EmporixClient {
   readonly invoices: InvoiceService;
   readonly quotes: QuoteService;
   readonly returns: ReturnsService;
-  readonly sepaExport: SepaExportService;
   readonly indexing: IndexingService;
   readonly imports: ImportService;
   readonly units: UnitHandlingService;
@@ -170,7 +168,6 @@ export class EmporixClient {
     this.invoices = new InvoiceService(mk(InvoiceService.channel));
     this.quotes = new QuoteService(mk(QuoteService.channel));
     this.returns = new ReturnsService(mk(ReturnsService.channel));
-    this.sepaExport = new SepaExportService(mk(SepaExportService.channel));
     this.indexing = new IndexingService(mk(IndexingService.channel));
     this.imports = new ImportService(mk(ImportService.channel));
     this.units = new UnitHandlingService(mk(UnitHandlingService.channel));

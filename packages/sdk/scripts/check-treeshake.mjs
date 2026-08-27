@@ -32,7 +32,7 @@ const out = result.outputFiles[0].text;
 
 // Unique markers that appear ONLY in services NOT pulled by products/carts.
 // If the factory tree-shakes, none may survive.
-const forbidden = ["sepa-export", "reward-points", "/webhooks", "pick-pack", "ai-rag-indexer"];
+const forbidden = ["reward-points", "/webhooks", "pick-pack", "ai-rag-indexer"];
 const leaked = forbidden.filter((m) => out.includes(m));
 if (leaked.length > 0) {
   console.error(`tree-shaking FAILED — unused service markers in bundle: ${leaked.join(", ")}`);
