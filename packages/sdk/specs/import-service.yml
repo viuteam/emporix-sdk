@@ -12,9 +12,10 @@ info:
     {% endhint %}
 
     This reference covers the operational surface available with the `importtool.import_trigger` scope:
-    triggering, scheduling, monitoring, and cancelling import runs, and reading configurations, streams,
-    schedules, runs, and imported data. Administrative operations (creating and changing configurations,
-    connections, streams, and mappings) require the `importtool.import_manage` scope.
+    triggering, scheduling, monitoring, and cancelling import runs, reading configurations, streams,
+    schedules, runs, and imported data, and reading the import analytics that summarise them.
+    Administrative operations (creating and changing configurations, connections, streams, and mappings)
+    require the `importtool.import_manage` scope.
   contact:
     name: Emporix
     url: https://emporix.com
@@ -30,6 +31,10 @@ tags:
     description: Trigger, monitor, and cancel import runs.
   - name: Data
     description: Read imported records.
+  - name: Analytics
+    description: Read aggregated import statistics, health, and the settings behind them.
+  - name: License
+    description: Read the tenant's import limits.
 servers:
   - url: 'https://api.emporix.io'
 paths:
@@ -39,7 +44,7 @@ paths:
     get:
       summary: Retrieving all import configurations
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -78,7 +83,7 @@ paths:
     get:
       summary: Retrieving an import configuration
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -117,7 +122,7 @@ paths:
     get:
       summary: Retrieving all streams of a configuration
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -156,7 +161,7 @@ paths:
     get:
       summary: Retrieving a stream
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -195,7 +200,7 @@ paths:
     get:
       summary: Retrieving a schedule
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -230,7 +235,7 @@ paths:
     put:
       summary: Scheduling an import job
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -278,7 +283,7 @@ paths:
     post:
       summary: Triggering an import run
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -303,7 +308,7 @@ paths:
                   enum:
                     - FULL
                     - DELTA
-                  description: The run mode. Defaults to `DELTA`.
+                  description: The run mode. When omitted, defaults to `DELTA`.
                   example: DELTA
                 dryRun:
                   type: boolean
@@ -343,7 +348,7 @@ paths:
     get:
       summary: Retrieving run history
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -383,7 +388,7 @@ paths:
     get:
       summary: Retrieving a run
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -422,7 +427,7 @@ paths:
     get:
       summary: Streaming run progress
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -465,7 +470,7 @@ paths:
     post:
       summary: Cancelling a run
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -513,7 +518,7 @@ paths:
     get:
       summary: Retrieving run errors
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -552,7 +557,7 @@ paths:
     get:
       summary: Retrieving imported data types
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -591,7 +596,7 @@ paths:
     get:
       summary: Searching imported records
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -659,7 +664,7 @@ paths:
     get:
       summary: Searching a stream's imported records
       description: |-
-        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png" alt=""></p>
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
 
         {% hint style="danger" %}
         This functionality is in preview mode - some of the features may not be fully operational yet.
@@ -711,6 +716,287 @@ paths:
           $ref: '#/components/responses/Unauthorized_401'
         '403':
           $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/stats':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+    get:
+      summary: Retrieving import statistics
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves aggregated import metrics for a time window: headline counters and rates, a time series
+        bucketed by day, week, or month, per-stream health, the top failing streams, an error breakdown,
+        and how many streams were added or removed.
+
+        To narrow the scope, use:
+        - `configId` for one configuration
+        - `configIds` for several configurations
+        - `streamId` for one stream
+        
+        When none of them are given, the whole tenant is summarised. Use `sections` to fetch only the parts
+        you need — an unrequested section is returned as `null`.
+      operationId: GET-importtool-stats
+      tags:
+        - Analytics
+      parameters:
+        - name: configId
+          in: query
+          required: false
+          description: Restricts the statistics to a single configuration.
+          schema:
+            type: string
+            format: uuid
+            example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        - name: configIds
+          in: query
+          required: false
+          description: >-
+            Restricts the statistics to several configurations, as a comma-separated list of identifiers.
+            Ignored when `configId` is given.
+          schema:
+            type: string
+            example: '7c9e6679-7425-40de-944b-e07fc1f90ae7,550e8400-e29b-41d4-a716-446655440000'
+        - name: streamId
+          in: query
+          required: false
+          description: Restricts the statistics to a single stream. Takes precedence over the configuration filters.
+          schema:
+            type: string
+            format: uuid
+            example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        - name: from
+          in: query
+          required: false
+          description: The start of the window, as an ISO-8601 instant. When omitted, defaults to 30 days ago.
+          schema:
+            type: string
+            format: date-time
+            example: '2024-05-01T00:00:00Z'
+        - name: to
+          in: query
+          required: false
+          description: The end of the window, as an ISO-8601 instant. Exclusive. When omitted, defaults to now.
+          schema:
+            type: string
+            format: date-time
+            example: '2024-05-31T00:00:00Z'
+        - name: granularity
+          in: query
+          required: false
+          description: The bucket size of the returned time series.
+          schema:
+            type: string
+            enum:
+              - DAY
+              - WEEK
+              - MONTH
+            default: DAY
+            example: DAY
+        - name: sections
+          in: query
+          required: false
+          description: >-
+            A comma-separated list of the sections to compute: `TOTALS`, `STREAMS`, `ERRORS`, `CHANGES`.
+            When omitted, defaults to all sections. A section not requested through the `sections` parameter
+            is returned as `null`.
+          schema:
+            type: string
+            example: 'TOTALS,ERRORS'
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The statistics are returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportStats'
+              examples:
+                Import statistics response:
+                  $ref: '#/components/examples/ImportStats_Example'
+        '400':
+          description: The window or a filter value is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/dashboard/job-groups':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+    get:
+      summary: Retrieving job groups
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves the tenant's job groups. A job group is a named set of import configurations, used to
+        scope the analytics to the imports that matter to you. Groups are stored per tenant and shared by
+        everyone working on it.
+
+        Creating, changing, and deleting groups requires the `importtool.import_manage` scope.
+      operationId: GET-importtool-list-job-groups
+      tags:
+        - Analytics
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The job groups are returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobGroup'
+              examples:
+                Job groups response:
+                  $ref: '#/components/examples/JobGroups_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/settings/health-thresholds':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+    get:
+      summary: Retrieving the tenant's health thresholds
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves the tenant-wide thresholds that decide whether a stream is reported as `GREEN`, `AMBER`,
+        or `RED` in the import statistics, together with the built-in defaults they fall back to.
+
+        Thresholds resolve field by field, from the most specific level to the least specific: stream,
+        configuration, tenant, then the built-in default. An unset field falls back to the value at the
+        next less-specific level.
+
+        Changing the tenant-wide thresholds requires the `importtool.import_manage` scope.
+      operationId: GET-importtool-health-thresholds
+      tags:
+        - Analytics
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The thresholds are returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthSettings'
+              examples:
+                Health thresholds response:
+                  $ref: '#/components/examples/HealthSettings_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/license':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+    get:
+      summary: Retrieving import limits
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves the tenant's import limits. If an import exceeds `maxRecordsPerEntity`, excess records
+        are skipped and the run finishes with the `PARTIAL` status. If `maxConcurrentImports` runs are
+        already active, additional run requests are rejected with a `429 Too Many Requests` response.
+
+        Contact [Emporix Support](mailto:support@emporix.com) to have a limit raised.
+      operationId: GET-importtool-license
+      tags:
+        - License
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The limits are returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportLicense'
+              examples:
+                Import license response:
+                  $ref: '#/components/examples/ImportLicense_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/runs/{runId}/retry':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_runId'
+    post:
+      summary: Retrying the failed records of a run
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Starts a new run that reprocesses only the records that failed in the given run, instead of the
+        whole source. The new run is returned immediately and reports its own progress; the original run is
+        left untouched and keeps its counters.
+
+        As with any run, at most one run can be active per configuration.
+      operationId: POST-importtool-retry-run
+      tags:
+        - Runs
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The retry run was started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRun'
+              examples:
+                Import run response:
+                  $ref: '#/components/examples/ImportRun_Example'
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '404':
+          $ref: '#/components/responses/NotFound_404'
+        '409':
+          $ref: '#/components/responses/Conflict_409'
         '500':
           $ref: '#/components/responses/InternalServiceError_500'
 components:
@@ -769,14 +1055,24 @@ components:
           format: uuid
           description: The default source connection for the configuration's streams.
           example: 550e8400-e29b-41d4-a716-446655440000
-        deltaEnabled:
+        aiEnabled:
           type: boolean
-          description: Whether delta (incremental) runs are enabled.
-          example: true
+          description: Whether AI-assisted mapping suggestions are enabled for the configuration.
+          example: false
         enabled:
           type: boolean
           description: Whether the configuration is active.
           example: true
+        version:
+          type: integer
+          description: Incremented on every change to the configuration.
+          example: 3
+        healthThresholds:
+          $ref: '#/components/schemas/HealthThresholds'
+        createdBy:
+          type: string
+          description: The identifier of the user who created the configuration.
+          example: user@example.com
         createdAt:
           type: string
           format: date-time
@@ -826,6 +1122,82 @@ components:
             - COMPOSITE_MERGE
           description: How the stream contributes to the target.
           example: STANDALONE
+        deltaField:
+          type: string
+          description: >-
+            The source field whose value is tracked as the delta watermark. A delta run extracts only the
+            records whose value is newer than the last run's.
+          example: LASTCHANGEDATE
+        deltaFieldFormat:
+          type: string
+          enum:
+            - DATE
+            - UNIX_SECONDS
+            - UNIX_MILLIS
+          description: How the delta field's values are formatted, so they can be compared correctly.
+          example: DATE
+        compositeParent:
+          type: string
+          description: For a composite child stream, the name of the stream it contributes to.
+          example: invoices
+        linkingField:
+          type: string
+          description: For a composite child stream, the source field holding its parent's key.
+          example: INVOICE_ID
+        embedAttribute:
+          type: string
+          description: For a composite child stream, the parent attribute its records are embedded into.
+          example: lineItems
+        childStrategy:
+          type: string
+          enum:
+            - EMBED
+            - PATCH
+          description: How a composite child's records reach the parent object.
+          example: EMBED
+        writeStrategy:
+          type: string
+          enum:
+            - PATCH
+            - MERGE_PUT
+            - REPLACE_PUT
+          description: >-
+            How an existing target object is updated. `PATCH` changes only the mapped fields and preserves
+            everything else; `REPLACE_PUT` replaces the whole object, so fields this import does not manage
+            are cleared.
+          example: PATCH
+        discriminatorField:
+          type: string
+          description: >-
+            A source field whose value routes each record to a different target type, as defined by
+            `discriminatorMap`.
+          example: DOCUMENT_TYPE
+        discriminatorMap:
+          type: object
+          additionalProperties:
+            type: string
+          description: Maps a discriminator value to the target type that receives those records.
+          example:
+            PO Invoice: PO_INVOICE
+            Non PO Invoice: NON_PO_INVOICE
+        targetDeleteSubscriptionEnabled:
+          type: boolean
+          description: Whether the stream reacts to its target objects being deleted outside the import.
+          example: false
+        onTargetReappear:
+          type: string
+          enum:
+            - IGNORE
+            - READD
+          description: What happens when a record deleted in the target is seen in the source again.
+          example: IGNORE
+        healthThresholds:
+          $ref: '#/components/schemas/HealthThresholds'
+        createdAt:
+          type: string
+          format: date-time
+          description: When the stream was created.
+          example: '2024-05-01T09:00:00.000Z'
         enabled:
           type: boolean
           description: Whether the stream is active.
@@ -946,6 +1318,30 @@ components:
           type: string
           description: A terminal status message, typically set on failure.
           example: Import completed with 5 record failures.
+        retryOfRunId:
+          type: string
+          format: uuid
+          description: When the run retries another run's failed records, the identifier of that original run.
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        force:
+          type: boolean
+          description: Whether the run rewrote every record, bypassing the skip-if-unchanged check.
+          example: false
+        dryRun:
+          type: boolean
+          description: >-
+            Whether the run only extracted, mapped, and validated, writing nothing to the target. A dry run
+            legitimately reports zero for every counter, so this distinguishes it from a run that wrote
+            nothing because it failed.
+          example: false
+        cancelRequested:
+          type: boolean
+          description: Whether cancellation has been requested for a run that is still finishing.
+          example: false
+        dryRunSampleSize:
+          type: integer
+          description: For a dry run, how many mapped records were kept as a sample.
+          example: 10
     ImportRunStream:
       title: Run stream progress
       type: object
@@ -1197,6 +1593,397 @@ components:
               description: The imported records on this page.
               items:
                 $ref: '#/components/schemas/ImportedRecord'
+    HealthThresholds:
+      title: Health thresholds
+      type: object
+      description: >-
+        The limits that decide whether a stream is reported as `GREEN`, `AMBER`, or `RED`. Each field is
+        optional and resolves independently. An unset field falls back through the hierarchy, from the most
+        specific level to the least specific: stream, configuration, tenant, then the built-in default.
+      properties:
+        failureRatioAmber:
+          type: number
+          format: double
+          description: The share of failed records (0..1) at or above which the stream is `AMBER`.
+          example: 0.01
+        failureRatioRed:
+          type: number
+          format: double
+          description: The share of failed records (0..1) at or above which the stream is `RED`.
+          example: 0.1
+        staleAmberHours:
+          type: integer
+          description: The age threshold, in hours, for the stream's newest data. The stream is `AMBER` when the data's age reaches or exceeds this threshold.
+          example: 48
+        staleRedHours:
+          type: integer
+          description: The age threshold, in hours, for the stream's newest data. The stream is `RED` when the data's age reaches or exceeds this threshold.
+          example: 168
+        failedRunIsRed:
+          type: boolean
+          description: Whether a failed most-recent run makes the stream `RED` regardless of the other limits.
+          example: true
+    HealthSettings:
+      title: Tenant health thresholds
+      type: object
+      description: The tenant-wide thresholds, together with the built-in defaults they fall back to.
+      properties:
+        thresholds:
+          $ref: '#/components/schemas/HealthThresholds'
+        builtInDefaults:
+          $ref: '#/components/schemas/HealthThresholds'
+    JobGroup:
+      title: Job group
+      type: object
+      description: A named set of import configurations, used to scope the import statistics.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The job group identifier.
+          example: 9f8c7b6a-5d4e-3f2a-1b0c-9d8e7f6a5b4c
+        name:
+          type: string
+          description: The job group name. Unique within the tenant.
+          example: Nightly master data
+        configIds:
+          type: array
+          description: The configurations in the group.
+          items:
+            type: string
+            format: uuid
+            example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        createdAt:
+          type: string
+          format: date-time
+          description: When the group was created.
+          example: '2024-05-01T09:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the group was last changed.
+          example: '2024-05-02T11:30:00.000Z'
+    ImportLicense:
+      title: Import limits
+      type: object
+      description: The import limits that apply to the tenant.
+      properties:
+        maxRecordsPerEntity:
+          type: integer
+          description: >-
+            The maximum number of records a single run may write per target type. Records beyond the limit
+            are skipped and the run finishes as `PARTIAL`.
+          example: 10000
+        maxConcurrentImports:
+          type: integer
+          description: >-
+            The maximum number of runs that may be active at once for the tenant. A run requested beyond
+            this limit is rejected with `429`.
+          example: 2
+        batchSize:
+          type: integer
+          description: The number of records written to the target per request.
+          example: 100
+        workers:
+          type: integer
+          description: The number of target writes performed in parallel.
+          example: 1
+    ImportStatsSummary:
+      title: Statistics summary
+      type: object
+      description: Headline totals for the window. Rates are fractions between 0 and 1.
+      properties:
+        totalRuns:
+          type: integer
+          description: The number of runs started in the window.
+          example: 42
+        succeeded:
+          type: integer
+          description: The number of runs that finished successfully.
+          example: 38
+        partial:
+          type: integer
+          description: The number of runs that finished with some records failing.
+          example: 3
+        failed:
+          type: integer
+          description: The number of runs that failed.
+          example: 1
+        cancelled:
+          type: integer
+          description: The number of runs that were cancelled.
+          example: 0
+        recordsRead:
+          type: integer
+          description: The number of source records read.
+          example: 125000
+        created:
+          type: integer
+          description: The number of target objects created.
+          example: 4300
+        updated:
+          type: integer
+          description: The number of target objects updated.
+          example: 98000
+        skipped:
+          type: integer
+          description: The number of records skipped because nothing had changed.
+          example: 22000
+        deleted:
+          type: integer
+          description: The number of target objects deleted.
+          example: 700
+        failedRecords:
+          type: integer
+          description: The number of records that could not be imported.
+          example: 130
+        successRate:
+          type: number
+          format: double
+          description: The share of runs that finished successfully.
+          example: 0.905
+        failureRate:
+          type: number
+          format: double
+          description: The share of records that failed.
+          example: 0.001
+        deletionRate:
+          type: number
+          format: double
+          description: The share of processed records that resulted in a deletion.
+          example: 0.006
+        skipRate:
+          type: number
+          format: double
+          description: The share of records skipped as unchanged.
+          example: 0.176
+        avgRunDurationSec:
+          type: number
+          format: double
+          description: The mean duration of a finished run, in seconds.
+          example: 184.5
+        avgCreatedPerRun:
+          type: number
+          format: double
+          description: The mean number of objects created per run.
+          example: 102.4
+        avgUpdatedPerRun:
+          type: number
+          format: double
+          description: The mean number of objects updated per run.
+          example: 2333.3
+        distinctEntities:
+          type: integer
+          description: The number of distinct target objects currently held by the imports in scope.
+          example: 87000
+        activeRuns:
+          type: integer
+          description: The number of runs currently in progress.
+          example: 1
+    ImportStatsPoint:
+      title: Statistics time bucket
+      type: object
+      description: One bucket of the time series, in UTC.
+      properties:
+        bucket:
+          type: string
+          format: date-time
+          description: The start of the bucket.
+          example: '2024-05-14T00:00:00.000Z'
+        runs:
+          type: integer
+          example: 3
+        succeeded:
+          type: integer
+          example: 3
+        failed:
+          type: integer
+          example: 0
+        recordsRead:
+          type: integer
+          example: 4200
+        created:
+          type: integer
+          example: 120
+        updated:
+          type: integer
+          example: 3900
+        deleted:
+          type: integer
+          example: 10
+        skipped:
+          type: integer
+          example: 170
+        failedRecords:
+          type: integer
+          example: 0
+    ImportStreamHealth:
+      title: Stream health
+      type: object
+      description: The health of one stream over the window, and the thresholds the verdict used.
+      properties:
+        streamId:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        configId:
+          type: string
+          format: uuid
+          description: The configuration the stream belongs to.
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        name:
+          type: string
+          example: products
+        targetType:
+          type: string
+          description: The target type the stream writes to.
+          example: product
+        lastRunStatus:
+          type: string
+          description: The status of the stream's most recent run.
+          example: SUCCEEDED
+        lastRunAt:
+          type: string
+          format: date-time
+          example: '2024-05-14T02:00:00.000Z'
+        watermarkAgeSeconds:
+          type: integer
+          description: The number of seconds since the stream last detected new data.
+          example: 7200
+        failureRatio:
+          type: number
+          format: double
+          description: The share of the stream's records that failed in the window.
+          example: 0.002
+        health:
+          type: string
+          enum:
+            - GREEN
+            - AMBER
+            - RED
+          description: The stream's health verdict.
+          example: GREEN
+        thresholds:
+          $ref: '#/components/schemas/ImportEffectiveThresholds'
+    ImportEffectiveThresholds:
+      title: Effective thresholds
+      type: object
+      description: The threshold values the verdict was actually computed with, after resolving every level.
+      properties:
+        failureRatioAmber:
+          type: number
+          format: double
+          example: 0.01
+        failureRatioRed:
+          type: number
+          format: double
+          example: 0.1
+        staleAmberHours:
+          type: integer
+          example: 48
+        staleRedHours:
+          type: integer
+          example: 168
+        failedRunIsRed:
+          type: boolean
+          example: true
+        customised:
+          type: boolean
+          description: Whether any level overrides the built-in defaults.
+          example: false
+    ImportStatsNamedCount:
+      title: Named count
+      type: object
+      properties:
+        streamId:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        name:
+          type: string
+          example: products
+        count:
+          type: integer
+          example: 87
+    ImportStatsErrorBucket:
+      title: Error bucket
+      type: object
+      description: A count of errors sharing the same stage and code.
+      properties:
+        stage:
+          type: string
+          description: The pipeline stage the error occurred in.
+          example: UPSERT
+        errorCode:
+          type: string
+          example: VALIDATION
+        count:
+          type: integer
+          example: 54
+    ImportStreamChanges:
+      title: Stream changes
+      type: object
+      description: The counts of streams added and removed during the time window.
+      properties:
+        added:
+          type: integer
+          example: 2
+        removed:
+          type: integer
+          example: 1
+        trackingSince:
+          type: string
+          format: date-time
+          description: >-
+            When stream tracking began for the tenant. Streams created before this point are not counted,
+            so a window reaching further back is not comparable.
+          example: '2024-03-11T08:00:00.000Z'
+        series:
+          type: array
+          items:
+            type: object
+            properties:
+              bucket:
+                type: string
+                format: date-time
+                example: '2024-05-14T00:00:00.000Z'
+              added:
+                type: integer
+                example: 1
+              removed:
+                type: integer
+                example: 0
+    ImportStats:
+      title: Import statistics
+      type: object
+      description: >-
+        Aggregated import metrics for the requested window and scope. A section that was not requested via
+        the `sections` parameter is returned as `null`.
+      properties:
+        summary:
+          $ref: '#/components/schemas/ImportStatsSummary'
+        series:
+          type: array
+          description: Activity per time bucket, ordered oldest first and gap-free.
+          items:
+            $ref: '#/components/schemas/ImportStatsPoint'
+        streamHealth:
+          type: array
+          description: The health of each stream in scope.
+          items:
+            $ref: '#/components/schemas/ImportStreamHealth'
+        topFailingStreams:
+          type: array
+          description: The streams with the most errors during the time window, ordered by error count in descending order.
+          items:
+            $ref: '#/components/schemas/ImportStatsNamedCount'
+        errorBreakdown:
+          type: array
+          description: The most common errors in the window, grouped by stage and code.
+          items:
+            $ref: '#/components/schemas/ImportStatsErrorBucket'
+        streamChanges:
+          $ref: '#/components/schemas/ImportStreamChanges'
   responses:
     Unauthorized_401:
       description: Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
@@ -1359,7 +2146,7 @@ components:
         name: ERP product master import
         description: Nightly import of product master data from the ERP system.
         sourceConnId: 550e8400-e29b-41d4-a716-446655440000
-        deltaEnabled: true
+        aiEnabled: false
         enabled: true
         createdAt: '2026-07-01T10:15:30.000Z'
         updatedAt: '2026-07-20T08:00:00.000Z'
@@ -1370,7 +2157,7 @@ components:
           name: ERP product master import
           description: Nightly import of product master data from the ERP system.
           sourceConnId: 550e8400-e29b-41d4-a716-446655440000
-          deltaEnabled: true
+          aiEnabled: false
           enabled: true
           createdAt: '2026-07-01T10:15:30.000Z'
           updatedAt: '2026-07-20T08:00:00.000Z'
@@ -1517,6 +2304,98 @@ components:
               active: true
             outcome: UPDATED
             importedAt: '2026-07-27T02:03:55.000Z'
+    ImportStats_Example:
+      value:
+        summary:
+          totalRuns: 42
+          succeeded: 38
+          partial: 3
+          failed: 1
+          cancelled: 0
+          recordsRead: 125000
+          created: 4300
+          updated: 98000
+          skipped: 22000
+          deleted: 700
+          failedRecords: 130
+          successRate: 0.905
+          failureRate: 0.001
+          deletionRate: 0.006
+          skipRate: 0.176
+          avgRunDurationSec: 184.5
+          avgCreatedPerRun: 102.4
+          avgUpdatedPerRun: 2333.3
+          distinctEntities: 87000
+          activeRuns: 1
+        series:
+          - bucket: '2026-07-19T00:00:00.000Z'
+            runs: 3
+            succeeded: 3
+            failed: 0
+            recordsRead: 4200
+            created: 120
+            updated: 3900
+            deleted: 10
+            skipped: 170
+            failedRecords: 0
+        streamHealth:
+          - streamId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+            configId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+            name: Products
+            targetType: product
+            lastRunStatus: SUCCEEDED
+            lastRunAt: '2026-07-20T02:00:00.000Z'
+            watermarkAgeSeconds: 7200
+            failureRatio: 0.002
+            health: GREEN
+            thresholds:
+              failureRatioAmber: 0.01
+              failureRatioRed: 0.1
+              staleAmberHours: 48
+              staleRedHours: 168
+              failedRunIsRed: true
+              customised: false
+        topFailingStreams:
+          - streamId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+            name: Products
+            count: 87
+        errorBreakdown:
+          - stage: UPSERT
+            errorCode: VALIDATION
+            count: 54
+        streamChanges:
+          added: 2
+          removed: 1
+          trackingSince: '2026-06-11T08:00:00.000Z'
+          series:
+            - bucket: '2026-07-19T00:00:00.000Z'
+              added: 1
+              removed: 0
+    JobGroups_Example:
+      value:
+        - id: 9f8c7b6a-5d4e-3f2a-1b0c-9d8e7f6a5b4c
+          name: Nightly master data
+          configIds:
+            - 7c9e6679-7425-40de-944b-e07fc1f90ae7
+          createdAt: '2026-07-01T10:15:30.000Z'
+          updatedAt: '2026-07-20T08:00:00.000Z'
+    HealthSettings_Example:
+      value:
+        thresholds:
+          failureRatioAmber: 0.05
+          staleRedHours: 72
+        builtInDefaults:
+          failureRatioAmber: 0.01
+          failureRatioRed: 0.1
+          staleAmberHours: 48
+          staleRedHours: 168
+          failedRunIsRed: true
+    ImportLicense_Example:
+      value:
+        maxRecordsPerEntity: 10000
+        maxConcurrentImports: 2
+        batchSize: 100
+        workers: 1
   securitySchemes:
     OAuth2:
       type: oauth2

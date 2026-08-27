@@ -56,13 +56,22 @@ export type ImportConfig = {
      */
     sourceConnId?: string;
     /**
-     * Whether delta (incremental) runs are enabled.
+     * Whether AI-assisted mapping suggestions are enabled for the configuration.
      */
-    deltaEnabled?: boolean;
+    aiEnabled?: boolean;
     /**
      * Whether the configuration is active.
      */
     enabled?: boolean;
+    /**
+     * Incremented on every change to the configuration.
+     */
+    version?: number;
+    healthThresholds?: HealthThresholds;
+    /**
+     * The identifier of the user who created the configuration.
+     */
+    createdBy?: string;
     /**
      * When the configuration was created.
      */
@@ -107,6 +116,57 @@ export type ImportStream = {
      * How the stream contributes to the target.
      */
     mode?: 'STANDALONE' | 'COMPOSITE_CHILD' | 'COMPOSITE_MERGE';
+    /**
+     * The source field whose value is tracked as the delta watermark. A delta run extracts only the records whose value is newer than the last run's.
+     */
+    deltaField?: string;
+    /**
+     * How the delta field's values are formatted, so they can be compared correctly.
+     */
+    deltaFieldFormat?: 'DATE' | 'UNIX_SECONDS' | 'UNIX_MILLIS';
+    /**
+     * For a composite child stream, the name of the stream it contributes to.
+     */
+    compositeParent?: string;
+    /**
+     * For a composite child stream, the source field holding its parent's key.
+     */
+    linkingField?: string;
+    /**
+     * For a composite child stream, the parent attribute its records are embedded into.
+     */
+    embedAttribute?: string;
+    /**
+     * How a composite child's records reach the parent object.
+     */
+    childStrategy?: 'EMBED' | 'PATCH';
+    /**
+     * How an existing target object is updated. `PATCH` changes only the mapped fields and preserves everything else; `REPLACE_PUT` replaces the whole object, so fields this import does not manage are cleared.
+     */
+    writeStrategy?: 'PATCH' | 'MERGE_PUT' | 'REPLACE_PUT';
+    /**
+     * A source field whose value routes each record to a different target type, as defined by `discriminatorMap`.
+     */
+    discriminatorField?: string;
+    /**
+     * Maps a discriminator value to the target type that receives those records.
+     */
+    discriminatorMap?: {
+        [key: string]: string;
+    };
+    /**
+     * Whether the stream reacts to its target objects being deleted outside the import.
+     */
+    targetDeleteSubscriptionEnabled?: boolean;
+    /**
+     * What happens when a record deleted in the target is seen in the source again.
+     */
+    onTargetReappear?: 'IGNORE' | 'READD';
+    healthThresholds?: HealthThresholds;
+    /**
+     * When the stream was created.
+     */
+    createdAt?: string;
     /**
      * Whether the stream is active.
      */
@@ -211,6 +271,26 @@ export type ImportRun = {
      * A terminal status message, typically set on failure.
      */
     message?: string;
+    /**
+     * When the run retries another run's failed records, the identifier of that original run.
+     */
+    retryOfRunId?: string;
+    /**
+     * Whether the run rewrote every record, bypassing the skip-if-unchanged check.
+     */
+    force?: boolean;
+    /**
+     * Whether the run only extracted, mapped, and validated, writing nothing to the target. A dry run legitimately reports zero for every counter, so this distinguishes it from a run that wrote nothing because it failed.
+     */
+    dryRun?: boolean;
+    /**
+     * Whether cancellation has been requested for a run that is still finishing.
+     */
+    cancelRequested?: boolean;
+    /**
+     * For a dry run, how many mapped records were kept as a sample.
+     */
+    dryRunSampleSize?: number;
 };
 
 /**
@@ -452,6 +532,326 @@ export type ImportedRecordPage = Page & {
      * The imported records on this page.
      */
     content?: Array<ImportedRecord>;
+};
+
+/**
+ * Health thresholds
+ *
+ * The limits that decide whether a stream is reported as `GREEN`, `AMBER`, or `RED`. Each field is optional and resolves independently. An unset field falls back through the hierarchy, from the most specific level to the least specific: stream, configuration, tenant, then the built-in default.
+ */
+export type HealthThresholds = {
+    /**
+     * The share of failed records (0..1) at or above which the stream is `AMBER`.
+     */
+    failureRatioAmber?: number;
+    /**
+     * The share of failed records (0..1) at or above which the stream is `RED`.
+     */
+    failureRatioRed?: number;
+    /**
+     * The age threshold, in hours, for the stream's newest data. The stream is `AMBER` when the data's age reaches or exceeds this threshold.
+     */
+    staleAmberHours?: number;
+    /**
+     * The age threshold, in hours, for the stream's newest data. The stream is `RED` when the data's age reaches or exceeds this threshold.
+     */
+    staleRedHours?: number;
+    /**
+     * Whether a failed most-recent run makes the stream `RED` regardless of the other limits.
+     */
+    failedRunIsRed?: boolean;
+};
+
+/**
+ * Tenant health thresholds
+ *
+ * The tenant-wide thresholds, together with the built-in defaults they fall back to.
+ */
+export type HealthSettings = {
+    thresholds?: HealthThresholds;
+    builtInDefaults?: HealthThresholds;
+};
+
+/**
+ * Job group
+ *
+ * A named set of import configurations, used to scope the import statistics.
+ */
+export type JobGroup = {
+    /**
+     * The job group identifier.
+     */
+    id?: string;
+    /**
+     * The job group name. Unique within the tenant.
+     */
+    name?: string;
+    /**
+     * The configurations in the group.
+     */
+    configIds?: Array<string>;
+    /**
+     * When the group was created.
+     */
+    createdAt?: string;
+    /**
+     * When the group was last changed.
+     */
+    updatedAt?: string;
+};
+
+/**
+ * Import limits
+ *
+ * The import limits that apply to the tenant.
+ */
+export type ImportLicense = {
+    /**
+     * The maximum number of records a single run may write per target type. Records beyond the limit are skipped and the run finishes as `PARTIAL`.
+     */
+    maxRecordsPerEntity?: number;
+    /**
+     * The maximum number of runs that may be active at once for the tenant. A run requested beyond this limit is rejected with `429`.
+     */
+    maxConcurrentImports?: number;
+    /**
+     * The number of records written to the target per request.
+     */
+    batchSize?: number;
+    /**
+     * The number of target writes performed in parallel.
+     */
+    workers?: number;
+};
+
+/**
+ * Statistics summary
+ *
+ * Headline totals for the window. Rates are fractions between 0 and 1.
+ */
+export type ImportStatsSummary = {
+    /**
+     * The number of runs started in the window.
+     */
+    totalRuns?: number;
+    /**
+     * The number of runs that finished successfully.
+     */
+    succeeded?: number;
+    /**
+     * The number of runs that finished with some records failing.
+     */
+    partial?: number;
+    /**
+     * The number of runs that failed.
+     */
+    failed?: number;
+    /**
+     * The number of runs that were cancelled.
+     */
+    cancelled?: number;
+    /**
+     * The number of source records read.
+     */
+    recordsRead?: number;
+    /**
+     * The number of target objects created.
+     */
+    created?: number;
+    /**
+     * The number of target objects updated.
+     */
+    updated?: number;
+    /**
+     * The number of records skipped because nothing had changed.
+     */
+    skipped?: number;
+    /**
+     * The number of target objects deleted.
+     */
+    deleted?: number;
+    /**
+     * The number of records that could not be imported.
+     */
+    failedRecords?: number;
+    /**
+     * The share of runs that finished successfully.
+     */
+    successRate?: number;
+    /**
+     * The share of records that failed.
+     */
+    failureRate?: number;
+    /**
+     * The share of processed records that resulted in a deletion.
+     */
+    deletionRate?: number;
+    /**
+     * The share of records skipped as unchanged.
+     */
+    skipRate?: number;
+    /**
+     * The mean duration of a finished run, in seconds.
+     */
+    avgRunDurationSec?: number;
+    /**
+     * The mean number of objects created per run.
+     */
+    avgCreatedPerRun?: number;
+    /**
+     * The mean number of objects updated per run.
+     */
+    avgUpdatedPerRun?: number;
+    /**
+     * The number of distinct target objects currently held by the imports in scope.
+     */
+    distinctEntities?: number;
+    /**
+     * The number of runs currently in progress.
+     */
+    activeRuns?: number;
+};
+
+/**
+ * Statistics time bucket
+ *
+ * One bucket of the time series, in UTC.
+ */
+export type ImportStatsPoint = {
+    /**
+     * The start of the bucket.
+     */
+    bucket?: string;
+    runs?: number;
+    succeeded?: number;
+    failed?: number;
+    recordsRead?: number;
+    created?: number;
+    updated?: number;
+    deleted?: number;
+    skipped?: number;
+    failedRecords?: number;
+};
+
+/**
+ * Stream health
+ *
+ * The health of one stream over the window, and the thresholds the verdict used.
+ */
+export type ImportStreamHealth = {
+    streamId?: string;
+    /**
+     * The configuration the stream belongs to.
+     */
+    configId?: string;
+    name?: string;
+    /**
+     * The target type the stream writes to.
+     */
+    targetType?: string;
+    /**
+     * The status of the stream's most recent run.
+     */
+    lastRunStatus?: string;
+    lastRunAt?: string;
+    /**
+     * The number of seconds since the stream last detected new data.
+     */
+    watermarkAgeSeconds?: number;
+    /**
+     * The share of the stream's records that failed in the window.
+     */
+    failureRatio?: number;
+    /**
+     * The stream's health verdict.
+     */
+    health?: 'GREEN' | 'AMBER' | 'RED';
+    thresholds?: ImportEffectiveThresholds;
+};
+
+/**
+ * Effective thresholds
+ *
+ * The threshold values the verdict was actually computed with, after resolving every level.
+ */
+export type ImportEffectiveThresholds = {
+    failureRatioAmber?: number;
+    failureRatioRed?: number;
+    staleAmberHours?: number;
+    staleRedHours?: number;
+    failedRunIsRed?: boolean;
+    /**
+     * Whether any level overrides the built-in defaults.
+     */
+    customised?: boolean;
+};
+
+/**
+ * Named count
+ */
+export type ImportStatsNamedCount = {
+    streamId?: string;
+    name?: string;
+    count?: number;
+};
+
+/**
+ * Error bucket
+ *
+ * A count of errors sharing the same stage and code.
+ */
+export type ImportStatsErrorBucket = {
+    /**
+     * The pipeline stage the error occurred in.
+     */
+    stage?: string;
+    errorCode?: string;
+    count?: number;
+};
+
+/**
+ * Stream changes
+ *
+ * The counts of streams added and removed during the time window.
+ */
+export type ImportStreamChanges = {
+    added?: number;
+    removed?: number;
+    /**
+     * When stream tracking began for the tenant. Streams created before this point are not counted, so a window reaching further back is not comparable.
+     */
+    trackingSince?: string;
+    series?: Array<{
+        bucket?: string;
+        added?: number;
+        removed?: number;
+    }>;
+};
+
+/**
+ * Import statistics
+ *
+ * Aggregated import metrics for the requested window and scope. A section that was not requested via the `sections` parameter is returned as `null`.
+ */
+export type ImportStats = {
+    summary?: ImportStatsSummary;
+    /**
+     * Activity per time bucket, ordered oldest first and gap-free.
+     */
+    series?: Array<ImportStatsPoint>;
+    /**
+     * The health of each stream in scope.
+     */
+    streamHealth?: Array<ImportStreamHealth>;
+    /**
+     * The streams with the most errors during the time window, ordered by error count in descending order.
+     */
+    topFailingStreams?: Array<ImportStatsNamedCount>;
+    /**
+     * The most common errors in the window, grouped by stage and code.
+     */
+    errorBreakdown?: Array<ImportStatsErrorBucket>;
+    streamChanges?: ImportStreamChanges;
 };
 
 /**
@@ -860,7 +1260,7 @@ export type GetImporttoolListRunsResponse = GetImporttoolListRunsResponses[keyof
 export type PostImporttoolTriggerRunData = {
     body?: {
         /**
-         * The run mode. Defaults to `DELTA`.
+         * The run mode. When omitted, defaults to `DELTA`.
          */
         mode?: 'FULL' | 'DELTA';
         /**
@@ -1325,3 +1725,278 @@ export type GetImporttoolSearchStreamRecordsResponses = {
 };
 
 export type GetImporttoolSearchStreamRecordsResponse = GetImporttoolSearchStreamRecordsResponses[keyof GetImporttoolSearchStreamRecordsResponses];
+
+export type GetImporttoolStatsData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * Restricts the statistics to a single configuration.
+         */
+        configId?: string;
+        /**
+         * Restricts the statistics to several configurations, as a comma-separated list of identifiers. Ignored when `configId` is given.
+         */
+        configIds?: string;
+        /**
+         * Restricts the statistics to a single stream. Takes precedence over the configuration filters.
+         */
+        streamId?: string;
+        /**
+         * The start of the window, as an ISO-8601 instant. When omitted, defaults to 30 days ago.
+         */
+        from?: string;
+        /**
+         * The end of the window, as an ISO-8601 instant. Exclusive. When omitted, defaults to now.
+         */
+        to?: string;
+        /**
+         * The bucket size of the returned time series.
+         */
+        granularity?: 'DAY' | 'WEEK' | 'MONTH';
+        /**
+         * A comma-separated list of the sections to compute: `TOTALS`, `STREAMS`, `ERRORS`, `CHANGES`. When omitted, defaults to all sections. A section not requested through the `sections` parameter is returned as `null`.
+         */
+        sections?: string;
+    };
+    url: '/importtool/{tenant}/stats';
+};
+
+export type GetImporttoolStatsErrors = {
+    /**
+     * The window or a filter value is invalid.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetImporttoolStatsError = GetImporttoolStatsErrors[keyof GetImporttoolStatsErrors];
+
+export type GetImporttoolStatsResponses = {
+    /**
+     * The request was successful. The statistics are returned.
+     */
+    200: ImportStats;
+};
+
+export type GetImporttoolStatsResponse = GetImporttoolStatsResponses[keyof GetImporttoolStatsResponses];
+
+export type GetImporttoolListJobGroupsData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/dashboard/job-groups';
+};
+
+export type GetImporttoolListJobGroupsErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetImporttoolListJobGroupsError = GetImporttoolListJobGroupsErrors[keyof GetImporttoolListJobGroupsErrors];
+
+export type GetImporttoolListJobGroupsResponses = {
+    /**
+     * The request was successful. The job groups are returned.
+     */
+    200: Array<JobGroup>;
+};
+
+export type GetImporttoolListJobGroupsResponse = GetImporttoolListJobGroupsResponses[keyof GetImporttoolListJobGroupsResponses];
+
+export type GetImporttoolHealthThresholdsData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/settings/health-thresholds';
+};
+
+export type GetImporttoolHealthThresholdsErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetImporttoolHealthThresholdsError = GetImporttoolHealthThresholdsErrors[keyof GetImporttoolHealthThresholdsErrors];
+
+export type GetImporttoolHealthThresholdsResponses = {
+    /**
+     * The request was successful. The thresholds are returned.
+     */
+    200: HealthSettings;
+};
+
+export type GetImporttoolHealthThresholdsResponse = GetImporttoolHealthThresholdsResponses[keyof GetImporttoolHealthThresholdsResponses];
+
+export type GetImporttoolLicenseData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/license';
+};
+
+export type GetImporttoolLicenseErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetImporttoolLicenseError = GetImporttoolLicenseErrors[keyof GetImporttoolLicenseErrors];
+
+export type GetImporttoolLicenseResponses = {
+    /**
+     * The request was successful. The limits are returned.
+     */
+    200: ImportLicense;
+};
+
+export type GetImporttoolLicenseResponse = GetImporttoolLicenseResponses[keyof GetImporttoolLicenseResponses];
+
+export type PostImporttoolRetryRunData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The run identifier.
+         */
+        runId: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/runs/{runId}/retry';
+};
+
+export type PostImporttoolRetryRunErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * The request conflicts with the current state of the resource.
+     */
+    409: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PostImporttoolRetryRunError = PostImporttoolRetryRunErrors[keyof PostImporttoolRetryRunErrors];
+
+export type PostImporttoolRetryRunResponses = {
+    /**
+     * The retry run was started.
+     */
+    200: ImportRun;
+};
+
+export type PostImporttoolRetryRunResponse = PostImporttoolRetryRunResponses[keyof PostImporttoolRetryRunResponses];
