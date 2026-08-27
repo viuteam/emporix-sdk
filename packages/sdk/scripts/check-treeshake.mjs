@@ -37,13 +37,12 @@ const out = result.outputFiles[0].text;
 // one definition, but a Node or edge consumer that never imports them must not
 // pay for them. Property names survive minification, so these are real probes.
 const forbidden = [
- "sepa-export",
- "reward-points",
- "/webhooks",
- "pick-pack",
- "ai-rag-indexer",
- "localStorage",
- "document.cookie",
+  "reward-points",
+  "/webhooks",
+  "pick-pack",
+  "ai-rag-indexer",
+  "localStorage",
+  "document.cookie",
 ];
 const leaked = forbidden.filter((m) => out.includes(m));
 if (leaked.length > 0) {

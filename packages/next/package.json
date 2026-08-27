@@ -1,6 +1,6 @@
 {
   "name": "@viu/emporix-sdk-next",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "Next.js server-side bindings for the Emporix SDK: cache tags, server-first session with no token in the browser, service accounts, webhook revalidation",
   "license": "MIT",
   "author": {

@@ -169,12 +169,6 @@
       "fetchedAt": "2026-08-25T07:00:01.869Z",
       "sha256": "351279995922215e3c9bc59e228888e12e8cc1398bf84dfcc1b4f9d284b1e7e3"
     },
-    "sepa-export": {
-      "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/orders/sepa-export/api-reference/api.yml",
-      "specVersion": "",
-      "fetchedAt": "2026-08-25T07:00:01.869Z",
-      "sha256": "4b95865aa2d7226066356020188100a5d122e521a324eadc776c6215e0a11543"
-    },
     "indexing-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/configuration/indexing-service/api-reference/api.yml",
       "specVersion": "v1",
