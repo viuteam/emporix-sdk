@@ -119,3 +119,54 @@ build. So a `build:dev` bundle carries `"dev"` at the call site and resolves to
 | [`src/environments.ts`](./src/environments.ts) | the single source for API host and dashboard origin per mode |
 | [`src/ProductList.tsx`](./src/ProductList.tsx) | `useProducts` with `totalCount: true` — the "X of Y" a dashboard table wants |
 | [`vite.config.ts`](./vite.config.ts) | what is shared with the host (`react`, `react-dom`) and what deliberately is not |
+| [`src/admin/useBrands.ts`](./src/admin/useBrands.ts) | wrapping a back-office operation the package ships no hook for, through the public `useEmporixQuery` |
+| [`src/admin/ScopeError.tsx`](./src/admin/ScopeError.tsx) | rendering a 403 as the configuration answer it is, branching on `EmporixForbiddenError` |
+
+## Administering brands and labels
+
+`useProducts` in `ProductList` is a hook the package already ships. The Brands and
+Labels views are the other case: **the Brand and Label services have no hook in
+`@viu/emporix-sdk-react`**, because a storefront token cannot manage them. The
+dashboard's token can, so the module wraps them itself — twelve lines each, through
+the public `useEmporixQuery`.
+
+Three things worth copying from `src/admin/useBrands.ts`:
+
+- **`mode: "customer"`, even though brand *reads* also accept an anonymous token.**
+  This module builds its client with `credentials: {}`, so there is nothing to mint
+  an anonymous token *with* — `mode: "read-auth"` would attempt a login that cannot
+  succeed. In a host-token module, reads are `customer` even where the endpoint
+  would allow otherwise.
+- **`site: "none"`.** Brands and labels are tenant-scoped. Keying by site would
+  fragment the cache and bill once per site for one answer.
+- **The `ctx` the factory hands you must be passed on.** Both facades default their
+  `auth` parameter to a *service* context — client credentials with a secret, which
+  a browser does not have.
+
+The endpoints carry **no `{tenant}` segment**: `/brand/brands`, `/label/labels`.
+The tenant comes from the token. This is easy to get wrong from the method names
+alone, and it is what the SDK's own comment says.
+
+## Verified against the live tenant
+
+Run on 2026-08-27 against `viu` with a dashboard token, standalone (`pnpm dev`),
+with the token in an untracked `.env.local`.
+
+| | Result |
+| --- | --- |
+| Products read | 20 of **928** real products |
+| Brands read | `GET /brand/brands?pageSize=50` → 200, empty list |
+| Labels read | `GET /label/labels` → 200, empty list |
+| Is the token doing the work? | the same URL without a bearer answers **401** |
+| Brand create | `POST /brand/brands` → a real id |
+| Does the table refresh itself? | **yes** — the mutation's invalidation triggered the refetch, no reload |
+| Brand delete | removed; the tenant is back to the state it was found in |
+
+**Not exercised: the 403 path.** `ScopeError` is covered by a unit test, but
+producing a real 403 needs a token that lacks the scope, and the dashboard token
+has it. Verifying it live would mean minting a storefront token for this tenant —
+worth doing before anyone relies on that message, and not something to fabricate.
+
+**Both tenants' brand and label lists are empty**, so the table, the empty state
+and one create/delete cycle are proven, while pagination and editing an existing
+row are not. A tenant with real brands would exercise the rest.
