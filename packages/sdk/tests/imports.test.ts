@@ -464,3 +464,104 @@ describe("ImportService data", () => {
     expect(page.items[0]?.streamId).toBe("str1");
   });
 });
+
+/**
+ * The five operations Emporix added on 2026-08-26 (Import Service analytics and
+ * failed-record retry). Their generated types had already arrived with the spec
+ * sync; only the facade was missing, which is exactly the gap a sync PR hides —
+ * it looks like a types-only diff.
+ */
+describe("ImportService analytics and retry", () => {
+  it("stats passes only the filters it was given", async () => {
+    const seen: { url?: URL } = {};
+    server.use(
+      http.get(`${BASE}/stats`, ({ request }) => {
+        seen.url = new URL(request.url);
+        return HttpResponse.json({ summary: { runs: 3 } });
+      }),
+    );
+    const res = await sdk().imports.stats({ configId: "cfg1", granularity: "DAY" as never });
+    expect(res).toEqual({ summary: { runs: 3 } });
+    expect(seen.url?.searchParams.get("configId")).toBe("cfg1");
+    expect(seen.url?.searchParams.get("granularity")).toBe("DAY");
+    // Absent filters must not go out as empty strings — the service would treat
+    // `from=` as a real bound.
+    expect(seen.url?.searchParams.has("from")).toBe(false);
+    expect(seen.url?.searchParams.has("sections")).toBe(false);
+  });
+
+  it("stats works with no filters at all", async () => {
+    const seen: { url?: URL } = {};
+    server.use(
+      http.get(`${BASE}/stats`, ({ request }) => {
+        seen.url = new URL(request.url);
+        return HttpResponse.json({});
+      }),
+    );
+    await sdk().imports.stats();
+    expect([...(seen.url?.searchParams.keys() ?? [])]).toEqual([]);
+  });
+
+  it("listJobGroups GETs the dashboard path", async () => {
+    server.use(
+      http.get(`${BASE}/dashboard/job-groups`, () =>
+        HttpResponse.json([{ configId: "cfg1", runs: [run] }]),
+      ),
+    );
+    const res = await sdk().imports.listJobGroups();
+    expect(res).toEqual([{ configId: "cfg1", runs: [run] }]);
+  });
+
+  it("getHealthThresholds GETs the settings path", async () => {
+    server.use(
+      http.get(`${BASE}/settings/health-thresholds`, () =>
+        HttpResponse.json({ degradedErrorRate: 0.05, failingErrorRate: 0.2 }),
+      ),
+    );
+    const res = await sdk().imports.getHealthThresholds();
+    expect(res).toEqual({ degradedErrorRate: 0.05, failingErrorRate: 0.2 });
+  });
+
+  it("getLicense GETs the license path", async () => {
+    server.use(
+      http.get(`${BASE}/license`, () =>
+        HttpResponse.json({ maxRecordsPerMonth: 100000, recordsUsed: 4200 }),
+      ),
+    );
+    const res = await sdk().imports.getLicense();
+    expect(res).toEqual({ maxRecordsPerMonth: 100000, recordsUsed: 4200 });
+  });
+
+  /**
+   * A retry is a **new** run, not a mutation of the original. Asserting the
+   * returned id differs from the one passed in is what pins that down — a facade
+   * that echoed the request id back would look fine otherwise.
+   */
+  it("retryRun POSTs to the run and returns a new run", async () => {
+    const seen: { method?: string } = {};
+    server.use(
+      http.post(`${BASE}/runs/run1/retry`, ({ request }) => {
+        seen.method = request.method;
+        return HttpResponse.json({ ...run, id: "run2", retry: true });
+      }),
+    );
+    const res = await sdk().imports.retryRun("run1");
+    expect(seen.method).toBe("POST");
+    expect(res.id).toBe("run2");
+    expect((res as { retry?: boolean }).retry).toBe(true);
+  });
+
+  it("retryRun encodes the run id into the path", async () => {
+    server.use(
+      http.post(`${BASE}/runs/run%2F1/retry`, () => HttpResponse.json(run)),
+    );
+    await expect(sdk().imports.retryRun("run/1")).resolves.toBeDefined();
+  });
+
+  it("all five require the service scope and surface a 403 as such", async () => {
+    server.use(
+      http.get(`${BASE}/license`, () => new HttpResponse(null, { status: 403 })),
+    );
+    await expect(sdk().imports.getLicense()).rejects.toBeInstanceOf(EmporixForbiddenError);
+  });
+});

@@ -16,6 +16,11 @@ import type {
   ImportRunStream as GenImportRunStream,
   ImportStream as GenImportStream,
   ImportedRecord as GenImportedRecord,
+  GetImporttoolStatsData,
+  HealthSettings,
+  ImportLicense as GenImportLicense,
+  ImportStats as GenImportStats,
+  JobGroup as GenJobGroup,
   PostImporttoolTriggerRunData,
   RunDetail,
   Schedule,
@@ -40,7 +45,11 @@ export type ImportErrorRecord = ErrorRecord;
 /** A record that was imported, with its keys, stored fields and last outcome. */
 export type ImportedRecord = GenImportedRecord;
 
-/** Body for `triggerRun`: `{ mode?, dryRun? }`. `mode` defaults to `DELTA` server-side. */
+/**
+ * Body for `triggerRun`: `{ mode?, dryRun?, force? }`. `mode` defaults to
+ * `DELTA` server-side; `force` rewrites every extracted record, bypassing the
+ * skip-if-unchanged idempotency.
+ */
 export type ImportRunInput = NonNullable<PostImporttoolTriggerRunData["body"]>;
 /** Lifecycle status of an {@link ImportRun}. */
 export type ImportRunStatus = NonNullable<ImportRun["status"]>;
@@ -93,3 +102,25 @@ export type ImportPage<T> = PaginatedItems<T> & {
   /** Total number of pages. */
   totalPages: number;
 };
+
+/**
+ * Aggregated import analytics: totals, a time series, an error breakdown and
+ * per-stream health. Every section is optional — the `sections` filter decides
+ * which ones the service computes.
+ */
+export type ImportStats = GenImportStats;
+
+/** Query for {@link ImportsService.stats}. All filters optional. */
+export type ImportStatsQuery = Omit<NonNullable<GetImporttoolStatsData["query"]>, never>;
+
+/** One dashboard job group: a configuration and the runs grouped under it. */
+export type ImportJobGroup = GenJobGroup;
+
+/**
+ * The tenant's health thresholds — the error rates above which a stream counts
+ * as degraded or failing in {@link ImportStats}.
+ */
+export type ImportHealthThresholds = HealthSettings;
+
+/** The tenant's import limits and current consumption. */
+export type ImportLicense = GenImportLicense;

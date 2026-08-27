@@ -131,6 +131,42 @@ Mind one upstream asymmetry: the `outcome` **filter** is a closed enum
 value (`UPDATED`) is not in that enum. Give any `switch` over a record's
 `outcome` a default branch.
 
+## Analytics and retrying failures
+
+Added upstream on 2026-08-26, all on the same `importtool.import_trigger` scope as
+the rest of this surface.
+
+```ts
+// Aggregated analytics. `sections` decides what the service computes, so name
+// what you render — asking for everything on a long history is the expensive call.
+const stats = await client.imports.stats({ configId: "cfg1", granularity: "DAY" });
+
+// The dashboard view: configurations with their runs grouped under them.
+const groups = await client.imports.listJobGroups();
+
+// The error rates above which a stream counts as degraded or failing in `stats`.
+const thresholds = await client.imports.getHealthThresholds();
+
+// Limits and current consumption.
+const license = await client.imports.getLicense();
+```
+
+**A retry is a new run, not a mutation of the old one.**
+
+```ts
+const retried = await client.imports.retryRun(failed.id!);
+// retried.id !== failed.id, and retried.retry === true
+for await (const ev of client.imports.streamRun(retried.id!)) {
+  // follow it exactly as you would a triggered run
+}
+```
+
+`retryRun` re-processes only the records that failed. Like `triggerRun` it is
+**not** retried on a 5xx: a POST that timed out may already have queued the retry.
+
+Reading the thresholds is all this service covers — changing them needs
+`importtool.import_manage`, which is outside the scope this surface is built on.
+
 ## Pagination
 
 `listRuns`, `listRunErrors`, `searchRecords` and `searchStreamRecords` return
