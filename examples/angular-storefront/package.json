@@ -1,0 +1,31 @@
+{
+  "name": "@viu/emporix-examples-angular",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Smallest Angular 22 integration. Its job is to prove the tsup-built @viu/emporix-sdk-angular artifact survives an AOT production build.",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "build:prod": "ng build --configuration production",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit"
+  },
+  "dependencies": {
+    "@angular/common": "^22.1.3",
+    "@angular/compiler": "^22.1.3",
+    "@angular/core": "^22.1.3",
+    "@angular/platform-browser": "^22.1.3",
+    "@angular/router": "^22.1.3",
+    "@tanstack/angular-query-experimental": "^5.102.3",
+    "@viu/emporix-sdk": "workspace:*",
+    "@viu/emporix-sdk-angular": "workspace:*",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.1.5",
+    "@angular/cli": "^22.1.5",
+    "@angular/compiler-cli": "^22.1.3",
+    "typescript": "~6.0.2"
+  }
+}

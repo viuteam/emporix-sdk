@@ -1,0 +1,68 @@
+<div class="setup stack">
+  <h1>Configure the demo</h1>
+  <p class="muted small">
+    Stored in <code>localStorage</code> only. Nothing is sent anywhere until you browse.
+  </p>
+
+  <form class="card stack" (submit)="submit($event)">
+    <label>
+      <span>Tenant</span>
+      <input
+        required
+        autocomplete="off"
+        placeholder="acme"
+        [value]="tenant()"
+        (input)="tenant.set($any($event.target).value)"
+      />
+    </label>
+    <label>
+      <span>Storefront client id (public)</span>
+      <input
+        required
+        autocomplete="off"
+        [value]="clientId()"
+        (input)="clientId.set($any($event.target).value)"
+      />
+    </label>
+    <label>
+      <span>Site code (optional)</span>
+      <input
+        autocomplete="off"
+        placeholder="main"
+        [value]="siteCode()"
+        (input)="siteCode.set($any($event.target).value)"
+      />
+    </label>
+    <label>
+      <span>Currency (optional)</span>
+      <input
+        autocomplete="off"
+        placeholder="CHF"
+        maxlength="3"
+        [value]="currency()"
+        (input)="currency.set($any($event.target).value.toUpperCase())"
+      />
+    </label>
+    <label>
+      <span>Target location for pricing (optional, ISO-2)</span>
+      <input
+        autocomplete="off"
+        placeholder="CH"
+        maxlength="2"
+        [value]="targetLocation()"
+        (input)="targetLocation.set($any($event.target).value.toUpperCase())"
+      />
+    </label>
+
+    @if (error(); as e) {
+      <div class="notice error small"><strong>{{ e }}</strong></div>
+    }
+    <button class="primary" type="submit">Start</button>
+  </form>
+
+  <p class="small muted">
+    Prices only resolve when currency, site and target location together match a price
+    list on the tenant. If products render but prices say «unavailable», that pairing is
+    what to check first.
+  </p>
+</div>

@@ -5,9 +5,10 @@
  * depending on the React bindings. Re-exported here unchanged: these names have
  * always been part of this package's public surface.
  *
- * What is left in this file is what genuinely belongs to a browser: the listener
- * set the Web Storage and cookie backends use for `subscribeAll`, and the
- * backends themselves.
+ * The browser backends followed them there once `@viu/emporix-sdk-angular`
+ * needed the same ones — `localStorage` is not a React API either. This file is
+ * now purely a barrel: it defines nothing, so there is nothing here that can
+ * drift from what another binding writes.
  */
 export type {
   EmporixStorage,
@@ -15,34 +16,7 @@ export type {
   PersistedAnonymousSession,
   TokenStorage,
 } from "@viu/emporix-sdk";
-export { parseAnonymousSession } from "@viu/emporix-sdk";
-
-/**
- * Internal: create a swallow-on-throw listener set used by all three storage
- * backends for `subscribeAll`. Centralizes the try/catch wrapper so a buggy
- * telemetry handler never breaks a storage write.
- */
-export function createListenerSet<T>(): {
-  add(l: (value: T) => void): () => void;
-  notify(value: T): void;
-} {
-  const listeners = new Set<(v: T) => void>();
-  return {
-    add(l) {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    notify(value) {
-      for (const l of listeners) {
-        try {
-          l(value);
-        } catch {
-          // Swallow handler errors; telemetry must never break writes.
-        }
-      }
-    },
-  };
-}
+export { parseAnonymousSession, createListenerSet } from "@viu/emporix-sdk";
 
 export { createMemoryStorage } from "./memory";
 export { createLocalStorage, createLocalStorageStorage } from "./local-storage";

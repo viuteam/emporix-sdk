@@ -5,6 +5,7 @@
 [![@viu/emporix-sdk-react](https://img.shields.io/npm/v/@viu/emporix-sdk-react?label=%40viu%2Femporix-sdk-react)](https://www.npmjs.com/package/@viu/emporix-sdk-react)
 [![@viu/emporix-mixins](https://img.shields.io/npm/v/@viu/emporix-mixins?label=%40viu%2Femporix-mixins)](https://www.npmjs.com/package/@viu/emporix-mixins)
 [![@viu/emporix-sdk-next](https://img.shields.io/npm/v/@viu/emporix-sdk-next?label=%40viu%2Femporix-sdk-next)](https://www.npmjs.com/package/@viu/emporix-sdk-next)
+[![@viu/emporix-sdk-angular](https://img.shields.io/npm/v/@viu/emporix-sdk-angular?label=%40viu%2Femporix-sdk-angular)](https://www.npmjs.com/package/@viu/emporix-sdk-angular)
 [![license](https://img.shields.io/npm/l/@viu/emporix-sdk)](./LICENSE)
 [![node](https://img.shields.io/node/v/@viu/emporix-sdk)](https://nodejs.org)
 
@@ -17,6 +18,7 @@ shipped as a pnpm workspace monorepo.
 | --- | --- |
 | [`@viu/emporix-sdk`](./packages/sdk) | Core, framework-agnostic SDK: auth, HTTP, logging + the full Emporix service surface — **catalog** (Product, Category, Price, Brand, Label, Catalog), **cart & checkout** (Cart, Checkout, Payment, Coupon, Tax, Shipping, Fee), **orders & fulfilment** (Orders, SalesOrders, Quote, Invoice, Returns, PickPack, Availability, Indexing), **customers & B2B** (Customer, CustomerAdmin, Companies, Contacts, Locations, CustomerGroups, Approval, RewardPoints, Segment, IAM), and **platform** (Site, SessionContext, TenantConfig, ClientConfig, Media, Schema, Webhooks, SequentialId, UnitHandling, Country, Currency, Vendor, ShoppingList, SepaExport, CloudFunctions, AI, RagIndexer, Import) |
 | [`@viu/emporix-sdk-react`](./packages/react) | React bindings: provider, hooks, storage adapters, SSR helpers |
+| [`@viu/emporix-sdk-angular`](./packages/angular) | Angular bindings: `provideEmporix`, signal-based `inject*` over TanStack Query, site context and customer session. Built with tsup rather than `ng-packagr` because it holds no decorators |
 | [`@viu/emporix-mixins`](./packages/mixins) | Generic, tenant-agnostic toolkit to resolve Emporix mixins as typed values and keep them in sync with the Schema Service (runtime accessor + pluggable sources + `emporix-mixins` codegen CLI) |
 | [`@viu/emporix-sdk-next`](./packages/next) | Next.js server bindings: URL-derived cache tags, cookie- or store-backed session for RSC and Server Actions, a **server-first mode** that keeps every Emporix token out of the browser (login, token proxy, site detection), service-account clients, webhook-driven `revalidateTag`. Needs no React. |
 
@@ -42,6 +44,8 @@ pnpm add @viu/emporix-sdk
 pnpm add @viu/emporix-sdk-react @tanstack/react-query react
 # Next.js server bindings — no React needed, not even for the session
 pnpm add @viu/emporix-sdk-next next
+# Angular bindings (peer deps: @angular/core >=20 <23, TanStack Angular Query)
+pnpm add @viu/emporix-sdk-angular @tanstack/angular-query-experimental
 # Typed mixins (optional — runtime accessor + codegen CLI)
 pnpm add @viu/emporix-mixins
 ```

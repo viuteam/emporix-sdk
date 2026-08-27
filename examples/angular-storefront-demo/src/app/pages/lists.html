@@ -1,0 +1,90 @@
+<p class="small"><a routerLink="/account">← Account</a></p>
+<h1>Shopping lists</h1>
+
+@if (!session.isAuthenticated()) {
+  <div class="notice">
+    <strong>Not signed in.</strong> This page issues no request at all without a customer
+    token — <code>mode: "customer"</code> gates the read, so a guest sees this instead of an
+    error. <a routerLink="/login">Sign in →</a>
+  </div>
+} @else {
+  <div class="stack" style="max-width:560px">
+    <form class="card stack" (submit)="create($event)">
+      <strong>New list</strong>
+      <label>
+        <span>Name</span>
+        <input
+          type="text"
+          [value]="newName()"
+          (input)="newName.set($any($event.target).value)"
+          placeholder="wishlist"
+        />
+      </label>
+      <button class="primary" type="submit" [disabled]="mutations.isPending()">
+        {{ mutations.isPending() ? "Saving…" : "Create list" }}
+      </button>
+      <p class="small muted">
+        No customer id is passed here. The bundle takes it from the session profile, which is
+        already cached under <code>customer-me</code>.
+      </p>
+    </form>
+
+    <label style="max-width:280px">
+      <span>Filter by name</span>
+      <input
+        type="text"
+        [value]="filter()"
+        (input)="filter.set($any($event.target).value)"
+        placeholder="all lists"
+      />
+    </label>
+
+    @if (mutations.error(); as e) {
+      <div class="notice error"><strong>Write failed.</strong> {{ e.message }}</div>
+    }
+    @if (done(); as message) {
+      <div class="notice">{{ message }}</div>
+    }
+
+    @if (lists.isPending()) {
+      <p class="muted">Loading…</p>
+    } @else if (lists.isError()) {
+      <div class="notice error">
+        <strong>Could not load lists.</strong> {{ lists.error()?.message }}
+      </div>
+    } @else if (rows().length === 0) {
+      <p class="muted">No lists yet.</p>
+    } @else {
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Items</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track nameOf(row)) {
+            <tr>
+              <td>{{ nameOf(row) }}</td>
+              <td>{{ itemCount(row) }}</td>
+              <td>
+                <button
+                  type="button"
+                  [disabled]="mutations.isPending()"
+                  (click)="remove(nameOf(row))"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <p class="small muted">
+        The table refreshes from the bundle's invalidation, not from anything this component
+        does after a write.
+      </p>
+    }
+  </div>
+}

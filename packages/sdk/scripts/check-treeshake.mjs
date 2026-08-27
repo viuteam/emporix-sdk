@@ -32,7 +32,18 @@ const out = result.outputFiles[0].text;
 
 // Unique markers that appear ONLY in services NOT pulled by products/carts.
 // If the factory tree-shakes, none may survive.
-const forbidden = ["reward-points", "/webhooks", "pick-pack", "ai-rag-indexer"];
+// The last two guard `core/browser-storage.ts`: the browser backends live in
+// this package so `@viu/emporix-sdk-angular` and `@viu/emporix-sdk-react` share
+// one definition, but a Node or edge consumer that never imports them must not
+// pay for them. Property names survive minification, so these are real probes.
+const forbidden = [
+  "reward-points",
+  "/webhooks",
+  "pick-pack",
+  "ai-rag-indexer",
+  "localStorage",
+  "document.cookie",
+];
 const leaked = forbidden.filter((m) => out.includes(m));
 if (leaked.length > 0) {
   console.error(`tree-shaking FAILED — unused service markers in bundle: ${leaked.join(", ")}`);
