@@ -116,6 +116,49 @@ Every hook now works on the host's token — including the token-gated ones (`us
 
 A working remote is in [`examples/md-module`](../../examples/md-module).
 
+### Operations without a hook
+
+The hooks in this package cover the storefront: roughly a quarter of the SDK's
+~490 operations. The rest are back-office calls — brands, labels, catalogs, tax,
+fees, schemas, webhooks, invoices, quotes, vendors, imports, tenant config and
+more — and they have no hook **because a storefront token cannot make them**. Of
+48 SDK service files, 21 have no hook at all.
+
+A dashboard token can. So wrap what you need with `useEmporixQuery`, the same
+factory every read hook in this package uses:
+
+```tsx
+import { useEmporix, useEmporixQuery } from "@viu/emporix-sdk-react";
+
+function useBrands(params: { pageNumber?: number; pageSize?: number } = {}) {
+  const { client } = useEmporix();
+  return useEmporixQuery({
+    mode: "customer", // the host's token — the one with the scopes
+    site: "none", // brands are tenant-scoped, not site-scoped
+    resource: "brands",
+    args: [params],
+    queryFn: (ctx) => client.brands.list(params, ctx),
+  });
+}
+```
+
+Three things that factory gives you that a hand-rolled `useQuery` does not:
+
+- **The same cache key shape** as every other read (`["emporix", resource, …args,
+  meta]`), so `["emporix"]`-scoped invalidation and the provider's query defaults
+  reach it. A hand-rolled key silently opts out of both.
+- **`mode: "customer"` gating** — no request at all until a token is present,
+  instead of a 401 on first render.
+- **The site discriminators**, via `site`. Use `"none"` for tenant-scoped
+  resources, `"full"` for anything whose answer varies by site and language.
+
+Most admin methods default their `auth` parameter to a **service** context —
+client credentials with a secret, which a browser does not have. Always pass the
+`ctx` the factory hands you; do not call the facade without it.
+
+For writes, use `useMutation` directly and invalidate the resource key you
+wrote — there is no write-side factory in this package.
+
 ## Hooks
 
 | Hook | Purpose |
