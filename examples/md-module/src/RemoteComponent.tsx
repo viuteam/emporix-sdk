@@ -2,7 +2,7 @@ import { useState } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { EmporixProvider } from "@viu/emporix-sdk-react";
 import { clientFor } from "./emporix";
-import { ProductList } from "./ProductList";
+import { Nav } from "./Nav";
 
 /** Exactly the shape the Managed Dashboard passes in. */
 export interface AppState {
@@ -67,7 +67,7 @@ export default function RemoteComponent({
       customerSession="external"
       onCustomerSessionExpired={() => setSessionDead(true)}
     >
-      <ProductList />
+      <Nav />
     </EmporixProvider>
   );
 }
