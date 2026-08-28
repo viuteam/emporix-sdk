@@ -1314,6 +1314,19 @@ components:
           type: integer
           description: Records deleted.
           example: 0
+        duplicateKeys:
+          type: integer
+          description: >-
+            Source rows that repeat a key already imported in this run. The import keeps the last
+            row of each repeated key and discards earlier rows. Duplicate keys do not fail the run;
+            they mean the source feed is not unique on the key the stream imports by.
+          example: 25907
+        unresolvedParents:
+          type: integer
+          description: >-
+            Child records that were not imported because their parent could not be found.
+            Counted separately from `skipped`, which counts records that were already up to date.
+          example: 25370
         message:
           type: string
           description: A terminal status message, typically set on failure.
@@ -1401,6 +1414,19 @@ components:
           type: integer
           description: Records deleted.
           example: 0
+        duplicateKeys:
+          type: integer
+          description: >-
+            Source rows that repeat a key already imported in this run. The import keeps the last
+            row of each repeated key and discards earlier rows. Duplicate keys do not fail the run;
+            they mean the source feed is not unique on the key the stream imports by.
+          example: 25907
+        unresolvedParents:
+          type: integer
+          description: >-
+            Child records that were not imported because their parent could not be found.
+            Counted separately from `skipped`, which counts records that were already up to date.
+          example: 25370
         message:
           type: string
           description: A per-stream status message.
@@ -1984,6 +2010,39 @@ components:
             $ref: '#/components/schemas/ImportStatsErrorBucket'
         streamChanges:
           $ref: '#/components/schemas/ImportStreamChanges'
+        sourceIssues:
+          type: array
+          description: >-
+            The source data does not match what the import process expects during the specified time window.
+            These issues are not failures: the runs succeed, so they do not appear in pass/fail counters.
+          items:
+            $ref: '#/components/schemas/ImportSourceIssue'
+    ImportSourceIssue:
+      type: object
+      properties:
+        streamId:
+          type: string
+          format: uuid
+          description: The stream the problem was observed on.
+        configId:
+          type: string
+          format: uuid
+          description: The configuration that owns the stream.
+        name:
+          type: string
+          description: The stream name.
+          example: vendor
+        duplicateKeys:
+          type: integer
+          description: >-
+            Source rows that repeat a key already imported in the same run. The import
+            keeps the last row of each repeated key and discards earlier rows.
+          example: 25907
+        unresolvedParents:
+          type: integer
+          description: >-
+            Child records that were not imported because their parent could not be found.
+          example: 25370
   responses:
     Unauthorized_401:
       description: Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
