@@ -268,6 +268,14 @@ export type ImportRun = {
      */
     deleted?: number;
     /**
+     * Source rows that repeat a key already imported in this run. The import keeps the last row of each repeated key and discards earlier rows. Duplicate keys do not fail the run; they mean the source feed is not unique on the key the stream imports by.
+     */
+    duplicateKeys?: number;
+    /**
+     * Child records that were not imported because their parent could not be found. Counted separately from `skipped`, which counts records that were already up to date.
+     */
+    unresolvedParents?: number;
+    /**
      * A terminal status message, typically set on failure.
      */
     message?: string;
@@ -343,6 +351,14 @@ export type ImportRunStream = {
      * Records deleted.
      */
     deleted?: number;
+    /**
+     * Source rows that repeat a key already imported in this run. The import keeps the last row of each repeated key and discards earlier rows. Duplicate keys do not fail the run; they mean the source feed is not unique on the key the stream imports by.
+     */
+    duplicateKeys?: number;
+    /**
+     * Child records that were not imported because their parent could not be found. Counted separately from `skipped`, which counts records that were already up to date.
+     */
+    unresolvedParents?: number;
     /**
      * A per-stream status message.
      */
@@ -852,6 +868,33 @@ export type ImportStats = {
      */
     errorBreakdown?: Array<ImportStatsErrorBucket>;
     streamChanges?: ImportStreamChanges;
+    /**
+     * The source data does not match what the import process expects during the specified time window. These issues are not failures: the runs succeed, so they do not appear in pass/fail counters.
+     */
+    sourceIssues?: Array<ImportSourceIssue>;
+};
+
+export type ImportSourceIssue = {
+    /**
+     * The stream the problem was observed on.
+     */
+    streamId?: string;
+    /**
+     * The configuration that owns the stream.
+     */
+    configId?: string;
+    /**
+     * The stream name.
+     */
+    name?: string;
+    /**
+     * Source rows that repeat a key already imported in the same run. The import keeps the last row of each repeated key and discards earlier rows.
+     */
+    duplicateKeys?: number;
+    /**
+     * Child records that were not imported because their parent could not be found.
+     */
+    unresolvedParents?: number;
 };
 
 /**
