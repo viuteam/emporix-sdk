@@ -228,6 +228,33 @@ export type ImportRun = {
      */
     trigger?: 'MANUAL' | 'SCHEDULED';
     /**
+     * Dry-run only. A sample of the mapped records that would be written, so the mapping can be previewed without a real import. Absent on normal runs.
+     */
+    dryRunSample?: Array<{
+        /**
+         * The stream that produced the sample record.
+         */
+        stream?: string;
+        /**
+         * The resolved target type the record would be written to.
+         */
+        targetType?: string;
+        /**
+         * The record's natural/deterministic key.
+         */
+        key?: string;
+        /**
+         * The mapped target fields that would be written.
+         */
+        fields?: {
+            [key: string]: unknown;
+        };
+    }>;
+    /**
+     * What requested the run. The `origin` value from the trigger request, or the `trigger` value when `origin` was omitted. Use this field to distinguish a dashboard run from a run started by an integration scenario. The field is absent on runs recorded before it existed.
+     */
+    origin?: string;
+    /**
      * The run status.
      */
     status?: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'CANCELLED';
@@ -1137,6 +1164,56 @@ export type GetImporttoolGetStreamResponses = {
 
 export type GetImporttoolGetStreamResponse = GetImporttoolGetStreamResponses[keyof GetImporttoolGetStreamResponses];
 
+export type DeleteScheduleData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The configuration identifier.
+         */
+        configId: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/configs/{configId}/schedule';
+};
+
+export type DeleteScheduleErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type DeleteScheduleError = DeleteScheduleErrors[keyof DeleteScheduleErrors];
+
+export type DeleteScheduleResponses = {
+    /**
+     * The schedule has been removed. The configuration now runs only when triggered.
+     */
+    204: void;
+};
+
+export type DeleteScheduleResponse = DeleteScheduleResponses[keyof DeleteScheduleResponses];
+
 export type GetImporttoolGetScheduleData = {
     body?: never;
     path: {
@@ -1210,6 +1287,10 @@ export type PutImporttoolScheduleJobData = {
 
 export type PutImporttoolScheduleJobErrors = {
     /**
+     * The `cron` expression or `timezone` value is invalid. The service expects a six-field cron expression (`second minute hour day-of-month month day-of-week`). A five-field expression such as `0 * * * *` is rejected. The service does not store it.
+     */
+    400: ErrorMessage;
+    /**
      * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
      */
     401: {
@@ -1224,6 +1305,10 @@ export type PutImporttoolScheduleJobErrors = {
      * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
      */
     403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
     /**
      * Internal Service Error occurred.
      */
@@ -1314,6 +1399,14 @@ export type PostImporttoolTriggerRunData = {
          * When `true`, every extracted record is rewritten, even if unchanged. It bypasses the idempotency `skip-if-unchanged` check. Use it to force target IDs and values to be rewritten.
          */
         force?: boolean;
+        /**
+         * Dry-run only. How many mapped records to sample per stream for the preview returned as `dryRunSample`. Clamped to 1-100; defaults to 25.
+         */
+        sampleSize?: number;
+        /**
+         * What requested this run. Examples: `Dashboard`, an integration scenario name, or a scheduler name. The `trigger` field records only `MANUAL` or `SCHEDULED`. Use `origin` when more than one system calls this endpoint. If you omit `origin` or send a blank value, the service stores the `trigger` value. The service rejects values longer than 40 characters and values that contain control characters. It does not shorten them.
+         */
+        origin?: string;
     };
     path: {
         /**
