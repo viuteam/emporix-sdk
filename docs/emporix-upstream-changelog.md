@@ -5,6 +5,42 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-09-01 — import-service: removing a schedule, run origin, dry-run sample
+
+Upstream [api-references#509](https://github.com/emporix/api-references/pull/509),
+landed 12:48 UTC — 76 minutes after that morning's scheduled sync had correctly
+reported import-service unchanged. Vendored by a manual sync run (#319); the
+facade follows here.
+
+### Endpoints
+
+- **import-service** — new `DELETE …/configs/{configId}/schedule`
+  (`deleteSchedule`, `importtool.import_trigger`). SDK: added
+  `client.imports.deleteSchedule`. **1 new endpoint, 0 removed, 0 newly
+  deprecated.** The facade now covers all 21 operations.
+
+### Fields
+
+Nothing to build — the facade types alias the generated ones, so these arrived
+with the sync. They did need documenting:
+
+| Where | Field | Note |
+|---|---|---|
+| `triggerRun` body | `sampleSize` | dry-run only, 1–100, default 25 |
+| `triggerRun` body | `origin` | free text ≤40 chars; **rejected, not truncated** |
+| run response | `dryRunSample[]` | the records a dry run would have written |
+| run response | `origin` | echo; absent on older runs |
+
+`setSchedule` also gained a documented `400` (cron/timezone unusable) and `404`
+(no such configuration). The `400` names the six-field trap — the five-field
+`0 * * * *` was previously stored and then silently never fired. The SDK already
+documented six fields, so no behaviour changed.
+
+One thing the spec does not answer: `sourceIssues` was added to the `stats`
+response, but the `sections` parameter still documents only
+`TOTALS,STREAMS,ERRORS,CHANGES`. Whether a section gates it is unstated, so the
+docs tell callers to read it defensively.
+
 ## 2026-09-01 — registered the Audit Logs (Changelog) Service
 
 A service that was never in the fetch registry, not a change to one that was:
