@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 3.3.1
+
+### Patch Changes
+
+- [#317](https://github.com/viuteam/emporix-sdk/pull/317) [`f080b84`](https://github.com/viuteam/emporix-sdk/commit/f080b84d6dc9ccd97c596ba7f6c99619d49a849d) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+
+  Updated services: ai-service
+
 ## 3.3.0
 
 ### Minor Changes
