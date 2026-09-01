@@ -809,6 +809,23 @@ export type SelfHostedParams = {
      * Name of the header required for authorization e.g. `Authorization`.
      */
     authorizationHeaderName?: string;
+    fileProcessingConfig?: FileProcessingConfig;
+};
+
+/**
+ * Optional additional config for file processing (preview).
+ *
+ * **The `fileProcessingConfig` field is in preview mode** - some of the features may not be fully operational yet.
+ */
+export type FileProcessingConfig = {
+    /**
+     * When true, file processing uses the Responses API on the self-hosted LLM.
+     */
+    useResponsesApi?: boolean;
+    /**
+     * Optional extra model identifier used for file processing.
+     */
+    extraModelKey?: string;
 };
 
 export type SelfHostedParamsRequest = SelfHostedParams & {
