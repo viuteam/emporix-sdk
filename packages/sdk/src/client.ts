@@ -43,6 +43,7 @@ import { QuoteService } from "./services/quote";
 import { ReturnsService } from "./services/returns";
 import { IndexingService } from "./services/indexing";
 import { ImportService } from "./services/imports";
+import { AuditLogService } from "./services/audit-log";
 import { UnitHandlingService } from "./services/unit-handling";
 import { CatalogService } from "./services/catalog";
 import { VendorService } from "./services/vendor";
@@ -94,6 +95,7 @@ export class EmporixClient {
   readonly returns: ReturnsService;
   readonly indexing: IndexingService;
   readonly imports: ImportService;
+  readonly auditLogs: AuditLogService;
   readonly units: UnitHandlingService;
   readonly catalogs: CatalogService;
   readonly vendors: VendorService;
@@ -170,6 +172,7 @@ export class EmporixClient {
     this.returns = new ReturnsService(mk(ReturnsService.channel));
     this.indexing = new IndexingService(mk(IndexingService.channel));
     this.imports = new ImportService(mk(ImportService.channel));
+    this.auditLogs = new AuditLogService(mk(AuditLogService.channel));
     this.units = new UnitHandlingService(mk(UnitHandlingService.channel));
     this.catalogs = new CatalogService(mk(CatalogService.channel));
     this.vendors = new VendorService(mk(VendorService.channel));
