@@ -104,6 +104,42 @@ describe("ImportService schedules", () => {
     expect(received).toEqual({ cron: "0 0 3 * * *", timezone: "Europe/Zurich" });
     expect(res.id).toBe("sch1");
   });
+
+  it("deleteSchedule DELETEs the schedule path with the service token", async () => {
+    const seen: { method?: string; auth?: string | null } = {};
+    server.use(
+      http.delete(`${BASE}/configs/cfg1/schedule`, ({ request }) => {
+        seen.method = request.method;
+        seen.auth = request.headers.get("authorization");
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await expect(sdk().imports.deleteSchedule("cfg1")).resolves.toBeUndefined();
+    expect(seen.method).toBe("DELETE");
+    expect(seen.auth).toBe("Bearer svc");
+  });
+
+  // The service is idempotent here and does not require the configuration to
+  // exist — removing a schedule orphaned by a deleted config is the point. A
+  // 204 with no body must resolve, not throw on an empty parse.
+  it("deleteSchedule resolves when there was no schedule to remove", async () => {
+    server.use(
+      http.delete(`${BASE}/configs/gone/schedule`, () => new HttpResponse(null, { status: 204 })),
+    );
+    await expect(sdk().imports.deleteSchedule("gone")).resolves.toBeUndefined();
+  });
+
+  it("deleteSchedule encodes the config id", async () => {
+    const seen: { path?: string } = {};
+    server.use(
+      http.delete(`${BASE}/configs/:id/schedule`, ({ request }) => {
+        seen.path = new URL(request.url).pathname;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await sdk().imports.deleteSchedule("a/b c");
+    expect(seen.path).toBe(`/importtool/${TENANT}/configs/a%2Fb%20c/schedule`);
+  });
 });
 
 describe("ImportService runs", () => {
@@ -118,6 +154,52 @@ describe("ImportService runs", () => {
     const res = await sdk().imports.triggerRun("cfg1", { mode: "FULL", dryRun: true });
     expect(received).toEqual({ mode: "FULL", dryRun: true });
     expect(res.status).toBe("QUEUED");
+  });
+
+  // `ImportRunInput` is an alias of the generated request body, so these two
+  // reach the wire only if the generated types are current. A stale alias would
+  // still typecheck against `{}` and silently drop them.
+  it("triggerRun forwards sampleSize and origin", async () => {
+    let received: unknown;
+    server.use(
+      http.post(`${BASE}/configs/cfg1/runs`, async ({ request }) => {
+        received = await request.json();
+        return HttpResponse.json({ ...run, status: "QUEUED" }, { status: 202 });
+      }),
+    );
+    await sdk().imports.triggerRun("cfg1", {
+      dryRun: true,
+      sampleSize: 5,
+      origin: "Dashboard",
+    });
+    expect(received).toEqual({ dryRun: true, sampleSize: 5, origin: "Dashboard" });
+  });
+
+  it("triggerRun exposes the dry-run sample and the run origin", async () => {
+    server.use(
+      http.post(`${BASE}/configs/cfg1/runs`, () =>
+        HttpResponse.json(
+          {
+            ...run,
+            status: "SUCCEEDED",
+            origin: "Make scenario 42",
+            dryRunSample: [
+              {
+                stream: "Products",
+                targetType: "product",
+                key: "SKU-1",
+                fields: { name: "Widget", price: 9.9 },
+              },
+            ],
+          },
+          { status: 202 },
+        ),
+      ),
+    );
+    const res = await sdk().imports.triggerRun("cfg1", { dryRun: true, sampleSize: 1 });
+    expect(res.origin).toBe("Make scenario 42");
+    expect(res.dryRunSample?.[0]?.key).toBe("SKU-1");
+    expect(res.dryRunSample?.[0]?.fields).toEqual({ name: "Widget", price: 9.9 });
   });
 
   it("triggerRun without input POSTs an empty body and lets the service default the mode", async () => {

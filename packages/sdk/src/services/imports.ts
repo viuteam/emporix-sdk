@@ -207,7 +207,19 @@ export class ImportService {
     return res ?? null;
   }
 
-  /** Create or replace a configuration's schedule. */
+  /**
+   * Create or replace a configuration's schedule.
+   *
+   * **`cron` is a six-field Spring expression** (`second minute hour
+   * day-of-month month day-of-week`). The familiar five-field `"0 * * * *"` is
+   * not «hourly» here, it is invalid, and the service answers `400` rather than
+   * storing it — which it used to do, leaving a schedule that silently never
+   * fired.
+   *
+   * A `404` means no configuration with that id, so there is nothing to
+   * schedule. Use {@link deleteSchedule} to clear a schedule that outlived its
+   * configuration.
+   */
   async setSchedule(
     configId: string,
     input: ImportSchedule,
@@ -222,10 +234,50 @@ export class ImportService {
   }
 
   /**
+   * Remove a configuration's schedule. It then runs only when triggered.
+   *
+   * **Idempotent, and deliberately not gated on the configuration existing.**
+   * Removing a schedule that is not there also resolves — and unlike
+   * {@link setSchedule}, this does not require the configuration to exist. That
+   * is the point: a schedule left behind by a deleted configuration is exactly
+   * what needs removing, so refusing those would leave them with no way out.
+   *
+   * The service answers `204`, so this resolves to `void` rather than to the
+   * removed schedule.
+   */
+  async deleteSchedule(configId: string, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/configs/${encodeURIComponent(configId)}/schedule`,
+      auth,
+    });
+  }
+
+  /**
    * Trigger a run. `mode` defaults to `DELTA` server-side; `dryRun: true` maps
    * and validates without writing to the target.
    *
+   * A dry run can also hand back what it *would* have written: pass
+   * `sampleSize` (1–100, default 25) and read the run's `dryRunSample`. Set
+   * `origin` to name what asked for the run — `trigger` only distinguishes
+   * `MANUAL` from `SCHEDULED`, so without it a dashboard click and an
+   * integration scenario are indistinguishable in the history. Note the service
+   * **rejects** an `origin` over 40 characters instead of shortening it.
+   *
    * Not retried on a 5xx: a POST that timed out may already have queued a run.
+   *
+   * @example
+   * ```ts
+   * // Preview the mapping without writing anything.
+   * const run = await client.imports.triggerRun(configId, {
+   *   dryRun: true,
+   *   sampleSize: 5,
+   *   origin: "Dashboard",
+   * });
+   * for (const row of run.dryRunSample ?? []) {
+   *   console.log(row.stream, row.targetType, row.key, row.fields);
+   * }
+   * ```
    */
   async triggerRun(
     configId: string,

@@ -40,11 +40,27 @@ await client.imports.setSchedule("cfg1", {
   timezone: "Europe/Zurich",
   enabled: true,
 });
+
+await client.imports.deleteSchedule("cfg1"); // runs only when triggered now
 ```
 
 `getSchedule` resolves to `null` rather than throwing, because the service
 answers an unscheduled configuration with `204 No Content`. An absent schedule is
 a normal result, so it should not need a `try`/`catch`.
+
+**`cron` has six fields, not five.** `second minute hour day-of-month month
+day-of-week`. The familiar five-field `"0 * * * *"` is not «hourly» here, it is
+invalid, and `setSchedule` answers `400`. That is a recent improvement: the
+service used to store such an expression and then silently never fire it. A
+`404` from `setSchedule` means no configuration with that id, so there is
+nothing to schedule.
+
+**`deleteSchedule` is idempotent and does not require the configuration to
+exist.** Removing a schedule that is not there resolves just the same, and —
+unlike `setSchedule` — the configuration need not still be around. That
+asymmetry is deliberate: a schedule left behind by a deleted configuration is
+precisely what needs removing, and refusing those would leave them with no way
+out. It resolves to `void`, since the service answers `204`.
 
 ## Runs
 
@@ -67,6 +83,49 @@ as a `409`, which throws like any other error status.
 
 `triggerRun` is a POST and is **not** retried on a 5xx: a request that timed out
 may already have queued a run.
+
+### Previewing a dry run, and naming who asked
+
+A dry run can hand back what it *would* have written — pass `sampleSize` and
+read the run's `dryRunSample`:
+
+```ts
+const preview = await client.imports.triggerRun("cfg1", {
+  dryRun: true,
+  sampleSize: 5,            // per stream, clamped to 1–100, defaults to 25
+  origin: "Dashboard",
+});
+
+for (const row of preview.dryRunSample ?? []) {
+  console.log(row.stream, row.targetType, row.key, row.fields);
+}
+```
+
+`dryRunSample` is absent on a normal run.
+
+`origin` names **what** asked for the run. It exists because `trigger` only
+records `MANUAL` or `SCHEDULED`, so without it a dashboard click, an integration
+scenario and your own scheduler are indistinguishable in the run history. Omit
+it or send a blank value and the service stores the `trigger` value instead.
+
+> Over 40 characters, or containing control characters, is **rejected — not
+> shortened**. A truncated label in an audit trail is worse than a refused
+> request, so keep `origin` short and stable.
+
+The run also carries two counters that describe the **source feed** rather than
+the import: `duplicateKeys` (source rows repeating a key already imported in the
+run — only the last survives, so differing repeats lose data) and
+`unresolvedParents` (child records whose parent was not found, distinct from
+`skipped`, which means already up to date). A run can report `SUCCEEDED` with
+both non-zero, which is exactly why they are worth reading — the loss is
+invisible in the pass/fail counters. `stats()` carries the same picture per
+stream in its `sourceIssues` array.
+
+> `sections` is a **comma-separated string**, and its documented values are
+> `TOTALS`, `STREAMS`, `ERRORS`, `CHANGES` — `sourceIssues` is not among them.
+> Whether it is gated by one of those or always returned is not stated in the
+> spec, so read it defensively (`stats.sourceIssues ?? []`) and pass no
+> `sections` if you need it.
 
 ## Streaming a run
 
@@ -248,6 +307,12 @@ on the wire: the operations need a service account with the
 `importtool.import_trigger` scope, this repo has no such credentials, and every
 endpoint is preview. If a field arrives differently than typed here, the spec was
 the thing that was wrong — open an issue with the observed payload.
+
+Three behaviours on this page come from the spec's prose rather than from an
+observation, and are worth confirming the first time you exercise them against a
+real tenant: that `deleteSchedule` really does accept a configuration that no
+longer exists, that `origin` is refused rather than truncated past 40
+characters, and which `sections` value (if any) gates `sourceIssues`.
 
 All methods take an optional trailing `auth` argument (default: the `"backend"`
 service credential set).

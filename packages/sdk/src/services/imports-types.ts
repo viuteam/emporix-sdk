@@ -32,7 +32,19 @@ export type ImportConfig = GenImportConfig;
 export type ImportStream = GenImportStream;
 /** A cron schedule for a configuration. `cron` is a six-field Spring expression. */
 export type ImportSchedule = Schedule;
-/** An import run with its reconciled counters. */
+/**
+ * An import run with its reconciled counters.
+ *
+ * Two counters describe the **source feed** rather than the import: a run can
+ * report `SUCCEEDED` while `duplicateKeys` (source rows repeating a key already
+ * imported in the run — only the last survives) and `unresolvedParents` (child
+ * records whose parent was not found, distinct from `skipped`, which means
+ * already up to date) hide real data loss from the pass/fail counters.
+ *
+ * `dryRunSample` carries the previewed records on a dry run and is absent on a
+ * normal one. `origin` echoes what asked for the run, and is absent on runs
+ * recorded before that field existed.
+ */
 export type ImportRun = GenImportRun;
 /** Per-stream progress within a run. */
 export type ImportRunStream = GenImportRunStream;
@@ -46,9 +58,19 @@ export type ImportErrorRecord = ErrorRecord;
 export type ImportedRecord = GenImportedRecord;
 
 /**
- * Body for `triggerRun`: `{ mode?, dryRun?, force? }`. `mode` defaults to
- * `DELTA` server-side; `force` rewrites every extracted record, bypassing the
- * skip-if-unchanged idempotency.
+ * Body for `triggerRun`: `{ mode?, dryRun?, force?, sampleSize?, origin? }`.
+ *
+ * - `mode` defaults to `DELTA` server-side.
+ * - `force` rewrites every extracted record, bypassing the skip-if-unchanged
+ *   idempotency.
+ * - `sampleSize` is **dry-run only**: how many mapped records to sample per
+ *   stream into the run's `dryRunSample`. Clamped to 1–100, defaults to 25.
+ * - `origin` is free text naming *what* asked for the run (`"Dashboard"`, an
+ *   integration scenario, your own scheduler), as opposed to `trigger`, which
+ *   only ever records `MANUAL` or `SCHEDULED`. Omitted or blank, the service
+ *   stores the `trigger` value instead. **Over 40 characters or containing
+ *   control characters is rejected, not shortened** — a truncated label in an
+ *   audit trail is worse than a refused request.
  */
 export type ImportRunInput = NonNullable<PostImporttoolTriggerRunData["body"]>;
 /** Lifecycle status of an {@link ImportRun}. */
