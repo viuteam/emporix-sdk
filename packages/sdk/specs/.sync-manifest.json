@@ -115,6 +115,12 @@
       "fetchedAt": "2026-08-28T18:31:34.529Z",
       "sha256": "811470b7950b3c0d59ed07ae744400b9b21bdbd5f49d1d81d9d91ba23a936a78"
     },
+    "audit-logs-changelog": {
+      "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/utilities/audit-logs-changelog/api-reference/api.yml",
+      "specVersion": "",
+      "fetchedAt": "2026-08-28T18:31:34.529Z",
+      "sha256": "71725fd863c330dbad50ba577d7e9a694fd700c6791b5e76226267502d22165f"
+    },
     "coupon": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/rewards-and-promotions/coupon/api-reference/api.yml",
       "specVersion": "",

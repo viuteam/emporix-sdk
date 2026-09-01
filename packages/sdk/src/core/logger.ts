@@ -43,6 +43,7 @@ export type ServiceName =
   | "returns"
   | "indexing"
   | "import"
+  | "audit-log"
   | "unit-handling"
   | "catalog"
   | "vendor"

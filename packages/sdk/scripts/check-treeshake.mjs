@@ -41,6 +41,7 @@ const forbidden = [
   "/webhooks",
   "pick-pack",
   "ai-rag-indexer",
+  "/changelog/",
   "localStorage",
   "document.cookie",
 ];

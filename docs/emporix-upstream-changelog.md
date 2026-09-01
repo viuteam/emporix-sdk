@@ -5,6 +5,30 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-09-01 — registered the Audit Logs (Changelog) Service
+
+A service that was never in the fetch registry, not a change to one that was:
+`utilities/audit-logs-changelog`. Vendored, generated, and wrapped as
+`client.auditLogs` — see [`docs/audit-logs.md`](./audit-logs.md).
+
+| Service | Upstream path | Operations |
+|---|---|---|
+| Audit Logs (Changelog) | `utilities/audit-logs-changelog` | 1 (`GET /changelog/{tenant}/changelogs`) |
+
+The spec needed no patching, and the whole surface is **one paginated read**.
+The SDK now vendors **44** services.
+
+Two behaviours worth knowing, both documented only in the spec's prose rather
+than in its schema: a query without a conjunctive `occurredAt` lower bound gets
+a silent **30-day trailing window**, and `entityId` without `entity` is a `400`
+rather than an empty page.
+
+The same fetch run also showed drift in `import-service` (new `duplicateKeys` /
+`unresolvedParents` counters and a `sourceIssues` array on `stats`). That is not
+part of this entry — the scheduled api-sync had already vendored it, which is
+the arrangement working as intended: the daily job carries drift, feature
+branches carry services.
+
 ## 2026-07-24 — registered the 5 remaining specs
 
 Audited `fetch-specs.ts` against Emporix's

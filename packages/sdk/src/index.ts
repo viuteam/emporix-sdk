@@ -291,6 +291,7 @@ export * from "./shipping";
 export * from "./returns";
 export * from "./indexing";
 export * from "./imports";
+export * from "./audit-log";
 export * from "./unit-handling";
 export * from "./catalog";
 export * from "./vendor";
