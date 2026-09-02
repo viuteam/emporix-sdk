@@ -38,7 +38,7 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
-      - uses: changesets/action@v1
+      - uses: changesets/action@v2
         with:
           # `pnpm run` is required: `pnpm version`/`pnpm publish` are pnpm
           # built-ins that would otherwise shadow our package.json scripts.
