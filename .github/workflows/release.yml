@@ -49,6 +49,12 @@ jobs:
       # but the action calls version-script only when changesets exist, so that
       # path is unreachable here. Tolerating a non-zero exit would hide a real
       # version failure instead.
+      #
+      # One branch of the action is worth knowing when a run goes green having
+      # done nothing: changesets that exist but are all EMPTY make it return
+      # without versioning AND without publishing. An empty changeset parked on
+      # main therefore holds the pipeline inert until a real one arrives and the
+      # release PR consumes both.
       - uses: changesets/action@v2
         with:
           # `pnpm run` is required: `pnpm version`/`pnpm publish` are pnpm
@@ -57,5 +63,10 @@ jobs:
           version-script: pnpm run version
           commit-message: "chore(release): version packages"
           pr-title: "chore(release): version packages"
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          # v2 took the token from `env: GITHUB_TOKEN`; it is an input now, and
+          # the action REFUSES to run when the env var is set to something other
+          # than this input rather than picking one. So the app token goes here
+          # and the env block is gone — not duplicated, because the action puts
+          # `GITHUB_TOKEN` into the environment of both scripts itself, which is
+          # what `@changesets/changelog-github` reads to resolve PR links.
+          github-token: ${{ steps.app-token.outputs.token }}
