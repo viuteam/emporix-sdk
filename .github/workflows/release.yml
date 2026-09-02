@@ -38,13 +38,24 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
+      # Action v2 requires Changesets CLI v3 and renamed every input we pass
+      # (publish/version/commit/title -> *-script / commit-message / pr-title).
+      # Unknown inputs are only a warning, so a half-migrated step would run
+      # with NO publish or version script and still look green — keep these
+      # names and the CLI major in lockstep.
+      #
+      # Do not wrap `version-script` in `|| true`: CLI v3 made
+      # `changeset version` exit 1 when nothing is pending (v2 only warned),
+      # but the action calls version-script only when changesets exist, so that
+      # path is unreachable here. Tolerating a non-zero exit would hide a real
+      # version failure instead.
       - uses: changesets/action@v2
         with:
           # `pnpm run` is required: `pnpm version`/`pnpm publish` are pnpm
           # built-ins that would otherwise shadow our package.json scripts.
-          publish: pnpm run release
-          version: pnpm run version
-          commit: "chore(release): version packages"
-          title: "chore(release): version packages"
+          publish-script: pnpm run release
+          version-script: pnpm run version
+          commit-message: "chore(release): version packages"
+          pr-title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
