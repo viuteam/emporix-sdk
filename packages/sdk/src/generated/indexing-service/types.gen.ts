@@ -111,7 +111,7 @@ export type IndexPublicConfiguration = {
  */
 export type IndexConfiguration = IndexPublicConfiguration & {
     /**
-     * API key used for write purposes.
+     * API key used for write purposes. For `BATTERY_INCLUDED`, this key is validated before the configuration is created or updated.
      */
     writeKey?: string;
     /**
@@ -269,6 +269,10 @@ export type PostIndexingCreateConfigErrors = {
      * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
      */
     403: ErrorMessage;
+    /**
+     * Upstream dependency was unavailable. Details will be provided in the response payload.
+     */
+    502: ErrorMessage;
 };
 
 export type PostIndexingCreateConfigError = PostIndexingCreateConfigErrors[keyof PostIndexingCreateConfigErrors];
@@ -415,6 +419,10 @@ export type PutIndexingUpdateConfigErrors = {
      * Resource has not been found.
      */
     404: ErrorMessage;
+    /**
+     * Upstream dependency was unavailable. Details will be provided in the response payload.
+     */
+    502: ErrorMessage;
 };
 
 export type PutIndexingUpdateConfigError = PutIndexingUpdateConfigErrors[keyof PutIndexingUpdateConfigErrors];
@@ -539,6 +547,10 @@ export type PostIndexingReindexErrors = {
      * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
      */
     403: ErrorMessage;
+    /**
+     * Upstream dependency was unavailable. Details will be provided in the response payload.
+     */
+    502: ErrorMessage;
 };
 
 export type PostIndexingReindexError = PostIndexingReindexErrors[keyof PostIndexingReindexErrors];
@@ -662,6 +674,10 @@ export type PostIndexingReindexJobsErrors = {
      * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
      */
     403: ErrorMessage;
+    /**
+     * Upstream dependency was unavailable. Details will be provided in the response payload.
+     */
+    502: ErrorMessage;
 };
 
 export type PostIndexingReindexJobsError = PostIndexingReindexJobsErrors[keyof PostIndexingReindexJobsErrors];
