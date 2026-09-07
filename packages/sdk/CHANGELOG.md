@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 3.4.2
+
+### Patch Changes
+
+- [#327](https://github.com/viuteam/emporix-sdk/pull/327) [`64020de`](https://github.com/viuteam/emporix-sdk/commit/64020deb9b8fd5ca38a111c7359bf25de77127f2) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: indexing-service
+
 ## 3.4.1
 
 ### Patch Changes
