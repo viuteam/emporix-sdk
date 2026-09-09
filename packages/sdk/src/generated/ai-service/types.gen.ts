@@ -1099,6 +1099,10 @@ export type AgentTrigger = {
          */
         events: string;
         filter?: CommerceEventTriggerFilter;
+        /**
+         * Optional IAM scopes used to obtain an Emporix token when the agent runs from a Commerce Event. When omitted or empty, the agent does not receive `emporix-token`. Each value must be a scope the caller is allowed to grant.
+         */
+        eventScopes?: Array<string>;
     };
 };
 
