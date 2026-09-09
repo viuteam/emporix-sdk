@@ -66,6 +66,20 @@ describe("IndexingService reindex jobs", () => {
     expect(page.hasNextPage).toBe(false);
   });
 
+  it("listReindexJobs forwards sort, and omits it when unset", async () => {
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get(`https://api.emporix.io/indexing/${TENANT}/reindex-jobs`, ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get("sort"));
+        return HttpResponse.json([job]);
+      }),
+    );
+    const client = sdk();
+    await client.indexing.listReindexJobs({ sort: "metadata.createdAt:desc" });
+    await client.indexing.listReindexJobs();
+    expect(seen).toEqual(["metadata.createdAt:desc", null]);
+  });
+
   it("getReindexJob fetches one job by id", async () => {
     server.use(
       http.get(`https://api.emporix.io/indexing/${TENANT}/reindex-jobs/job1`, () =>
