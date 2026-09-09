@@ -29,6 +29,8 @@ export interface ListReindexJobsOptions {
   pageSize?: number;
   /** Raw Emporix `q` filter string. */
   q?: string;
+  /** Emporix sort syntax, e.g. `"metadata.createdAt:desc"`. */
+  sort?: string;
   /** Ask for `X-Total-Count` — becomes a request header, not a query parameter. */
   totalCount?: boolean;
 }
@@ -36,6 +38,13 @@ export interface ListReindexJobsOptions {
 /**
  * Emporix Indexing Service (`/indexing/{tenant}/…`): search-index provider
  * configurations and reindex. Server-side; defaults to the service token.
+ *
+ * On the `BATTERY_INCLUDED` provider every write validates the stored
+ * `indexName`/`writeKey` against the search backend *before* it takes effect:
+ * invalid credentials fail with `400` and when that validation is itself
+ * unreachable the call fails with `502`. Either way nothing is written — so a
+ * `400` from these methods can mean the credentials are wrong rather than the
+ * request body.
  */
 export class IndexingService {
   static readonly channel = "indexing" as const;
@@ -59,7 +68,7 @@ export class IndexingService {
     });
   }
 
-  /** Create a configuration. */
+  /** Create a configuration. Nothing is stored if credential validation fails. */
   async createConfiguration(input: IndexConfig, auth: AuthContext = SERVICE): Promise<IndexConfigCreated> {
     return this.ctx.http.request<IndexConfigCreated>({
       method: "POST",
@@ -69,7 +78,7 @@ export class IndexingService {
     });
   }
 
-  /** Update a configuration by provider name. */
+  /** Update a configuration. Left unchanged if credential validation fails. */
   async updateConfiguration(provider: string, input: IndexConfig, auth: AuthContext = SERVICE): Promise<void> {
     await this.ctx.http.request<void>({
       method: "PUT",
@@ -107,6 +116,9 @@ export class IndexingService {
    * given `entityType`; set `rag: true` to also rebuild the RAG vector index
    * (PRODUCT only). Resolves to the created job (`201`) or, when a job for that
    * `entityType` is already `IN_PROGRESS`, that running job (`200`).
+   *
+   * On `BATTERY_INCLUDED` with `entityType: "PRODUCT"` the stored credentials
+   * are validated first; no job is created on the `400`/`502` cases above.
    */
   async createReindexJob(input: ReindexJobInput, auth: AuthContext = SERVICE): Promise<ReindexJob> {
     return this.ctx.http.request<ReindexJob>({
@@ -126,6 +138,7 @@ export class IndexingService {
     const pageSize = opts.pageSize ?? 50;
     const query: Record<string, string | number | undefined> = { pageNumber, pageSize };
     if (opts.q !== undefined) query.q = opts.q;
+    if (opts.sort !== undefined) query.sort = opts.sort;
     return requestPage<ReindexJob>(
       this.ctx.http,
       {
@@ -152,7 +165,8 @@ export class IndexingService {
   }
 
   /**
-   * Trigger a reindex.
+   * Trigger a reindex. On `BATTERY_INCLUDED` the same credential validation
+   * runs first, so this can fail with `400`/`502` before any job starts.
    * @deprecated since 2026-06-18, removal 2026-12-01 — use {@link createReindexJob}
    * (`createReindexJob({ entityType: "PRODUCT" })`), which returns a trackable job.
    */

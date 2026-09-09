@@ -5,6 +5,44 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-09-06 — indexing-service: BATTERY_INCLUDED validates credentials before writing
+
+Vendored by the scheduled sync (#327). **0 new endpoints, 0 removed, 0 newly
+deprecated** — 11 operations before and after, and the vendored spec is
+byte-identical to upstream. Verified by mapping operations on path literal, not
+by count: the sync commit adds and removes zero `operationId` or path lines.
+The facade already covers all 11, so nothing had to be built.
+
+### Behaviour
+
+On the `BATTERY_INCLUDED` provider, writes now validate the stored `indexName`
+and `writeKey` against the search backend *before* taking effect:
+
+| Case | Status | Effect |
+|---|---|---|
+| credentials invalid | `400` | nothing written, no job created |
+| validation unreachable | **`502`** (new) | nothing written, no job created |
+
+It applies to `POST`/`PUT /configurations`, `POST /reindex`, and
+`POST /reindex-jobs` when `entityType` is `PRODUCT`. The generated types picked
+up `502: ErrorMessage` on those four operations. The consequence for callers is
+that **a `400` here may be about the write key rather than the request body**,
+and the two are indistinguishable from the request alone — documented in the
+`IndexingService` JSDoc and in [`docs/indexing.md`](./indexing.md).
+
+### Fixed alongside
+
+`listReindexJobs` never forwarded `sort`, which the spec has declared since the
+2026-06-18 baseline and 11 other services expose. Pre-existing drift, unrelated
+to this sync, fixed while the file was open.
+
+## 2026-09-02 — schema-service: VENDOR_LOCATION
+
+One enum value (#325), on the `type` filter of the schema reads and on
+`SchemaType` itself. Nothing to build: `SchemaTypeName` is an alias of the
+generated union, so the value became usable with the sync — the case the alias
+pattern exists for.
+
 ## 2026-09-01 — import-service: removing a schedule, run origin, dry-run sample
 
 Upstream [api-references#509](https://github.com/emporix/api-references/pull/509),
