@@ -15,7 +15,7 @@
     "@viu/emporix-sdk": "workspace:*",
     "@viu/emporix-sdk-next": "workspace:*",
     "@viu/emporix-sdk-react": "workspace:*",
-    "next": "^16.2.12",
+    "next": "^16.3.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "redis": "^6.2.0"
