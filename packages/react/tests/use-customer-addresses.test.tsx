@@ -118,7 +118,7 @@ describe("useAddressMutations", () => {
     await act(async () => {
       await result.current.remove.mutateAsync({ id: "a1" });
     });
-    expect(result.current.remove.isSuccess).toBe(true);
+    await waitFor(() => expect(result.current.remove.isSuccess).toBe(true));
   });
 
   it("a successful mutation invalidates the addresses query", async () => {
