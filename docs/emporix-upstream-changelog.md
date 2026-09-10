@@ -5,6 +5,54 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-09-10 — media: JSON Patch for assets; ai-service: reusable chat attachments
+
+Vendored by a manual sync run; the facade follows in the same PR. Three specs
+drifted — `media`, `ai-service` and `product` — and only one of them added an
+operation. Measured by path literal: media 6 → **7**, ai-service 57 → 57,
+product 17 → 17.
+
+### Endpoints
+
+- **media** — new `PATCH /media/{tenant}/assets/{assetId}`, an RFC-6902
+  op-array (`add`/`remove`/`replace`), `204`, scopes `media.asset_manage` /
+  `media.asset_manage_by_vendor`. SDK: added `client.media.patch`. **1 new
+  endpoint, 0 removed, 0 newly deprecated.** It is the only way to change a
+  `BLOB` asset's metadata without re-uploading the file, since
+  `update(…, { kind: "blob" })` always replaces the bytes.
+- **ai-service** — `POST /ai-service/{tenant}/agentic/{agentId}/attachments`
+  changed shape rather than multiplying: the multipart body is now a `oneOf` of
+  `attachment` (a file, `201` with the new id) or `attachmentId` (reuse,
+  **`204`**). Exactly one, or `400`. SDK: added `client.ai.reuseAttachment` as a
+  separate method — the response types differ (`Attachment` vs nothing) and the
+  `session-id` header is required for the reuse but optional for the upload, so
+  one overloaded call could not express either rule.
+
+### Fields
+
+| Where | Field | Note |
+|---|---|---|
+| media `RefId.type` | `AGENT` | new reference type; links a `PRIVATE` asset to an AI agent |
+
+Nothing to build for that one — the facade aliases the generated types, so
+`AssetRefId` accepted it with the sync.
+
+### Prose only, but worth reading
+
+**product** drifted with **no** schema and **no** operation change, and the
+upstream changelog says nothing about it at all. What it added is the mixin
+merge contract, which was previously undocumented and is easy to get backwards:
+
+- `PATCH` (`products.update`) **merges** mixins. An omitted mixin name stays,
+  sent fields merge recursively, and `null` stores `null` rather than deleting.
+- So there is no way to delete a mixin through `PATCH`. That needs
+  `PUT ?partial=false` (`products.replace`) with a complete document that omits
+  the mixin from both `mixins` and `metadata.mixins`.
+- Despite the verb, `PATCH` is **not** a JSON-Patch endpoint — an op-array of
+  `{ op, path, value }` is rejected. (Media's new `PATCH`, confusingly, is.)
+
+Both traps are now in the JSDoc of `products.update` and `products.replace`.
+
 ## 2026-09-06 — indexing-service: BATTERY_INCLUDED validates credentials before writing
 
 Vendored by the scheduled sync (#327). **0 new endpoints, 0 removed, 0 newly

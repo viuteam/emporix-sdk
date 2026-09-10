@@ -2278,11 +2278,16 @@ export type PostAiAgentsChatAsyncResponses = {
 export type PostAiAgentsChatAsyncResponse = PostAiAgentsChatAsyncResponses[keyof PostAiAgentsChatAsyncResponses];
 
 export type PostAiAgentsUploadAttachmentData = {
-    body?: {
+    body: {
         /**
-         * Content of the file.
+         * Content of the file. Use this field to upload a new file.
          */
         attachment: Blob | File;
+    } | {
+        /**
+         * Identifier of an existing attachment to reuse in the current session.
+         */
+        attachmentId: string;
     };
     headers?: {
         /**
@@ -2327,9 +2332,13 @@ export type PostAiAgentsUploadAttachmentError = PostAiAgentsUploadAttachmentErro
 
 export type PostAiAgentsUploadAttachmentResponses = {
     /**
-     * Attachment response.
+     * Attachment created.
      */
     201: AttachmentResponse;
+    /**
+     * Existing attachment reused and assigned to the agent.
+     */
+    204: void;
 };
 
 export type PostAiAgentsUploadAttachmentResponse = PostAiAgentsUploadAttachmentResponses[keyof PostAiAgentsUploadAttachmentResponses];

@@ -137,6 +137,41 @@ describe("MediaService CRUD", () => {
     await expect(s.remove("asset-1")).resolves.toBeUndefined();
   });
 
+  it("patch() PATCHes the JSON-Patch op-array with a service token and resolves on 204", async () => {
+    let seenAuth: string | null = null;
+    let seenBody: unknown = null;
+    let seenContentType: string | null = null;
+    server.use(
+      http.patch("https://api.emporix.io/media/acme/assets/asset-1", async ({ request }) => {
+        seenAuth = request.headers.get("authorization");
+        seenContentType = request.headers.get("content-type");
+        seenBody = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const ops = [
+      { op: "add" as const, path: "/refIds/-", value: { id: "product1", type: "PRODUCT" } },
+      { op: "replace" as const, path: "/url", value: "https://emporix.io/x" },
+    ];
+    await expect(svc().patch("asset-1", ops)).resolves.toBeUndefined();
+    expect(seenAuth).toBe("Bearer svc-tok");
+    expect(seenContentType).toMatch(/application\/json/);
+    // The op-array goes on the wire verbatim — no envelope, no reordering.
+    expect(seenBody).toEqual(ops);
+  });
+
+  it("patch() encodes the asset id", async () => {
+    let seen = "";
+    server.use(
+      http.patch("https://api.emporix.io/media/acme/assets/:assetId", ({ request }) => {
+        seen = new URL(request.url).pathname;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await svc().patch("a/b c", [{ op: "remove", path: "/refIds/0" }]);
+    expect(seen).toBe("/media/acme/assets/a%2Fb%20c");
+  });
+
   it("list() wraps results in a PaginatedItems envelope with hasNextPage heuristic", async () => {
     server.use(
       http.get("https://api.emporix.io/media/acme/assets", ({ request }) => {

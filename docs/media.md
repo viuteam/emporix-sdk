@@ -131,6 +131,28 @@ await client.media.update(assetId, {
 For BLOB file-replacement use `{ kind: "blob", file, body }` (or the
 `replaceFile()` sugar above). The discriminated input mirrors `create()`.
 
+## Patch a single field (`PATCH`, RFC-6902)
+
+`patch()` changes one field without resending the whole asset, and is the only
+way to touch a BLOB asset's metadata **without re-uploading the file** —
+`update(…, { kind: "blob" })` always replaces the bytes. Resolves on `204`.
+
+```ts
+await client.media.patch(assetId, [
+  { op: "add", path: "/refIds/-", value: { id: "product1", type: "PRODUCT" } },
+  { op: "replace", path: "/url", value: "https://emporix.io/docs/index.html" },
+]);
+```
+
+The `/-` suffix appends and keeps the existing entries — writing `/refIds`
+without it replaces the whole array. Only `add`, `remove` and `replace` are
+accepted; `type` and `access` stay immutable here as well, and a stale
+`metadata.version` still gets a `409`.
+
+Reference types are `BRAND`, `CATEGORY`, `LABEL`, `PRODUCT`, `MODULE`, `AGENT`
+or any custom schema type. `AGENT` is what links a `PRIVATE` asset to an AI
+agent — see [`ai.md`](./ai.md).
+
 ## Out of scope
 
 - Browser-side uploads — need a server-side token-exchange step. In Next, see

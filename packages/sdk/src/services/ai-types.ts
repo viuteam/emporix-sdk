@@ -215,6 +215,16 @@ export interface AttachmentOptions {
   sessionId?: string;
 }
 
+/**
+ * Options for {@link AiService.reuseAttachment}. `sessionId` is **required**
+ * here, unlike in {@link AttachmentOptions}: the attachment is looked up inside
+ * the session named by the `session-id` header, so omitting it is a guaranteed
+ * `400` rather than a new session.
+ */
+export interface AttachmentReuseOptions {
+  sessionId: string;
+}
+
 /** Base64+checksum export of agents with their components. */
 export type AgentsExport = GenAgentsExport;
 /** Body for {@link AiService.exportAgents} — `{ agentIds }`. */

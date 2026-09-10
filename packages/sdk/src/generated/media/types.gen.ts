@@ -62,7 +62,7 @@ export type MetadataGet = MetadataUpdate & {
 
 export type RefId = {
     /**
-     * Reference type. Can be one of the predefined types: `BRAND`, `CATEGORY`, `LABEL`, `PRODUCT`, `MODULE` or any custom schema type.
+     * Reference type. Can be one of the predefined types: `BRAND`, `CATEGORY`, `LABEL`, `PRODUCT`, `MODULE`, `AGENT` or any custom schema type.
      *
      */
     type?: string;
@@ -70,6 +70,25 @@ export type RefId = {
      * Reference Id.
      */
     id?: string;
+};
+
+export type PatchOperation = {
+    /**
+     * JSON Patch operation. Available operations: `add`, `remove`, and `replace`.
+     */
+    op: 'add' | 'remove' | 'replace';
+    /**
+     * Path to the field to update.
+     *
+     * Examples: `/url`, `/refIds`, `/refIds/-`.
+     *
+     * To append an item to an array, use `add` with a path ending in `/-`. The `-` means append after the last element.
+     */
+    path: string;
+    /**
+     * Value to add or replace. The value can be a primitive type, an object, or an array.
+     */
+    value?: unknown;
 };
 
 /**
@@ -617,6 +636,74 @@ export type GetMediaRetrieveAssetResponses = {
 };
 
 export type GetMediaRetrieveAssetResponse = GetMediaRetrieveAssetResponses[keyof GetMediaRetrieveAssetResponses];
+
+export type PatchMediaUpdateAssetData = {
+    body?: Array<PatchOperation>;
+    path: {
+        /**
+         * The tenant that the caller is acting upon.
+         *
+         * **Note**: The tenant name should always be written in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Unique identifier of an asset.
+         */
+        assetId: string;
+    };
+    query?: never;
+    url: '/media/{tenant}/assets/{assetId}';
+};
+
+export type PatchMediaUpdateAssetErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * There are three possible reasons:
+     * 1. Product with given code already exists, please choose unique code for your product
+     * 2. Optimistic locking failed. If user sends metadata/version attribute which is outdated (someone else updated product in the time user was performing his changes). User should retrieve the latest product data and retry the request.
+     * 3. Optimistic locking failed. User did not provide metadata/version attribute in update request, but someone else updated product while it was internally handled by product service. Resending the same request can result in successful update, but the update can override recently persisted changes.
+     *
+     */
+    409: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PatchMediaUpdateAssetError = PatchMediaUpdateAssetErrors[keyof PatchMediaUpdateAssetErrors];
+
+export type PatchMediaUpdateAssetResponses = {
+    /**
+     * The asset has been updated successfully.
+     */
+    204: void;
+};
+
+export type PatchMediaUpdateAssetResponse = PatchMediaUpdateAssetResponses[keyof PatchMediaUpdateAssetResponses];
 
 export type PutMediaUpdateAssetData = {
     body?: AssetUpdateLink;

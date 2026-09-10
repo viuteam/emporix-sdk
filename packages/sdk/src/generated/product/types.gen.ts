@@ -393,7 +393,9 @@ export type ProductVariantAttributes = {
 };
 
 /**
- * Mixins request.
+ * Custom product attributes, keyed by mixin name.
+ *
+ * On a partial update, omitted mixin names remain on the product. Sent fields are merged recursively. A `null` value does not remove a mixin. To remove a mixin, send a full product replacement and omit the mixin name.
  */
 export type ProductMixins = {
     [key: string]: unknown;

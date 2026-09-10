@@ -154,12 +154,22 @@ const exec = await client.ai.analytics.executions({
 const models = await client.ai.listModels();
 const events = await client.ai.listCommerceEvents();
 
-const { sessionId } = await client.ai.uploadAttachment("bot", file); // file: Blob | File
+const { id, sessionId } = await client.ai.uploadAttachment("bot", file); // file: Blob | File
 await client.ai.chat({ agentId: "bot", message: "See attachment", sessionId } as never);
+
+// Hand the same file to a second agent instead of uploading it twice (204).
+await client.ai.reuseAttachment("other-bot", id!, { sessionId: sessionId! });
 
 const bundle = await client.ai.exportAgents({ agentIds: ["bot"] });
 await client.ai.importAgents({ data: bundle.data, checksum: bundle.checksum });
 ```
+
+The endpoint takes **exactly one** of the file or an `attachmentId` — both or
+neither is a `400`, which is why these are two methods rather than one
+overloaded call. `uploadAttachment` answers `201` with the new `{ id, sessionId }`;
+`reuseAttachment` answers `204` and returns nothing. `sessionId` is optional on
+the upload (omit it to start a session) but **required** on the reuse: the id is
+resolved inside that session, so without it the call cannot succeed.
 
 ## Overriding the token
 

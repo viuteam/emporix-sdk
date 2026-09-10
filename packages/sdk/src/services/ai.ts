@@ -50,6 +50,7 @@ import type {
   CommerceEvents,
   Attachment,
   AttachmentOptions,
+  AttachmentReuseOptions,
   AgentsExport,
   AgentsExportRequest,
   AgentsImport,
@@ -100,6 +101,7 @@ export type {
   CommerceEvents,
   Attachment,
   AttachmentOptions,
+  AttachmentReuseOptions,
   AgentsExport,
   AgentsExportRequest,
   AgentsImport,
@@ -368,6 +370,10 @@ export class AiService {
    * (`POST /agentic/{agentId}/attachments`, multipart, HTTP 201). The response
    * `sessionId` must be threaded into subsequent chat calls to bind the file.
    * Pass `opts.sessionId` to attach to an existing session.
+   *
+   * The endpoint takes exactly one of `attachment` or `attachmentId` — both or
+   * neither is a `400`. This method always sends the file; to point a second
+   * agent at a file already in the session, use {@link reuseAttachment}.
    */
   async uploadAttachment(
     agentId: string,
@@ -383,6 +389,37 @@ export class AiService {
       auth,
       body: form,
       ...(opts.sessionId ? { headers: { "session-id": opts.sessionId } } : {}),
+    });
+  }
+
+  /**
+   * Assign an attachment that already exists in a session to another agent
+   * (`POST /agentic/{agentId}/attachments` with the `attachmentId` form field,
+   * HTTP 204 — nothing is returned, unlike {@link uploadAttachment}'s 201).
+   *
+   * Use it to hand a second agent the same file instead of uploading it twice.
+   * The attachment is resolved inside `opts.sessionId`, which is why that is
+   * required rather than optional — the id alone does not identify a file.
+   *
+   * ```ts
+   * const { id, sessionId } = await client.ai.uploadAttachment("agent-a", file);
+   * await client.ai.reuseAttachment("agent-b", id!, { sessionId: sessionId! });
+   * ```
+   */
+  async reuseAttachment(
+    agentId: string,
+    attachmentId: string,
+    opts: AttachmentReuseOptions,
+    auth: AuthContext = SERVICE,
+  ): Promise<void> {
+    const form = new FormData();
+    form.append("attachmentId", attachmentId);
+    await this.ctx.http.request<void>({
+      method: "POST",
+      path: `${this.base()}/agentic/${encodeURIComponent(agentId)}/attachments`,
+      auth,
+      body: form,
+      headers: { "session-id": opts.sessionId },
     });
   }
 

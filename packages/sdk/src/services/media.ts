@@ -8,6 +8,7 @@ import type {
   AssetUpdateBlob,
   AssetUpdateLink,
   GetAsset,
+  PatchOperation,
   RefId,
 } from "../generated/media";
 
@@ -19,6 +20,8 @@ export type AssetUpdateLinkInput = AssetUpdateLink;
 export type AssetUpdateInput = AssetUpdateBlob | AssetUpdateLink;
 export type Asset = GetAsset;
 export type AssetRefId = RefId;
+/** Partial-update body (`PATCH /assets/{id}`) — an RFC-6902 JSON-Patch op-array. */
+export type AssetPatch = PatchOperation[];
 
 /**
  * Filter / pagination options for {@link MediaService.list}. The explicit
@@ -179,6 +182,36 @@ export class MediaService {
       path: `${this.base()}/${assetId}`,
       auth,
       body: input.body,
+    });
+  }
+
+  /**
+   * Partially update an asset with an RFC-6902 JSON-Patch op-array
+   * (`PATCH /assets/{id}`, HTTP 204 — nothing is returned).
+   *
+   * This is the way to change one field without resending the whole asset, and
+   * the only way to touch a `BLOB` asset's metadata **without re-uploading the
+   * file** — {@link update} in `blob` mode always replaces the bytes.
+   *
+   * Append to an array with a path ending in `/-`, which preserves the existing
+   * entries:
+   *
+   * ```ts
+   * await client.media.patch(assetId, [
+   *   { op: "add", path: "/refIds/-", value: { id: "product1", type: "PRODUCT" } },
+   * ]);
+   * ```
+   *
+   * `type` and `access` are immutable here too, as with {@link update}. Only
+   * `add`, `remove` and `replace` are accepted, and optimistic locking still
+   * applies — a stale `metadata.version` gets a 409.
+   */
+  async patch(assetId: string, ops: AssetPatch, auth: AuthContext = SERVICE): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PATCH",
+      path: `${this.base()}/${encodeURIComponent(assetId)}`,
+      auth,
+      body: ops,
     });
   }
 
