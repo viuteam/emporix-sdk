@@ -107,7 +107,7 @@ describe("company mutation hooks", () => {
     await act(async () => {
       await result.current.mutateAsync("le-1");
     });
-    expect(result.current.isSuccess).toBe(true);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 
   it("useAssignContact POSTs and useUnassignContact DELETEs", async () => {

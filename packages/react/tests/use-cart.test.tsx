@@ -354,6 +354,6 @@ describe("cart storefront completeness hooks", () => {
     await act(async () => {
       await result.current.changeCurrency.mutateAsync({ currency: "USD" });
     });
-    expect(result.current.changeCurrency.isSuccess).toBe(true);
+    await waitFor(() => expect(result.current.changeCurrency.isSuccess).toBe(true));
   });
 });

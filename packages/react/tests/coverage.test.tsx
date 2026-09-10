@@ -137,7 +137,7 @@ describe("useCartMutations remaining methods", () => {
       await result.current.setShippingAddress.mutateAsync({ city: "Berlin" });
       await result.current.setBillingAddress.mutateAsync({ city: "Berlin" });
     });
-    expect(result.current.clear.isSuccess).toBe(true);
+    await waitFor(() => expect(result.current.clear.isSuccess).toBe(true));
   });
 });
 
