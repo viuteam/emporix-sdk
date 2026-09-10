@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, type Mock } from "vitest";
 import { SalesOrdersService, OrdersService } from "../../src/services/orders";
 
-function ctxWith(request: ReturnType<typeof vi.fn>) {
+// `Mock`, not `ReturnType<typeof vi.fn>`: since vitest 4 that resolves to the
+// constraint `Mock<Procedure | Constructable>`, which is not callable.
+function ctxWith(request: Mock) {
   return {
     tenant: "acme",
     // `requestWithMeta` is derived from the same stub so a paginated facade
@@ -16,8 +18,8 @@ function ctxWith(request: ReturnType<typeof vi.fn>) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
-const so = (req: ReturnType<typeof vi.fn>): SalesOrdersService => new SalesOrdersService(ctxWith(req));
-const os = (req: ReturnType<typeof vi.fn>): OrdersService => new OrdersService(ctxWith(req));
+const so = (req: Mock): SalesOrdersService => new SalesOrdersService(ctxWith(req));
+const os = (req: Mock): OrdersService => new OrdersService(ctxWith(req));
 const SB = "/order-v2/acme/salesorders";
 const LEB = "/order-v2/acme/legal-entity-orders";
 const SVC = { kind: "service" } as const;

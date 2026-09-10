@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, type Mock } from "vitest";
 import { CategoryService } from "../../src/services/category";
 
-function ctxWith(request: ReturnType<typeof vi.fn>): ConstructorParameters<typeof CategoryService>[0] {
+// `Mock`, not `ReturnType<typeof vi.fn>`: since vitest 4 that resolves to the
+// constraint `Mock<Procedure | Constructable>`, which is not callable.
+function ctxWith(request: Mock): ConstructorParameters<typeof CategoryService>[0] {
   return {
     tenant: "acme",
     // `requestWithMeta` is derived from the same stub so a paginated facade
@@ -23,7 +25,7 @@ function ctxWith(request: ReturnType<typeof vi.fn>): ConstructorParameters<typeo
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
-const svc = (req: ReturnType<typeof vi.fn>): CategoryService => new CategoryService(ctxWith(req));
+const svc = (req: Mock): CategoryService => new CategoryService(ctxWith(req));
 const B = "/category/acme/categories";
 
 describe("CategoryService admin core CRUD", () => {
