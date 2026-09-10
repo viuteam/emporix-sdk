@@ -78,7 +78,7 @@
     "@types/node": "^24.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
-    "@vitest/coverage-v8": "^3.2.7",
+    "@vitest/coverage-v8": "^4.1.11",
     "@viu/emporix-sdk": "workspace:*",
     "eslint": "^9.0.0",
     "jsdom": "^25.0.0",
@@ -86,7 +86,7 @@
     "tsup": "^8.2.0",
     "typescript": "^5.6.0",
     "undici": "^6.28.0",
-    "vitest": "^3.2.7",
+    "vitest": "^4.1.11",
     "zone.js": "^0.16.0"
   }
 }

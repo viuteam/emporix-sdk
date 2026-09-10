@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, type Mock } from "vitest";
 import { SchemaService } from "../../src/services/schema";
 
-function ctxWith(request: ReturnType<typeof vi.fn>): ConstructorParameters<typeof SchemaService>[0] {
+// `Mock`, not `ReturnType<typeof vi.fn>`: since vitest 4 that resolves to the
+// constraint `Mock<Procedure | Constructable>`, which is not callable.
+function ctxWith(request: Mock): ConstructorParameters<typeof SchemaService>[0] {
   return {
     tenant: "acme",
     // `requestWithMeta` is derived from the same stub so a paginated facade
@@ -16,7 +18,7 @@ function ctxWith(request: ReturnType<typeof vi.fn>): ConstructorParameters<typeo
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
-const svc = (req: ReturnType<typeof vi.fn>): SchemaService => new SchemaService(ctxWith(req));
+const svc = (req: Mock): SchemaService => new SchemaService(ctxWith(req));
 const R = "/schema/acme/references";
 const E = "/schema/acme/custom-entities";
 
