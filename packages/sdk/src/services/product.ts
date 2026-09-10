@@ -357,6 +357,20 @@ export class ProductService {
   /**
    * Partially updates a product (`PATCH /products/{productId}`). Default auth:
    * service. Use {@link replace} for a full replace (PUT).
+   *
+   * Omitted fields stay as they are. **Mixins merge rather than replace**, and
+   * the corollary catches people out: there is no way to delete a mixin here.
+   * - a mixin name you omit stays on the product;
+   * - fields you send inside a mixin are merged recursively, and fields you
+   *   omit inside that mixin keep their values;
+   * - `null` does **not** delete a mixin — it stores `null` as its value.
+   *
+   * To actually remove one, read the product and send it back through
+   * {@link replace} with `partial: false`, leaving the mixin out of both
+   * `mixins` and `metadata.mixins`.
+   *
+   * Despite the HTTP verb this is **not** a JSON-Patch endpoint: an op-array of
+   * `{ op, path, value }` is rejected. Send a partial product document.
    */
   async update(
     productId: string,
@@ -382,6 +396,12 @@ export class ProductService {
    * Full-replaces a product (`PUT /products/{productId}`). Returns the created
    * resource on 201 (upsert) and nothing on 204. `options.partial` sends
    * `?partial=true` for a merge-style replace. Default auth: service.
+   *
+   * With `partial: false` (the default) the body must be the **complete**
+   * product document, and any mixin name missing from it is removed — which is
+   * what makes this the only way to delete a mixin, since {@link update} merges
+   * them. The flip side is that a body you did not build from a fresh read will
+   * silently drop mixins.
    */
   async replace(
     productId: string,

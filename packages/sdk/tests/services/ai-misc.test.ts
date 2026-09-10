@@ -72,6 +72,42 @@ describe("AiService.uploadAttachment", () => {
   });
 });
 
+describe("AiService.reuseAttachment", () => {
+  it("sends attachmentId instead of the file, with the session-id header, and resolves on 204", async () => {
+    let sessionId: string | null = null;
+    let sentId: unknown = null;
+    let sentFile = false;
+    server.use(
+      http.post(`${BASE}/agentic/other-bot/attachments`, async ({ request }) => {
+        sessionId = request.headers.get("session-id");
+        const fd = await request.formData();
+        sentId = fd.get("attachmentId");
+        sentFile = fd.has("attachment");
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await expect(
+      svc().reuseAttachment("other-bot", "att-1", { sessionId: "sess-9" }),
+    ).resolves.toBeUndefined();
+    expect(sentId).toBe("att-1");
+    // Exactly one of the two fields — sending both is a 400 upstream.
+    expect(sentFile).toBe(false);
+    expect(sessionId).toBe("sess-9");
+  });
+
+  it("encodes the agent id in the path", async () => {
+    let seen = "";
+    server.use(
+      http.post(`${BASE}/agentic/:agentId/attachments`, ({ request }) => {
+        seen = new URL(request.url).pathname;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await svc().reuseAttachment("a/b c", "att-1", { sessionId: "s" });
+    expect(seen.endsWith("/agentic/a%2Fb%20c/attachments")).toBe(true);
+  });
+});
+
 describe("AiService.exportAgents / importAgents", () => {
   it("exports the given agent ids", async () => {
     let body: unknown = null;
