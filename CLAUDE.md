@@ -39,6 +39,12 @@ decision, not by style.
 | `pnpm changeset` | author a release entry |
 | `pnpm -F <pkg> <script>` | run a script in one package only |
 
+Spec drift, missing endpoints and the sync PR that follows: use the
+`emporix-api-sync` skill (`.claude/skills/emporix-api-sync/`). Its
+`scripts/coverage.mjs` set-compares every vendored spec against the facades by
+path literal and is the only trustworthy answer to "which endpoints are still
+unwrapped" — operation counts are not.
+
 ## Everything written into the repo is English
 
 Code comments, JSDoc, changesets, commit messages, PR descriptions, README and
