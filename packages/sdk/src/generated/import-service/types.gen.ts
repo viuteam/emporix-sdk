@@ -1326,6 +1326,67 @@ export type PutImporttoolScheduleJobResponses = {
 
 export type PutImporttoolScheduleJobResponse = PutImporttoolScheduleJobResponses[keyof PutImporttoolScheduleJobResponses];
 
+export type GetImporttoolStreamOrderData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The configuration identifier.
+         */
+        configId: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/configs/{configId}/stream-order';
+};
+
+export type GetImporttoolStreamOrderErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetImporttoolStreamOrderError = GetImporttoolStreamOrderErrors[keyof GetImporttoolStreamOrderErrors];
+
+export type GetImporttoolStreamOrderResponses = {
+    /**
+     * The request was successful. The stream order is returned.
+     */
+    200: {
+        /**
+         * Stream names in the order they run.
+         */
+        order?: Array<string>;
+        /**
+         * For each stream name, the streams that must run before it. A stream with no dependencies has an empty list.
+         */
+        prereqs?: {
+            [key: string]: Array<string>;
+        };
+    };
+};
+
+export type GetImporttoolStreamOrderResponse = GetImporttoolStreamOrderResponses[keyof GetImporttoolStreamOrderResponses];
+
 export type GetImporttoolListRunsData = {
     body?: never;
     path: {
@@ -1407,6 +1468,12 @@ export type PostImporttoolTriggerRunData = {
          * What requested this run. Examples: `Dashboard`, an integration scenario name, or a scheduler name. The `trigger` field records only `MANUAL` or `SCHEDULED`. Use `origin` when more than one system calls this endpoint. If you omit `origin` or send a blank value, the service stores the `trigger` value. The service rejects values longer than 40 characters and values that contain control characters. It does not shorten them.
          */
         origin?: string;
+        /**
+         * The stream identifiers to run. Omit the field to run every stream in the configuration. Send a list of stream IDs to run only those streams. Do not send stream names; use the `id` values from the stream resource.
+         * The service rejects an empty list. It also rejects a list that includes no stream from this configuration. Listed streams still run in the computed stream order, not in list order.
+         * The service also rejects a stream that cannot produce data on its own. A `COMPOSITE_CHILD` stream with `childStrategy` set to `EMBED` is written by its parent. A child that reads values captured during the parent run also cannot run alone. Either stream without its parent would complete successfully without importing records.
+         */
+        streamIds?: Array<string>;
     };
     path: {
         /**

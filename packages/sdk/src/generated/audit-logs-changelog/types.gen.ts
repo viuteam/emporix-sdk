@@ -49,7 +49,7 @@ export type ChangelogChangeItem = {
      */
     type?: 'create' | 'update' | 'delete';
     /**
-     * Logical entity type of the changed document, for example `order`, `customer`, `company`, `product`, `segment`, `group`, `group-assignment`, `coupon`, or a custom entity created with the Schema Service.
+     * Logical entity type of the changed document, for example `order`, `customer`, `company`, `product`, `segment`, `group`, `group-assignment`, `coupon`, `quote`, `site`, or a custom entity created with the Schema Service.
      *
      */
     entity?: string;

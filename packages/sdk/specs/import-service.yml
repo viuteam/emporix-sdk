@@ -316,6 +316,80 @@ paths:
           $ref: '#/components/responses/Forbidden_403'
         '500':
           $ref: '#/components/responses/InternalServiceError_500'
+  '/importtool/{tenant}/configs/{configId}/stream-order':
+    parameters:
+      - $ref: '#/components/parameters/trait_tenant'
+      - $ref: '#/components/parameters/trait_configId'
+    get:
+      summary: Retrieving the stream run order
+      description: |-
+        <p align="left"><img src="https://res.cloudinary.com/saas-ag/image/upload/e_upscale/v1752824268/emporix/icons/preview_api1.png" alt="" width="60" height="20"></p>
+
+        {% hint style="danger" %}
+        This functionality is in preview mode - some of the features may not be fully operational yet.
+        {% endhint %}
+
+        Retrieves the order in which the configuration's streams run, and the dependencies behind that order.
+
+        Dependencies between streams decide the order. Sequence breaks ties.
+
+        Dependencies come from four sources:
+
+        * an explicit dependency on another stream
+        * a mapping that references a type another stream produces
+        * a `COMPOSITE_CHILD` stream with `childStrategy` set to `EMBED` – runs before the parent that embeds it
+        * a `COMPOSITE_CHILD` stream with `childStrategy` set to `PATCH`, or a `COMPOSITE_MERGE` stream – run after the parent they update
+
+        Use this endpoint rather than calculating the order yourself. Mapping transformations add
+        dependencies that a single stream definition does not show. An order calculated without those
+        dependencies can differ from the order used at run time.
+      operationId: GET-importtool-stream-order
+      tags:
+        - Streams
+      security:
+        - OAuth2:
+            - importtool.import_trigger
+      responses:
+        '200':
+          description: The request was successful. The stream order is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    type: array
+                    items:
+                      type: string
+                    description: Stream names in the order they run.
+                  prereqs:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+                    description: >-
+                      For each stream name, the streams that must run before it. A stream with no
+                      dependencies has an empty list.
+              examples:
+                Stream order:
+                  value:
+                    order:
+                      - vendor
+                      - purchaseOrder
+                      - purchaseOrderLine
+                    prereqs:
+                      vendor: []
+                      purchaseOrder:
+                        - vendor
+                      purchaseOrderLine:
+                        - purchaseOrder
+        '401':
+          $ref: '#/components/responses/Unauthorized_401'
+        '403':
+          $ref: '#/components/responses/Forbidden_403'
+        '500':
+          $ref: '#/components/responses/InternalServiceError_500'
   '/importtool/{tenant}/configs/{configId}/runs':
     parameters:
       - $ref: '#/components/parameters/trait_tenant'
@@ -377,6 +451,26 @@ paths:
                     value. The service rejects values longer than 40 characters and values that contain control
                     characters. It does not shorten them.
                   example: Make scenario 42
+                streamIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: >-
+                    The stream identifiers to run. Omit the field to run every stream in the configuration.
+                    Send a list of stream IDs to run only those streams. Do not send stream names; use the
+                    `id` values from the stream resource.
+
+                    The service rejects an empty list. It also rejects a list that includes no stream from
+                    this configuration. Listed streams still run in the computed stream order, not in list
+                    order.
+
+                    The service also rejects a stream that cannot produce data on its own. A `COMPOSITE_CHILD`
+                    stream with `childStrategy` set to `EMBED` is written by its parent. A child that reads
+                    values captured during the parent run also cannot run alone. Either stream without its
+                    parent would complete successfully without importing records.
+                  example:
+                    - 8f1b6a5c-2d7e-4a91-9c33-0b5e4d2a7f10
             examples:
               Full run:
                 value:
@@ -386,6 +480,12 @@ paths:
                 value:
                   mode: DELTA
                   dryRun: true
+              Run only two streams:
+                value:
+                  mode: DELTA
+                  streamIds:
+                    - 8f1b6a5c-2d7e-4a91-9c33-0b5e4d2a7f10
+                    - 1c9d3e77-45ab-4f02-8e6d-77a1b0c9e254
       responses:
         '200':
           description: The request was successful. The run has been started.

@@ -4071,6 +4071,14 @@ components:
           type: integer
           format: int64
           description: Duration of the request in seconds.
+        promptTokens:
+          type: integer
+          format: int64
+          description: Cumulative LLM prompt token count for this request.
+        completionTokens:
+          type: integer
+          format: int64
+          description: Cumulative LLM completion token count for this request.
         metadata:
           $ref: '#/components/schemas/MetadataResponse'
     AgentSessionResponse:
@@ -4098,6 +4106,14 @@ components:
           type: integer
           format: int64
           description: Duration of the session in seconds.
+        promptTokens:
+          type: integer
+          format: int64
+          description: Cumulative LLM prompt token count for this session.
+        completionTokens:
+          type: integer
+          format: int64
+          description: Cumulative LLM completion token count for this session.
         metadata:
           $ref: '#/components/schemas/MetadataResponse'
 
@@ -4650,6 +4666,8 @@ components:
                       requestId: req-123e4567-e89b-12d3-a456-426614174000
                       isBusinessLog: true
                   duration: 45
+                  promptTokens: 1234
+                  completionTokens: 567
                   metadata:
                     version: 1
                     createdAt: '2025-01-15T10:30:27.167Z'
@@ -4684,6 +4702,8 @@ components:
                     requestId: req-123e4567-e89b-12d3-a456-426614174000
                     isBusinessLog: false
                 duration: 45
+                promptTokens: 1234
+                completionTokens: 567
                 metadata:
                   version: 1
                   createdAt: '2025-01-15T10:30:27.167Z'
@@ -4719,6 +4739,8 @@ components:
                       requestId: req-123e4567-e89b-12d3-a456-426614174000
                       isBusinessLog: true
                   duration: 120
+                  promptTokens: 2468
+                  completionTokens: 890
                   metadata:
                     version: 1
                     createdAt: '2025-01-15T10:30:27.167Z'
@@ -4752,6 +4774,8 @@ components:
                     requestId: req-123e4567-e89b-12d3-a456-426614174000
                     isBusinessLog: false
                 duration: 120
+                promptTokens: 2468
+                completionTokens: 890
                 metadata:
                   version: 1
                   createdAt: '2025-01-15T10:30:27.167Z'

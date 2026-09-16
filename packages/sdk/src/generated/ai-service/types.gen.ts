@@ -1433,6 +1433,14 @@ export type AgentRequestResponse = {
      * Duration of the request in seconds.
      */
     duration?: number;
+    /**
+     * Cumulative LLM prompt token count for this request.
+     */
+    promptTokens?: number;
+    /**
+     * Cumulative LLM completion token count for this request.
+     */
+    completionTokens?: number;
     metadata?: MetadataResponse;
 };
 
@@ -1458,6 +1466,14 @@ export type AgentSessionResponse = {
      * Duration of the session in seconds.
      */
     duration?: number;
+    /**
+     * Cumulative LLM prompt token count for this session.
+     */
+    promptTokens?: number;
+    /**
+     * Cumulative LLM completion token count for this session.
+     */
+    completionTokens?: number;
     metadata?: MetadataResponse;
 };
 
