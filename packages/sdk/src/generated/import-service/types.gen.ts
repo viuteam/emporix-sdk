@@ -155,13 +155,31 @@ export type ImportStream = {
         [key: string]: string;
     };
     /**
-     * Whether the stream reacts to its target objects being deleted outside the import.
+     * How deletes are detected in the source and propagated to the target. Omit for an upsert-only
+     * stream. `MARKER`: a field on the record flags it as deleted. `TOMBSTONE`: a separate source
+     * record lists the deleted IDs.
      */
-    targetDeleteSubscriptionEnabled?: boolean;
-    /**
-     * What happens when a record deleted in the target is seen in the source again.
-     */
-    onTargetReappear?: 'IGNORE' | 'READD';
+    deleteConfig?: {
+        /**
+         * How a deleted record is recognised.
+         */
+        mode?: 'MARKER' | 'TOMBSTONE';
+        /**
+         * `MARKER` only. The source field that flags a record as deleted.
+         */
+        markerField?: string;
+        /**
+         * `MARKER` only. The values of `markerField` that mean deleted.
+         */
+        markerValues?: Array<string>;
+        /**
+         * `TOMBSTONE` only. The explicit name of the source record that lists deleted IDs. Omit this
+         * property when the name can be derived from the imported record by adding a prefix or suffix —
+         * for example, `invoice_deleted` for an `invoice` stream. Specify it when the deletion record
+         * does not follow that naming convention.
+         */
+        record?: string;
+    };
     healthThresholds?: HealthThresholds;
     /**
      * When the stream was created.
@@ -558,6 +576,78 @@ export type ImportRunPage = Page & {
 };
 
 /**
+ * A page of diagnostic rows with metadata that indicates whether the response contains all recorded rows or only part of a capped sample. Use `recorded`, `cap`, and `sampleTruncated` to interpret the page. The run's counters show the total number of affected rows.
+ */
+export type DiagnosticPage = {
+    rows?: Array<DiagnosticRecord>;
+    /**
+     * How many rows this response contains.
+     */
+    returned?: number;
+    /**
+     * How many rows were recorded in total for this scope.
+     */
+    recorded?: number;
+    /**
+     * The per-stream, per-kind recording cap.
+     */
+    cap?: number;
+    /**
+     * Whether at least one stream reached the cap. When true, these rows are a sample, and the run's
+     * own counters show the total number of affected rows.
+     */
+    sampleTruncated?: boolean;
+    /**
+     * A human-readable statement of what this response is.
+     */
+    note?: string;
+};
+
+/**
+ * One row behind a feed-quality counter.
+ */
+export type DiagnosticRecord = {
+    id?: string;
+    runId?: string;
+    streamId?: string;
+    /**
+     * The stream that recorded the row.
+     */
+    streamName?: string;
+    /**
+     * `UNRESOLVED_PARENT`: a child line whose parent instance did not exist when it was written.
+     * `REPEATED_KEY`: a source row whose natural key this run had already imported.
+     */
+    kind?: 'UNRESOLVED_PARENT' | 'REPEATED_KEY';
+    /**
+     * The record's own natural key in the source.
+     */
+    naturalKey?: string;
+    /**
+     * `UNRESOLVED_PARENT` only. The field that points at the parent.
+     */
+    linkingField?: string;
+    /**
+     * `UNRESOLVED_PARENT` only. The parent key the line pointed at — the value to look up in the
+     * source system.
+     */
+    linkingValue?: string;
+    /**
+     * The target type the row was headed for.
+     */
+    targetType?: string;
+    /**
+     * `UNRESOLVED_PARENT` only. The number of child lines waiting for this parent.
+     */
+    waitingLines?: number;
+    /**
+     * `REPEATED_KEY` only. How many times this key had already been seen in this run.
+     */
+    occurrence?: number;
+    createdAt?: string;
+};
+
+/**
  * Error record page
  */
 export type ErrorRecordPage = Page & {
@@ -923,6 +1013,16 @@ export type ImportSourceIssue = {
      */
     unresolvedParents?: number;
 };
+
+/**
+ * Restrict the rows to those recorded for this stream.
+ */
+export type TraitDiagnosticsStreamId = string;
+
+/**
+ * Restrict the rows to this kind.
+ */
+export type TraitDiagnosticsKind = 'UNRESOLVED_PARENT' | 'REPEATED_KEY';
 
 /**
  * The tenant you want to access.
@@ -1326,6 +1426,67 @@ export type PutImporttoolScheduleJobResponses = {
 
 export type PutImporttoolScheduleJobResponse = PutImporttoolScheduleJobResponses[keyof PutImporttoolScheduleJobResponses];
 
+export type GetImporttoolStreamOrderData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The configuration identifier.
+         */
+        configId: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/configs/{configId}/stream-order';
+};
+
+export type GetImporttoolStreamOrderErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetImporttoolStreamOrderError = GetImporttoolStreamOrderErrors[keyof GetImporttoolStreamOrderErrors];
+
+export type GetImporttoolStreamOrderResponses = {
+    /**
+     * The request was successful. The stream order is returned.
+     */
+    200: {
+        /**
+         * Stream names in the order they run.
+         */
+        order?: Array<string>;
+        /**
+         * For each stream name, the streams that must run before it. A stream with no dependencies has an empty list.
+         */
+        prereqs?: {
+            [key: string]: Array<string>;
+        };
+    };
+};
+
+export type GetImporttoolStreamOrderResponse = GetImporttoolStreamOrderResponses[keyof GetImporttoolStreamOrderResponses];
+
 export type GetImporttoolListRunsData = {
     body?: never;
     path: {
@@ -1407,6 +1568,12 @@ export type PostImporttoolTriggerRunData = {
          * What requested this run. Examples: `Dashboard`, an integration scenario name, or a scheduler name. The `trigger` field records only `MANUAL` or `SCHEDULED`. Use `origin` when more than one system calls this endpoint. If you omit `origin` or send a blank value, the service stores the `trigger` value. The service rejects values longer than 40 characters and values that contain control characters. It does not shorten them.
          */
         origin?: string;
+        /**
+         * The stream identifiers to run. Omit the field to run every stream in the configuration. Send a list of stream IDs to run only those streams. Do not send stream names; use the `id` values from the stream resource.
+         * The service rejects an empty list. It also rejects a list that includes no stream from this configuration. Listed streams still run in the computed stream order, not in list order.
+         * The service also rejects a stream that cannot produce data on its own. A `COMPOSITE_CHILD` stream with `childStrategy` set to `EMBED` is written by its parent. A child that reads values captured during the parent run also cannot run alone. Either stream without its parent would complete successfully without importing records.
+         */
+        streamIds?: Array<string>;
     };
     path: {
         /**
@@ -1681,6 +1848,132 @@ export type GetImporttoolListRunErrorsResponses = {
 };
 
 export type GetImporttoolListRunErrorsResponse = GetImporttoolListRunErrorsResponses[keyof GetImporttoolListRunErrorsResponses];
+
+export type GetImporttoolListRunDiagnosticsData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The run identifier.
+         */
+        runId: string;
+    };
+    query?: {
+        /**
+         * Restrict the rows to those recorded for this stream.
+         */
+        streamId?: string;
+        /**
+         * Restrict the rows to this kind.
+         */
+        kind?: 'UNRESOLVED_PARENT' | 'REPEATED_KEY';
+        /**
+         * Maximum number of rows to return. Defaults differ between the JSON and CSV operations.
+         */
+        limit?: number;
+    };
+    url: '/importtool/{tenant}/runs/{runId}/diagnostics';
+};
+
+export type GetImporttoolListRunDiagnosticsErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetImporttoolListRunDiagnosticsError = GetImporttoolListRunDiagnosticsErrors[keyof GetImporttoolListRunDiagnosticsErrors];
+
+export type GetImporttoolListRunDiagnosticsResponses = {
+    /**
+     * The request was successful. The diagnostic rows are returned.
+     */
+    200: DiagnosticPage;
+};
+
+export type GetImporttoolListRunDiagnosticsResponse = GetImporttoolListRunDiagnosticsResponses[keyof GetImporttoolListRunDiagnosticsResponses];
+
+export type GetImporttoolDownloadRunDiagnosticsCsvData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The run identifier.
+         */
+        runId: string;
+    };
+    query?: {
+        /**
+         * Restrict the rows to those recorded for this stream.
+         */
+        streamId?: string;
+        /**
+         * Restrict the rows to this kind.
+         */
+        kind?: 'UNRESOLVED_PARENT' | 'REPEATED_KEY';
+        /**
+         * Maximum number of rows to include. Defaults differ between the JSON and CSV operations.
+         */
+        limit?: number;
+    };
+    url: '/importtool/{tenant}/runs/{runId}/diagnostics/csv';
+};
+
+export type GetImporttoolDownloadRunDiagnosticsCsvErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetImporttoolDownloadRunDiagnosticsCsvError = GetImporttoolDownloadRunDiagnosticsCsvErrors[keyof GetImporttoolDownloadRunDiagnosticsCsvErrors];
+
+export type GetImporttoolDownloadRunDiagnosticsCsvResponses = {
+    /**
+     * The request was successful. The CSV file is returned.
+     */
+    200: string;
+};
+
+export type GetImporttoolDownloadRunDiagnosticsCsvResponse = GetImporttoolDownloadRunDiagnosticsCsvResponses[keyof GetImporttoolDownloadRunDiagnosticsCsvResponses];
 
 export type GetImporttoolListDataTypesData = {
     body?: never;
