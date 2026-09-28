@@ -73,7 +73,7 @@ describe("AiService.uploadAttachment", () => {
 });
 
 describe("AiService.reuseAttachment", () => {
-  it("sends attachmentId instead of the file, with the session-id header, and resolves on 204", async () => {
+  it("sends attachmentId instead of the file, with the session-id header, and resolves to the attachment", async () => {
     let sessionId: string | null = null;
     let sentId: unknown = null;
     let sentFile = false;
@@ -83,16 +83,29 @@ describe("AiService.reuseAttachment", () => {
         const fd = await request.formData();
         sentId = fd.get("attachmentId");
         sentFile = fd.has("attachment");
-        return new HttpResponse(null, { status: 204 });
+        return HttpResponse.json({ id: "att-1", sessionId: "sess-9" });
       }),
     );
     await expect(
       svc().reuseAttachment("other-bot", "att-1", { sessionId: "sess-9" }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ id: "att-1", sessionId: "sess-9" });
     expect(sentId).toBe("att-1");
     // Exactly one of the two fields — sending both is a 400 upstream.
     expect(sentFile).toBe(false);
     expect(sessionId).toBe("sess-9");
+  });
+
+  it("omits the session-id header without a session, and hands back the one the service opened", async () => {
+    let sessionId: string | null = "unset";
+    server.use(
+      http.post(`${BASE}/agentic/other-bot/attachments`, ({ request }) => {
+        sessionId = request.headers.get("session-id");
+        return HttpResponse.json({ id: "att-1", sessionId: "sess-new" });
+      }),
+    );
+    const res = await svc().reuseAttachment("other-bot", "att-1");
+    expect(sessionId).toBeNull();
+    expect(res.sessionId).toBe("sess-new");
   });
 
   it("encodes the agent id in the path", async () => {
@@ -100,7 +113,7 @@ describe("AiService.reuseAttachment", () => {
     server.use(
       http.post(`${BASE}/agentic/:agentId/attachments`, ({ request }) => {
         seen = new URL(request.url).pathname;
-        return new HttpResponse(null, { status: 204 });
+        return HttpResponse.json({ id: "att-1", sessionId: "s" });
       }),
     );
     await svc().reuseAttachment("a/b c", "att-1", { sessionId: "s" });

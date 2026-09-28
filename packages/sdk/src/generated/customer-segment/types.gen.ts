@@ -121,6 +121,51 @@ export type CustomerAssignmentResponse = {
     legalEntity?: LegalEntity;
 } & CustomerAssignmentB2cResponse;
 
+/**
+ * Request body for creating or updating an IAM group assignment.
+ *
+ */
+export type GroupAssignmentUpsert = {
+    /**
+     * A key-value map of additional attributes.
+     */
+    mixins?: {
+        [key: string]: unknown;
+    };
+    metadata?: MetadataUpdate;
+};
+
+/**
+ * IAM group assigned to the customer segment.
+ */
+export type Group = {
+    /**
+     * Unique identifier of an existing IAM group, generated when the group is created through the IAM Service.
+     */
+    id?: string;
+    /**
+     * Localized name of the group.
+     */
+    name?: {
+        [key: string]: string;
+    };
+};
+
+export type GroupAssignmentResponse = {
+    /**
+     * Unique identifier of the customer segment.
+     */
+    segmentId?: string;
+    group?: Group;
+    /**
+     * A key-value map of additional attributes.
+     */
+    mixins?: {
+        [key: string]: unknown;
+    };
+    metadata?: MetadataResponse;
+};
+
 export type ItemAssignmentUpsert = {
     /**
      * A key-value map of additional attributes.
@@ -446,6 +491,11 @@ export type OnlyActive = boolean;
  */
 export type CustomerId = string;
 
+/**
+ * Unique identifier of an existing IAM group.
+ */
+export type GroupId = string;
+
 export type GetCustomerSegmentRetrieveSegmentsData = {
     body?: never;
     headers?: {
@@ -682,6 +732,84 @@ export type PostCustomerSegmentSearchSegmentsResponses = {
 };
 
 export type PostCustomerSegmentSearchSegmentsResponse = PostCustomerSegmentSearchSegmentsResponses[keyof PostCustomerSegmentSearchSegmentsResponses];
+
+export type GetCustomerSegmentRetrieveOwnSegmentsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Flag indicating whether the total number of retrieved results should be returned.
+         */
+        'X-Total-Count'?: boolean;
+        /**
+         * The Accept-Language request HTTP header defines which languages the client is able to understand, and which locale variant is preferred. If empty, the default system language is assumed. It can be a priority list working as a fallback mechanism.
+         */
+        'Accept-Language'?: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: Always write the tenant name in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * A standard query parameter is used to search for specific values.
+         *
+         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         *
+         */
+        q?: string;
+        /**
+         * The number of documents to be retrieved per page.
+         */
+        pageSize?: string;
+        /**
+         * The page number to be retrieved. The size of the pages should be specified by the pageSize parameter.
+         */
+        pageNumber?: string;
+        /**
+         * List of properties used to sort the results, separated by colons.
+         */
+        sort?: string;
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+    };
+    url: '/customer-segment/{tenant}/segments/me';
+};
+
+export type GetCustomerSegmentRetrieveOwnSegmentsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Access forbidden. The caller is not allowed to access this resource.
+     */
+    403: Error;
+};
+
+export type GetCustomerSegmentRetrieveOwnSegmentsError = GetCustomerSegmentRetrieveOwnSegmentsErrors[keyof GetCustomerSegmentRetrieveOwnSegmentsErrors];
+
+export type GetCustomerSegmentRetrieveOwnSegmentsResponses = {
+    /**
+     * Own customer segments were successfully retrieved.
+     */
+    200: Array<SegmentResponse>;
+};
+
+export type GetCustomerSegmentRetrieveOwnSegmentsResponse = GetCustomerSegmentRetrieveOwnSegmentsResponses[keyof GetCustomerSegmentRetrieveOwnSegmentsResponses];
 
 export type DeleteCustomerSegmentRemoveSegmentData = {
     body?: never;
@@ -1769,6 +1897,336 @@ export type PutCustomerSegmentUpdateCustomersBulkResponses = {
 };
 
 export type PutCustomerSegmentUpdateCustomersBulkResponse = PutCustomerSegmentUpdateCustomersBulkResponses[keyof PutCustomerSegmentUpdateCustomersBulkResponses];
+
+export type GetCustomerSegmentRetrieveGroupsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Flag indicating whether the total number of retrieved results should be returned.
+         */
+        'X-Total-Count'?: boolean;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: Always write the tenant name in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Unique identifier of the customer segment.
+         */
+        segmentId: string;
+    };
+    query?: {
+        /**
+         * A standard query parameter is used to search for specific values.
+         *
+         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         *
+         */
+        q?: string;
+        /**
+         * The number of documents to be retrieved per page.
+         */
+        pageSize?: string;
+        /**
+         * The page number to be retrieved. The size of the pages should be specified by the pageSize parameter.
+         */
+        pageNumber?: string;
+        /**
+         * List of properties used to sort the results, separated by colons.
+         */
+        sort?: string;
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+    };
+    url: '/customer-segment/{tenant}/segments/{segmentId}/groups';
+};
+
+export type GetCustomerSegmentRetrieveGroupsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Access forbidden. The caller is not allowed to access this resource.
+     */
+    403: Error;
+};
+
+export type GetCustomerSegmentRetrieveGroupsError = GetCustomerSegmentRetrieveGroupsErrors[keyof GetCustomerSegmentRetrieveGroupsErrors];
+
+export type GetCustomerSegmentRetrieveGroupsResponses = {
+    /**
+     * Group assignments for a customer segment were successfully retrieved.
+     */
+    200: Array<GroupAssignmentResponse>;
+};
+
+export type GetCustomerSegmentRetrieveGroupsResponse = GetCustomerSegmentRetrieveGroupsResponses[keyof GetCustomerSegmentRetrieveGroupsResponses];
+
+export type PostCustomerSegmentSearchGroupsData = {
+    body?: SegmentsSearch;
+    headers?: {
+        /**
+         * Flag indicating whether the total number of retrieved results should be returned.
+         */
+        'X-Total-Count'?: boolean;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: Always write the tenant name in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Unique identifier of the customer segment.
+         */
+        segmentId: string;
+    };
+    query?: {
+        /**
+         * The number of documents to be retrieved per page.
+         */
+        pageSize?: string;
+        /**
+         * The page number to be retrieved. The size of the pages should be specified by the pageSize parameter.
+         */
+        pageNumber?: string;
+        /**
+         * List of properties used to sort the results, separated by colons.
+         */
+        sort?: string;
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+    };
+    url: '/customer-segment/{tenant}/segments/{segmentId}/groups/search';
+};
+
+export type PostCustomerSegmentSearchGroupsErrors = {
+    /**
+     * Bad request due to validation, incorrect parameters, etc.
+     */
+    400: Error;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Access forbidden. The caller is not allowed to access this resource.
+     */
+    403: Error;
+};
+
+export type PostCustomerSegmentSearchGroupsError = PostCustomerSegmentSearchGroupsErrors[keyof PostCustomerSegmentSearchGroupsErrors];
+
+export type PostCustomerSegmentSearchGroupsResponses = {
+    /**
+     * Group assignments for a customer segment were successfully retrieved.
+     */
+    200: Array<GroupAssignmentResponse>;
+};
+
+export type PostCustomerSegmentSearchGroupsResponse = PostCustomerSegmentSearchGroupsResponses[keyof PostCustomerSegmentSearchGroupsResponses];
+
+export type DeleteCustomerSegmentRemoveGroupData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: Always write the tenant name in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Unique identifier of the customer segment.
+         */
+        segmentId: string;
+        /**
+         * Unique identifier of an existing IAM group.
+         */
+        groupId: string;
+    };
+    query?: never;
+    url: '/customer-segment/{tenant}/segments/{segmentId}/groups/{groupId}';
+};
+
+export type DeleteCustomerSegmentRemoveGroupErrors = {
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Access forbidden. The caller is not allowed to access this resource.
+     */
+    403: Error;
+};
+
+export type DeleteCustomerSegmentRemoveGroupError = DeleteCustomerSegmentRemoveGroupErrors[keyof DeleteCustomerSegmentRemoveGroupErrors];
+
+export type DeleteCustomerSegmentRemoveGroupResponses = {
+    /**
+     * Group assignment was successfully removed.
+     */
+    204: void;
+};
+
+export type DeleteCustomerSegmentRemoveGroupResponse = DeleteCustomerSegmentRemoveGroupResponses[keyof DeleteCustomerSegmentRemoveGroupResponses];
+
+export type GetCustomerSegmentRetrieveGroupData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: Always write the tenant name in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Unique identifier of the customer segment.
+         */
+        segmentId: string;
+        /**
+         * Unique identifier of an existing IAM group.
+         */
+        groupId: string;
+    };
+    query?: {
+        /**
+         * Fields to be returned in the response.
+         */
+        fields?: string;
+    };
+    url: '/customer-segment/{tenant}/segments/{segmentId}/groups/{groupId}';
+};
+
+export type GetCustomerSegmentRetrieveGroupErrors = {
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Access forbidden. The caller is not allowed to access this resource.
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type GetCustomerSegmentRetrieveGroupError = GetCustomerSegmentRetrieveGroupErrors[keyof GetCustomerSegmentRetrieveGroupErrors];
+
+export type GetCustomerSegmentRetrieveGroupResponses = {
+    /**
+     * Group assignment for a customer segment was successfully retrieved.
+     */
+    200: GroupAssignmentResponse;
+};
+
+export type GetCustomerSegmentRetrieveGroupResponse = GetCustomerSegmentRetrieveGroupResponses[keyof GetCustomerSegmentRetrieveGroupResponses];
+
+export type PutCustomerSegmentUpdateGroupData = {
+    body?: GroupAssignmentUpsert;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: Always write the tenant name in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Unique identifier of the customer segment.
+         */
+        segmentId: string;
+        /**
+         * Unique identifier of an existing IAM group.
+         */
+        groupId: string;
+    };
+    query?: never;
+    url: '/customer-segment/{tenant}/segments/{segmentId}/groups/{groupId}';
+};
+
+export type PutCustomerSegmentUpdateGroupErrors = {
+    /**
+     * Bad request due to validation, incorrect parameters, etc.
+     */
+    400: Error;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Access forbidden. The caller is not allowed to access this resource.
+     */
+    403: Error;
+    /**
+     * Conflict
+     */
+    409: Error;
+};
+
+export type PutCustomerSegmentUpdateGroupError = PutCustomerSegmentUpdateGroupErrors[keyof PutCustomerSegmentUpdateGroupErrors];
+
+export type PutCustomerSegmentUpdateGroupResponses = {
+    /**
+     * A new group assignment was successfully created.
+     */
+    201: unknown;
+    /**
+     * Group assignment was successfully updated.
+     */
+    204: void;
+};
+
+export type PutCustomerSegmentUpdateGroupResponse = PutCustomerSegmentUpdateGroupResponses[keyof PutCustomerSegmentUpdateGroupResponses];
 
 export type GetCustomerSegmentRetrieveCategoryTreesData = {
     body?: never;

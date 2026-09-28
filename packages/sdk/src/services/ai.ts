@@ -393,13 +393,16 @@ export class AiService {
   }
 
   /**
-   * Assign an attachment that already exists in a session to another agent
+   * Assign an existing media asset to an agent as a chat attachment
    * (`POST /agentic/{agentId}/attachments` with the `attachmentId` form field,
-   * HTTP 204 — nothing is returned, unlike {@link uploadAttachment}'s 201).
+   * HTTP 200). Resolves to the attachment `id` and the `sessionId` to send on
+   * the following chat calls.
    *
    * Use it to hand a second agent the same file instead of uploading it twice.
-   * The attachment is resolved inside `opts.sessionId`, which is why that is
-   * required rather than optional — the id alone does not identify a file.
+   * Pass `opts.sessionId` to attach to an existing chat session; without it the
+   * service opens a new one and returns its id — thread that into the chat, or
+   * the agent never sees the file. With `ai.agentexecution_manage` the asset may
+   * be any media asset, not only one uploaded to this session.
    *
    * ```ts
    * const { id, sessionId } = await client.ai.uploadAttachment("agent-a", file);
@@ -409,17 +412,17 @@ export class AiService {
   async reuseAttachment(
     agentId: string,
     attachmentId: string,
-    opts: AttachmentReuseOptions,
+    opts: AttachmentReuseOptions = {},
     auth: AuthContext = SERVICE,
-  ): Promise<void> {
+  ): Promise<Attachment> {
     const form = new FormData();
     form.append("attachmentId", attachmentId);
-    await this.ctx.http.request<void>({
+    return this.ctx.http.request<Attachment>({
       method: "POST",
       path: `${this.base()}/agentic/${encodeURIComponent(agentId)}/attachments`,
       auth,
       body: form,
-      headers: { "session-id": opts.sessionId },
+      ...(opts.sessionId ? { headers: { "session-id": opts.sessionId } } : {}),
     });
   }
 

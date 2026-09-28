@@ -38,7 +38,7 @@ export type AgenticRequest = {
     message: string;
     attachments?: Array<{
         /**
-         * Id of the attachment.
+         * Identifier returned by the upload. Required for each attached file. The attachment must belong to the current session and be attached to this request's `agentId`.
          */
         attachmentId: string;
         /**
@@ -992,7 +992,7 @@ export type NativeToolReferenceRequest = {
 };
 
 /**
- * List of agent collaborations which allows an agent to hand off its task to other agents.
+ * List of agent collaborations which allows an agent to hand off its task to other agents. Collaborations remain in the caller's session and do not enable memory by themselves.
  */
 export type AgentCollaborations = Array<{
     /**
@@ -1107,7 +1107,9 @@ export type AgentTrigger = {
 };
 
 /**
- * Indicates whether the agent is handOff or not. HandOff agents are special types of agents which can be called by other agents through `agentCollaborations` property and their configuration is hidden.
+ * Deprecated. Indicates whether the agent is a hand-off agent. This field is no longer used. Clients should ignore it.
+ *
+ * @deprecated
  */
 export type HandOff = boolean;
 
@@ -1171,7 +1173,7 @@ export type BaseForAgentRequestAndResponse = BaseForAgentAndTemplate & {
      */
     maxRecursionLimit?: number;
     /**
-     * Defines whether the session memory should be stored between different agent calls.
+     * Defines whether session memory is stored between different agent calls. Memory is stored only for that agent and only within one `session-id`. The default is `false`. To keep conversational memory for targets in `agentCollaborations`, it is recommended to set the flag to `true` on each target as well.
      */
     enabledMemory?: boolean;
 };
@@ -1207,6 +1209,9 @@ export type AgentResponse = BaseForAgentRequestAndResponse & {
     nativeTools?: NativeToolsResponse;
     llmConfig?: EmporixLlm | ApiKeyLlmResponse | SelfHostedLlmResponse;
     mcpServers?: AgentMcpServersResponse;
+    /**
+     * @deprecated
+     */
     handOff?: HandOff;
     type?: AgentType;
     /**
@@ -1258,7 +1263,7 @@ export type Job = {
     exportResult?: ExportResult;
     importResult?: ImportResult;
     /**
-     * Unique identifier of the session.
+     * Unique identifier of the session. Send this value back as the `session-id` header on later chat and attachment calls.
      */
     sessionId?: string;
     /**
@@ -1354,7 +1359,7 @@ export type ChatResponse = {
     agentId?: string;
     agentType?: AgentType;
     /**
-     * Unique identifier of the session.
+     * Unique identifier of the session. Send this value back as the `session-id` header on later chat and attachment calls.
      */
     sessionId?: string;
     /**
@@ -1369,7 +1374,7 @@ export type AttachmentResponse = {
      */
     id?: string;
     /**
-     * Unique identifier of the session. The same sessionId must be used when calling chat endpoints to ensure the correct attachment is found.
+     * Unique identifier of the session the attachment is on. Send this value as the `session-id` header on later chat requests. If the assign request omits `session-id`, this value is the generated session.
      */
     sessionId?: string;
 };
@@ -1433,6 +1438,14 @@ export type AgentRequestResponse = {
      * Duration of the request in seconds.
      */
     duration?: number;
+    /**
+     * Cumulative LLM prompt token count for this request.
+     */
+    promptTokens?: number;
+    /**
+     * Cumulative LLM completion token count for this request.
+     */
+    completionTokens?: number;
     metadata?: MetadataResponse;
 };
 
@@ -1458,6 +1471,14 @@ export type AgentSessionResponse = {
      * Duration of the session in seconds.
      */
     duration?: number;
+    /**
+     * Cumulative LLM prompt token count for this session.
+     */
+    promptTokens?: number;
+    /**
+     * Cumulative LLM completion token count for this session.
+     */
+    completionTokens?: number;
     metadata?: MetadataResponse;
 };
 
@@ -1690,6 +1711,16 @@ export type ExecutionsResponse = {
 export type PathTenant = string;
 
 /**
+ * Optional UUID of the AI Service chat session. If omitted, the system generates one.
+ *
+ * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
+ *
+ * When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+ *
+ */
+export type HeaderSessionId = string;
+
+/**
  * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields.
  *
  * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
@@ -1733,6 +1764,20 @@ export type PageSize = string;
  * The page number to be retrieved. The size of the pages should be specified by the `pageSize` parameter.
  */
 export type PageNumber = string;
+
+/**
+ * Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+ * Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+ * When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+ *
+ */
+export type TraitCursorNext = string;
+
+/**
+ * Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
+ *
+ */
+export type TraitCursorPrev = string;
 
 /**
  * List of properties used to sort the results, separated by colons.
@@ -1926,6 +1971,18 @@ export type GetAiListJobsData = {
          */
         pageNumber?: string;
         /**
+         * Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+         * Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+         * When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+         *
+         */
+        next?: string;
+        /**
+         * Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
+         *
+         */
+        prev?: string;
+        /**
          * List of properties used to sort the results, separated by colons.
          */
         sort?: string;
@@ -1989,6 +2046,18 @@ export type PostAiSearchJobsData = {
          * The page number to be retrieved. The size of the pages should be specified by the `pageSize` parameter.
          */
         pageNumber?: string;
+        /**
+         * Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+         * Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+         * When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+         *
+         */
+        next?: string;
+        /**
+         * Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
+         *
+         */
+        prev?: string;
         /**
          * List of properties used to sort the results, separated by colons.
          */
@@ -2124,7 +2193,12 @@ export type PostAiAgentsChatData = {
     body?: AgenticChat;
     headers?: {
         /**
-         * Unique session identifier which allows for storing the context of the chat. If not provided, the system generates it.
+         * Optional UUID of the AI Service chat session. If omitted, the system generates one.
+         *
+         * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
+         *
+         * When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         *
          */
         'session-id'?: string;
     };
@@ -2175,7 +2249,12 @@ export type PostAiAgentsChatStreamData = {
     body?: AgenticChat;
     headers?: {
         /**
-         * Unique session identifier which allows for storing the context of the chat. If not provided, the system generates it.
+         * Optional UUID of the AI Service chat session. If omitted, the system generates one.
+         *
+         * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
+         *
+         * When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         *
          */
         'session-id'?: string;
         /**
@@ -2230,7 +2309,12 @@ export type PostAiAgentsChatAsyncData = {
     body?: AgenticChat;
     headers?: {
         /**
-         * Unique session identifier which allows for storing the context of the chat. If not provided, the system generates it.
+         * Optional UUID of the AI Service chat session. If omitted, the system generates one.
+         *
+         * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
+         *
+         * When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         *
          */
         'session-id'?: string;
     };
@@ -2280,18 +2364,18 @@ export type PostAiAgentsChatAsyncResponse = PostAiAgentsChatAsyncResponses[keyof
 export type PostAiAgentsUploadAttachmentData = {
     body: {
         /**
-         * Content of the file. Use this field to upload a new file.
-         */
-        attachment: Blob | File;
-    } | {
-        /**
-         * Identifier of an existing attachment to reuse in the current session.
+         * Identifier of an existing media asset. With `ai.agentexecution_manage`, any media id can be assigned to the path agent. With only `ai.agentexecution_manage_own`, the attachment must already belong to the session.
          */
         attachmentId: string;
     };
     headers?: {
         /**
-         * Unique session identifier which allows for storing the context of the chat. If not provided, the system generates it.
+         * Optional UUID of the AI Service chat session. If omitted, the system generates one.
+         *
+         * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
+         *
+         * When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         *
          */
         'session-id'?: string;
     };
@@ -2303,6 +2387,9 @@ export type PostAiAgentsUploadAttachmentData = {
          *
          */
         tenant: string;
+        /**
+         * Unique identifier of the agent that receives the attachment. For a file upload, a later chat request must send this same value in the body `agentId` field. When you reuse an attachment, this path value is the target agent. The later chat request must send that target `agentId`.
+         */
         agentId: string;
     };
     query?: never;
@@ -2332,13 +2419,13 @@ export type PostAiAgentsUploadAttachmentError = PostAiAgentsUploadAttachmentErro
 
 export type PostAiAgentsUploadAttachmentResponses = {
     /**
+     * Existing media assigned to the agent. The body contains the attachment `id` and the `sessionId` to send on later chat requests.
+     */
+    200: AttachmentResponse;
+    /**
      * Attachment created.
      */
     201: AttachmentResponse;
-    /**
-     * Existing attachment reused and assigned to the agent.
-     */
-    204: void;
 };
 
 export type PostAiAgentsUploadAttachmentResponse = PostAiAgentsUploadAttachmentResponses[keyof PostAiAgentsUploadAttachmentResponses];
@@ -4677,6 +4764,18 @@ export type GetAiListRequestsData = {
          */
         pageNumber?: string;
         /**
+         * Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+         * Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+         * When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+         *
+         */
+        next?: string;
+        /**
+         * Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
+         *
+         */
+        prev?: string;
+        /**
          * List of properties used to sort the results, separated by colons.
          */
         sort?: string;
@@ -4788,6 +4887,18 @@ export type PostAiSearchRequestsData = {
          */
         pageNumber?: string;
         /**
+         * Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+         * Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+         * When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+         *
+         */
+        next?: string;
+        /**
+         * Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
+         *
+         */
+        prev?: string;
+        /**
          * List of properties used to sort the results, separated by colons.
          */
         sort?: string;
@@ -4858,6 +4969,18 @@ export type GetAiListSessionsData = {
          * The page number to be retrieved. The size of the pages should be specified by the `pageSize` parameter.
          */
         pageNumber?: string;
+        /**
+         * Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+         * Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+         * When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+         *
+         */
+        next?: string;
+        /**
+         * Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
+         *
+         */
+        prev?: string;
         /**
          * List of properties used to sort the results, separated by colons.
          */
@@ -4969,6 +5092,18 @@ export type PostAiSearchSessionsData = {
          * The page number to be retrieved. The size of the pages should be specified by the `pageSize` parameter.
          */
         pageNumber?: string;
+        /**
+         * Opaque cursor from the `X-Next-Cursor` response header. Use it to retrieve the next set of results.
+         * Cannot be combined with `prev` in the same request; sending both returns `400 Bad Request`.
+         * When provided, cursor pagination is active: `pageNumber` is ignored and the `X-Total-Count` request header is ignored (the `X-Total-Count` response header is not returned).
+         *
+         */
+        next?: string;
+        /**
+         * Opaque cursor from the `X-Prev-Cursor` response header. Use it to retrieve the previous set of results. Cannot be combined with `next` in the same request; sending both returns `400 Bad Request`. When provided, cursor pagination is active and `pageNumber` is ignored.
+         *
+         */
+        prev?: string;
         /**
          * List of properties used to sort the results, separated by colons.
          */

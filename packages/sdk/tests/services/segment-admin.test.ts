@@ -112,6 +112,41 @@ describe("segments.customers", () => {
   });
 });
 
+describe("segments.groups", () => {
+  it("assignment ops hit /groups... with SERVICE default and encoded ids", async () => {
+    const l = vi.fn().mockResolvedValue([{ segmentId: "s1" }]);
+    await svc(l).groups.list("s1");
+    expect(l).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${B}/s1/groups`, auth: { kind: "service" } }));
+    expect(l.mock.calls[0]?.[0]).not.toHaveProperty("query");
+
+    const lq = vi.fn().mockResolvedValue([]);
+    await svc(lq).groups.list("s1", { q: "group.id:g1", pageSize: 10 });
+    expect(lq).toHaveBeenCalledWith(expect.objectContaining({ query: { q: "group.id:g1", pageSize: 10 } }));
+
+    const se = vi.fn().mockResolvedValue([]);
+    await svc(se).groups.search("s1", { q: "x" } as never);
+    expect(se).toHaveBeenCalledWith(expect.objectContaining({ method: "POST", path: `${B}/s1/groups/search`, body: { q: "x" } }));
+
+    const g = vi.fn().mockResolvedValue({ segmentId: "s1" });
+    await svc(g).groups.get("s1", "g/1");
+    expect(g).toHaveBeenCalledWith(expect.objectContaining({ method: "GET", path: `${B}/s1/groups/g%2F1` }));
+
+    const r = vi.fn().mockResolvedValue(undefined);
+    await svc(r).groups.remove("s1", "g1");
+    expect(r).toHaveBeenCalledWith(expect.objectContaining({ method: "DELETE", path: `${B}/s1/groups/g1` }));
+  });
+
+  it("assign upserts with an empty body by default and resolves to nothing (201/204 carry no body)", async () => {
+    const a = vi.fn().mockResolvedValue(undefined);
+    await expect(svc(a).groups.assign("s1", "g1")).resolves.toBeUndefined();
+    expect(a).toHaveBeenCalledWith(expect.objectContaining({ method: "PUT", path: `${B}/s1/groups/g1`, body: {} }));
+
+    const m = vi.fn().mockResolvedValue(undefined);
+    await svc(m).groups.assign("s1", "g1", { mixins: { tier: "gold" } });
+    expect(m).toHaveBeenCalledWith(expect.objectContaining({ body: { mixins: { tier: "gold" } } }));
+  });
+});
+
 describe("segments.items", () => {
   it("assignment ops hit /items/{type}...", async () => {
     const s = vi.fn().mockResolvedValue([{ id: "i1" }]);

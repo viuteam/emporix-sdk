@@ -63,7 +63,7 @@ property on the `EmporixClient` instance:
 | --- | --- |
 | Catalog | `products`, `categories`, `prices`, `brands`, `labels`, `catalogs` |
 | Cart & checkout | `carts`, `checkout`, `payments`, `coupons`, `taxes`, `shipping`, `fees` |
-| Orders & fulfilment | `orders`, `salesOrders`, `quotes`, `invoices`, `returns`, `pickPack`, `availability`, `indexing` |
+| Orders & fulfilment | `orders`, `salesOrders`, `quotes`, `invoices`, `returns`, `availability`, `indexing` |
 | Customers & B2B | `customers`, `customerAdmin`, `companies`, `contacts`, `locations`, `customerGroups`, `approvals`, `rewardPoints`, `segments`, `iam` |
 | Platform & config | `sites`, `sessionContext`, `tenantConfig`, `clientConfig`, `media`, `schemas`, `webhooks`, `sequentialIds`, `units`, `countries`, `currencies`, `vendors`, `shoppingLists`, `cloudFunctions`, `ai`, `ragIndexer`, `imports`, `auditLogs` |
 
@@ -190,7 +190,7 @@ services: `./customer`, `./product`, `./category`, `./cart`, `./checkout`,
 `./payment`, `./price`, `./media`, `./segment`, `./companies`, `./contacts`,
 `./locations`, `./customer-groups`, `./orders`, `./availability`. All other
 services (Tax, Coupon, RewardPoints, Shipping, Returns, Catalog, Vendor,
-PickPack, CustomerAdmin, Approval, …) are reached from the package root.
+CustomerAdmin, Approval, …) are reached from the package root.
 
 ## Changelog
 

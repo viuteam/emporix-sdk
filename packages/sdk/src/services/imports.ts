@@ -16,21 +16,28 @@ import type {
   ImportRun,
   ImportRunDetail,
   ImportRunEvent,
+  ImportRunDiagnostics,
+  ImportRunDiagnosticsQuery,
   ImportRunInput,
   ImportRunStream,
   ImportSchedule,
   ImportStream,
+  ImportStreamOrder,
   ImportedRecord,
 } from "./imports-types";
 
 export type {
   ImportCancelResult,
   ImportConfig,
+  ImportDiagnosticKind,
+  ImportDiagnosticRecord,
   ImportErrorRecord,
   ImportPage,
   ImportRecordOutcome,
   ImportRun,
   ImportRunDetail,
+  ImportRunDiagnostics,
+  ImportRunDiagnosticsQuery,
   ImportRunEvent,
   ImportRunInput,
   ImportRunMode,
@@ -38,6 +45,7 @@ export type {
   ImportRunStream,
   ImportSchedule,
   ImportStream,
+  ImportStreamOrder,
   ImportedRecord,
 } from "./imports-types";
 
@@ -191,6 +199,24 @@ export class ImportService {
   }
 
   /**
+   * The order in which a configuration's streams run, and the dependencies
+   * behind it. Read it here instead of deriving it from the stream definitions:
+   * mapping transformations add dependencies that no single stream shows, so a
+   * self-computed order can differ from the one used at run time.
+   *
+   * The result lists stream **names**, while {@link triggerRun}'s `streamIds`
+   * takes stream **ids** — map through {@link listStreams} before passing a
+   * subset back.
+   */
+  async getStreamOrder(configId: string, auth: AuthContext = SERVICE): Promise<ImportStreamOrder> {
+    return this.ctx.http.request<ImportStreamOrder>({
+      method: "GET",
+      path: `${this.base()}/configs/${encodeURIComponent(configId)}/stream-order`,
+      auth,
+    });
+  }
+
+  /**
    * Fetch a configuration's schedule. Resolves to `null` when none is
    * configured — the service answers `204`, not `404`, so an absent schedule is
    * a normal result rather than an error.
@@ -263,6 +289,9 @@ export class ImportService {
    * `MANUAL` from `SCHEDULED`, so without it a dashboard click and an
    * integration scenario are indistinguishable in the history. Note the service
    * **rejects** an `origin` over 40 characters instead of shortening it.
+   *
+   * `streamIds` runs a subset — see {@link ImportRunInput} for what is rejected,
+   * and note it takes ids where {@link getStreamOrder} reports names.
    *
    * Not retried on a 5xx: a POST that timed out may already have queued a run.
    *
@@ -378,6 +407,55 @@ export class ImportService {
       auth,
     });
     return toPage(wire, args);
+  }
+
+  /**
+   * The rows behind a run's feed-quality counters: source rows that repeated a
+   * natural key (`kind: "REPEATED_KEY"`, counted as `duplicateKeys`) and child
+   * lines with no parent to attach to (`"UNRESOLVED_PARENT"`, counted as
+   * `unresolvedParents`). Neither is a failure, which is why these rows are not
+   * in {@link listRunErrors}.
+   *
+   * **A capped sample** — see {@link ImportRunDiagnostics} before reading
+   * `rows.length` as the size of the problem. `limit` defaults to 500 here
+   * (1–50 000); {@link downloadRunDiagnosticsCsv} defaults to 50 000.
+   */
+  async listRunDiagnostics(
+    runId: string,
+    query: ImportRunDiagnosticsQuery = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ImportRunDiagnostics> {
+    return this.ctx.http.request<ImportRunDiagnostics>({
+      method: "GET",
+      path: `${this.base()}/runs/${encodeURIComponent(runId)}/diagnostics`,
+      query: { ...query },
+      auth,
+    });
+  }
+
+  /**
+   * The same rows as {@link listRunDiagnostics}, as CSV text for a spreadsheet
+   * or a ticket. Comment lines above the header record whether `limit` or the
+   * recording cap cut rows off, so the file keeps that context when shared on
+   * its own. `limit` defaults to 50 000 here, not 500.
+   *
+   * Every value is quoted, and a value starting with `=`, `+`, `-` or `@` is
+   * prefixed with an apostrophe so spreadsheet software does not evaluate source
+   * data as a formula. Strip it if you parse the file instead of opening it.
+   */
+  async downloadRunDiagnosticsCsv(
+    runId: string,
+    query: ImportRunDiagnosticsQuery = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<string> {
+    // `request` falls back to the raw text when a body is not JSON, and a CSV
+    // with a quoted multi-column header never is.
+    return this.ctx.http.request<string>({
+      method: "GET",
+      path: `${this.base()}/runs/${encodeURIComponent(runId)}/diagnostics/csv`,
+      query: { ...query },
+      auth,
+    });
   }
 
   /** List the target types that hold imported records — the valid `type` values for {@link searchRecords}. */
