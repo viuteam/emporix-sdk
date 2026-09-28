@@ -97,8 +97,8 @@ export type PatchOperation = {
 export type Asset = {
     /**
      * Access type of the asset. This property is immutable.
-     * - PUBLIC: Assets will be stored by a public storage provider and will be accessible at an external link.
-     * - PRIVATE: Assets will be stored by a private storage provider and will not be accessible at an external url. Assets of the `PRIVATE` type can only be accessed by calling the `media/{tenant}/assets/{assetId}/download` endpoint in the Media Service.
+     * - `PUBLIC`: Blob assets are stored in Cloudinary and are accessible through a permanent external URL.
+     * - `PRIVATE`: Blob assets are stored in Google Cloud Storage. Retrieve their content through `/media/{tenant}/assets/{assetId}/download` or request a temporary signed URL through `/media/{tenant}/assets/{assetId}/download-url`.
      *
      */
     access?: 'PUBLIC' | 'PRIVATE';
@@ -164,7 +164,7 @@ export type AssetUpdateMultipart = {
  */
 export type AssetCreateMultipart = {
     /**
-     * Content of the file. The max file size is 10MB.
+     * Content of the file. The max file size is 30 MB.
      */
     file: {
         [key: string]: unknown;
@@ -193,8 +193,8 @@ export type AssetCreateLink = Asset & {
     url: string;
     /**
      * Access type of the asset. This property is immutable.
-     * - PUBLIC: Assets will be stored by a public storage provider and will be accessible at an external link.
-     * - PRIVATE: Assets will be stored by a private storage provider and will not be accessible at an external url. Assets of the `PRIVATE` type can only be accessed by calling the `media/{tenant}/assets/{assetId}/download` endpoint in the Media Service.
+     * - `PUBLIC`: Blob assets are stored in Cloudinary and are accessible through a permanent external URL.
+     * - `PRIVATE`: Blob assets are stored in Google Cloud Storage. Retrieve their content through `/media/{tenant}/assets/{assetId}/download` or request a temporary signed URL through `/media/{tenant}/assets/{assetId}/download-url`.
      *
      */
     access: 'PUBLIC' | 'PRIVATE';
@@ -215,11 +215,27 @@ export type AssetCreateBlob = Asset & {
     details?: AssetDetailsCreate;
     /**
      * Access type of the asset. This property is immutable.
-     * - PUBLIC: Assets will be stored by a public storage provider and will be accessible at an external link.
-     * - PRIVATE: Assets will be stored by a private storage provider and will not be accessible at an external url. Assets of the `PRIVATE` type can only be accessed by calling the `media/{tenant}/assets/{assetId}/download` endpoint in the Media Service.
+     * - `PUBLIC`: Blob assets are stored in Cloudinary and are accessible through a permanent external URL.
+     * - `PRIVATE`: Blob assets are stored in Google Cloud Storage. Retrieve their content through `/media/{tenant}/assets/{assetId}/download` or request a temporary signed URL through `/media/{tenant}/assets/{assetId}/download-url`.
      *
      */
     access: 'PUBLIC' | 'PRIVATE';
+};
+
+/**
+ * Upload Session Request
+ *
+ * Payload for creating a direct-storage upload session.
+ */
+export type UploadSessionRequest = AssetCreateBlob & {
+    /**
+     * Upload flow requested for a private Google Cloud Storage asset.
+     * * `put`: Returns a signed `PUT` request. This is the default when the property is omitted.
+     * * `form`: Returns a multipart `POST` policy.
+     * Public Cloudinary assets always use a multipart `POST` form, regardless of this value.
+     *
+     */
+    uploadType?: 'put' | 'form';
 };
 
 /**
@@ -273,8 +289,98 @@ export type GetAssetBlob = AssetCreateBlob & {
      * Id of a vendor to which the asset belongs.
      */
     vendorId?: string;
+    /**
+     * Upload state of a `BLOB` created through an upload session.
+     * * `PENDING` — the session exists and the file is not confirmed yet.
+     * * `READY` — the file is stored.
+     * When this field is absent, the asset is ready. Assets created by the existing upload endpoints do not return this field.
+     *
+     */
+    status?: 'PENDING' | 'READY';
     details?: AssetDetailsGet;
     metadata?: MetadataGet;
+};
+
+/**
+ * Upload Session
+ *
+ * Instruction for sending a file directly to storage.
+ */
+export type UploadSession = {
+    /**
+     * Unique identifier of the asset, generated when the upload session is created.
+     */
+    id: string;
+    /**
+     * Storage that receives the file.
+     * * `GCS` — private asset. Upload with the returned `PUT` headers or multipart `POST` fields.
+     * * `CLOUDINARY` — public asset. Upload with `POST` and the returned multipart form fields.
+     *
+     */
+    provider: 'GCS' | 'CLOUDINARY';
+    /**
+     * The asset stays `PENDING` until the file is stored.
+     */
+    status: 'PENDING';
+    /**
+     * Date and time when the unused upload session expires. Returned as an ISO-8601 string.
+     */
+    expiresAt: string;
+    /**
+     * The request the caller sends to storage.
+     */
+    upload: {
+        /**
+         * HTTP method of the storage request.
+         */
+        method: 'PUT' | 'POST';
+        /**
+         * Storage URL that receives the file.
+         */
+        url: string;
+        /**
+         * Headers required by a private Google Cloud Storage `PUT` upload. Send every returned header unchanged with the file.
+         * Returned only for the Google Cloud Storage `PUT` flow.
+         *
+         */
+        headers?: {
+            [key: string]: string;
+        };
+        /**
+         * Fields required by a Google Cloud Storage or Cloudinary multipart `POST`. Send every returned field unchanged, then append the file part last.
+         * Google Cloud Storage fields do not include `x-goog-if-generation-match`. Cloudinary fields include `api_key` and `signature` but never include the API secret.
+         *
+         */
+        fields?: {
+            [key: string]: string;
+        };
+    };
+};
+
+/**
+ * Download URL
+ *
+ * URL that returns the stored file.
+ */
+export type DownloadUrl = {
+    /**
+     * Storage that holds the file.
+     * * `GCS` — private blob. The URL is a signed download and includes `expiresAt`.
+     * * `CLOUDINARY` — public blob. The URL is permanent.
+     * * `LINK` — the URL stored on the asset.
+     *
+     */
+    provider: 'GCS' | 'CLOUDINARY' | 'LINK';
+    /**
+     * URL of the stored file.
+     */
+    url: string;
+    /**
+     * Date and time when a private signed URL stops working. Returned as an ISO-8601 string.
+     * Present for `GCS` only.
+     *
+     */
+    expiresAt?: string;
 };
 
 /**
@@ -292,8 +398,8 @@ export type AssetUpdateLink = Asset & {
     metadata?: MetadataUpdate;
     /**
      * Access type of the asset. This property is immutable.
-     * - PUBLIC: Assets will be stored by a public storage provider and will be accessible at an external link.
-     * - PRIVATE: Assets will be stored by a private storage provider and will not be accessible at an external url. Assets of the `PRIVATE` type can only be accessed by calling the `media/{tenant}/assets/{assetId}/download` endpoint in the Media Service.
+     * - `PUBLIC`: Blob assets are stored in Cloudinary and are accessible through a permanent external URL.
+     * - `PRIVATE`: Blob assets are stored in Google Cloud Storage. Retrieve their content through `/media/{tenant}/assets/{assetId}/download` or request a temporary signed URL through `/media/{tenant}/assets/{assetId}/download-url`.
      *
      */
     access: 'PUBLIC' | 'PRIVATE';
@@ -311,8 +417,8 @@ export type AssetUpdateBlob = Asset & {
     metadata?: MetadataUpdate;
     /**
      * Access type of the asset. This property is immutable.
-     * - PUBLIC: Assets will be stored by a public storage provider and will be accessible at an external link.
-     * - PRIVATE: Assets will be stored by a private storage provider and will not be accessible at an external url. Assets of the `PRIVATE` type can only be accessed by calling the `media/{tenant}/assets/{assetId}/download` endpoint in the Media Service.
+     * - `PUBLIC`: Blob assets are stored in Cloudinary and are accessible through a permanent external URL.
+     * - `PRIVATE`: Blob assets are stored in Google Cloud Storage. Retrieve their content through `/media/{tenant}/assets/{assetId}/download` or request a temporary signed URL through `/media/{tenant}/assets/{assetId}/download-url`.
      *
      */
     access: 'PUBLIC' | 'PRIVATE';
@@ -351,6 +457,13 @@ export type TraitXTotalCountHeader = boolean;
  * Unique identifier of an asset.
  */
 export type TraitAssetIdPath = string;
+
+/**
+ * Content disposition for a private Google Cloud Storage signed URL. The default is `attachment`.
+ * The value does not change public Cloudinary or `LINK` URLs.
+ *
+ */
+export type QueryDisposition = 'inline' | 'attachment';
 
 /**
  * A standard query parameter is used to search for specific values.
@@ -817,6 +930,14 @@ export type GetMediaDownloadAssetErrors = {
      */
     404: ErrorMessage;
     /**
+     * The upload is not complete because the file is not available in storage yet.
+     */
+    409: ErrorMessage;
+    /**
+     * The known file size exceeds the configured streaming download limit, which is 31,457,280 bytes (30 MB) by default.
+     */
+    413: ErrorMessage;
+    /**
      * Internal Service Error occurred.
      */
     500: ErrorMessage;
@@ -832,3 +953,126 @@ export type GetMediaDownloadAssetResponses = {
 };
 
 export type GetMediaDownloadAssetResponse = GetMediaDownloadAssetResponses[keyof GetMediaDownloadAssetResponses];
+
+export type PostMediaStartUploadSessionData = {
+    body: UploadSessionRequest;
+    path: {
+        /**
+         * The tenant that the caller is acting upon.
+         *
+         * **Note**: The tenant name should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/media/{tenant}/assets/upload-session';
+};
+
+export type PostMediaStartUploadSessionErrors = {
+    /**
+     * Request was syntactically incorrect. Details will be provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * The caller lacks a required management scope, or direct upload is not enabled for the tenant.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PostMediaStartUploadSessionError = PostMediaStartUploadSessionErrors[keyof PostMediaStartUploadSessionErrors];
+
+export type PostMediaStartUploadSessionResponses = {
+    /**
+     * The request was successful. The upload session has been created.
+     */
+    201: UploadSession;
+};
+
+export type PostMediaStartUploadSessionResponse = PostMediaStartUploadSessionResponses[keyof PostMediaStartUploadSessionResponses];
+
+export type GetMediaRetrieveDownloadUrlData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant that the caller is acting upon.
+         *
+         * **Note**: The tenant name should always be written in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Unique identifier of an asset.
+         */
+        assetId: string;
+    };
+    query?: {
+        /**
+         * Content disposition for a private Google Cloud Storage signed URL. The default is `attachment`.
+         * The value does not change public Cloudinary or `LINK` URLs.
+         *
+         */
+        disposition?: 'inline' | 'attachment';
+    };
+    url: '/media/{tenant}/assets/{assetId}/download-url';
+};
+
+export type GetMediaRetrieveDownloadUrlErrors = {
+    /**
+     * The disposition value is empty or unsupported.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * The upload is not complete. The file is not in storage yet.
+     */
+    409: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetMediaRetrieveDownloadUrlError = GetMediaRetrieveDownloadUrlErrors[keyof GetMediaRetrieveDownloadUrlErrors];
+
+export type GetMediaRetrieveDownloadUrlResponses = {
+    /**
+     * The request was successful. The download URL is returned.
+     */
+    200: DownloadUrl;
+};
+
+export type GetMediaRetrieveDownloadUrlResponse = GetMediaRetrieveDownloadUrlResponses[keyof GetMediaRetrieveDownloadUrlResponses];
