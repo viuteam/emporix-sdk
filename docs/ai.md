@@ -73,11 +73,25 @@ Both chat endpoints **return arrays** — the SDK preserves them verbatim.
 // synchronous — ChatResponse[]
 const replies = await client.ai.chat({ agentId: "support-bot", message: "Where is my order?" });
 replies[0]?.message;
-replies[0]?.sessionId; // continue a session by threading this back
+
+// continue the session: thread its id back as the second argument
+await client.ai.chat(
+  { agentId: "support-bot", message: "And when will it arrive?" },
+  { sessionId: replies[0]?.sessionId! },
+);
 
 // asynchronous — JobIdResponse[] (HTTP 201)
 const [{ jobId }] = await client.ai.chatAsync({ agentId: "support-bot", message: "…" });
 ```
+
+All three chat methods take `(input, opts, auth)`: `opts.sessionId` is sent as
+the `session-id` header — there is no `sessionId` field in the chat body — and
+conversational memory also needs `enabledMemory` on the agent.
+
+> **Changed in 4.0.0:** `chat` and `chatAsync` used to take `auth` second. It
+> is third now, as on `chatStream`. A call that still passes an auth context
+> second throws (`pass the auth context third`) rather than silently running on
+> the service token: `chat(input, auth)` becomes `chat(input, {}, auth)`.
 
 ### Streaming (Server-Sent Events)
 
@@ -184,8 +198,9 @@ not only one uploaded to the session.
 To chat about the file, the chat request must carry that `sessionId` as the
 `session-id` **header** and list the file under `attachments`, addressed to the
 same `agentId` the file was attached to — otherwise the service answers `400`.
-Only `chatStream` can send the header today: `chat` and `chatAsync` take no
-session option, and the chat body has no `sessionId` field.
+All three chat methods send it from `opts.sessionId`, so `chat` and `chatAsync`
+work exactly like the `chatStream` example above; the chat body has no
+`sessionId` field.
 
 > Until 2026-09-25 the reuse answered `204` with no body and required the
 > `session-id` header. The SDK followed: `reuseAttachment` now resolves to the

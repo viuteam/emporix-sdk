@@ -185,6 +185,54 @@ describe("AiService", () => {
     expect(out[0]?.jobId).toBe("job-1");
   });
 
+  it("chat and chatAsync send opts.sessionId as the session-id header, and omit it otherwise", async () => {
+    const seen: (string | null)[] = [];
+    const bodies: unknown[] = [];
+    server.use(
+      http.post(`${BASE}/agentic/chat`, async ({ request }) => {
+        seen.push(request.headers.get("session-id"));
+        bodies.push(await request.json());
+        return HttpResponse.json([]);
+      }),
+      http.post(`${BASE}/agentic/chat-async`, ({ request }) => {
+        seen.push(request.headers.get("session-id"));
+        return HttpResponse.json([{ jobId: "j" }], { status: 201 });
+      }),
+    );
+    const input = { agentId: "a1", message: "see attachment", attachments: [{ attachmentId: "att-1" }] };
+    await svc().chat(input, { sessionId: "sess-9" });
+    await svc().chat(input);
+    await svc().chatAsync(input, { sessionId: "sess-9" });
+    await svc().chatAsync(input);
+    expect(seen).toEqual(["sess-9", null, "sess-9", null]);
+    // The session travels as a header only — never inside the body.
+    expect(bodies).toEqual([input, input]);
+  });
+
+  it("chat takes the auth context third", async () => {
+    let authHeader: string | null = null;
+    server.use(
+      http.post(`${BASE}/agentic/chat`, ({ request }) => {
+        authHeader = request.headers.get("authorization");
+        return HttpResponse.json([]);
+      }),
+    );
+    await svc().chat({ agentId: "a1", message: "hi" }, {}, { kind: "customer", token: "cust-tok" });
+    expect(authHeader).toBe("Bearer cust-tok");
+  });
+
+  it("the chat methods refuse an auth context in the options position instead of running as service", async () => {
+    const old = { kind: "customer", token: "cust-tok" } as never;
+    const input = { agentId: "a1", message: "hi" };
+    await expect(svc().chat(input, old)).rejects.toThrow(/pass the auth context third/);
+    await expect(svc().chatAsync(input, old)).rejects.toThrow(/pass the auth context third/);
+    await expect(
+      (async () => {
+        for await (const chunk of svc().chatStream(input, old)) void chunk;
+      })(),
+    ).rejects.toThrow(/pass the auth context third/);
+  });
+
   it("encodeURIComponent-escapes the agent id in the path", async () => {
     let pathname = "";
     server.use(

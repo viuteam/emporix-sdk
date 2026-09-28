@@ -20,7 +20,7 @@ import type {
   ChatResponse,
   JobIdResponse,
   DeleteAgentOptions,
-  ChatStreamOptions,
+  ChatOptions,
   Conversation,
   ConversationSearchQuery,
   Created,
@@ -71,6 +71,7 @@ export type {
   ChatResponse,
   JobIdResponse,
   DeleteAgentOptions,
+  ChatOptions,
   ChatStreamOptions,
   Conversation,
   ConversationSearchQuery,
@@ -109,6 +110,24 @@ export type {
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
+
+/**
+ * `chat` and `chatAsync` took `auth` second until 4.0.0; now options come
+ * second and `auth` third, as on `chatStream`. An old call would otherwise have
+ * its auth context read as options and run on the default service token —
+ * silently, in plain JavaScript — so it throws instead.
+ */
+function assertChatOptions(opts: ChatOptions, method: string): void {
+  if (typeof opts === "object" && opts !== null && "kind" in opts) {
+    throw new Error(
+      `ai.${method}: the second argument is { sessionId? } since 4.0.0 — pass the auth context third`,
+    );
+  }
+}
+
+function sessionHeader(opts: ChatOptions): { headers?: Record<string, string> } {
+  return opts.sessionId ? { headers: { "session-id": opts.sessionId } } : {};
+}
 
 /**
  * Emporix AI Service (`/ai-service/{tenant}/…`): text generation, chat
@@ -279,26 +298,43 @@ export class AiService {
   /**
    * Synchronous agent chat (`POST /agentic/chat`). Returns the response
    * ARRAY verbatim (the upstream contract is an array, not a single object).
+   *
+   * `opts.sessionId` is sent as the `session-id` header. It carries the
+   * conversation — continuity needs it plus `enabledMemory` on the agent — and
+   * it is how a chat reaches an attachment: pass the `sessionId` the upload or
+   * reuse returned, and list the file under `input.attachments`.
    */
-  async chat(input: ChatRequest, auth: AuthContext = SERVICE): Promise<ChatResponse[]> {
+  async chat(
+    input: ChatRequest,
+    opts: ChatOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ChatResponse[]> {
+    assertChatOptions(opts, "chat");
     return this.ctx.http.request<ChatResponse[]>({
       method: "POST",
       path: `${this.base()}/agentic/chat`,
       auth,
       body: input,
+      ...sessionHeader(opts),
     });
   }
 
   /**
    * Fire-and-forget agent chat (`POST /agentic/chat-async`, HTTP 201).
-   * Returns the job-id ARRAY verbatim.
+   * Returns the job-id ARRAY verbatim. `opts` as for {@link chat}.
    */
-  async chatAsync(input: ChatRequest, auth: AuthContext = SERVICE): Promise<JobIdResponse[]> {
+  async chatAsync(
+    input: ChatRequest,
+    opts: ChatOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<JobIdResponse[]> {
+    assertChatOptions(opts, "chatAsync");
     return this.ctx.http.request<JobIdResponse[]>({
       method: "POST",
       path: `${this.base()}/agentic/chat-async`,
       auth,
       body: input,
+      ...sessionHeader(opts),
     });
   }
 
@@ -306,19 +342,20 @@ export class AiService {
    * Streaming agent chat (`POST /agentic/chat-stream`, `text/event-stream`).
    * Yields each SSE `data` payload verbatim — the upstream contract types the
    * stream body as an opaque string, so chunks are raw strings, not parsed
-   * objects. Consume with `for await`.
+   * objects. Consume with `for await`. `opts` as for {@link chat}.
    */
   async *chatStream(
     input: ChatRequest,
-    opts: ChatStreamOptions = {},
+    opts: ChatOptions = {},
     auth: AuthContext = SERVICE,
   ): AsyncIterable<string> {
+    assertChatOptions(opts, "chatStream");
     const events = this.ctx.http.requestStream({
       method: "POST",
       path: `${this.base()}/agentic/chat-stream`,
       auth,
       body: input,
-      ...(opts.sessionId ? { headers: { "session-id": opts.sessionId } } : {}),
+      ...sessionHeader(opts),
     });
     for await (const ev of events) yield ev.data;
   }
