@@ -64,6 +64,9 @@ async function rescopeTo(
           k === "company-groups" ||
           k === "company-locations" ||
           k === "customer-me" ||
+          // Segment membership follows the legal entity — directly, and through
+          // IAM groups bound to it. Covers `segments` and every `segment-*` read.
+          (typeof k === "string" && (k === "segments" || k.startsWith("segment-"))) ||
           k === from ||
           (target !== null && k === target.id),
       ),

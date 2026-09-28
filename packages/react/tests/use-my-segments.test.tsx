@@ -14,7 +14,10 @@ import {
 import type { ReactNode } from "react";
 
 const server = setupServer(
-  http.get("https://api.emporix.io/customer-segment/acme/segments", ({ request }) => {
+  // `/segments/me`, not the generic `/segments`: only `me` is documented to
+  // include segments inherited through the customer's IAM groups. With
+  // `onUnhandledRequest: "error"`, a regression to `/segments` fails the test.
+  http.get("https://api.emporix.io/customer-segment/acme/segments/me", ({ request }) => {
     expect(request.headers.get("authorization")).toBe("Bearer cust");
     return HttpResponse.json([{ id: "seg-1" }]);
   }),

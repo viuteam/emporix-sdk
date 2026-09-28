@@ -79,6 +79,9 @@ export function useCompanyBootstrap({
                   k === "cart" ||
                   k === "companies" ||
                   k === "customer" ||
+                  // Segment membership follows the legal entity — directly, and
+                  // through IAM groups bound to it — so it changes with the switch.
+                  k === "segment" ||
                   k === from ||
                   (target !== null && k === target.id),
               ),

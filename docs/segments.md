@@ -100,6 +100,13 @@ All hooks are disabled when there is no customer token in storage. They
 share the `["emporix", "segment", …]` query-key prefix, so invalidating
 that prefix on login/logout clears the segment cache.
 
+`useMySegments` — and `injectMySegments` in `@viu/emporix-sdk-angular` — read
+`listMine` (`GET /segments/me`) since 4.0.0, so they include segments inherited
+through IAM groups and list **active** segments only. Before, they called the
+generic `GET /segments`. A B2B company switch (`setActiveCompany`) invalidates
+all segment reads in both bindings: membership follows the current legal entity
+— directly and through IAM groups bound to it.
+
 ## Pagination
 
 > See [Pagination](./pagination.md) for the shared `PaginatedItems<T>` contract that all SDK list endpoints follow.

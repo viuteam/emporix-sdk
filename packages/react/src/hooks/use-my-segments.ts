@@ -24,9 +24,14 @@ function customerCtx(token: string | null): AuthContext {
   return auth.customer(token);
 }
 
-/** Segments the logged-in customer belongs to (`segment_read_own`). */
+/**
+ * The logged-in customer's **active** segments (`GET /segments/me`,
+ * `segment_read_own`) — assigned directly and inherited through their IAM
+ * groups, including groups bound to the current legal entity. See
+ * `client.segments.listMine`.
+ */
 export function useMySegments(
-  query: { q?: string; pageNumber?: number; pageSize?: number } = {},
+  query: { q?: string; pageNumber?: number; pageSize?: number; sort?: string } = {},
 ): UseQueryResult<Segment[]> {
   const { client } = useEmporix();
   const token = useCustomerToken();
@@ -34,7 +39,7 @@ export function useMySegments(
   return useQuery({
     queryKey: ["emporix", "segment", "list", { tenant: client.tenant, query, siteCode, language }],
     enabled: token !== null,
-    queryFn: () => client.segments.list(query, customerCtx(token)),
+    queryFn: () => client.segments.listMine(query, customerCtx(token)),
     staleTime: SEGMENTS_STALE_TIME,
   });
 }

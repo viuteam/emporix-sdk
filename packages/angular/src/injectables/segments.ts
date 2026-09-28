@@ -8,10 +8,10 @@ import type { Category, EmporixClient, PaginatedItems, Product } from "@viu/empo
 import { injectEmporix } from "../provide";
 import { injectEmporixInfinite, injectEmporixQuery } from "../inject-query";
 
-type Segments = Awaited<ReturnType<EmporixClient["segments"]["list"]>>;
+type Segments = Awaited<ReturnType<EmporixClient["segments"]["listMine"]>>;
 type SegmentItems = Awaited<ReturnType<EmporixClient["segments"]["listItems"]>>;
 type SegmentCategoryTree = Awaited<ReturnType<EmporixClient["segments"]["getCategoryTree"]>>;
-type SegmentsQuery = Parameters<EmporixClient["segments"]["list"]>[0];
+type SegmentsQuery = Parameters<EmporixClient["segments"]["listMine"]>[0];
 type ItemsQuery = NonNullable<Parameters<EmporixClient["segments"]["listItems"]>[0]>;
 type TreeQuery = Parameters<EmporixClient["segments"]["getCategoryTree"]>[0];
 
@@ -38,7 +38,12 @@ export interface SegmentOpts {
 const pass = (o: SegmentOpts): { injector?: Injector } =>
   o.injector !== undefined ? { injector: o.injector } : {};
 
-/** Segments the signed-in customer belongs to (`segment_read_own`). */
+/**
+ * The signed-in customer's **active** segments (`GET /segments/me`,
+ * `segment_read_own`) — assigned directly and inherited through their IAM
+ * groups, including groups bound to the current legal entity. See
+ * `client.segments.listMine`.
+ */
 export function injectMySegments(
   query: Signal<SegmentsQuery>,
   opts: SegmentOpts = {},
@@ -51,7 +56,7 @@ export function injectMySegments(
       site: "full",
       mode: "customer",
       ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
-      queryFn: (ctx) => client.segments.list(query(), ctx),
+      queryFn: (ctx) => client.segments.listMine(query(), ctx),
       staleTime: SEGMENTS_STALE,
     }),
     pass(opts),

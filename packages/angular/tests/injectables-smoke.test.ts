@@ -99,7 +99,7 @@ function makeClient() {
     },
     cloudFunctions: { invoke: fn() },
     segments: {
-      list: vi.fn(async () => []),
+      listMine: vi.fn(async () => []),
       listItems: vi.fn(async () => []),
       listMyProducts: listFn(),
       listMyCategories: listFn(),
@@ -259,7 +259,7 @@ const customerReads: Array<{
   { name: "injectRedeemOptions", resource: "reward-redeem-options", run: () => I.injectRedeemOptions(), called: () => client.rewardPoints.listRedeemOptions },
   { name: "injectMyReturns", resource: "returns", run: () => I.injectMyReturns(signal({})), called: () => client.returns.listReturns },
   { name: "injectReturn", resource: "return", run: () => I.injectReturn(signal("r1")), called: () => client.returns.getReturn },
-  { name: "injectMySegments", resource: "segments", run: () => I.injectMySegments(signal({})), called: () => client.segments.list },
+  { name: "injectMySegments", resource: "segments", run: () => I.injectMySegments(signal({})), called: () => client.segments.listMine },
   { name: "injectMySegmentItems", resource: "segment-items", run: () => I.injectMySegmentItems(signal({})), called: () => client.segments.listItems },
   { name: "injectMySegmentProducts", resource: "segment-products", run: () => I.injectMySegmentProducts(signal({})), called: () => client.segments.listMyProducts },
   { name: "injectMySegmentProductsInfinite", resource: "segment-products-infinite", run: () => I.injectMySegmentProductsInfinite(signal({}), signal(10)), called: () => client.segments.listMyProducts },
