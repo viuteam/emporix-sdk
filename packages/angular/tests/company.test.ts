@@ -142,6 +142,12 @@ describe("injectCompanySwitch", () => {
     await settleUntil(() => expect(c.myCompanies().length).toBe(2));
     storage.setCartId("cart-1");
     const s = TestBed.runInInjectionContext(() => injectCompanySwitch());
+    // Segment reads cached for the previous company; membership follows the
+    // legal entity, so the switch has to mark them stale.
+    const segments = ["emporix", "segments", {}, { tenant: "acme", authKind: "customer" }];
+    const segmentItems = ["emporix", "segment-items", {}, { tenant: "acme", authKind: "customer" }];
+    qc.setQueryData(segments, [{ id: "seg-of-le1" }]);
+    qc.setQueryData(segmentItems, []);
 
     await s.setActiveCompany("le2");
 
@@ -152,6 +158,8 @@ describe("injectCompanySwitch", () => {
     expect(storage.getRefreshToken?.()).toBe("r2");
     expect(c.activeCompany()?.id).toBe("le2");
     expect(s.isSwitching()).toBe(false);
+    expect(qc.getQueryState(segments)?.isInvalidated).toBe(true);
+    expect(qc.getQueryState(segmentItems)?.isInvalidated).toBe(true);
   });
 
   it("refuses an id the customer is not assigned to, before rotating anything", async () => {

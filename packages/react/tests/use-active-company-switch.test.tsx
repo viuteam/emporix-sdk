@@ -57,6 +57,11 @@ describe("useActiveCompany switch", () => {
     await waitFor(() => expect(result.current.myCompanies).toHaveLength(2));
     expect(result.current.mode).toBe("unresolved");
 
+    // Segments cached for the previous company: membership follows the legal
+    // entity, so the switch must mark them stale rather than keep serving them.
+    const segmentKey = ["emporix", "segment", "list", { tenant: "acme", query: {} }];
+    queryClient.setQueryData(segmentKey, [{ id: "seg-of-le-1" }]);
+
     await act(async () => {
       await result.current.setActiveCompany("le-2");
     });
@@ -67,6 +72,7 @@ describe("useActiveCompany switch", () => {
     expect(storage.getActiveLegalEntityId()).toBe("le-2");
     expect(result.current.activeCompany?.id).toBe("le-2");
     expect(result.current.mode).toBe("b2b");
+    expect(queryClient.getQueryState(segmentKey)?.isInvalidated).toBe(true);
   });
 
   it("setActiveCompany(null) returns to B2C mode (refresh without legalEntityId)", async () => {

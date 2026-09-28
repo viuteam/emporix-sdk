@@ -92,14 +92,18 @@ export interface DeleteAgentOptions {
   force?: boolean;
 }
 
-/** Options for {@link AiService.chatStream}. */
-export interface ChatStreamOptions {
+/** Options for {@link AiService.chat}, {@link AiService.chatAsync} and {@link AiService.chatStream}. */
+export interface ChatOptions {
   /**
    * Reuse an existing chat context (sent as the `session-id` header). If
-   * omitted, the server generates a new session id.
+   * omitted, the server generates a new session id. Required to chat about an
+   * attachment: pass the `sessionId` its upload or reuse returned.
    */
   sessionId?: string;
 }
+
+/** @deprecated Use {@link ChatOptions}; the three chat methods share it. */
+export type ChatStreamOptions = ChatOptions;
 
 /** A stored agentic conversation (Teams-backed). */
 export type Conversation = GenConversation;
