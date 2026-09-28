@@ -705,7 +705,7 @@ export type CommerceEventsResponse = {
 export type McpServerType = 'custom' | 'predefined' | 'dynamic';
 
 /**
- * Type of the communication between the agent and the MCP server. The `streamable_http` protocol is recommended, since the `sse` protocol is deprecated.
+ * Type of the communication between the agent and the MCP server. The `streamable_http` protocol is recommended, since the `sse` protocol is deprecated as transport for custom MCP servers.
  */
 export type CustomMcpServerTransportType = 'streamable_http' | 'sse';
 
@@ -1368,6 +1368,103 @@ export type ChatResponse = {
     message?: string;
 };
 
+/**
+ * SSE data payload
+ *
+ * JSON object in one SSE `data` field. This is not the HTTP response body. The response body is `text/event-stream` text; each named event carries one of these objects in `data`.
+ */
+export type ChatStreamEventData = ChatStreamTokenData | ChatStreamThinkingData | ChatStreamToolMetaData | ChatStreamToolResultData | ChatStreamDoneData | ChatStreamErrorData;
+
+/**
+ * Token event data
+ *
+ * JSON object in the SSE `data` field when `event` is `token`. Concatenate successive `content` values to build the assistant reply.
+ */
+export type ChatStreamTokenData = {
+    /**
+     * Incremental text delta of the assistant reply.
+     */
+    content: string;
+};
+
+/**
+ * Thinking event data
+ *
+ * **The `thinking` event is in preview mode** - some of the features may not be fully operational yet.
+ *
+ * JSON object in the SSE `data` field when `event` is `thinking`. Optional reasoning text. Do not treat this as part of the user-facing reply unless the client displays reasoning.
+ */
+export type ChatStreamThinkingData = {
+    /**
+     * Incremental reasoning text.
+     */
+    content: string;
+};
+
+/**
+ * Tool start or end event data
+ *
+ * JSON object in the SSE `data` field when `event` is `tool_start` or `tool_end`.
+ */
+export type ChatStreamToolMetaData = {
+    /**
+     * Name of the tool the agent invoked.
+     */
+    tool_name: string;
+    /**
+     * Identifier that correlates `tool_start`, `tool_result`, and `tool_end` for the same invocation.
+     */
+    tool_call_id?: string;
+};
+
+/**
+ * Tool result event data
+ *
+ * JSON object in the SSE `data` field when `event` is `tool_result`. Credential-like keys in `output` are omitted.
+ */
+export type ChatStreamToolResultData = {
+    /**
+     * Name of the tool that produced the output.
+     */
+    tool_name: string;
+    /**
+     * Identifier that correlates `tool_start`, `tool_result`, and `tool_end` for the same invocation.
+     */
+    tool_call_id?: string;
+    /**
+     * Tool output as a JSON object or array.
+     */
+    output: {
+        [key: string]: unknown;
+    } | Array<unknown>;
+};
+
+export type ChatStreamDoneData = unknown & {
+    /**
+     * Unique identifier of the agent. Snake_case equivalent of `ChatResponse.agentId`.
+     */
+    agent_id?: string;
+    /**
+     * Type of the agent handling the request. Snake_case equivalent of `ChatResponse.agentType`.
+     */
+    agent_type?: string;
+    /**
+     * Unique identifier of the session. Send this value as the `session-id` header on later chat and attachment calls. Snake_case equivalent of `ChatResponse.sessionId`.
+     */
+    session_id?: string;
+};
+
+export type ChatStreamErrorData = unknown & {
+    /**
+     * Human-readable description of the failure.
+     */
+    message?: string;
+    /**
+     * Machine-readable error code. Example values are `AGENT_SETUP` and `RECURSION_LIMIT`.
+     */
+    code?: string;
+};
+
 export type AttachmentResponse = {
     /**
      * Unique identifier of the created attachment.
@@ -1715,7 +1812,7 @@ export type PathTenant = string;
  *
  * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
  *
- * When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+ * On [Starting agent chat](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
  *
  */
 export type HeaderSessionId = string;
@@ -2197,7 +2294,7 @@ export type PostAiAgentsChatData = {
          *
          * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
          *
-         * When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         * On [Starting agent chat](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
          *
          */
         'session-id'?: string;
@@ -2253,7 +2350,7 @@ export type PostAiAgentsChatStreamData = {
          *
          * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
          *
-         * When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         * On [Starting agent chat](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
          *
          */
         'session-id'?: string;
@@ -2298,7 +2395,20 @@ export type PostAiAgentsChatStreamError = PostAiAgentsChatStreamErrors[keyof Pos
 
 export type PostAiAgentsChatStreamResponses = {
     /**
-     * Chat response stream.
+     * Complete Server-Sent Events body. The HTTP entity is `event:` / `data:` text, not a JSON object.
+     *
+     * Each `data` line is a JSON object. The object shape depends on the event name and is documented by `ChatStreamEventData`:
+     *
+     * * `token` — `ChatStreamTokenData`
+     * * `thinking` — **The `thinking` event is in preview mode** - some of the features may not be fully operational yet.
+     *
+     * `ChatStreamThinkingData`
+     * * `tool_start` and `tool_end` — `ChatStreamToolMetaData`
+     * * `tool_result` — `ChatStreamToolResultData`
+     * * `done` — `ChatStreamDoneData`
+     * * `error` — **The `error` event is in preview mode** - some of the features may not be fully operational yet.
+     *
+     * `ChatStreamErrorData`
      */
     200: string;
 };
@@ -2313,7 +2423,7 @@ export type PostAiAgentsChatAsyncData = {
          *
          * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
          *
-         * When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         * On [Starting agent chat](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
          *
          */
         'session-id'?: string;
@@ -2374,7 +2484,7 @@ export type PostAiAgentsUploadAttachmentData = {
          *
          * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
          *
-         * When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         * On [Starting agent chat](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
          *
          */
         'session-id'?: string;

@@ -273,9 +273,9 @@ export type ImportRun = {
      */
     origin?: string;
     /**
-     * The run status.
+     * The run status. `ABORTED` means the service refused to start the run because of the import configuration, for example mappings that have never been published or a changed target schema. Nothing was read or written.
      */
-    status?: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'CANCELLED';
+    status?: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'CANCELLED' | 'ABORTED';
     /**
      * The run mode.
      */
@@ -344,6 +344,23 @@ export type ImportRun = {
      * For a dry run, how many mapped records were kept as a sample.
      */
     dryRunSampleSize?: number;
+    /**
+     * Dry-run only. Whether the dry run used the published mappings (`true`) or the draft mappings (`false`).
+     */
+    dryRunPublished?: boolean;
+    /**
+     * The published mapping version each stream uses in this run, fixed when the run starts. Version `0` means that the stream has no published mappings. The field is absent on a dry run of the draft mappings and on runs recorded before it existed.
+     */
+    mappingVersions?: Array<{
+        /**
+         * The stream identifier.
+         */
+        streamId?: string;
+        /**
+         * The published mapping version the stream uses.
+         */
+        version?: number;
+    }>;
 };
 
 /**
@@ -369,9 +386,9 @@ export type ImportRunStream = {
      */
     streamName?: string;
     /**
-     * The stream's status within the run.
+     * The stream's status within the run. `ABORTED` means the service refused to run the stream because of its configuration, for example because its mappings have never been published. It indicates a configuration problem to fix. The `message` field gives the reason.
      */
-    status?: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'SKIPPED';
+    status?: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'SKIPPED' | 'ABORTED';
     /**
      * Records read for this stream.
      */
@@ -1557,6 +1574,10 @@ export type PostImporttoolTriggerRunData = {
          */
         dryRun?: boolean;
         /**
+         * Dry-run only. Which mappings the dry run uses. `published` uses each stream's published mappings, which is what a real run executes. `draft` uses the draft mappings, so you can check them before publishing. When omitted, defaults to `published`. A dry run with `published` handles streams whose mappings have never been published in the same way as a real run. The field has no effect when `dryRun` is `false`, because a real run always uses the published mappings.
+         */
+        mappings?: 'published' | 'draft';
+        /**
          * When `true`, every extracted record is rewritten, even if unchanged. It bypasses the idempotency `skip-if-unchanged` check. Use it to force target IDs and values to be rewritten.
          */
         force?: boolean;
@@ -1591,6 +1612,27 @@ export type PostImporttoolTriggerRunData = {
 };
 
 export type PostImporttoolTriggerRunErrors = {
+    /**
+     * The request is invalid. For example, `dryRun` is `true` and `mappings` has a value other than `published` or `draft`.
+     */
+    400: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * HTTP status code.
+         */
+        status?: number;
+        /**
+         * HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
     /**
      * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
      */
