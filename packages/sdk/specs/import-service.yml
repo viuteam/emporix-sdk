@@ -405,6 +405,23 @@ paths:
 
         Starts an import run for the configuration and returns immediately with the run in a running state;
         progress is streamed over Server-Sent Events. At most one run is active per configuration.
+
+        A run executes each stream's published mappings. Saved mapping changes that are not published yet are
+        the draft mappings, and they take effect only after they are published. Publishing mappings is an
+        administrative operation that requires the `importtool.import_manage` scope and is not covered in this
+        reference. A real run, or a dry run that uses the published mappings, fixes the published mapping version of
+        each stream when it starts, so a version published during the run applies from the next run. The run
+        reports these versions in `mappingVersions`. A dry run of the draft mappings does not use published
+        versions and does not report `mappingVersions`.
+
+        A stream whose mappings have never been published is not run. Its entry in the run details (`streams` in
+        the response of retrieving a run) has the `ABORTED` status and a `message` that gives the reason, and the
+        run finishes with the `PARTIAL` status. The service refuses the whole run when `streamIds` names a stream
+        whose mappings have never been published, or when every enabled stream is in that state.
+
+        The refusal does not change the response to this request: the service still returns `200` with the run,
+        and the run then finishes with the `ABORTED` status and a `message` that names the streams. Retrieve the
+        run to check its final status.
       operationId: POST-importtool-trigger-run
       tags:
         - Runs
@@ -428,6 +445,19 @@ paths:
                   type: boolean
                   description: When `true`, the run maps and validates but performs no remote writes.
                   example: false
+                mappings:
+                  type: string
+                  enum:
+                    - published
+                    - draft
+                  default: published
+                  description: >-
+                    Dry-run only. Which mappings the dry run uses. `published` uses each stream's published
+                    mappings, which is what a real run executes. `draft` uses the draft mappings, so you can check
+                    them before publishing. When omitted, defaults to `published`. A dry run with `published`
+                    handles streams whose mappings have never been published in the same way as a real run. The field
+                    has no effect when `dryRun` is `false`, because a real run always uses the published mappings.
+                  example: published
                 force:
                   type: boolean
                   description: >-
@@ -480,6 +510,11 @@ paths:
                 value:
                   mode: DELTA
                   dryRun: true
+              Dry run of unpublished mapping changes:
+                value:
+                  mode: FULL
+                  dryRun: true
+                  mappings: draft
               Run only two streams:
                 value:
                   mode: DELTA
@@ -496,6 +531,35 @@ paths:
               examples:
                 Run response:
                   $ref: '#/components/examples/ImportRun_Example'
+        '400':
+          description: >-
+            The request is invalid. For example, `dryRun` is `true` and `mappings` has a value other than
+            `published` or `draft`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: When the error occurred.
+                  status:
+                    type: integer
+                    description: HTTP status code.
+                  error:
+                    type: string
+                    description: HTTP status reason phrase.
+                  path:
+                    type: string
+                    description: The request path.
+              examples:
+                Invalid mappings value:
+                  value:
+                    timestamp: '2026-09-28T09:15:02.118+00:00'
+                    status: 400
+                    error: Bad Request
+                    path: /importtool/mytenant/configs/7c9e6679-7425-40de-944b-e07fc1f90ae7/runs
         '401':
           $ref: '#/components/responses/Unauthorized_401'
         '403':
@@ -1600,7 +1664,11 @@ components:
             - PARTIAL
             - FAILED
             - CANCELLED
-          description: The run status.
+            - ABORTED
+          description: >-
+            The run status. `ABORTED` means the service refused to start the run because of the import
+            configuration, for example mappings that have never been published or a changed target schema.
+            Nothing was read or written.
           example: SUCCEEDED
         mode:
           type: string
@@ -1684,6 +1752,30 @@ components:
           type: integer
           description: For a dry run, how many mapped records were kept as a sample.
           example: 10
+        dryRunPublished:
+          type: boolean
+          description: >-
+            Dry-run only. Whether the dry run used the published mappings (`true`) or the draft mappings
+            (`false`).
+          example: true
+        mappingVersions:
+          type: array
+          description: >-
+            The published mapping version each stream uses in this run, fixed when the run starts. Version
+            `0` means that the stream has no published mappings. The field is absent on a dry run of the draft
+            mappings and on runs recorded before it existed.
+          items:
+            type: object
+            properties:
+              streamId:
+                type: string
+                format: uuid
+                description: The stream identifier.
+                example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              version:
+                type: integer
+                description: The published mapping version the stream uses.
+                example: 3
     ImportRunStream:
       title: Run stream progress
       type: object
@@ -1717,7 +1809,11 @@ components:
             - PARTIAL
             - FAILED
             - SKIPPED
-          description: The stream's status within the run.
+            - ABORTED
+          description: >-
+            The stream's status within the run. `ABORTED` means the service refused to run the stream because
+            of its configuration, for example because its mappings have never been published. It indicates a
+            configuration problem to fix. The `message` field gives the reason.
           example: PARTIAL
         recordsRead:
           type: integer
@@ -2706,6 +2802,9 @@ components:
         failed: 2
         deleted: 0
         message: null
+        mappingVersions:
+          - streamId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+            version: 3
     ImportRunPage_Example:
       value:
         totalElements: 3
