@@ -199,12 +199,6 @@
       "fetchedAt": "2026-09-10T09:48:46.882Z",
       "sha256": "ee65624fbc6934db8813fd2da003018cafd77f3a34b783b003a989079974070f"
     },
-    "pick-pack": {
-      "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/orders/pick-pack/api-reference/api.yml",
-      "specVersion": "",
-      "fetchedAt": "2026-09-10T09:48:46.882Z",
-      "sha256": "cb91e8e67dbfa64bc5c284c4fbb60b5375d5a9fec47365cc187cda5c78c300e2"
-    },
     "customer-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/companies-and-customers/customer-service/api-reference/api.yml",
       "specVersion": "",

@@ -39,7 +39,6 @@ const out = result.outputFiles[0].text;
 const forbidden = [
   "reward-points",
   "/webhooks",
-  "pick-pack",
   "ai-rag-indexer",
   "/changelog/",
   "localStorage",

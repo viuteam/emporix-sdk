@@ -47,7 +47,6 @@ export const SPECS: Record<string, string> = {
   "unit-handling-service": `${BASE}/configuration/unit-handling-service/api-reference/api.yml`,
   catalog: `${BASE}/catalogs-and-categories/catalog/api-reference/api.yml`,
   "vendor-service": `${BASE}/companies-and-customers/vendor-service/api-reference/api.yml`,
-  "pick-pack": `${BASE}/orders/pick-pack/api-reference/api.yml`,
   "customer-service": `${BASE}/companies-and-customers/customer-service/api-reference/api.yml`,
   // The B2B "Customer Management Service" (legal-entities/contacts/locations)
   // lives under the repo's `client-management` dir; the SDK module is `customer-management`.
