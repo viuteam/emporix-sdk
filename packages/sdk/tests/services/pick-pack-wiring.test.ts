@@ -1,14 +1,18 @@
 import { describe, it, expect } from "vitest";
 import { EmporixClient } from "../../src/client";
-import { PickPackService } from "../../src/services/pick-pack";
 
 describe("EmporixClient pick-pack wiring", () => {
-  it("exposes the pick-pack service", () => {
+  /**
+   * The Pick-Pack service reached End of Life and Emporix removed its endpoints
+   * on 2026-09-16. This asserts the property is gone rather than left behind as a
+   * facade that can only answer 404.
+   */
+  it("no longer exposes pickPack", () => {
     const sdk = new EmporixClient({
       tenant: "acme",
       credentials: { backend: { clientId: "b", secret: "s" }, storefront: { clientId: "sf" } },
       logger: false,
     });
-    expect(sdk.pickPack).toBeInstanceOf(PickPackService);
+    expect("pickPack" in sdk).toBe(false);
   });
 });

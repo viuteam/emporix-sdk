@@ -5,6 +5,24 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-09-16 — pick-pack: End of Life, service removed
+
+Upstream [api-references#497](https://github.com/emporix/api-references/pull/497)
+merged 13:10 UTC and deleted `orders/pick-pack` outright — the API reference and
+all twelve `/pick-pack/{tenant}/…` endpoints, deprecated since 2026-05-25. The
+SDK facade is removed in the same way SEPA Export was in 3.0.0; see the
+`@viu/emporix-sdk` 4.0.0 changelog. **0 new endpoints, 12 removed** — the whole
+spec.
+
+The daily sync had run successfully at 11:20 UTC that day. From 2026-09-17 on it
+failed on every run: `fetch-specs` throws on the 404 for the deleted spec, which
+also stopped the vendoring of every other service behind it, so upstream changes
+after 2026-09-16 are not on `main` yet and the open sync PR still holds the
+2026-09-16 state.
+
+The same Emporix changelog day removed the Supplier Service. Nothing to do here:
+the SDK never vendored or wrapped it.
+
 ## 2026-09-10 — media: JSON Patch for assets; ai-service: reusable chat attachments
 
 Vendored by a manual sync run; the facade follows in the same PR. Three specs

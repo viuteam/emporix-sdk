@@ -47,7 +47,6 @@ export type ServiceName =
   | "unit-handling"
   | "catalog"
   | "vendor"
-  | "pick-pack"
   | "customer-admin"
   | "approval"
   | "invoice"

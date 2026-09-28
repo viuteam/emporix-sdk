@@ -47,7 +47,6 @@ import { AuditLogService } from "./services/audit-log";
 import { UnitHandlingService } from "./services/unit-handling";
 import { CatalogService } from "./services/catalog";
 import { VendorService } from "./services/vendor";
-import { PickPackService } from "./services/pick-pack";
 import { CustomerAdminService } from "./services/customer-admin";
 import { ApprovalService } from "./services/approval";
 
@@ -99,7 +98,6 @@ export class EmporixClient {
   readonly units: UnitHandlingService;
   readonly catalogs: CatalogService;
   readonly vendors: VendorService;
-  readonly pickPack: PickPackService;
   readonly customerAdmin: CustomerAdminService;
   readonly approvals: ApprovalService;
   /** The validated tenant this client is bound to. */
@@ -176,7 +174,6 @@ export class EmporixClient {
     this.units = new UnitHandlingService(mk(UnitHandlingService.channel));
     this.catalogs = new CatalogService(mk(CatalogService.channel));
     this.vendors = new VendorService(mk(VendorService.channel));
-    this.pickPack = new PickPackService(mk(PickPackService.channel));
     this.customerAdmin = new CustomerAdminService(mk(CustomerAdminService.channel));
     this.approvals = new ApprovalService(mk(ApprovalService.channel));
   }
