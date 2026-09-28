@@ -8,7 +8,8 @@ description: >
   "verifiziere ob das Schema neue Endpoints erhalten hat", a link to
   developer.emporix.io/changelog or to emporix/api-references, "welche Endpoints
   fehlen noch", "sync the specs", "is <service> fully covered", a scheduled-sync
-  PR that needs review, or a request to implement a newly documented Emporix
+  PR that needs review, a failing `Emporix API Sync` workflow ("der tägliche
+  Sync-Job schlägt fehl"), or a request to implement a newly documented Emporix
   endpoint. It applies even when the user only wants to *check* one service and
   has not asked for a PR, and even when they name the service instead of the
   spec file.
@@ -37,9 +38,13 @@ a `patch` changeset and opens or updates **`chore/emporix-api-sync`**.
 
 ```bash
 gh pr list --head chore/emporix-api-sync --state all --limit 5
-gh run list --workflow api-sync.yml --limit 3
+gh run list --workflow api-sync.yml --limit 10
 ```
 
+- **The recent runs are `failure`** → the bot is vendoring nothing, and an open
+  sync PR is frozen at the last green run. Read [When the daily sync
+  fails](#when-the-daily-sync-fails) first — the three cases below assume a
+  working bot.
 - **A sync PR is open** → that is the vendoring. Do not re-run `fetch:specs` on
   your own branch and do not push to `chore/emporix-api-sync`; the bot force-owns
   it and you would be fighting a scheduled job. Review that PR, then measure
@@ -48,6 +53,31 @@ gh run list --workflow api-sync.yml --limit 3
 - **The sync PR was merged recently** → the specs on `main` are already current.
   Skip to step 3; `fetch:specs` will just tell you nothing changed.
 - **Neither, or the user asked for a manual check** → sync yourself, step 2.
+
+### When the daily sync fails
+
+`fetch-specs` requests every spec in `SPECS` in order and throws on the first
+non-200. One bad spec therefore stops the whole sync, and every spec listed
+after it is not even requested — nothing upstream reaches the repo until it is
+fixed. Read the failure before changing anything:
+
+```bash
+gh run view <run-id> --log-failed | grep -E "Error:|Z fetched " | tail -3
+```
+
+- **A network error or a `5xx` in a single run** is transient. Re-run it with
+  `gh workflow run api-sync.yml` and carry on.
+- **The same `404` run after run** (`Failed to fetch <spec> spec: 404 <url>`) is
+  a decision upstream made: the spec was moved or deleted. Those need opposite
+  fixes — tell them apart with `references/upstream-removal.md`, which also
+  carries the checklist for removing a service. It has happened twice: SEPA
+  Export (#302) and Pick-Pack (#340).
+
+Two fixes look tempting and are wrong, for reasons #302 recorded. Making
+`fetch-specs` skip a 404: a skipped spec regenerates types without its service
+and nobody notices, so the fail-fast stays. And, for a removed service,
+keeping the facade against the last vendored spec: its endpoints are gone, so it
+becomes a facade that only answers 404 while looking like a working API.
 
 Either way, start clean:
 
