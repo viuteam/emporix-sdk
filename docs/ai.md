@@ -155,10 +155,19 @@ const models = await client.ai.listModels();
 const events = await client.ai.listCommerceEvents();
 
 const { id, sessionId } = await client.ai.uploadAttachment("bot", file); // file: Blob | File
-await client.ai.chat({ agentId: "bot", message: "See attachment", sessionId } as never);
+// The session travels as the `session-id` header, the file as `attachments`.
+for await (const chunk of client.ai.chatStream(
+  { agentId: "bot", message: "See attachment", attachments: [{ attachmentId: id! }] },
+  { sessionId: sessionId! },
+)) {
+  /* … */
+}
 
-// Hand the same file to a second agent instead of uploading it twice (204).
+// Hand the same file to a second agent instead of uploading it twice (200).
 await client.ai.reuseAttachment("other-bot", id!, { sessionId: sessionId! });
+
+// Without a session, the service opens one — use the id it returns.
+const reused = await client.ai.reuseAttachment("other-bot", mediaAssetId);
 
 const bundle = await client.ai.exportAgents({ agentIds: ["bot"] });
 await client.ai.importAgents({ data: bundle.data, checksum: bundle.checksum });
@@ -166,10 +175,32 @@ await client.ai.importAgents({ data: bundle.data, checksum: bundle.checksum });
 
 The endpoint takes **exactly one** of the file or an `attachmentId` — both or
 neither is a `400`, which is why these are two methods rather than one
-overloaded call. `uploadAttachment` answers `201` with the new `{ id, sessionId }`;
-`reuseAttachment` answers `204` and returns nothing. `sessionId` is optional on
-the upload (omit it to start a session) but **required** on the reuse: the id is
-resolved inside that session, so without it the call cannot succeed.
+overloaded call. `uploadAttachment` answers `201` with the new `{ id, sessionId }`,
+`reuseAttachment` answers `200` with the same shape. `sessionId` is optional on
+both: omit it and the service opens a session and returns its id. With the
+`ai.agentexecution_manage` scope, `reuseAttachment` accepts any media asset id,
+not only one uploaded to the session.
+
+To chat about the file, the chat request must carry that `sessionId` as the
+`session-id` **header** and list the file under `attachments`, addressed to the
+same `agentId` the file was attached to — otherwise the service answers `400`.
+Only `chatStream` can send the header today: `chat` and `chatAsync` take no
+session option, and the chat body has no `sessionId` field.
+
+> Until 2026-09-25 the reuse answered `204` with no body and required the
+> `session-id` header. The SDK followed: `reuseAttachment` now resolves to the
+> attachment instead of `undefined`, and `sessionId` is optional.
+
+## Log and job fields that arrived with the spec
+
+- Agent request and session logs carry `promptTokens` and `completionTokens`
+  (per request, and rolled up per session).
+- `handOff` on agent responses is **deprecated** and no longer used — ignore it.
+- Upstream added cursor pagination (`next` / `prev` query parameters,
+  `X-Next-Cursor` / `X-Prev-Cursor` response headers) to the log and job
+  listings. **Not reachable through this SDK yet:** `logs.*` and `jobs.*` return
+  plain arrays, so the cursor headers are dropped. Page with `pageNumber` /
+  `pageSize`, which upstream still supports.
 
 ## Overriding the token
 

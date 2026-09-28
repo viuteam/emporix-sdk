@@ -55,6 +55,38 @@ The segment-item row exposes the referenced id as `item.id` (nested) plus
 a `type: "PRODUCT" | "CATEGORY"` discriminator. The hydrate helpers filter
 by `type` and dereference `item.id`.
 
+### Which segments is this customer in?
+
+```ts
+const mine = await client.segments.listMine({}, auth.customer(token)); // GET /segments/me
+```
+
+`listMine` returns the customer's **active** segments: assigned directly, and
+inherited through the customer's IAM groups — groups not bound to a legal
+entity, plus groups bound to the customer's *current* legal entity, so the
+result can change when a B2B customer switches company. Prefer it over
+`segments.list()`, which calls the generic `GET /segments`; that endpoint's
+documentation does not say whether group-inherited segments are included.
+
+## IAM group assignments (admin)
+
+Since 2026-09-16 a segment can be assigned to IAM groups as well as to
+individual customers; a customer then inherits the segment through any group
+they belong to. Service token by default (`segment_read` / `segment_manage`):
+
+```ts
+await client.segments.groups.assign("seg-1", "group-1");          // upsert, 201/204
+const assignments = await client.segments.groups.list("seg-1");
+const one = await client.segments.groups.get("seg-1", "group-1");
+await client.segments.groups.remove("seg-1", "group-1");
+```
+
+| Trap | Detail |
+|---|---|
+| Only customer groups | a group whose `userType` is not `CUSTOMER` is rejected with `400` |
+| `assign` returns nothing | both `201` (created) and `204` (updated) carry no body — call `get` for the stored assignment |
+| legal-entity binding | a group bound to a legal entity only counts while that entity is the customer's current one |
+
 ## React
 
 ```tsx
@@ -113,8 +145,10 @@ scroll terminates cleanly.
 
 ## Out of scope
 
-- Admin segment CRUD (`POST/PUT/PATCH/DELETE /segments`).
-- Customer-assignment writes (assign/remove a customer to/from a segment).
-- Item-assignment writes (assign/remove products/categories).
 - Partial-success hydrate (`Promise.allSettled` variant) — `listMyProducts`
   / `listMyCategories` reject when the bulk `/search` round-trip fails.
+
+Admin CRUD and the customer, item and group assignments are all wrapped
+(`create`, `update`, `patch`, `delete`, `match`, the `bulk*` methods,
+`segments.customers`, `segments.items`, `segments.groups`), service token by
+default. They have no React hooks: a storefront token cannot call them.

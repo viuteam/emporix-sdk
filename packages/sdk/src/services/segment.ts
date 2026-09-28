@@ -15,6 +15,8 @@ import type {
   CustomerAssignmentUpsert,
   CustomerAssignmentUpsertBulk,
   CustomerAssignmentResponse,
+  GroupAssignmentUpsert,
+  GroupAssignmentResponse,
   ItemAssignmentUpsert,
   ItemAssignmentUpsertBulk,
   BulkResponse,
@@ -47,6 +49,10 @@ export type SegmentCustomerInput = CustomerAssignmentUpsert;
 export type SegmentCustomerBulkInput = CustomerAssignmentUpsertBulk;
 /** A customer→segment assignment (read). */
 export type SegmentCustomer = CustomerAssignmentResponse;
+/** IAM group→segment assignment body (generated). The group id is in the path. */
+export type SegmentGroupInput = GroupAssignmentUpsert;
+/** An IAM group→segment assignment (read). */
+export type SegmentGroup = GroupAssignmentResponse;
 /** Item→segment assignment body (generated). */
 export type SegmentItemInput = ItemAssignmentUpsert;
 /** One entry of an item-assignment bulk request (generated). */
@@ -91,7 +97,12 @@ export class SegmentService {
     return `/customer-segment/${this.ctx.tenant}/segments`;
   }
 
-  /** Lists segments the caller belongs to (with `segment_read_own`). */
+  /**
+   * Lists segments via the generic `GET /segments` (with `segment_read_own`).
+   * Its documentation does not say whether segments inherited through IAM
+   * groups are included — for "which segments is this customer in", use
+   * {@link listMine}, which is documented to include them.
+   */
   async list(
     query: { q?: string; pageNumber?: number; pageSize?: number } = {},
     auth?: AuthContext,
@@ -103,6 +114,30 @@ export class SegmentService {
     return this.ctx.http.request<Segment[]>({
       method: "GET",
       path: this.base(),
+      auth: requireCustomer(auth),
+      ...(Object.keys(q).length ? { query: q } : {}),
+    });
+  }
+
+  /**
+   * The authenticated customer's **active** segments (`GET /segments/me`,
+   * `segment_read_own`): assigned directly, and inherited through the
+   * customer's IAM groups — groups not bound to a legal entity, plus groups
+   * bound to the customer's *current* legal entity. Switching the active company
+   * can therefore change the result.
+   */
+  async listMine(
+    query: { q?: string; pageNumber?: number; pageSize?: number; sort?: string } = {},
+    auth?: AuthContext,
+  ): Promise<Segment[]> {
+    const q: Record<string, string | number | undefined> = {};
+    setIfDefined(q, "q", query.q);
+    setIfDefined(q, "pageNumber", query.pageNumber);
+    setIfDefined(q, "pageSize", query.pageSize);
+    setIfDefined(q, "sort", query.sort);
+    return this.ctx.http.request<Segment[]>({
+      method: "GET",
+      path: `${this.base()}/me`,
       auth: requireCustomer(auth),
       ...(Object.keys(q).length ? { query: q } : {}),
     });
@@ -423,6 +458,74 @@ export class SegmentService {
         auth: authCtx,
         body,
       }),
+  };
+
+  /**
+   * IAM group→segment assignments (`segment_read` / `segment_manage`). Customers
+   * inherit a segment through their groups, on top of direct assignment — see
+   * {@link listMine}. Only groups with `userType: "CUSTOMER"` can be assigned;
+   * anything else is a `400`. Default auth: service.
+   */
+  readonly groups = {
+    list: async (
+      segmentId: string,
+      query: { q?: string; pageNumber?: number; pageSize?: number; sort?: string } = {},
+      authCtx: AuthContext = SERVICE,
+    ): Promise<SegmentGroup[]> => {
+      const q: Record<string, string | number | undefined> = {};
+      setIfDefined(q, "q", query.q);
+      setIfDefined(q, "pageNumber", query.pageNumber);
+      setIfDefined(q, "pageSize", query.pageSize);
+      setIfDefined(q, "sort", query.sort);
+      return this.ctx.http.request<SegmentGroup[]>({
+        method: "GET",
+        path: `${this.base()}/${encodeURIComponent(segmentId)}/groups`,
+        auth: authCtx,
+        ...(Object.keys(q).length ? { query: q } : {}),
+      });
+    },
+    search: async (
+      segmentId: string,
+      query: SegmentSearchQuery,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<SegmentGroup[]> =>
+      this.ctx.http.request<SegmentGroup[]>({
+        method: "POST",
+        path: `${this.base()}/${encodeURIComponent(segmentId)}/groups/search`,
+        auth: authCtx,
+        body: query,
+      }),
+    get: async (segmentId: string, groupId: string, authCtx: AuthContext = SERVICE): Promise<SegmentGroup> =>
+      this.ctx.http.request<SegmentGroup>({
+        method: "GET",
+        path: `${this.base()}/${encodeURIComponent(segmentId)}/groups/${encodeURIComponent(groupId)}`,
+        auth: authCtx,
+      }),
+    /**
+     * Upsert: `201` when the assignment is created, `204` when it is updated —
+     * **neither returns a body**, so this resolves to nothing. Fetch it with
+     * {@link get} if you need the stored assignment.
+     */
+    assign: async (
+      segmentId: string,
+      groupId: string,
+      input: SegmentGroupInput = {},
+      authCtx: AuthContext = SERVICE,
+    ): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "PUT",
+        path: `${this.base()}/${encodeURIComponent(segmentId)}/groups/${encodeURIComponent(groupId)}`,
+        auth: authCtx,
+        body: input,
+      });
+    },
+    remove: async (segmentId: string, groupId: string, authCtx: AuthContext = SERVICE): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `${this.base()}/${encodeURIComponent(segmentId)}/groups/${encodeURIComponent(groupId)}`,
+        auth: authCtx,
+      });
+    },
   };
 
   /** Item→segment assignments (`type` = PRODUCT | CATEGORY). Default auth: service. */

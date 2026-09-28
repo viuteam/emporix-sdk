@@ -59,6 +59,29 @@ describe("SegmentService.list / get", () => {
     expect(rows.map((r) => (r as { id?: string }).id)).toEqual(["seg-1", "seg-2"]);
   });
 
+  it("listMine rejects an anonymous auth context", async () => {
+    await expect(harness().svc.listMine({}, { kind: "anonymous" })).rejects.toBeInstanceOf(
+      EmporixAuthError,
+    );
+  });
+
+  it("listMine hits /segments/me with the customer Bearer, forwarding only the params given", async () => {
+    let auth: string | null = null;
+    const seen: string[] = [];
+    server.use(
+      http.get("https://api.emporix.io/customer-segment/acme/segments/me", ({ request }) => {
+        auth = request.headers.get("authorization");
+        seen.push(new URL(request.url).search);
+        return HttpResponse.json([{ id: "seg-direct" }, { id: "seg-via-group" }]);
+      }),
+    );
+    const rows = await harness().svc.listMine({ sort: "name:asc", pageSize: 5 }, CUST);
+    await harness().svc.listMine({}, CUST);
+    expect(auth).toBe("Bearer cust-tok");
+    expect(rows.map((r) => (r as { id?: string }).id)).toEqual(["seg-direct", "seg-via-group"]);
+    expect(seen).toEqual(["?pageSize=5&sort=name%3Aasc", ""]);
+  });
+
   it("get fetches a single segment by id", async () => {
     server.use(
       http.get("https://api.emporix.io/customer-segment/acme/segments/seg-1", () =>
