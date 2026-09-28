@@ -1,5 +1,113 @@
 # @viu/emporix-sdk
 
+## 4.0.0
+
+### Major Changes
+
+- [#346](https://github.com/viuteam/emporix-sdk/pull/346) [`f2a70d4`](https://github.com/viuteam/emporix-sdk/commit/f2a70d41709369082cf183cf7db159031c0f549e) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): send the chat session from `chat` and `chatAsync` — options second, auth third
+  
+  **Breaking: `client.ai.chat(input, auth)` and `client.ai.chatAsync(input, auth)`
+  are now `(input, opts, auth)`**, the order `chatStream` already used.
+  `opts.sessionId` is sent as the `session-id` header.
+  
+  Until now only `chatStream` could send that header, so a synchronous or
+  asynchronous chat could neither continue a conversation (continuity needs the
+  header plus `enabledMemory` on the agent) nor use an attachment, which the
+  service resolves inside the session its upload or reuse returned. The chat body
+  has no `sessionId` field; the header is the only way.
+  
+  **Migrating:** `chat(input)` and `chatAsync(input)` are unchanged. A call that
+  passes an auth context second becomes `chat(input, {}, auth)`. Passing it second
+  now **throws** (`pass the auth context third`) instead of being read as options
+  — which in plain JavaScript would have run the call on the default service token
+  without a word. `chatStream` refuses the same mistake.
+  
+  `ChatOptions` is the new shared options type; `ChatStreamOptions` remains as a
+  deprecated alias of it.
+
+- [#340](https://github.com/viuteam/emporix-sdk/pull/340) [`3977a77`](https://github.com/viuteam/emporix-sdk/commit/3977a7767e0dc82fe1f6d70a21d76ac8da7a82e7) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): remove the Pick-Pack service — upstream End of Life
+  
+  **Breaking: `client.pickPack` and every Pick-Pack type are gone.**
+  
+  Emporix retired the Pick-Pack Service. It was deprecated on 2026-05-25 with
+  removal announced for 2026-08-24, and on 2026-09-16 all twelve endpoints and the
+  API reference were taken down — see "Pick-pack Service - removal of deprecated
+  endpoints" in the [Emporix changelog](https://developer.emporix.io/changelog)
+  and [emporix/api-references#497](https://github.com/emporix/api-references/pull/497).
+  The service's `@deprecated` marker in this SDK already announced the removal.
+  
+  Nothing here could keep working: every `/pick-pack/{tenant}/…` operation —
+  orders, order cycles, assignees, packaging, packing events and recalculation
+  jobs — no longer exists. Keeping `client.pickPack` would have shipped a facade
+  that only ever answers 404 while looking like a working API, which is worse than
+  removing it.
+  
+  Removed: the `pickPack` client property; `PickPackService` and its twelve
+  methods (`listOrders`, `getOrder`, `updateOrder`, `finishOrder`,
+  `listOrderCycles`, `addAssignee`, `removeAssignee`, `updatePackaging`,
+  `createEvent`, `listEvents`, `triggerRecalculation`, `getRecalculationJob`); the
+  types `PickOrder`, `PickOrderList`, `OrderStatusChange`, `PackagingProductsChange`,
+  `Assignee`, `OrderEntryEventCreate`, `PackingEvent`, `PackingEventList`,
+  `OrderCycleList`, `RecalculationJobInput`, `RecalculationJob`, `PickPackAck` and
+  `RecalculationJobCreated`; the generated types, the vendored spec, the
+  `"pick-pack"` logger channel and `docs/pick-pack.md`.
+  
+  **If you used it:** there is no replacement in the Emporix API.
+  
+  This also unblocks the `Emporix API Sync` workflow, which has failed on every run
+  since 2026-09-17 — `fetch-specs` requests each vendored spec and throws on a
+  non-200, so the 404 on `orders/pick-pack/api-reference/api.yml` stopped the whole
+  sync after 33 successful fetches and left the remaining nine unrequested. That fail-fast is deliberate and stays, as it
+  did for the SEPA Export removal in 3.0.0: a silently skipped spec would
+  regenerate types without a service and nobody would notice.
+
+### Minor Changes
+
+- [#341](https://github.com/viuteam/emporix-sdk/pull/341) [`aa9f411`](https://github.com/viuteam/emporix-sdk/commit/aa9f411308e775efc8f4e17f089fe6316caaeb36) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): sync with the 2026-09-14 … 2026-09-25 Emporix changes — segment IAM groups, import run diagnostics, attachment reuse
+  
+  Nine new endpoints are wrapped; every vendored spec that changed is back at full
+  coverage (customer-segment 36/36, import-service 24/24).
+  
+  **Customer segments.** `client.segments.listMine()` calls the new
+  `GET /segments/me`: the customer's active segments, assigned directly and
+  inherited through their IAM groups — including groups bound to the customer's
+  current legal entity, so the result can change when a B2B customer switches
+  company. `client.segments.groups.{list, search, get, assign, remove}` manage the
+  new IAM group assignments (service token by default). Only groups with
+  `userType: "CUSTOMER"` can be assigned, and `assign` resolves to nothing because
+  the upsert's `201`/`204` carry no body.
+  
+  **Import service.** `client.imports.getStreamOrder(configId)` returns the
+  computed run order (stream names) and each stream's prerequisites.
+  `client.imports.listRunDiagnostics(runId, { kind, streamId, limit })` and
+  `downloadRunDiagnosticsCsv(...)` return the rows behind a run's `duplicateKeys`
+  and `unresolvedParents` counters — a capped sample, not the full set.
+  `triggerRun` accepts `streamIds` to run a subset (ids, not names).
+  
+  **AI attachment reuse.** `client.ai.reuseAttachment` now resolves to the
+  attachment `{ id, sessionId }` instead of `undefined`, and `opts.sessionId` is
+  optional: since 2026-09-25 the service answers `200` with a body and opens a new
+  session when the `session-id` header is absent. Existing calls keep compiling.
+  
+  Type changes that follow upstream without a new method: `ImportStream` loses
+  `targetDeleteSubscriptionEnabled` and `onTargetReappear` and gains
+  `deleteConfig` (the Import Service is preview, which the SDK documents as
+  allowed to change without a major); AI logs gain `promptTokens` /
+  `completionTokens`; `handOff` on agent responses is deprecated.
+  
+  Not exposed yet: the cursor pagination Emporix added to AI logs and jobs — those
+  facades return arrays, so the cursor headers are dropped.
+  
+  `docs/ai.md` also stops showing `chat({ …, sessionId } as never)` for an
+  attachment chat. The chat body has no `sessionId`; the session travels as the
+  `session-id` header, which only `chatStream` can send today.
+
+### Patch Changes
+
+- [#345](https://github.com/viuteam/emporix-sdk/pull/345) [`4e706dd`](https://github.com/viuteam/emporix-sdk/commit/4e706ddad0dedb17ea17f1d9b1a7d2ec65d1a02c) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: ai-service,import-service
+
 ## 3.6.0
 
 ### Minor Changes

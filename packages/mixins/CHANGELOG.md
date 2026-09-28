@@ -1,5 +1,12 @@
 # @viu/emporix-mixins
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies [[`f2a70d4`](https://github.com/viuteam/emporix-sdk/commit/f2a70d41709369082cf183cf7db159031c0f549e), [`aa9f411`](https://github.com/viuteam/emporix-sdk/commit/aa9f411308e775efc8f4e17f089fe6316caaeb36), [`4e706dd`](https://github.com/viuteam/emporix-sdk/commit/4e706ddad0dedb17ea17f1d9b1a7d2ec65d1a02c), [`3977a77`](https://github.com/viuteam/emporix-sdk/commit/3977a7767e0dc82fe1f6d70a21d76ac8da7a82e7)]:
+  - @viu/emporix-sdk@4.0.0
+
 ## 1.0.0
 
 ### Patch Changes

@@ -1,5 +1,34 @@
 # @viu/emporix-sdk-angular
 
+## 0.2.0
+
+### Minor Changes
+
+- [#346](https://github.com/viuteam/emporix-sdk/pull/346) [`4116654`](https://github.com/viuteam/emporix-sdk/commit/411665451f7bd43e9fa9faca722cee1f7e32c8d8) Thanks [@amnael1](https://github.com/amnael1)! - feat(react): read the customer's segments from `GET /segments/me`
+  
+  `useMySegments` (React) and `injectMySegments` (Angular) now call
+  `client.segments.listMine` instead of `client.segments.list`. The result type is
+  unchanged; **the data may differ**:
+  
+  - segments inherited through the customer's IAM groups are included — groups not
+    bound to a legal entity, and groups bound to the customer's current one;
+  - only **active** segments are returned.
+  
+  The generic `GET /segments` the hooks used before does not document either
+  behaviour for a customer token, while `/segments/me` is the endpoint Emporix
+  documents for "the authenticated customer's segments" since 2026-09-16.
+  
+  A B2B company switch (`setActiveCompany`) now also invalidates every segment
+  read — `useMySegments`, the item/product/category hooks and their Angular
+  counterparts. Membership follows the legal entity, directly and through groups
+  bound to it, yet a switch used to keep serving the previous company's segments
+  until they went stale (five minutes). Both hooks also accept `sort` now.
+
+### Patch Changes
+
+- Updated dependencies [[`f2a70d4`](https://github.com/viuteam/emporix-sdk/commit/f2a70d41709369082cf183cf7db159031c0f549e), [`aa9f411`](https://github.com/viuteam/emporix-sdk/commit/aa9f411308e775efc8f4e17f089fe6316caaeb36), [`4e706dd`](https://github.com/viuteam/emporix-sdk/commit/4e706ddad0dedb17ea17f1d9b1a7d2ec65d1a02c), [`3977a77`](https://github.com/viuteam/emporix-sdk/commit/3977a7767e0dc82fe1f6d70a21d76ac8da7a82e7)]:
+  - @viu/emporix-sdk@4.0.0
+
 ## 0.1.0
 
 ### Minor Changes
