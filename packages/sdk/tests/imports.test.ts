@@ -73,6 +73,21 @@ describe("ImportService configurations and streams", () => {
     server.use(http.get(`${BASE}/streams/str1`, () => HttpResponse.json(stream)));
     expect((await sdk().imports.getStream("str1")).name).toBe("Products");
   });
+
+  it("getStreamOrder GETs the configuration's computed run order", async () => {
+    let path = "";
+    const order = { order: ["Categories", "Products"], prereqs: { Products: ["Categories"] } };
+    server.use(
+      http.get(`${BASE}/configs/:configId/stream-order`, ({ request }) => {
+        path = new URL(request.url).pathname;
+        return HttpResponse.json(order);
+      }),
+    );
+    // A slash, not a space: `new URL` would percent-encode a space on its own
+    // and hide a missing `encodeURIComponent`.
+    expect(await sdk().imports.getStreamOrder("cfg/1")).toEqual(order);
+    expect(path).toBe(`/importtool/${TENANT}/configs/cfg%2F1/stream-order`);
+  });
 });
 
 describe("ImportService schedules", () => {
@@ -360,6 +375,45 @@ describe("ImportService runs", () => {
     expect(page.items[0]?.errorCode).toBe("MAPPING");
     expect(page.totalElements).toBe(30);
     expect(page.hasNextPage).toBe(false);
+  });
+
+  it("listRunDiagnostics forwards the filters it is given, and only those", async () => {
+    const seen: string[] = [];
+    const diagnostics = {
+      rows: [{ runId: "run1", kind: "UNRESOLVED_PARENT", naturalKey: "SKU-1", waitingLines: 3 }],
+      returned: 1,
+      recorded: 1,
+      cap: 1000,
+      sampleTruncated: false,
+    };
+    server.use(
+      http.get(`${BASE}/runs/run1/diagnostics`, ({ request }) => {
+        seen.push(new URL(request.url).search);
+        return HttpResponse.json(diagnostics);
+      }),
+    );
+    const res = await sdk().imports.listRunDiagnostics("run1", { kind: "UNRESOLVED_PARENT", limit: 10 });
+    await sdk().imports.listRunDiagnostics("run1");
+    expect(res).toEqual(diagnostics);
+    expect(seen).toEqual(["?kind=UNRESOLVED_PARENT&limit=10", ""]);
+  });
+
+  it("downloadRunDiagnosticsCsv resolves to the CSV text, comment lines included", async () => {
+    let search = "";
+    const csv = '# sampleTruncated=false\n"runId","kind","naturalKey"\n"run1","REPEATED_KEY","SKU-1"\n';
+    server.use(
+      http.get(`${BASE}/runs/run1/diagnostics/csv`, ({ request }) => {
+        search = new URL(request.url).search;
+        return new HttpResponse(csv, {
+          headers: {
+            "Content-Type": "text/csv",
+            "Content-Disposition": 'attachment; filename="run1-diagnostics.csv"',
+          },
+        });
+      }),
+    );
+    expect(await sdk().imports.downloadRunDiagnosticsCsv("run1", { streamId: "str1" })).toBe(csv);
+    expect(search).toBe("?streamId=str1");
   });
 });
 

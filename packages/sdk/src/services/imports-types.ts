@@ -9,8 +9,12 @@
 import type { PaginatedItems } from "../core/context";
 import type {
   CancelResult,
+  DiagnosticPage,
+  DiagnosticRecord,
   ErrorRecord,
+  GetImporttoolListRunDiagnosticsData,
   GetImporttoolSearchDataRecordsData,
+  GetImporttoolStreamOrderResponse,
   ImportConfig as GenImportConfig,
   ImportRun as GenImportRun,
   ImportRunStream as GenImportRunStream,
@@ -24,6 +28,7 @@ import type {
   PostImporttoolTriggerRunData,
   RunDetail,
   Schedule,
+  TraitDiagnosticsKind,
 } from "../generated/import-service";
 
 /** An import configuration, grouping one or more streams. */
@@ -58,9 +63,33 @@ export type ImportErrorRecord = ErrorRecord;
 export type ImportedRecord = GenImportedRecord;
 
 /**
- * Body for `triggerRun`: `{ mode?, dryRun?, force?, sampleSize?, origin? }`.
+ * A configuration's computed run order: `order` lists stream **names** in the
+ * order they run, `prereqs` maps each name to the streams it waits for.
+ */
+export type ImportStreamOrder = GetImporttoolStreamOrderResponse;
+
+/**
+ * The rows behind a run's feed-quality counters. **A capped sample, not the
+ * whole set**: `recorded` is how many rows were stored and `sampleTruncated`
+ * says whether a stream hit the cap. The run's own `duplicateKeys` /
+ * `unresolvedParents` are the true totals — `rows.length` is not.
+ */
+export type ImportRunDiagnostics = DiagnosticPage;
+/** One diagnostic row: the record's natural key, its parent-linking field and value, and how many lines wait on it. */
+export type ImportDiagnosticRecord = DiagnosticRecord;
+/** Which counter a diagnostic row belongs to: `REPEATED_KEY` (`duplicateKeys`) or `UNRESOLVED_PARENT` (`unresolvedParents`). */
+export type ImportDiagnosticKind = TraitDiagnosticsKind;
+/** Filters for `listRunDiagnostics` / `downloadRunDiagnosticsCsv`: `{ streamId?, kind?, limit? }`. */
+export type ImportRunDiagnosticsQuery = NonNullable<GetImporttoolListRunDiagnosticsData["query"]>;
+
+/**
+ * Body for `triggerRun`: `{ mode?, dryRun?, force?, sampleSize?, origin?, streamIds? }`.
  *
  * - `mode` defaults to `DELTA` server-side.
+ * - `streamIds` runs only those streams — **ids, not names** (`getStreamOrder`
+ *   reports names). Omitted, every stream runs. Rejected: an empty list, a list
+ *   with no stream of this configuration, and a child stream that cannot produce
+ *   data without its parent. Listed streams still run in the computed order.
  * - `force` rewrites every extracted record, bypassing the skip-if-unchanged
  *   idempotency.
  * - `sampleSize` is **dry-run only**: how many mapped records to sample per

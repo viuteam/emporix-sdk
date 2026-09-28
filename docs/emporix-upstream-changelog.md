@@ -5,6 +5,66 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-09-14 … 2026-09-25 — segment IAM groups, import run diagnostics, AI attachment reuse
+
+Vendored by a manual sync once the pick-pack removal (below) unblocked
+`fetch-specs`; it supersedes the bot's sync PR, frozen at the 2026-09-16 state.
+Five specs drifted. Measured by path literal:
+
+| Spec | Live operations | New | Removed |
+|---|---|---|---|
+| customer-segment | 30 → **36** | 6 | 0 |
+| import-service | 21 → **24** | 3 | 0 |
+| ai-service | 57 → 57 | 0 | 0 |
+| audit-logs-changelog | 1 → 1 | 0 | 0 |
+| shipping | 44 → 44 | 0 | 0 |
+
+**9 new endpoints, 0 removed, 0 newly deprecated.** The facade covers all of
+them; every one of the five specs is at full coverage.
+
+### Endpoints
+
+- **customer-segment** (2026-09-16) — IAM group assignments: `GET`, `POST
+  …/search`, and `GET`/`PUT`/`DELETE …/{groupId}` under
+  `/segments/{segmentId}/groups` (`segment_read` / `segment_manage`). SDK:
+  `client.segments.groups.{list,search,get,assign,remove}`. Only groups with
+  `userType: CUSTOMER` can be assigned; the upsert answers `201`/`204` without a
+  body. Plus `GET /segments/me` (`segment_read_own`): the customer's active
+  segments, direct and inherited through groups — SDK: `client.segments.listMine`.
+- **import-service** (2026-09-14, 2026-09-23) — `GET /configs/{configId}/stream-order`
+  → `client.imports.getStreamOrder`; `GET /runs/{runId}/diagnostics` and
+  `…/diagnostics/csv` → `client.imports.listRunDiagnostics` /
+  `downloadRunDiagnosticsCsv`. Diagnostics are a capped sample: `limit`
+  defaults to 500 for JSON and 50 000 for CSV.
+
+### Fields
+
+Nothing to build — they arrived through the type aliases. They did need
+documenting:
+
+| Where | Change | Note |
+|---|---|---|
+| `triggerRun` body | `streamIds` added | ids, not names — `getStreamOrder` reports names |
+| import stream | `deleteConfig` documented | how source deletes propagate |
+| import stream | `targetDeleteSubscriptionEnabled`, `onTargetReappear` **removed** | upstream no longer reacts to targets deleted outside the import; a type-level removal, allowed because the service is preview |
+| AI request/session logs | `promptTokens`, `completionTokens` | per request, rolled up per session |
+| AI agent responses | `handOff` deprecated | no longer used |
+| audit-logs `q` | `entity:quote`, `entity:site` | quote and site history |
+
+### Behaviour
+
+- **AI attachment reuse** (2026-09-25) now answers `200` with `{ id, sessionId }`
+  instead of `204`, accepts a JSON body besides the form field, and no longer
+  requires the `session-id` header — without it the service opens a session and
+  returns its id. `reuseAttachment` follows: it resolves to the attachment, and
+  `sessionId` is optional. It keeps sending the form field.
+- **AI cursor pagination** (2026-09-17) on agent request/session logs and jobs:
+  `next`/`prev` plus `X-Next-Cursor`/`X-Prev-Cursor`. **Not exposed** — those
+  facades return plain arrays, so the headers are dropped. Offset paging still
+  works.
+- **Webhook events** (2026-09-14, 2026-09-23): `client-management.location-*`
+  and `customer.sign-up`. Not part of any vendored spec; nothing to change.
+
 ## 2026-09-16 — pick-pack: End of Life, service removed
 
 Upstream [api-references#497](https://github.com/emporix/api-references/pull/497)

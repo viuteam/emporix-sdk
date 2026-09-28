@@ -27,6 +27,22 @@ A configuration groups one or more streams; a stream extracts from a source, map
 fields and upserts into an Emporix target type. `config.deltaEnabled` tells you
 whether incremental runs are possible at all.
 
+```ts
+const { order, prereqs } = await client.imports.getStreamOrder("cfg1");
+// order:   ["Categories", "Products"]      — stream NAMES, in run order
+// prereqs: { Products: ["Categories"] }    — what each stream waits for
+```
+
+Read the order from `getStreamOrder` instead of deriving it from the stream
+definitions: mapping transformations add dependencies that no single stream
+shows, so a self-computed order can differ from the one used at run time. It
+reports **names**; `triggerRun`'s `streamIds` (below) takes **ids**.
+
+Since 2026-09-23 a stream documents `deleteConfig` — how deletes are detected in
+the source and propagated to the target. `targetDeleteSubscriptionEnabled` and
+`onTargetReappear` are gone from the stream type: upstream no longer reacts to
+target objects deleted outside the import.
+
 ## Schedules
 
 ```ts
@@ -83,6 +99,38 @@ as a `409`, which throws like any other error status.
 
 `triggerRun` is a POST and is **not** retried on a 5xx: a request that timed out
 may already have queued a run.
+
+```ts
+await client.imports.triggerRun("cfg1", { streamIds: ["str1", "str2"] }); // a subset
+```
+
+`streamIds` runs only the listed streams, still in the computed order; omit it to
+run all of them. The service rejects an empty list, a list with no stream of this
+configuration, and a child stream that cannot produce data without its parent.
+
+### Run diagnostics
+
+A run can report `SUCCEEDED` while two feed-quality counters say the source was
+not clean: `duplicateKeys` (rows repeating a natural key — only the last
+survives) and `unresolvedParents` (child lines with no parent to attach to).
+Neither is a failure, so the affected rows are not in `listRunErrors`; these two
+calls return them:
+
+```ts
+const diag = await client.imports.listRunDiagnostics(run.id!, { kind: "UNRESOLVED_PARENT" });
+for (const row of diag.rows ?? []) {
+  console.log(row.streamName, row.naturalKey, row.linkingField, row.linkingValue, row.waitingLines);
+}
+
+const csv = await client.imports.downloadRunDiagnosticsCsv(run.id!); // string, for a ticket
+```
+
+| Trap | Detail |
+|---|---|
+| a **sample**, not the set | `recorded` is how many rows were stored, `sampleTruncated` whether a stream hit the cap; the run's counters are the real totals — `rows.length` is not |
+| two `limit` defaults | 500 for the JSON call, 50 000 for the CSV (both max 50 000) |
+| CSV cells may start with `'` | a value beginning with `=`, `+`, `-` or `@` is prefixed with an apostrophe so a spreadsheet does not run it as a formula — strip it when parsing |
+| comment lines in the CSV | above the header, recording whether `limit` or the cap cut rows off |
 
 ### Previewing a dry run, and naming who asked
 
@@ -312,7 +360,9 @@ Three behaviours on this page come from the spec's prose rather than from an
 observation, and are worth confirming the first time you exercise them against a
 real tenant: that `deleteSchedule` really does accept a configuration that no
 longer exists, that `origin` is refused rather than truncated past 40
-characters, and which `sections` value (if any) gates `sourceIssues`.
+characters, and which `sections` value (if any) gates `sourceIssues`. The same
+goes for `getStreamOrder`, the diagnostics calls and `streamIds` (2026-09-14 /
+2026-09-23): wired to the spec, never seen on the wire.
 
 All methods take an optional trailing `auth` argument (default: the `"backend"`
 service credential set).
