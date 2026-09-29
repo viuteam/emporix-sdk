@@ -29,7 +29,53 @@ const { id } = await client.media.uploadFile({
 This sends `POST /media/{tenant}/assets` as `multipart/form-data` with the
 file in the `file` part and a JSON `body` part carrying
 `{ type: "BLOB", access: "PUBLIC", refIds: [{ type: "PRODUCT", id }],
-details: { filename, mimeType } }`. The 201 response is `{ id }`.
+details: { filename, mimeType } }`. The 201 response is `{ id }`. The file may
+be up to 30 MB; a [direct upload](#direct-upload) sends it straight to storage
+instead.
+
+## Direct upload
+
+`startUploadSession()` sends the file straight to storage: Emporix creates the
+asset as `PENDING` and answers with the request to make, and the Media API never
+sees the bytes. That request needs no Emporix token, so the server can start the
+session and hand the upload to a browser.
+
+```ts
+const session = await client.media.startUploadSession({
+  type: "BLOB",
+  access: "PRIVATE",
+  details: { filename: "installation-guide.pdf", mimeType: "application/pdf" },
+});
+
+// Anywhere, including a browser — no Emporix token involved.
+const { method, url, headers, fields } = session.upload;
+if (method === "PUT") {
+  await fetch(url, { method, headers, body: file });
+} else {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields ?? {})) form.append(key, value);
+  form.append("file", file); // the file part goes last
+  await fetch(url, { method, body: form });
+}
+// session.id is the asset id.
+```
+
+| `access` | `uploadType` | `upload.method` | Send |
+|---|---|---|---|
+| `PRIVATE` | `put` (default) | `PUT` | the file as the body, with every `upload.headers` entry |
+| `PRIVATE` | `form` | `POST` | multipart: every `upload.fields` entry unchanged, the file last |
+| `PUBLIC` | ignored | `POST` | the same, to Cloudinary |
+
+The asset's `status` stays `PENDING` until storage confirms the file, then turns
+`READY` — assets created by `create()` or `uploadFile()` carry no `status`.
+Until then, calls that need the file answer `409`. The upload request is valid
+for 15 minutes (Google Cloud Storage) or an hour (Cloudinary); an unused session
+expires at `session.expiresAt` and is cleaned up.
+
+Direct upload is enabled per tenant by Emporix Support. Without it,
+`startUploadSession()` throws an `EmporixForbiddenError` whose `body.message` is
+`direct upload is not enabled for this tenant`, and nothing is created — a
+missing scope is a `403` too, so read the message.
 
 ## Link an external URL
 
@@ -67,6 +113,31 @@ For the storefront read path, prefer `useProductMedia(productId)` or the
 `product.productMedia` field on `client.products.get(productId)` — the
 Media-service read scope is server-only.
 
+## Download URL
+
+Emporix recommends this for every download: the file goes from storage to the
+client without passing through the Media API, there is no size limit, and the
+URL can be handed to a browser as it is.
+
+```ts
+const { provider, url, expiresAt } = await client.media.getDownloadUrl(assetId);
+
+// a private file the browser should display rather than save
+await client.media.getDownloadUrl(assetId, { disposition: "inline" });
+```
+
+| `provider` | Asset | `url` |
+|---|---|---|
+| `GCS` | `PRIVATE` BLOB | signed; works without an Emporix token until `expiresAt` (15 minutes by default) |
+| `CLOUDINARY` | `PUBLIC` BLOB | permanent |
+| `LINK` | `LINK` | the stored URL |
+
+`disposition` (`attachment` by default, or `inline`) changes private URLs only.
+The call needs `media.asset_read`, so it runs on the server; the URL it returns
+is what goes to the browser. It works whether or not [direct
+upload](#direct-upload) is enabled. A `409` means a direct upload is still
+`PENDING` and its file has not reached storage.
+
 ## Download
 
 ```ts
@@ -91,11 +162,15 @@ data, etag?, contentType? }`. The SDK transparently decodes the
 OpenAPI-documented `text/plain` + base64 wire format into an
 `ArrayBuffer`; binary content-types pass through verbatim.
 
+Prefer the [download URL](#download-url): here the file passes through the Media
+API, which answers `413` once the asset's known size exceeds the streaming limit
+(30 MB by default) and `409` while a direct upload is still `PENDING`.
+
 **Browser limitation**: `download()` uses `redirect: "manual"` to capture
 the `Location` header. In Node this works. In a browser the redirect
 location is hidden by the fetch spec — `PUBLIC` downloads throw. Browser
-code should use the asset's `url` field (for `LINK` assets) or render the
-storage URL directly via `<img>` / `<a download>`.
+code should render a URL from `getDownloadUrl()`, fetched on the server,
+via `<img>` / `<a download>`.
 
 ## Replace the bytes of an existing BLOB asset
 
@@ -155,7 +230,8 @@ agent — see [`ai.md`](./ai.md).
 
 ## Out of scope
 
-- Browser-side uploads — need a server-side token-exchange step. In Next, see
-  `@viu/emporix-sdk-next/session`.
+- Browser-side uploads through the Media API — they need a server-side
+  token-exchange step (in Next, see `@viu/emporix-sdk-next/session`). A [direct
+  upload](#direct-upload) needs only the session the server starts.
 - Bulk operations — Emporix Media has no batch endpoint (unlike
   `cart.itemsBatch`). Loops over `create` / `update` are the only path.

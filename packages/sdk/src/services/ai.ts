@@ -6,6 +6,7 @@ import {
   TemplatesResource,
   LogsResource,
   AnalyticsResource,
+  searchParts,
 } from "./ai-resources";
 import type {
   TextRequest,
@@ -80,6 +81,7 @@ export type {
   ListQuery,
   GetOptions,
   MutateOptions,
+  SearchPaging,
   SearchQuery,
   OAuthConfig,
   OAuthInput,
@@ -285,13 +287,16 @@ export class AiService {
     });
   }
 
-  /** Server-side agent search (`POST /agentic/agents/search`). */
+  /**
+   * Server-side agent search (`POST /agentic/agents/search`). `q` goes in the
+   * body; `pageNumber`, `pageSize`, `sort` and `fields` in the query string.
+   */
   async searchAgents(query: AgentSearchQuery, auth: AuthContext = SERVICE): Promise<Agent[]> {
     return this.ctx.http.request<Agent[]>({
       method: "POST",
       path: `${this.base()}/agentic/agents/search`,
       auth,
-      body: query,
+      ...searchParts(query),
     });
   }
 
@@ -369,7 +374,7 @@ export class AiService {
     });
   }
 
-  /** Server-side conversation search (`POST /agentic/conversations/search`). */
+  /** Server-side conversation search (`POST /agentic/conversations/search`), paged like {@link searchAgents}. */
   async searchConversations(
     query: ConversationSearchQuery,
     auth: AuthContext = SERVICE,
@@ -378,7 +383,7 @@ export class AiService {
       method: "POST",
       path: `${this.base()}/agentic/conversations/search`,
       auth,
-      body: query,
+      ...searchParts(query),
     });
   }
 

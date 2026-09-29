@@ -193,6 +193,11 @@ export type {
   AssetUpdateBlobInput,
   AssetUpdateLinkInput,
   AssetRefId,
+  AssetPatch,
+  AssetDownloadUrl,
+  AssetDownloadUrlQuery,
+  AssetUploadSession,
+  AssetUploadSessionInput,
   DownloadResult,
   ListAssetsQuery,
 } from "./services/media";

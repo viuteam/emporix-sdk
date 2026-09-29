@@ -470,6 +470,93 @@ describe("MediaService.download", () => {
   });
 });
 
+describe("MediaService direct storage", () => {
+  it("getDownloadUrl GETs /download-url with the service token, and sends disposition only when set", async () => {
+    const seen: { auth: string | null; disposition: string | null }[] = [];
+    const signed = {
+      provider: "GCS",
+      url: "https://storage.googleapis.com/bucket/acme/assets/a1?X-Goog-Signature=sig",
+      expiresAt: "2026-09-25T13:45:00Z",
+    };
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets/a1/download-url", ({ request }) => {
+        seen.push({
+          auth: request.headers.get("authorization"),
+          disposition: new URL(request.url).searchParams.get("disposition"),
+        });
+        return HttpResponse.json(signed);
+      }),
+    );
+    const s = svc();
+    expect(await s.getDownloadUrl("a1")).toEqual(signed);
+    await s.getDownloadUrl("a1", { disposition: "inline" });
+    expect(seen).toEqual([
+      { auth: "Bearer svc-tok", disposition: null },
+      { auth: "Bearer svc-tok", disposition: "inline" },
+    ]);
+  });
+
+  it("getDownloadUrl encodes the asset id", async () => {
+    let seen = "";
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets/:assetId/download-url", ({ request }) => {
+        seen = new URL(request.url).pathname;
+        return HttpResponse.json({ provider: "LINK", url: "https://example.com/guide.pdf" });
+      }),
+    );
+    await svc().getDownloadUrl("a/b c");
+    expect(seen).toBe("/media/acme/assets/a%2Fb%20c/download-url");
+  });
+
+  it("startUploadSession POSTs the JSON body to /upload-session and returns the storage instruction", async () => {
+    let seenAuth: string | null = null;
+    let seenBody: unknown = null;
+    const session = {
+      id: "68d67e9a3f7c2b1e4a8d6501",
+      provider: "GCS",
+      status: "PENDING",
+      expiresAt: "2026-09-25T14:15:00Z",
+      upload: {
+        method: "PUT",
+        url: "https://storage.googleapis.com/bucket/acme/assets/68d67e9a3f7c2b1e4a8d6501?X-Goog-Signature=sig",
+        headers: { "Content-Type": "application/pdf", "x-goog-meta-emporix-upload": "session" },
+      },
+    };
+    server.use(
+      http.post("https://api.emporix.io/media/acme/assets/upload-session", async ({ request }) => {
+        seenAuth = request.headers.get("authorization");
+        seenBody = await request.json();
+        return HttpResponse.json(session, { status: 201 });
+      }),
+    );
+    const input = {
+      type: "BLOB" as const,
+      access: "PRIVATE" as const,
+      uploadType: "put" as const,
+      details: { filename: "installation-guide.pdf", mimeType: "application/pdf" },
+    };
+    expect(await svc().startUploadSession(input)).toEqual(session);
+    expect(seenAuth).toBe("Bearer svc-tok");
+    expect(seenBody).toEqual(input);
+  });
+
+  it("startUploadSession keeps the disabled-feature 403 apart from a missing scope", async () => {
+    const { EmporixForbiddenError, EmporixInsufficientScopeError } = await import("../../src/core/errors");
+    const message = "direct upload is not enabled for this tenant";
+    server.use(
+      http.post("https://api.emporix.io/media/acme/assets/upload-session", () =>
+        HttpResponse.json({ code: 403, status: "Forbidden", message }, { status: 403 }),
+      ),
+    );
+    const err: unknown = await svc()
+      .startUploadSession({ type: "BLOB", access: "PUBLIC" })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(EmporixForbiddenError);
+    expect(err).not.toBeInstanceOf(EmporixInsufficientScopeError);
+    expect((err as { body: { message: string } }).body.message).toBe(message);
+  });
+});
+
 describe("MediaService — absolute totals", () => {
   it("asks for X-Total-Count only on request and reports the exact total", async () => {
     let asked: string | null = null;

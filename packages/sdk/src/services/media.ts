@@ -7,9 +7,13 @@ import type {
   AssetCreateLink,
   AssetUpdateBlob,
   AssetUpdateLink,
+  DownloadUrl,
   GetAsset,
+  GetMediaRetrieveDownloadUrlData,
   PatchOperation,
   RefId,
+  UploadSession,
+  UploadSessionRequest,
 } from "../generated/media";
 
 /** Generated media types (caller sends the exact wire shape). */
@@ -22,6 +26,14 @@ export type Asset = GetAsset;
 export type AssetRefId = RefId;
 /** Partial-update body (`PATCH /assets/{id}`) — an RFC-6902 JSON-Patch op-array. */
 export type AssetPatch = PatchOperation[];
+/** Result of {@link MediaService.getDownloadUrl} — `{ provider, url, expiresAt? }`. */
+export type AssetDownloadUrl = DownloadUrl;
+/** Query for {@link MediaService.getDownloadUrl} — `{ disposition? }`. */
+export type AssetDownloadUrlQuery = NonNullable<GetMediaRetrieveDownloadUrlData["query"]>;
+/** Body for {@link MediaService.startUploadSession}: a BLOB create payload plus `uploadType`. */
+export type AssetUploadSessionInput = UploadSessionRequest;
+/** The storage instruction {@link MediaService.startUploadSession} returns. */
+export type AssetUploadSession = UploadSession;
 
 /**
  * Filter / pagination options for {@link MediaService.list}. The explicit
@@ -50,8 +62,9 @@ export interface ListAssetsQuery {
  *   carries the externally-cacheable storage URL — useful when the
  *   storefront wants to send the user there directly.
  * - `PRIVATE` assets respond with the raw bytes (plus an `ETag` header
- *   for caching). The asset is delivered through Cloudinary behind the
- *   server-side service token, never publicly addressable.
+ *   for caching). The file lives in Google Cloud Storage and is reachable
+ *   without the service token only through a signed URL from
+ *   {@link MediaService.getDownloadUrl}.
  */
 export type DownloadResult =
   | { kind: "redirect"; url: string }
@@ -80,7 +93,10 @@ export class MediaService {
     return `/media/${this.ctx.tenant}/assets`;
   }
 
-  /** Create an asset. BLOB uploads via multipart; LINK via JSON. */
+  /**
+   * Create an asset. BLOB uploads via multipart (max 30 MB); LINK via JSON.
+   * {@link startUploadSession} sends the file straight to storage instead.
+   */
   async create(
     input:
       | { kind: "blob"; file: Blob; body: AssetCreateBlobInput }
@@ -152,7 +168,7 @@ export class MediaService {
    *   Sends `application/json`. Used for `refIds`, `details`, `metadata`,
    *   or `url` changes.
    * - `{ kind: "blob", file, body }` — replaces the BLOB file content
-   *   (max 10MB) AND patches metadata in the same request. Sends
+   *   (max 30 MB) AND patches metadata in the same request. Sends
    *   `multipart/form-data`.
    *
    * `type` and `access` are immutable per Emporix — they must match the
@@ -235,6 +251,12 @@ export class MediaService {
    *   an `ArrayBuffer` transparently; binary Content-Types are passed
    *   through verbatim.
    *
+   * Emporix recommends {@link getDownloadUrl} for every download: here the file
+   * passes through the Media API. A `413` means the asset's known size exceeds
+   * the streaming limit (30 MB by default) — only {@link getDownloadUrl} can
+   * serve it. A `409` means the asset is still `PENDING` from a direct upload
+   * whose file has not reached storage.
+   *
    * Implementation note: uses `redirect: "manual"` so the redirect-location
    * is observable. In Node.js this works; in a browser the redirect Location
    * is intentionally hidden by fetch — there, `PUBLIC` downloads will
@@ -301,6 +323,70 @@ export class MediaService {
       }
     }
     throw errorFromResponse(res.status, `GET ${path} → ${res.status}`, parsed);
+  }
+
+  /**
+   * Get a URL that serves the stored file straight from storage
+   * (`GET /assets/{assetId}/download-url`). Emporix recommends it for every
+   * download: the file never passes through the Media API, there is no size
+   * limit, and the URL can be handed to a browser as it is.
+   *
+   * - `PRIVATE` BLOB → `provider: "GCS"`, a signed Google Cloud Storage URL that
+   *   works without an Emporix token until `expiresAt` (15 minutes by default).
+   * - `PUBLIC` BLOB → `provider: "CLOUDINARY"`, the permanent URL.
+   * - `LINK` → `provider: "LINK"`, the stored URL.
+   *
+   * `disposition` (`attachment` by default, or `inline`) affects private URLs
+   * only. Unlike {@link startUploadSession}, this works whether or not direct
+   * upload is enabled for the tenant. A `409` means a direct upload is still
+   * `PENDING` and its file has not reached storage; once it has, this call
+   * completes the asset before answering.
+   */
+  async getDownloadUrl(
+    assetId: string,
+    query: AssetDownloadUrlQuery = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<AssetDownloadUrl> {
+    return this.ctx.http.request<AssetDownloadUrl>({
+      method: "GET",
+      path: `${this.base()}/${encodeURIComponent(assetId)}/download-url`,
+      auth,
+      query: { ...query },
+    });
+  }
+
+  /**
+   * Start a direct upload of a `BLOB` asset (`POST /assets/upload-session`,
+   * `201`). Emporix creates the asset as `PENDING` — `id` is its id — and
+   * returns where to send the file. **This method does not send it**:
+   *
+   * - `upload.method === "PUT"` (a `PRIVATE` asset, `uploadType: "put"` or
+   *   omitted): `PUT` the file to `upload.url` with every `upload.headers` entry.
+   * - `upload.method === "POST"` (every `PUBLIC` asset, or `uploadType: "form"`):
+   *   a multipart `POST` to `upload.url` with every `upload.fields` entry
+   *   unchanged and the file part last.
+   *
+   * That request goes to Google Cloud Storage or Cloudinary, not to Emporix, so
+   * it must not carry the Emporix token — which is also why a browser can make
+   * it. The asset turns `READY` once storage confirms; until then, calls that
+   * need the file answer `409`. The instruction is valid for 15 minutes (GCS) or
+   * an hour (Cloudinary), and an unused session expires at `expiresAt`.
+   *
+   * Direct upload is enabled per tenant by Emporix Support. Without it the call
+   * throws an `EmporixForbiddenError` whose `body.message` is `direct upload is
+   * not enabled for this tenant`, and nothing is created — the same status as a
+   * missing scope, so read the message.
+   */
+  async startUploadSession(
+    input: AssetUploadSessionInput,
+    auth: AuthContext = SERVICE,
+  ): Promise<AssetUploadSession> {
+    return this.ctx.http.request<AssetUploadSession>({
+      method: "POST",
+      path: `${this.base()}/upload-session`,
+      auth,
+      body: input,
+    });
   }
 
   /** Multipart upload sugar: builds `AssetCreateBlob` from input. */
