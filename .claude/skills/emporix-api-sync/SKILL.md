@@ -135,8 +135,9 @@ decoration:
 missing list.** A facade path nothing in the specs claims means either the
 parser lost a path (so a "missing" entry is a false alarm) or the endpoint
 disappeared upstream. Live example: the facade issues `PUT /customer/{}/me`
-while the spec declares `PATCH` — printed on both lists, and a real finding
-rather than a gap to fill.
+while the spec declares `PATCH` — printed on both lists. It took a live probe to
+explain it (see the table below); an explanation is what each line needs, not a
+facade method written to make the line go away.
 
 **`parse health`** — `unresolved path expressions` must be 0. Each one is a
 request whose path the parser could not reconstruct, so it is a facade method
@@ -161,10 +162,11 @@ Leave these alone; each is documented where it lives.
 | `customer` | `GET /customerlogin/auth/anonymous/{login,refresh}` | same — implemented in `core/auth.ts`, which this script does not scan |
 | `session-context` | the four `/{sessionId}/context…` operations | admin surface over *another* user's session; the JSDoc on `SessionContextService` explains the refusal |
 | `iam` | `GET /iam/{tenant}/templates` | legacy-RBAC model, intentionally not wrapped |
+| `customer` | `PATCH /customer/{tenant}/me`, `PATCH …/me/addresses/{addressId}` | the facade sends `PUT` to both, so they also show under "facade paths no spec declares". Probed live on 2026-07-24: the API accepts `PUT` and `PATCH` alike — explained, not a gap |
 
-Everything else is work. Measured on `main` at `257ab08` (2026-09-10), five
-operations were uncovered and **unexplained** — not deliberate, just never
-built: `iam DELETE /users/{userId}/groups`, `iam GET /users/vendors/{vendorId}`,
+Everything else is work. Measured on `main` at `257ab08` (2026-09-10) and again
+at `17ff570` (2026-09-29), the same five operations were uncovered and
+**unexplained** — not deliberate, just never built: `iam DELETE /users/{userId}/groups`, `iam GET /users/vendors/{vendorId}`,
 `order-v2 HEAD /salesorders`, `order-v2 GET /orders/{orderId}/transitions`,
 `shopping-list GET /shopping-lists/{customerId}`. Re-measure rather than trust
 that list; if the sync you are doing touches one of those specs, say whether you
@@ -181,8 +183,14 @@ filled it instead of letting it pass as normal.
 - **New behaviour on an existing path.** A new `502`, a validation that now runs
   before a write, a field that turns out to be immutable. This is usually the
   more valuable half of the PR and it shows up as zero missing endpoints.
+- **Parameters the facade never sends.** A covered path can still drop what the
+  spec reads from the query string: nineteen `POST …/search` methods sent paging
+  and sort in the body, where Emporix ignores them, so each returned page one
+  forever (#350, #352). For every new or changed operation, compare its
+  `in: query` parameters with the facade's request object.
 
-Both belong in the PR body and in `docs/emporix-upstream-changelog.md`.
+The first two belong in the PR body and in `docs/emporix-upstream-changelog.md`;
+the third is a facade fix of its own.
 
 ## 5. Implement the gaps
 

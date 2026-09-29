@@ -71,7 +71,7 @@ not a precedent — the shared style is English.
 2. Author a changeset (`pnpm changeset`) describing the user-visible effect — that file goes in `.changeset/`.
 3. Open a PR against `main`. Pre-commit runs typecheck + lint; CI (`changeset-check.yml`) verifies the changeset.
 4. Merge to `main` → `changesets/action` (in `.github/workflows/release.yml`) opens a release PR that bumps versions + updates CHANGELOGs.
-5. Merging that release PR triggers the actual `npm publish` (requires `NPM_TOKEN` repo secret).
+5. Merging that release PR triggers the actual `npm publish`, authenticated through npm Trusted Publishing (OIDC) — there is no `NPM_TOKEN`. The release PR itself is opened with a GitHub App token so its pushes trigger the required checks. Details: `docs/publishing.md`.
 6. `@viu/emporix-examples-*` are listed under `.changeset/config.json` `ignore` — they are not versioned or published.
 
 ## Test architecture

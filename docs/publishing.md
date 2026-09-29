@@ -1,6 +1,6 @@
 # Publishing to npm
 
-This repo publishes `@viu/emporix-sdk` and `@viu/emporix-sdk-react` to the npm registry on every merge of a release PR cut by `changesets/action`. Everything else (`examples/*`, `e2e/`) is private and never published.
+This repo publishes the packages under `packages/*` — `@viu/emporix-sdk`, `@viu/emporix-sdk-react`, `@viu/emporix-sdk-angular`, `@viu/emporix-sdk-next` and `@viu/emporix-mixins` — to the npm registry on every merge of a release PR cut by `changesets/action`. Everything else (`examples/*`, `e2e/`) is private and never published.
 
 ## One-time setup (operator)
 
@@ -25,34 +25,19 @@ npm team add viu:developers <release-user>
 
 All packages under `@viu/...` inherit the scope's billing + access settings.
 
-### 2. Provision the `NPM_TOKEN` GitHub secret
+### 2. Trust the release workflow on npm
 
-The release workflow needs a token with publish rights to the `@viu` scope.
+The workflow authenticates to npm through **Trusted Publishing** (OIDC), not a stored token — it has not used an `NPM_TOKEN` secret since `b2d8ec2` (2026-05-27). The job's `id-token: write` permission is what lets it do that.
 
-**Option A — Granular Access Token (recommended for CI):**
+Each published package needs a trusted publisher on npmjs.org: the package's Settings → Trusted Publisher → GitHub Actions, repository `viuteam/emporix-sdk`, workflow `release.yml`. Adding a package to `packages/*` therefore also means configuring it there; without the entry the workflow cannot publish it. Renaming `release.yml` breaks every entry at once.
 
-1. Log into npmjs.org with the release identity.
-2. Settings → Access Tokens → Generate New Token → "Granular Access Token".
-3. Scope: read + write on `@viu/*`. Expiration: 1 year (set a calendar reminder to rotate).
-4. Copy the token.
-5. In GitHub: Repo → Settings → Secrets and variables → Actions → New repository secret.
-6. Name: `NPM_TOKEN`. Value: the token. Save.
+### 3. The release PR's GitHub App
 
-**Option B — Trusted Publishers (OIDC, no token storage; only if your scope opted in):**
+`changesets/action` opens the release PR with a short-lived GitHub App token (secrets `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY`), not `GITHUB_TOKEN`: events from `GITHUB_TOKEN` never trigger other workflows, which left the required checks on the release PR stuck on "Expected".
 
-Configure the npm scope to trust the GitHub repo's `release.yml` workflow via npm's Trusted Publishers UI. Then drop `NPM_TOKEN` from the workflow entirely; `id-token: write` (already set) is enough.
+### 4. Provenance
 
-Today the workflow uses Option A — `NPM_TOKEN` from `secrets`. Switch to Option B later if your account supports it.
-
-### 3. Verify provenance prerequisites
-
-Provenance is already enabled in this repo:
-
-- `NPM_CONFIG_PROVENANCE: "true"` in `release.yml`.
-- `id-token: write` permission in the job.
-- `publishConfig.provenance: true` in each package.
-
-For provenance to work, the publishing identity must have 2FA enabled on npmjs.org (`Settings → Account` → Two-Factor Authentication). 2FA-on-write is mandatory by npm policy for new packages since Sep 2023.
+Provenance needs the same `id-token: write` permission. `@viu/emporix-sdk`, `-react`, `-angular` and `-next` also set `publishConfig.provenance: true`; `@viu/emporix-mixins` does not.
 
 ## What the automated pipeline does
 
@@ -65,23 +50,21 @@ For provenance to work, the publishing identity must have 2FA enabled on npmjs.o
 
 You don't need to run anything manually after the initial setup.
 
-## First release checklist
+## Checklist for a new package
 
-Before merging the first release PR, confirm:
+Before the release PR that first publishes a new package is merged, confirm:
 
-- [ ] `NPM_TOKEN` secret is set in GitHub repo settings.
-- [ ] `@viu` scope exists on npmjs.org and the release user has publish rights.
-- [ ] Both packages have `version: 0.0.0` (or whatever pre-release version) on `main`. The release PR will bump these.
+- [ ] The package has a trusted publisher for `viuteam/emporix-sdk` / `release.yml` on npmjs.org.
 - [ ] No unintended changes in the release PR — only `version` and `CHANGELOG.md` should differ.
-- [ ] The release-PR's CI run is green (typecheck + tests + e2e if enabled).
+- [ ] The release PR's CI run is green (typecheck + tests + e2e if enabled).
 
 Then merge.
 
 ## Troubleshooting
 
-- **`E401 Unauthorized` from npm publish** — token missing, expired, or lacks scope write. Re-check the `NPM_TOKEN` secret value and its npm scope permissions.
-- **`E403 Forbidden — you do not have permission to publish '@viu/...'`** — the publishing identity is not a member of the `@viu:developers` team, or the scope billing settings disallow public packages.
-- **`provenance not enabled`** — usually a workflow permissions issue (`id-token: write` missing) or 2FA not enabled on the npm account.
+- **An auth error from npm publish** (`E401`, `E403` or `E404`) — usually the trusted publisher: missing for that package, or naming a different repository or workflow file than `release.yml`.
+- **`E403 Forbidden — you do not have permission to publish '@viu/...'`** can also mean the scope's settings disallow public packages.
+- **`provenance not enabled`** — usually the `id-token: write` permission missing from the job.
 - **`No new changesets found`** — the action ran but had nothing to release; this is the expected state of the post-release-merge run.
 
 ## Re-running after a failed publish

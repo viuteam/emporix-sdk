@@ -43,7 +43,8 @@
       "sharp": "^0.35.0",
       "@babel/core": "^7.29.6",
       "@remix-run/router": "^1.23.3",
-      "jiti": "2.6.1"
+      "jiti": "2.6.1",
+      "ip-address": "^10.5.1"
     },
     "packageExtensionsComment": "next's bundled styled-jsx type definitions (next/dist/styled-jsx/types/*.d.ts) import \"react\" without next declaring @types/react. pnpm then resolves that from the single hoisted copy in .pnpm/node_modules, whichever major happens to win. That was harmless while the workspace held only React 19 types; examples/md-module now pins @types/react 18 (it must match the Management Dashboard's React 18 host), and the hoisted copy flipped to 18 \u2014 poisoning the global JSX namespace for every Next example with \"'children' is missing in ReactElement but required in ReactPortal\". Declaring the dependency makes next's resolution deterministic instead of dependent on what else is installed.",
     "packageExtensions": {
