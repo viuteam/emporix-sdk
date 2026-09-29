@@ -5,6 +5,44 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-09-28 — media: direct storage uploads and downloads
+
+Vendored by the bot's [#347](https://github.com/viuteam/emporix-sdk/pull/347)
+(types only, released in 4.0.1); the facade followed separately. Measured by
+path literal (`coverage.mjs --spec media`): 7 → **9** live operations. **2 new
+endpoints, 0 removed, 0 newly deprecated.** The facade covers all nine.
+
+### Endpoints
+
+- **media** — `POST /media/{tenant}/assets/upload-session`
+  (`media.asset_manage` or `…_manage_by_vendor`) → `client.media.startUploadSession`:
+  creates a `PENDING` BLOB asset and returns the storage request to send the file
+  with — a signed Google Cloud Storage `PUT` or `POST` policy, or a Cloudinary
+  form. `GET /media/{tenant}/assets/{assetId}/download-url` (`media.asset_read`,
+  `…_read_by_vendor` or `…_manage_by_vendor`) → `client.media.getDownloadUrl`:
+  a signed GCS URL for a private blob (15 minutes), the permanent Cloudinary URL
+  for a public one, the stored URL for a link.
+
+### Fields
+
+| Where | Field | Note |
+|---|---|---|
+| asset | `status` (`PENDING` / `READY`) | only on BLOBs created through an upload session; absent means ready |
+| OAuth scopes | `media.asset_read_by_vendor`, `media.asset_manage_by_vendor` | now declared in the spec |
+
+### Behaviour
+
+- **Direct upload is opt-in per tenant**, through Emporix Support. Without it the
+  upload session answers `403` «direct upload is not enabled for this tenant» and
+  creates nothing. The download URL does not depend on that setting.
+- **The classic create and update accept 30 MB** instead of 10 MB.
+- **The classic download** now documents `409` (asset still `PENDING`, file not
+  in storage) and `413` (known size above the streaming limit, 30 MB by default),
+  and Emporix recommends the download URL for every download. The `413` example
+  message still says «10 megabytes».
+- A `PENDING` asset whose file has arrived is completed by the download URL call
+  or by retrieving the asset; `media.asset-created` fires only then.
+
 ## 2026-09-14 … 2026-09-25 — segment IAM groups, import run diagnostics, AI attachment reuse
 
 Vendored by a manual sync once the pick-pack removal (below) unblocked
