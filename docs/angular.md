@@ -407,10 +407,11 @@ exactly what the shipped injectables do.
 Each is a decision with a reason, not a porting gap.
 
 1. **Customer-scoped reads gate; they do not throw.** React's `useShoppingLists`,
-   `useMySegments`, `useApprovals`, `useMyReturns` and the reward-point reads call
+   `useApprovals`, `useMyReturns` and the reward-point reads call
    `useCustomerOnlyCtx()` in the hook body, which **throws during render** with no
    token. Here they are `mode: "customer"`, so a logged-out storefront renders
-   empty and issues no request.
+   empty and issues no request. (React's `useMySegments` already gates on the
+   token.)
 2. **Session attributes are written with the live context, not forced anonymous.**
    The endpoint is `/session-context/{tenant}/me/context/attributes`, so `me` is
    whoever the bearer is. React forces `auth.anonymous()` in
