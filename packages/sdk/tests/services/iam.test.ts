@@ -206,3 +206,20 @@ describe("IamService.users.getGroup", () => {
     );
   });
 });
+
+describe("iam.users vendor users and group removal", () => {
+  it("listForVendor GETs /users/vendors/{vendorId}; removeFromAllGroups DELETEs /users/{userId}/groups", async () => {
+    const req = vi.fn().mockResolvedValue([{ id: "u1" }]);
+    const iam = new IamService(ctxWith(req));
+    expect((await iam.users.listForVendor("v/1", AUTH))[0]?.id).toBe("u1");
+    await iam.users.removeFromAllGroups("u 1", AUTH);
+    expect(req).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ method: "GET", path: "/iam/acme/users/vendors/v%2F1", auth: AUTH }),
+    );
+    expect(req).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ method: "DELETE", path: "/iam/acme/users/u%201/groups", auth: AUTH }),
+    );
+  });
+});

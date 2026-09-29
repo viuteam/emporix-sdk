@@ -10,6 +10,7 @@ import {
   type EmporixStorage,
   type Order,
   type PaginatedItems,
+  type Transition,
 } from "@viu/emporix-sdk";
 
 import { EMPORIX_STORAGE } from "../tokens";
@@ -126,6 +127,29 @@ export function injectOrder(
   );
 }
 
+/**
+ * The status transitions the customer may trigger on one of their orders — for
+ * example whether it can still be cancelled. Customer-gated; the order writes
+ * below refresh it.
+ */
+export function injectOrderTransitions(
+  orderId: Signal<string>,
+  opts: OrderOpts = {},
+): CreateQueryResult<Transition[]> {
+  const { client } = injectEmporix();
+  return injectEmporixQuery<Transition[], readonly [string]>(
+    () => ({
+      resource: "order-transitions",
+      args: [orderId()] as const,
+      site: "none",
+      mode: "customer",
+      enabled: (opts.enabled ?? true) && orderId() !== "",
+      queryFn: (ctx) => client.orders.listTransitions(orderId(), ctx),
+    }),
+    pass(opts),
+  );
+}
+
 /** One sales order by id. Customer-scoped. */
 export function injectSalesOrder(
   orderId: Signal<string>,
@@ -196,6 +220,7 @@ export function injectOrderMutations(): EmporixOrderMutations {
     ["emporix", "my-orders"],
     ["emporix", "my-orders-infinite"],
     ["emporix", "order"],
+    ["emporix", "order-transitions"],
     ["emporix", "sales-order"],
     ["emporix", "cart"],
     ["emporix", "cart-items"],

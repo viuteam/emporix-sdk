@@ -163,14 +163,15 @@ Leave these alone; each is documented where it lives.
 | `session-context` | the four `/{sessionId}/context…` operations | admin surface over *another* user's session; the JSDoc on `SessionContextService` explains the refusal |
 | `iam` | `GET /iam/{tenant}/templates` | legacy-RBAC model, intentionally not wrapped |
 | `customer` | `PATCH /customer/{tenant}/me`, `PATCH …/me/addresses/{addressId}` | the facade sends `PUT` to both, so they also show under "facade paths no spec declares". Probed live on 2026-07-24: the API accepts `PUT` and `PATCH` alike — explained, not a gap |
+| `order-v2` | `HEAD /order-v2/{tenant}/salesorders` | answers only an `X-Total-Count` header; `salesOrders.list(auth, { totalCount: true, pageSize: 1 })` returns the same number, and `HttpClient` has no `HEAD` |
 
-Everything else is work. Measured on `main` at `257ab08` (2026-09-10) and again
-at `17ff570` (2026-09-29), the same five operations were uncovered and
-**unexplained** — not deliberate, just never built: `iam DELETE /users/{userId}/groups`, `iam GET /users/vendors/{vendorId}`,
-`order-v2 HEAD /salesorders`, `order-v2 GET /orders/{orderId}/transitions`,
-`shopping-list GET /shopping-lists/{customerId}`. Re-measure rather than trust
-that list; if the sync you are doing touches one of those specs, say whether you
-filled it instead of letting it pass as normal.
+Everything else is work. From 2026-09-10 to 2026-09-29, five operations sat
+uncovered and **unexplained** — not deliberate, just never built. Four were built
+on 2026-09-29 (`orders.listTransitions`, `iam.users.listForVendor`,
+`iam.users.removeFromAllGroups`, `shoppingLists.getForCustomer`); the fifth is
+the `HEAD` row above. So the uncovered list should now hold only this table.
+Re-measure rather than trust that: anything else on it is a gap to fill or a
+decision to add here.
 
 ## 4. Read the changelog for what the script cannot see
 

@@ -12,8 +12,8 @@ shared builder like every other read (`["emporix", "segments", …]`). Closing t
 gap means fixing the React side; hand-rolling keys here would also drop them out
 of the `["emporix"]`-scoped defaults and invalidation.
 
-**Status: at parity with the React bindings.** 86 injectables covering 109 of
-React's 111 hooks — the primitives, the site context, the customer session, the
+**Status: at parity with the React bindings.** 87 injectables covering 110 of
+React's 112 hooks — the primitives, the site context, the customer session, the
 account-credential operations, every storefront read, eleven mutation bundles and
 the B2B company context. The two that are missing and the four deliberate
 deviations are named in
@@ -204,7 +204,7 @@ read inside the options callback, so changing one re-keys and refetches.
 | Cart (6) | `injectCart`, `injectCartItems`, `injectCartValidation`, `injectActiveCart`, `injectCreateCart`, `injectCartMutations` |
 | Checkout (5) | `injectPaymentModes`, `injectPaymentMode`, `injectShippingZones`, `injectCheckout`, `injectInitializePayment` |
 | Customer (5) | `injectCustomerAddresses`, `injectCustomerAddress`, `injectUpdateCustomer`, `injectAddressMutations`, `injectPasswordReset` |
-| Orders (5) | `injectMyOrders`, `injectMyOrdersInfinite`, `injectOrder`, `injectSalesOrder`, `injectOrderMutations` |
+| Orders (6) | `injectMyOrders`, `injectMyOrdersInfinite`, `injectOrder`, `injectOrderTransitions`, `injectSalesOrder`, `injectOrderMutations` |
 | Prices (4) | `injectMatchPrices`, `injectMatchPricesChunked`, `injectAvailability`, `injectAvailabilities` |
 | Site (3) | `injectSites`, `injectActiveSite`, `injectDefaultSite` |
 | Shopping lists (2) | `injectShoppingLists`, `injectShoppingListMutations` |
@@ -362,14 +362,14 @@ invalidation model. Hydration is the problem this entry addresses.
 
 ## Coverage against the React bindings
 
-`@viu/emporix-sdk-react` exports **111 hooks** (107 from `./hooks`, four more from
-its root). **109 of them have an equivalent here.** The counts below come from the
+`@viu/emporix-sdk-react` exports **112 hooks** (108 from `./hooks`, four more from
+its root). **110 of them have an equivalent here.** The counts below come from the
 built `.d.ts` of both packages, not from prose:
 
 | | Count |
 |---|---|
-| Angular `inject*` functions | 86 |
-| React hooks with a same-named injectable | 70 |
+| Angular `inject*` functions | 87 |
+| React hooks with a same-named injectable | 71 |
 | React hooks covered under a different name or shape | 39 |
 | **React hooks with no equivalent** | **2** |
 
