@@ -13,7 +13,7 @@ import {
   type AuthContext,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
-import { useCustomerOnlyCtx, type QueryOpts } from "./internal/use-read-auth";
+import { useCustomerCtxResolver, type QueryOpts } from "./internal/use-read-auth";
 import { useCustomerToken } from "./internal/use-storage-snapshot";
 import { useEmporixQuery } from "./internal/use-emporix-query";
 import { useActiveCompany } from "../company-context";
@@ -39,7 +39,10 @@ export function useCustomerAddresses(options: QueryOpts = {}): UseQueryResult<Ad
   });
 }
 
-/** Address CRUD mutations. Each invalidates `customer.addresses` on success. */
+/**
+ * Address CRUD mutations. Each invalidates `customer.addresses` on success.
+ * Without a customer token they fail when run; rendering does not.
+ */
 export interface AddressMutationsApi {
   add: UseMutationResult<Address, unknown, AddressCreateInput>;
   update: UseMutationResult<Address, unknown, { id: string; patch: AddressUpdateInput }>;
@@ -48,29 +51,27 @@ export interface AddressMutationsApi {
 
 export function useAddressMutations(): AddressMutationsApi {
   const { client } = useEmporix();
-  const ctx = useCustomerOnlyCtx();
+  const customerCtx = useCustomerCtxResolver();
   const qc = useQueryClient();
 
   const invalidate = (): void => {
     void qc.invalidateQueries({ queryKey: ADDRESSES_KEY });
   };
 
-   
   return {
     add: useMutation<Address, unknown, AddressCreateInput>({
-      mutationFn: (input) => client.customers.addresses.add(input, ctx),
+      mutationFn: (input) => client.customers.addresses.add(input, customerCtx()),
       onSuccess: invalidate,
     }),
     update: useMutation<Address, unknown, { id: string; patch: AddressUpdateInput }>({
-      mutationFn: ({ id, patch }) => client.customers.addresses.update(id, patch, ctx),
+      mutationFn: ({ id, patch }) => client.customers.addresses.update(id, patch, customerCtx()),
       onSuccess: invalidate,
     }),
     remove: useMutation<void, unknown, { id: string }>({
-      mutationFn: ({ id }) => client.customers.addresses.remove(id, ctx),
+      mutationFn: ({ id }) => client.customers.addresses.remove(id, customerCtx()),
       onSuccess: invalidate,
     }),
   };
-
 }
 
 /** Reads one of the logged-in customer's addresses. Disabled when no id/token. */
@@ -86,10 +87,10 @@ export function useCustomerAddress(id: string | undefined): UseQueryResult<Addre
 /** Adds tags to a customer address, then invalidates the addresses list. */
 export function useAddAddressTags(): UseMutationResult<void, unknown, { id: string; tags: string[] }> {
   const { client } = useEmporix();
-  const ctx = useCustomerOnlyCtx();
+  const customerCtx = useCustomerCtxResolver();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, tags }) => client.customers.addresses.addTags(id, tags, ctx),
+    mutationFn: ({ id, tags }) => client.customers.addresses.addTags(id, tags, customerCtx()),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ADDRESSES_KEY }),
   });
 }
@@ -97,10 +98,10 @@ export function useAddAddressTags(): UseMutationResult<void, unknown, { id: stri
 /** Removes tags from a customer address, then invalidates the addresses list. */
 export function useRemoveAddressTags(): UseMutationResult<void, unknown, { id: string; tags: string[] }> {
   const { client } = useEmporix();
-  const ctx = useCustomerOnlyCtx();
+  const customerCtx = useCustomerCtxResolver();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, tags }) => client.customers.addresses.removeTags(id, tags, ctx),
+    mutationFn: ({ id, tags }) => client.customers.addresses.removeTags(id, tags, customerCtx()),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ADDRESSES_KEY }),
   });
 }

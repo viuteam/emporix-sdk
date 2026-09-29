@@ -1,4 +1,5 @@
 import { auth, type AuthContext } from "@viu/emporix-sdk";
+import { useEmporix } from "../../provider";
 import { useCustomerToken } from "./use-storage-snapshot";
 
 /** Options accepted by every read hook to override the per-call auth context. */
@@ -20,14 +21,17 @@ export function useReadAuth(override?: AuthContext): { ctx: AuthContext } {
 }
 
 /**
- * Returns a customer `AuthContext` from the stored token. Throws if no token
- * exists in storage — use for hooks that are intentionally customer-only
- * (profile updates, password change, address management, payment modes).
+ * For customer-only mutations: returns a function that resolves the customer
+ * context when the mutation runs, reading the token from storage at that
+ * moment. Without a token the mutation fails with this error — the render
+ * that set it up does not, so a component guests also see can hold the hook.
+ * (Customer-only reads gate instead: `useEmporixQuery` with `mode: "customer"`.)
  */
-export function useCustomerOnlyCtx(): AuthContext {
-  const token = useCustomerToken();
-  if (!token) {
-    throw new Error("Requires a logged-in customer (no token in storage)");
-  }
-  return auth.customer(token);
+export function useCustomerCtxResolver(): () => AuthContext {
+  const { storage } = useEmporix();
+  return () => {
+    const token = storage.getCustomerToken();
+    if (!token) throw new Error("Requires a logged-in customer (no token in storage)");
+    return auth.customer(token);
+  };
 }

@@ -72,4 +72,5 @@ const { code } = await redeem.mutateAsync({ redeemOptionId: "opt-1" });
 ```
 
 `useMyRewardPoints` / `useMyRewardPointsSummary` / `useRedeemRewardPoints`
-require a logged-in customer (they throw without a stored token).
+need a logged-in customer: without a stored token the two reads stay disabled and
+the redeem rejects when run. Rendering them for a guest does not throw.

@@ -89,8 +89,9 @@ await decide.mutateAsync({
 });
 ```
 
-The hooks require a logged-in customer (they throw without a stored token) and
-use the customer token. Mutations invalidate the approvals list.
+The hooks use the customer token. Without one the queries stay disabled and the
+mutations reject when run — rendering them for a guest does not throw. Mutations
+invalidate the approvals list.
 
 ## Measured behaviour that the spec does not describe
 

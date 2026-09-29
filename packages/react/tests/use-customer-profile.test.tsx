@@ -82,11 +82,12 @@ describe("useUpdateCustomer", () => {
     expect(qc.getQueryState(key)?.isInvalidated).toBe(true);
   });
 
-  it("throws when no customer token is stored", () => {
+  it("renders without a customer token; the mutation rejects instead", async () => {
     const storage = createMemoryStorage();
-    expect(() => renderHook(() => useUpdateCustomer(), { wrapper: wrap(storage) })).toThrow(
-      /logged-in customer/,
-    );
+    const { result } = renderHook(() => useUpdateCustomer(), { wrapper: wrap(storage) });
+    await act(async () => {
+      await expect(result.current.mutateAsync({} as never)).rejects.toThrow(/logged-in customer/);
+    });
   });
 });
 
@@ -114,10 +115,13 @@ describe("useChangePassword", () => {
     expect(result.current.isSuccess).toBe(true);
   });
 
-  it("throws when no customer token is stored", () => {
+  it("renders without a customer token; the mutation rejects instead", async () => {
     const storage = createMemoryStorage();
-    expect(() => renderHook(() => useChangePassword(), { wrapper: wrap(storage) })).toThrow(
-      /logged-in customer/,
-    );
+    const { result } = renderHook(() => useChangePassword(), { wrapper: wrap(storage) });
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ currentPassword: "old", newPassword: "new" }),
+      ).rejects.toThrow(/logged-in customer/);
+    });
   });
 });

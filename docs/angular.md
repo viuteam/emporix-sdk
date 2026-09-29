@@ -15,7 +15,7 @@ of the `["emporix"]`-scoped defaults and invalidation.
 **Status: at parity with the React bindings.** 87 injectables covering 110 of
 React's 112 hooks — the primitives, the site context, the customer session, the
 account-credential operations, every storefront read, eleven mutation bundles and
-the B2B company context. The two that are missing and the four deliberate
+the B2B company context. The two that are missing and the three deliberate
 deviations are named in
 [Coverage against the React bindings](#coverage-against-the-react-bindings), so
 the gap is a list rather than something you discover by failing to import.
@@ -402,30 +402,26 @@ If you need something that is not here, call the SDK directly through
 `injectEmporix().client` and wrap it in `injectEmporixQuery` yourself — that is
 exactly what the shipped injectables do.
 
-### Four places this deviates from React on purpose
+### Three places this deviates from React on purpose
 
 Each is a decision with a reason, not a porting gap.
 
-1. **Customer-scoped reads gate; they do not throw.** React's `useShoppingLists`,
-   `useApprovals`, `useMyReturns` and the reward-point reads call
-   `useCustomerOnlyCtx()` in the hook body, which **throws during render** with no
-   token. Here they are `mode: "customer"`, so a logged-out storefront renders
-   empty and issues no request. (React's `useMySegments` already gates on the
-   token.)
-2. **Session attributes are written with the live context, not forced anonymous.**
+1. **Session attributes are written with the live context, not forced anonymous.**
    The endpoint is `/session-context/{tenant}/me/context/attributes`, so `me` is
    whoever the bearer is. React forces `auth.anonymous()` in
    `useAddSessionAttribute` while its own site context passes the live context to
    `sessionContext.patch` — the two can land on different sessions.
-3. **The company switch is a queue, not a race.** Two concurrent switches both
+2. **The company switch is a queue, not a race.** Two concurrent switches both
    read the refresh token, and Emporix rotates it server-side, so the second would
    spend one the first consumed. `injectEmporixSiteSwitch` can use a race guard
    because it rotates nothing; this cannot.
-4. **The five company reads key under their own resources.** React keys four of
+3. **The five company reads key under their own resources.** React keys four of
    them under one `"companies"` key, so adding a location refetches every company
    panel on the page — and Emporix bills per request.
 
-Two of those (1 and 2) are defects on the React side worth their own fix.
+The first is a defect on the React side worth its own fix. A fourth deviation is
+gone: React's customer-only hooks used to throw during render without a token,
+and now behave like these — reads stay disabled, writes reject when run.
 
 ## Why there is no `ng-packagr`
 
