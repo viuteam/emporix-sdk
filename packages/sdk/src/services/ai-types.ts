@@ -64,8 +64,8 @@ export type AgentInput = GenAgentInput;
  * (`ADD | REMOVE | REPLACE`) — NOT RFC-6902 lowercase. Passed verbatim.
  */
 export type AgentPatchOp = GenPatchRequest[number];
-/** Request body for `POST /agentic/agents/search` (`{ q? }`). */
-export type AgentSearchQuery = GenAgentSearchQuery;
+/** Input for `POST /agentic/agents/search`: the body (`{ q? }`) plus {@link SearchPaging}. */
+export type AgentSearchQuery = GenAgentSearchQuery & SearchPaging;
 
 /** Request body for `chat` / `chatAsync` — `{ agentId, message }`. */
 export type ChatRequest = GenChatRequest;
@@ -107,8 +107,8 @@ export type ChatStreamOptions = ChatOptions;
 
 /** A stored agentic conversation (Teams-backed). */
 export type Conversation = GenConversation;
-/** Request body for `searchConversations` (`{ q? }`) — same shape as agent search. */
-export type ConversationSearchQuery = GenConversationSearchQuery;
+/** Input for `searchConversations` — same shape as {@link AgentSearchQuery}. */
+export type ConversationSearchQuery = GenConversationSearchQuery & SearchPaging;
 
 // --- Agentic building blocks (CRUD sub-resources) --------------------------
 
@@ -146,8 +146,22 @@ export interface MutateOptions {
   force?: boolean;
 }
 
-/** Body for any agentic `/search` endpoint. */
-export interface SearchQuery {
+/**
+ * Paging, sort and field selection for any AI `/search` endpoint. Emporix reads
+ * them from the query string, not the body, so the SDK sends them there.
+ * Without them a search returns only the server's first page.
+ */
+export interface SearchPaging {
+  pageNumber?: number;
+  pageSize?: number;
+  /** Properties to sort by, e.g. `"_id:DESC"`. */
+  sort?: string;
+  /** Comma-separated fields to return. */
+  fields?: string;
+}
+
+/** Input for any agentic `/search` endpoint: `q` goes in the body, {@link SearchPaging} in the query string. */
+export interface SearchQuery extends SearchPaging {
   q?: string;
 }
 

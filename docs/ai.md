@@ -206,6 +206,27 @@ work exactly like the `chatStream` example above; the chat body has no
 > `session-id` header. The SDK followed: `reuseAttachment` now resolves to the
 > attachment instead of `undefined`, and `sessionId` is optional.
 
+## Searching and paging
+
+Every search — `searchAgents`, `searchConversations`, `search` on `tools`,
+`mcpServers`, `tokens`, `oauths`, `templates` and `jobs`, and
+`logs.searchRequests` / `logs.searchSessions` — takes `pageNumber`, `pageSize`,
+`sort` and `fields` next to `q`. Emporix reads them from the query string, so
+the SDK sends them there and puts only `q` in the body. Without them a search
+returns only the server's first page.
+
+```ts
+const page2 = await client.ai.logs.searchRequests({
+  q: "severity:ERROR",
+  pageNumber: 2,
+  pageSize: 100,
+  sort: "_id:DESC",
+});
+```
+
+The `list` methods take the same keys. `listAgents()` and `listConversations()`
+take none; to page agents or conversations, use their search — `q` is optional.
+
 ## Log and job fields that arrived with the spec
 
 - Agent request and session logs carry `promptTokens` and `completionTokens`
@@ -215,7 +236,8 @@ work exactly like the `chatStream` example above; the chat body has no
   `X-Next-Cursor` / `X-Prev-Cursor` response headers) to the log and job
   listings. **Not reachable through this SDK yet:** `logs.*` and `jobs.*` return
   plain arrays, so the cursor headers are dropped. Page with `pageNumber` /
-  `pageSize`, which upstream still supports.
+  `pageSize`, which upstream still supports — on the searches too, see
+  [Searching and paging](#searching-and-paging).
 
 ## Overriding the token
 
