@@ -79,12 +79,30 @@ export class IamService {
         auth,
       });
     },
+    /**
+     * Lists one vendor's Management Dashboard users, with their groups
+     * (`GET /users/vendors/{vendorId}`).
+     */
+    listForVendor: async (vendorId: string, auth: AuthContext): Promise<IamUser[]> =>
+      this.ctx.http.request<IamUser[]>({
+        method: "GET",
+        path: `${this.base()}/users/vendors/${encodeURIComponent(vendorId)}`,
+        auth,
+      }),
     getGroups: async (userId: string, auth: AuthContext): Promise<IamGroup[]> =>
       this.ctx.http.request<IamGroup[]>({
         method: "GET",
         path: `${this.base()}/users/${userId}/groups`,
         auth,
       }),
+    /** Removes a user from every group at once (`DELETE /users/{userId}/groups`, `204`). */
+    removeFromAllGroups: async (userId: string, auth: AuthContext): Promise<void> => {
+      await this.ctx.http.request<void>({
+        method: "DELETE",
+        path: `${this.base()}/users/${encodeURIComponent(userId)}/groups`,
+        auth,
+      });
+    },
     /**
      * Reads one of a user's groups (`GET /users/{userId}/groups/{groupId}`).
      * The collection read above returns the same shape per entry; this exists

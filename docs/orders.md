@@ -17,13 +17,14 @@ IN_CHECKOUT ─┬─ CREATED
              └─ DECLINED
 ```
 
-`COMPLETED` and `DECLINED` are terminal. The SDK does **not** validate transitions clientside — the server rejects illegal moves with `EmporixValidationError` (HTTP 400/422).
+`COMPLETED` and `DECLINED` are terminal. The SDK does **not** validate transitions clientside — the server rejects illegal moves with `EmporixValidationError` (HTTP 400/422). To know beforehand, ask the server: `orders.listTransitions(orderId, auth)` returns the transitions the customer may trigger on that order — offer «Cancel» only when `DECLINED` is among them. From React, `useOrderTransitions(orderId)`; from Angular, `injectOrderTransitions(orderId)`. Both refresh after a cancel or transition.
 
 ## SDK
 
 ```ts
 client.orders.listMine(auth, opts?)
 client.orders.get(orderId, auth, opts?)
+client.orders.listTransitions(orderId, auth, opts?) // → Transition[] the customer may trigger
 client.orders.transition(orderId, status, auth, opts?)
 client.orders.cancel(orderId, auth, opts?)       // alias: transition(DECLINED)
 

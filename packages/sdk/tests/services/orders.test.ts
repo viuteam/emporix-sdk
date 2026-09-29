@@ -207,3 +207,27 @@ describe("OrdersService.listMine — q filter", () => {
     ).rejects.toThrow(/does not support/i);
   });
 });
+
+describe("OrdersService.listTransitions", () => {
+  it("GETs the order's transitions with the customer token, and a saas-token only when given", async () => {
+    const seen: { path: string; auth: string | null; saas: string | null }[] = [];
+    server.use(
+      http.get("https://api.emporix.io/order-v2/acme/orders/:orderId/transitions", ({ request }) => {
+        seen.push({
+          path: new URL(request.url).pathname,
+          auth: request.headers.get("authorization"),
+          saas: request.headers.get("saas-token"),
+        });
+        return HttpResponse.json([{ status: "DECLINED" }]);
+      }),
+    );
+    const s = svc();
+    // A slash, not a space: `new URL` would encode a space by itself and hide a missing encodeURIComponent.
+    expect(await s.listTransitions("o/1", CUST)).toEqual([{ status: "DECLINED" }]);
+    await s.listTransitions("o1", CUST, { saasToken: "saas" });
+    expect(seen).toEqual([
+      { path: "/order-v2/acme/orders/o%2F1/transitions", auth: "Bearer cust-tok", saas: null },
+      { path: "/order-v2/acme/orders/o1/transitions", auth: "Bearer cust-tok", saas: "saas" },
+    ]);
+  });
+});

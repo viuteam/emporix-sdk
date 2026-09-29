@@ -468,6 +468,8 @@ country, then read `zone.methods` and each method's `fees`.
 
 `useOrder(orderId)` — single-order read.
 
+`useOrderTransitions(orderId)` — the status transitions the customer may trigger on that order, e.g. to show «Cancel» only while `DECLINED` is allowed. Refreshes after either mutation below.
+
 `useCancelOrder` / `useOrderTransition` — mutations. Cancel is a sugar for `transition(DECLINED)`.
 
 `useReorder({ orderId })` → `{ added, errors }` — best-effort cart repopulation from a past order; item-level failures land in `errors[]` instead of throwing.

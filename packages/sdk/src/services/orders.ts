@@ -189,6 +189,25 @@ export class OrdersService {
     });
   }
 
+  /**
+   * The status transitions the customer may trigger on one of their orders
+   * (`GET /orders/{orderId}/transitions`) — for example whether it can still be
+   * cancelled, before offering {@link cancel}.
+   */
+  async listTransitions(
+    orderId: string,
+    auth: AuthContext,
+    opts: GetOrderOptions = {},
+  ): Promise<Transition[]> {
+    const headers = this.saasHeader(opts.saasToken);
+    return this.ctx.http.request<Transition[]>({
+      method: "GET",
+      path: `${this.base()}/${encodeURIComponent(orderId)}/transitions`,
+      auth,
+      ...(headers ? { headers } : {}),
+    });
+  }
+
   /** Transitions an order to a new status. Server enforces legal transitions. */
   async transition(
     orderId: string,

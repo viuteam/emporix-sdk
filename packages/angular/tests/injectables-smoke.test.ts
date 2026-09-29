@@ -75,7 +75,7 @@ function makeClient() {
     payments: { listPaymentModes: vi.fn(async () => []), getMode: fn(), initialize: fn() },
     shipping: { listZones: vi.fn(async () => []) },
     checkout: { placeOrder: vi.fn(async () => ({ orderId: "EON1" })) },
-    orders: { listMine: listFn(), get: fn(), cancel: fn(), transition: fn() },
+    orders: { listMine: listFn(), get: fn(), listTransitions: vi.fn(async () => []), cancel: fn(), transition: fn() },
     salesOrders: { get: fn(), update: fn() },
     companies: {
       listMine: vi.fn(async () => []),
@@ -250,6 +250,7 @@ const customerReads: Array<{
   { name: "injectMyOrders", resource: "my-orders", run: () => I.injectMyOrders(signal({})), called: () => client.orders.listMine },
   { name: "injectMyOrdersInfinite", resource: "my-orders-infinite", run: () => I.injectMyOrdersInfinite(signal(5)), called: () => client.orders.listMine },
   { name: "injectOrder", resource: "order", run: () => I.injectOrder(signal("o1")), called: () => client.orders.get },
+  { name: "injectOrderTransitions", resource: "order-transitions", run: () => I.injectOrderTransitions(signal("o1")), called: () => client.orders.listTransitions },
   { name: "injectCustomerAddresses", resource: "customer-addresses", run: () => I.injectCustomerAddresses(), called: () => client.customers.addresses.list },
   { name: "injectCustomerAddress", resource: "customer-address", run: () => I.injectCustomerAddress(signal("a1")), called: () => client.customers.addresses.get },
   { name: "injectSalesOrder", resource: "sales-order", run: () => I.injectSalesOrder(signal("EON1")), called: () => client.salesOrders.get },

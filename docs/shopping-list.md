@@ -21,6 +21,23 @@ The Emporix API has **no item-level CRUD**: `addItem`/`removeItem`/
 `setItemQuantity` read the list and `PUT` the full body — **last-write-wins**.
 The awkward per-customer wire envelope is normalized to a clean `ShoppingList[]`.
 
+## Acting for a customer (employee)
+
+With a service token, `list()` returns **every customer's** lists and Emporix
+ignores its `name` filter. Read one customer's lists with `getForCustomer`:
+
+```ts
+const svc = auth.service();
+const lists = await client.shoppingLists.getForCustomer("C1", svc);              // all of C1's lists
+const [wishlist] = await client.shoppingLists.getForCustomer("C1", svc, { name: "wishlist" });
+```
+
+`addItem`, `removeItem` and `setItemQuantity` read through `getForCustomer` when
+given a service token, so an employee edit starts from that customer's list. (They
+used to read through `list()`, where the first list of that name could belong to
+another customer — and its items were then written into this one.) A customer
+token keeps reading the caller's own lists.
+
 ## React
 
 Customer-only hooks; write mutations take `customerId` as a mutation variable
