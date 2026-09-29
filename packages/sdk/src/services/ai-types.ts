@@ -32,6 +32,9 @@ import type {
   ImportResponse as GenAgentsImport,
   ImportRequest as GenAgentsImportRequest,
 } from "../generated/ai-service";
+import type { SearchPaging } from "../core/search";
+
+export type { SearchPaging };
 
 /** Single-shot text generation request (`POST /texts`). Has `maxTokens`. */
 export type TextRequest = GenTextRequest;
@@ -144,20 +147,6 @@ export interface GetOptions {
 export interface MutateOptions {
   /** Cascade even if the entity is referenced elsewhere (`?force=true`). */
   force?: boolean;
-}
-
-/**
- * Paging, sort and field selection for any AI `/search` endpoint. Emporix reads
- * them from the query string, not the body, so the SDK sends them there.
- * Without them a search returns only the server's first page.
- */
-export interface SearchPaging {
-  pageNumber?: number;
-  pageSize?: number;
-  /** Properties to sort by, e.g. `"_id:DESC"`. */
-  sort?: string;
-  /** Comma-separated fields to return. */
-  fields?: string;
 }
 
 /** Input for any agentic `/search` endpoint: `q` goes in the body, {@link SearchPaging} in the query string. */

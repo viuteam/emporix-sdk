@@ -1,6 +1,7 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
+import { splitQuery } from "../core/search";
 import type {
   Fee,
   ItemFee,
@@ -268,6 +269,7 @@ export class FeeService {
    * Finds item fees for several products on one site
    * (`POST /itemFees/searchByProductIds`). Note the upstream asymmetry:
    * `productIds` is a comma-separated **string** and `siteCode` is singular.
+   * `siteFallback` goes in the query string, everything else in the body.
    */
   async searchItemFeesByProductIds(
     search: ItemFeeSearchByProductIds,
@@ -277,7 +279,7 @@ export class FeeService {
       method: "POST",
       path: `${this.itemFeesBase()}/searchByProductIds`,
       auth,
-      body: search,
+      ...splitQuery(search, ["siteFallback"]),
       idempotent: true, // pure read over POST — safe to replay on 5xx/429
     });
   }

@@ -1,11 +1,11 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { SEARCH_PAGING, splitQuery } from "../core/search";
 import type {
   AgenticPatchOp,
   ListQuery,
   GetOptions,
   MutateOptions,
-  SearchPaging,
   SearchQuery,
   Created,
   Job,
@@ -20,14 +20,6 @@ import type {
 } from "./ai-types";
 
 const SERVICE: AuthContext = { kind: "service" };
-
-/**
- * Splits a search input for the request: Emporix reads `q` from the body but
- * paging, sort and fields from the query string — in the body they are ignored.
- */
-export function searchParts<T extends SearchPaging>({ pageNumber, pageSize, sort, fields, ...body }: T) {
-  return { body, query: { pageNumber, pageSize, sort, fields } };
-}
 
 /**
  * A symmetric CRUD resource over an agentic sub-collection (`tools`,
@@ -52,7 +44,7 @@ export class AgenticCrudResource<Read, Write> {
 
   /** Structured search (`POST {path}/search`): `q` in the body, paging/sort/fields in the query. */
   search(query: SearchQuery, auth: AuthContext = SERVICE): Promise<Read[]> {
-    return this.ctx.http.request<Read[]>({ method: "POST", path: `${this.path}/search`, auth, ...searchParts(query) });
+    return this.ctx.http.request<Read[]>({ method: "POST", path: `${this.path}/search`, auth, ...splitQuery(query, SEARCH_PAGING) });
   }
 
   /** Retrieve one entry by id (`GET {path}/{id}`). */
@@ -115,7 +107,7 @@ export class JobsResource {
   }
   /** Structured job search (`POST /jobs/search`). */
   search(query: SearchQuery, auth: AuthContext = SERVICE): Promise<Job[]> {
-    return this.ctx.http.request<Job[]>({ method: "POST", path: `${this.base}/jobs/search`, auth, ...searchParts(query) });
+    return this.ctx.http.request<Job[]>({ method: "POST", path: `${this.base}/jobs/search`, auth, ...splitQuery(query, SEARCH_PAGING) });
   }
   /** Retrieve one job (`GET /jobs/{jobId}`). */
   get(jobId: string, auth: AuthContext = SERVICE): Promise<Job> {
@@ -140,7 +132,7 @@ export class TemplatesResource {
   }
   /** Structured template search (`POST /agentic/templates/search`). */
   search(query: SearchQuery, auth: AuthContext = SERVICE): Promise<AgentTemplate[]> {
-    return this.ctx.http.request<AgentTemplate[]>({ method: "POST", path: `${this.path}/search`, auth, ...searchParts(query) });
+    return this.ctx.http.request<AgentTemplate[]>({ method: "POST", path: `${this.path}/search`, auth, ...splitQuery(query, SEARCH_PAGING) });
   }
   /**
    * Instantiate a new agent from a template
@@ -174,7 +166,7 @@ export class LogsResource {
   }
   /** Structured request-log search (`POST /agentic/logs/requests/search`). */
   searchRequests(query: SearchQuery, auth: AuthContext = SERVICE): Promise<AgentRequestLog[]> {
-    return this.ctx.http.request<AgentRequestLog[]>({ method: "POST", path: `${this.path}/requests/search`, auth, ...searchParts(query) });
+    return this.ctx.http.request<AgentRequestLog[]>({ method: "POST", path: `${this.path}/requests/search`, auth, ...splitQuery(query, SEARCH_PAGING) });
   }
   /** List session logs (`GET /agentic/logs/sessions`). */
   listSessions(query: ListQuery = {}, auth: AuthContext = SERVICE): Promise<AgentSessionLog[]> {
@@ -186,7 +178,7 @@ export class LogsResource {
   }
   /** Structured session-log search (`POST /agentic/logs/sessions/search`). */
   searchSessions(query: SearchQuery, auth: AuthContext = SERVICE): Promise<AgentSessionLog[]> {
-    return this.ctx.http.request<AgentSessionLog[]>({ method: "POST", path: `${this.path}/sessions/search`, auth, ...searchParts(query) });
+    return this.ctx.http.request<AgentSessionLog[]>({ method: "POST", path: `${this.path}/sessions/search`, auth, ...splitQuery(query, SEARCH_PAGING) });
   }
 }
 

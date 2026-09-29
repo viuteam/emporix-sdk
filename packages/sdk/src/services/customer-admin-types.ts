@@ -33,9 +33,16 @@ export type AdminCustomerUpdate = CustomerUpdateBySellerDto;
 export type AdminCustomerPatch = CustomerPatchBySellerDto;
 /** Create/upsert response — a resource location. */
 export type AdminCustomerCreated = ResourceLocation;
-/** Search body (`POST /customers/search`). `q` accepts a raw DSL string or a built filter. */
+/**
+ * Input for `POST /customers/search`. `q` — a raw DSL string or a built filter —
+ * goes in the body; `pageNumber`, `pageSize`, `sort` and `expand` in the query string.
+ */
 export type AdminCustomerSearchQuery = Record<string, unknown> & {
   q?: QueryFor<"CUSTOMER">;
+  pageNumber?: number;
+  pageSize?: number;
+  sort?: string;
+  expand?: string;
 };
 
 /** A customer address (read). */
