@@ -34,5 +34,5 @@ const create = useCreateReturn();
 const { id } = await create.mutateAsync({ /* … */ });
 ```
 
-The hooks require a logged-in customer (they throw without a stored token) and
-use the customer token.
+The hooks use the customer token. Without one the queries stay disabled and the
+mutation rejects when run — rendering them for a guest does not throw.

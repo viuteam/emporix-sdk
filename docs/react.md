@@ -613,14 +613,16 @@ const redeem = useRedeemRewardPoints();
 const { code } = await redeem.mutateAsync({ redeemOptionId: "opt-1" });
 ```
 
-The three "my" hooks require a logged-in customer. Admin points management stays
-server-side. See [`./reward-points.md`](./reward-points.md).
+The three "my" hooks need a logged-in customer: the reads stay disabled until a
+customer token exists, and the redeem rejects when run without one. Admin points
+management stays server-side. See [`./reward-points.md`](./reward-points.md).
 
 ### Returns
 
 `useMyReturns` / `useReturn` — customer-only queries for the signed-in shopper's
 returns (list + one). `useCreateReturn` — mutation that files a return request.
-All require a logged-in customer and use the customer token.
+All use the customer token: the queries stay disabled without one, the mutation
+rejects when run.
 
 ```tsx
 const { data: myReturns } = useMyReturns();
@@ -635,7 +637,8 @@ Return update/delete stay server-side. See [`./returns.md`](./returns.md).
 `useApprovals` / `useApproval` — customer-only queries for the signed-in shopper's
 B2B approvals (list + one). `useCreateApproval` — files a cart/quote approval
 request. `useUpdateApproval` — approves/rejects via a JSON-Patch op-array. All
-require a logged-in customer and use the customer token.
+use the customer token: the queries stay disabled without one, the mutations
+reject when run.
 
 ```tsx
 const { data: approvals } = useApprovals();

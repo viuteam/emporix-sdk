@@ -144,11 +144,12 @@ describe("useAddressMutations", () => {
     await waitFor(() => expect(listCallCount).toBe(2));
   });
 
-  it("throws when no customer token", () => {
+  it("renders without a customer token; running a mutation rejects instead", async () => {
     const storage = createMemoryStorage();
-    expect(() => renderHook(() => useAddressMutations(), { wrapper: wrap(storage) })).toThrow(
-      /logged-in customer/,
-    );
+    const { result } = renderHook(() => useAddressMutations(), { wrapper: wrap(storage) });
+    await act(async () => {
+      await expect(result.current.add.mutateAsync({} as never)).rejects.toThrow(/logged-in customer/);
+    });
   });
 });
 
