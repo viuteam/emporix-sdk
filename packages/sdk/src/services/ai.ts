@@ -131,6 +131,17 @@ function sessionHeader(opts: ChatOptions): { headers?: Record<string, string> } 
   return opts.sessionId ? { headers: { "session-id": opts.sessionId } } : {};
 }
 
+const AUTH_KINDS = new Set(["service", "anonymous", "customer", "raw"]);
+
+/**
+ * `listAgents` and `listConversations` took only `auth` before they could page.
+ * Tells that original call apart from `(query, auth)`, so an auth context is
+ * never sent as query parameters — which would put a customer token in the URL.
+ */
+function isAuthContext(value: ListQuery | AuthContext): value is AuthContext {
+  return AUTH_KINDS.has(String((value as { kind?: unknown }).kind));
+}
+
 /**
  * Emporix AI Service (`/ai-service/{tenant}/…`): text generation, chat
  * completions, and the agentic layer (agent CRUD + synchronous/asynchronous
@@ -224,12 +235,22 @@ export class AiService {
     });
   }
 
-  /** List all agentic agents. */
-  async listAgents(auth: AuthContext = SERVICE): Promise<Agent[]> {
+  /**
+   * List agents (`GET /agentic/agents`). `q`, `pageNumber`, `pageSize`, `sort`,
+   * `fields` and `expand` go in the query string; without paging keys the
+   * server returns its first page. The original `listAgents(auth)` still works.
+   */
+  listAgents(auth?: AuthContext): Promise<Agent[]>;
+  listAgents(query: ListQuery, auth?: AuthContext): Promise<Agent[]>;
+  async listAgents(queryOrAuth: ListQuery | AuthContext = {}, auth: AuthContext = SERVICE): Promise<Agent[]> {
+    const [query, ctx]: [ListQuery, AuthContext] = isAuthContext(queryOrAuth)
+      ? [{}, queryOrAuth]
+      : [queryOrAuth, auth];
     return this.ctx.http.request<Agent[]>({
       method: "GET",
       path: `${this.base()}/agentic/agents`,
-      auth,
+      auth: ctx,
+      query: { ...query },
     });
   }
 
@@ -365,12 +386,24 @@ export class AiService {
     for await (const ev of events) yield ev.data;
   }
 
-  /** List stored agentic conversations (`GET /agentic/conversations`). */
-  async listConversations(auth: AuthContext = SERVICE): Promise<Conversation[]> {
+  /**
+   * List stored agentic conversations (`GET /agentic/conversations`), paged
+   * like {@link listAgents}. The original `listConversations(auth)` still works.
+   */
+  listConversations(auth?: AuthContext): Promise<Conversation[]>;
+  listConversations(query: ListQuery, auth?: AuthContext): Promise<Conversation[]>;
+  async listConversations(
+    queryOrAuth: ListQuery | AuthContext = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<Conversation[]> {
+    const [query, ctx]: [ListQuery, AuthContext] = isAuthContext(queryOrAuth)
+      ? [{}, queryOrAuth]
+      : [queryOrAuth, auth];
     return this.ctx.http.request<Conversation[]>({
       method: "GET",
       path: `${this.base()}/agentic/conversations`,
-      auth,
+      auth: ctx,
+      query: { ...query },
     });
   }
 

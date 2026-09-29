@@ -38,6 +38,23 @@ interface WireList {
 
 const RESERVED = new Set(["customerId", "metadata"]);
 
+/** One per-customer wire envelope (`{ customerId, <listKey>: {…} }`) as a list array. */
+function toLists(env: Record<string, unknown>): ShoppingList[] {
+  const out: ShoppingList[] = [];
+  for (const [key, value] of Object.entries(env)) {
+    if (RESERVED.has(key) || value === null || typeof value !== "object") continue;
+    const v = value as WireList;
+    out.push({
+      key,
+      name: v.name ?? key,
+      items: v.items ?? [],
+      ...(v.mixins ? { mixins: v.mixins } : {}),
+      ...(v.metadata ? { metadata: v.metadata } : {}),
+    });
+  }
+  return out;
+}
+
 /**
  * Per-customer shopping lists (`/shoppinglist/{tenant}/shopping-lists`).
  * `auth` is required: a customer token manages the caller's own lists;
@@ -53,7 +70,11 @@ export class ShoppingListService {
     return `/shoppinglist/${this.ctx.tenant}/shopping-lists`;
   }
 
-  /** The caller's lists (or, with employee scope, all), normalized to an array. */
+  /**
+   * The caller's lists, normalized to an array. With employee scope Emporix
+   * returns **every customer's** lists and ignores `name` — read one customer's
+   * with {@link getForCustomer} instead.
+   */
   async list(auth: AuthContext, opts: { name?: string } = {}): Promise<ShoppingList[]> {
     const envelopes = await this.ctx.http.request<Array<Record<string, unknown>>>({
       method: "GET",
@@ -61,21 +82,21 @@ export class ShoppingListService {
       auth,
       ...(opts.name ? { query: { name: opts.name } } : {}),
     });
-    const out: ShoppingList[] = [];
-    for (const env of envelopes ?? []) {
-      for (const [key, value] of Object.entries(env)) {
-        if (RESERVED.has(key) || value === null || typeof value !== "object") continue;
-        const v = value as WireList;
-        out.push({
-          key,
-          name: v.name ?? key,
-          items: v.items ?? [],
-          ...(v.mixins ? { mixins: v.mixins } : {}),
-          ...(v.metadata ? { metadata: v.metadata } : {}),
-        });
-      }
-    }
-    return out;
+    return (envelopes ?? []).flatMap(toLists);
+  }
+
+  /**
+   * One customer's lists (`GET /shopping-lists/{customerId}`), normalized to an
+   * array — the employee read; `name` narrows it to one list.
+   */
+  async getForCustomer(customerId: string, auth: AuthContext, opts: { name?: string } = {}): Promise<ShoppingList[]> {
+    const envelope = await this.ctx.http.request<Record<string, unknown>>({
+      method: "GET",
+      path: `${this.base()}/${encodeURIComponent(customerId)}`,
+      auth,
+      ...(opts.name ? { query: { name: opts.name } } : {}),
+    });
+    return envelope ? toLists(envelope) : [];
   }
 
   /** Create a list; returns the new list id. */
@@ -108,8 +129,14 @@ export class ShoppingListService {
     });
   }
 
-  private async loadList(listName: string, auth: AuthContext): Promise<ShoppingList> {
-    const lists = await this.list(auth, { name: listName });
+  private async loadList(customerId: string, listName: string, auth: AuthContext): Promise<ShoppingList> {
+    // A service token reads the target customer's lists: through `list()` it
+    // would get every customer's, with `name` ignored, and the first match
+    // could belong to someone else — whose items would then be written here.
+    const lists =
+      auth.kind === "service"
+        ? await this.getForCustomer(customerId, auth, { name: listName })
+        : await this.list(auth, { name: listName });
     const found = lists.find((l) => l.name === listName);
     if (!found) throw new EmporixNotFoundError(`Shopping list "${listName}" not found`, 404);
     return found;
@@ -125,14 +152,14 @@ export class ShoppingListService {
 
   /** Add/replace an item by `productId` (read-modify-write, last-write-wins). */
   async addItem(customerId: string, listName: string, item: ShoppingListItem, auth: AuthContext): Promise<void> {
-    const list = await this.loadList(listName, auth);
+    const list = await this.loadList(customerId, listName, auth);
     const items = [...list.items.filter((i) => i.productId !== item.productId), item];
     await this.put(customerId, list, items, auth);
   }
 
   /** Remove an item by `productId` (no-op if absent). */
   async removeItem(customerId: string, listName: string, productId: string, auth: AuthContext): Promise<void> {
-    const list = await this.loadList(listName, auth);
+    const list = await this.loadList(customerId, listName, auth);
     const items = list.items.filter((i) => i.productId !== productId);
     await this.put(customerId, list, items, auth);
   }
@@ -140,7 +167,7 @@ export class ShoppingListService {
   /** Set an item's quantity; `quantity <= 0` removes it. Adds the item if absent. */
   async setItemQuantity(customerId: string, listName: string, productId: string, quantity: number, auth: AuthContext): Promise<void> {
     if (quantity <= 0) return this.removeItem(customerId, listName, productId, auth);
-    const list = await this.loadList(listName, auth);
+    const list = await this.loadList(customerId, listName, auth);
     let items = list.items.map((i) => (i.productId === productId ? { ...i, quantity } : i));
     if (!items.some((i) => i.productId === productId)) items = [...items, { productId, quantity }];
     await this.put(customerId, list, items, auth);

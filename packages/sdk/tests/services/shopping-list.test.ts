@@ -151,3 +151,59 @@ describe("ShoppingListService", () => {
       .rejects.toBeInstanceOf(EmporixNotFoundError);
   });
 });
+
+describe("ShoppingListService — one customer's lists", () => {
+  const SVC = { kind: "service" as const };
+  const TOKEN = http.post("https://api.emporix.io/oauth/token", () =>
+    HttpResponse.json({ access_token: "svc-tok", token_type: "Bearer", expires_in: 3599 }),
+  );
+
+  it("getForCustomer GETs /{customerId} and normalizes its single envelope, with the name filter when given", async () => {
+    const seen: { path: string; name: string | null }[] = [];
+    server.use(
+      TOKEN,
+      http.get(`${BASE}/:customerId`, ({ request }) => {
+        const url = new URL(request.url);
+        seen.push({ path: url.pathname, name: url.searchParams.get("name") });
+        return HttpResponse.json(ENVELOPE[0]);
+      }),
+    );
+    const lists = await svc().getForCustomer("C/1", SVC);
+    await svc().getForCustomer("C1", SVC, { name: "default" });
+    expect(lists.map((l) => l.name)).toEqual(["default"]);
+    expect(lists[0]?.items.map((i) => i.productId)).toEqual(["p1", "p2"]);
+    expect(seen).toEqual([
+      { path: "/shoppinglist/acme/shopping-lists/C%2F1", name: null },
+      { path: "/shoppinglist/acme/shopping-lists/C1", name: "default" },
+    ]);
+  });
+
+  it("addItem with a service token edits the target customer's list, not the first one of that name", async () => {
+    let listedAll = false;
+    let putBody: unknown = null;
+    server.use(
+      TOKEN,
+      // With employee scope this answers every customer's lists and ignores `name`.
+      http.get(BASE, () => {
+        listedAll = true;
+        return HttpResponse.json([
+          { customerId: "A", default: { name: "default", items: [{ productId: "a-item", quantity: 1 }] } },
+          { customerId: "B", default: { name: "default", items: [{ productId: "b-item", quantity: 1 }] } },
+        ]);
+      }),
+      http.get(`${BASE}/B`, () =>
+        HttpResponse.json({ customerId: "B", default: { name: "default", items: [{ productId: "b-item", quantity: 1 }] } }),
+      ),
+      http.put(`${BASE}/B`, async ({ request }) => {
+        putBody = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await svc().addItem("B", "default", { productId: "new", quantity: 1 }, SVC);
+    expect(listedAll).toBe(false);
+    expect((putBody as { items?: { productId: string }[] } | null)?.items?.map((i) => i.productId)).toEqual([
+      "b-item",
+      "new",
+    ]);
+  });
+});

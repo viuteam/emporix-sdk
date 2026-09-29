@@ -224,8 +224,10 @@ const page2 = await client.ai.logs.searchRequests({
 });
 ```
 
-The `list` methods take the same keys. `listAgents()` and `listConversations()`
-take none; to page agents or conversations, use their search — `q` is optional.
+The `list` methods take the same keys, as a query object before `auth` — including
+`listAgents` and `listConversations`, which used to take `auth` alone. That call
+still works, so `listAgents(auth)` and `listAgents({ pageNumber: 2 }, auth)` both do
+what they say; without paging keys a list returns the server's first page.
 
 ## Log and job fields that arrived with the spec
 

@@ -114,6 +114,8 @@ export { useCancelOrder } from "./use-cancel-order";
 export type { UseCancelOrderVars } from "./use-cancel-order";
 export { useOrderTransition } from "./use-order-transition";
 export type { UseOrderTransitionVars } from "./use-order-transition";
+export { useOrderTransitions } from "./use-order-transitions";
+export type { UseOrderTransitionsOptions } from "./use-order-transitions";
 export { useReorder } from "./use-reorder";
 export type { UseReorderVars, UseReorderResult } from "./use-reorder";
 export { useSalesOrder } from "./use-sales-order";
