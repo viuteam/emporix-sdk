@@ -1,5 +1,26 @@
 # @viu/emporix-sdk-react
 
+## 4.1.0
+
+### Minor Changes
+
+- [#355](https://github.com/viuteam/emporix-sdk/pull/355) [`1a6e761`](https://github.com/viuteam/emporix-sdk/commit/1a6e761d82ff3986ca8535800c1c81e4af10763d) Thanks [@amnael1](https://github.com/amnael1)! - fix(react): customer-only hooks no longer throw during render without a token
+  
+  Twenty-two hooks threw `Requires a logged-in customer` **during render** when no customer token was stored. Hooks cannot be called conditionally, so any component a guest also sees — an "add to shopping list" button, a points badge in the header — crashed the render for guests.
+  
+  - **The seven reads** — `useMyReturns`, `useReturn`, `useShoppingLists`, `useApprovals`, `useApproval`, `useMyRewardPoints`, `useMyRewardPointsSummary` — now stay disabled until a customer token exists: no request, `data` undefined, no error. Their cache keys for a signed-in customer are unchanged.
+  - **The fifteen mutations** — `useCreateReturn`, the five shopping-list writes, `useCreateApproval`, `useUpdateApproval`, `useRedeemRewardPoints`, `useAddressMutations`, `useAddAddressTags`, `useRemoveAddressTags`, `useChangeEmail`, `useUpdateCustomer`, `useChangePassword` — render normally and reject with the same message when run without a token, as `useCancelOrder` and `useOrderTransition` already did. The token is read when the mutation runs.
+  
+  This matches the Angular bindings. If you relied on the render-time throw — an error boundary as a login redirect, say — check for the token instead, or handle the rejected mutation.
+
+- [#354](https://github.com/viuteam/emporix-sdk/pull/354) [`6e4c051`](https://github.com/viuteam/emporix-sdk/commit/6e4c0515b51285b6bcdddfb7a04de39a94751cc4) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): wrap the last four never-built endpoints, and fix employee shopping-list edits
+  
+  - `orders.listTransitions(orderId, auth, { saasToken? })` — the status transitions the customer may trigger on one of their orders, for example whether it can still be cancelled. React gets `useOrderTransitions(orderId)` and Angular `injectOrderTransitions(orderId)`; both refresh after a cancel or transition.
+  - `iam.users.listForVendor(vendorId, auth)` lists a vendor's Management Dashboard users with their groups; `iam.users.removeFromAllGroups(userId, auth)` takes a user out of every group at once.
+  - `shoppingLists.getForCustomer(customerId, auth, { name? })` reads one customer's lists.
+  
+  **Fix:** with a service token, `shoppingLists.addItem`, `removeItem` and `setItemQuantity` now read the target customer's list through `getForCustomer`. They read through `list()`, which for an employee returns every customer's lists and ignores the name — so the first list of that name could belong to another customer, and its items were written into this one. A customer token still reads the caller's own lists.
+
 ## 4.0.0
 
 ### Major Changes

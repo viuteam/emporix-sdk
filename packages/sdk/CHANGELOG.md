@@ -1,5 +1,41 @@
 # @viu/emporix-sdk
 
+## 4.1.0
+
+### Minor Changes
+
+- [#354](https://github.com/viuteam/emporix-sdk/pull/354) [`f83f908`](https://github.com/viuteam/emporix-sdk/commit/f83f9083024e9dba2e96119118debee616ae9a9a) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): page listAgents and listConversations
+  
+  Both took only `auth`, so they returned the server's first page with no way to reach the rest. They now take a query first — `q`, `pageNumber`, `pageSize`, `sort`, `fields`, and for agents `expand` — like every other AI list method: `listAgents({ pageNumber: 2 }, auth)`. The original `listAgents(auth)` still works: an auth context in the first position is recognised and never sent as query parameters.
+
+- [#350](https://github.com/viuteam/emporix-sdk/pull/350) [`7def25c`](https://github.com/viuteam/emporix-sdk/commit/7def25c7a082ba6c0214e8a890395376162ff9a6) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): send paging, sort and fields on every AI search
+  
+  The ten AI search methods — `searchAgents`, `searchConversations`, `search` on `tools`, `mcpServers`, `tokens`, `oauths`, `templates` and `jobs`, and `logs.searchRequests` / `logs.searchSessions` — sent their input as the request body only. Emporix reads paging, sort and fields from the query string, so every search returned the server's first page with no way to reach the rest.
+  
+  They now take `pageNumber`, `pageSize`, `sort` and `fields` next to `q` (the new `SearchPaging` type) and send them as query parameters; `q` stays in the body. A call without them goes out exactly as before.
+
+- [#354](https://github.com/viuteam/emporix-sdk/pull/354) [`6e4c051`](https://github.com/viuteam/emporix-sdk/commit/6e4c0515b51285b6bcdddfb7a04de39a94751cc4) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): wrap the last four never-built endpoints, and fix employee shopping-list edits
+  
+  - `orders.listTransitions(orderId, auth, { saasToken? })` — the status transitions the customer may trigger on one of their orders, for example whether it can still be cancelled. React gets `useOrderTransitions(orderId)` and Angular `injectOrderTransitions(orderId)`; both refresh after a cancel or transition.
+  - `iam.users.listForVendor(vendorId, auth)` lists a vendor's Management Dashboard users with their groups; `iam.users.removeFromAllGroups(userId, auth)` takes a user out of every group at once.
+  - `shoppingLists.getForCustomer(customerId, auth, { name? })` reads one customer's lists.
+  
+  **Fix:** with a service token, `shoppingLists.addItem`, `removeItem` and `setItemQuantity` now read the target customer's list through `getForCustomer`. They read through `list()`, which for an employee returns every customer's lists and ignores the name — so the first list of that name could belong to another customer, and its items were written into this one. A customer token still reads the caller's own lists.
+
+- [#350](https://github.com/viuteam/emporix-sdk/pull/350) [`758b023`](https://github.com/viuteam/emporix-sdk/commit/758b02396392181fd316c2c9c839b359cce263ab) Thanks [@amnael1](https://github.com/amnael1)! - feat(media): add getDownloadUrl and startUploadSession for direct storage transfers
+  
+  `client.media.getDownloadUrl(assetId, { disposition? })` returns a URL that serves the file straight from storage — signed for 15 minutes for a private asset, permanent for a public one — with no size limit and no Emporix token needed to open it. Emporix now recommends it over `download()`, which answers `413` once a file exceeds 30 MB.
+  
+  `client.media.startUploadSession(input)` creates a `PENDING` asset and returns the storage request to send the file with, which a browser can make without an Emporix token. Direct upload has to be enabled for the tenant by Emporix Support; until then the call throws a `403` whose message is `direct upload is not enabled for this tenant`.
+  
+  `AssetDownloadUrl`, `AssetDownloadUrlQuery`, `AssetUploadSession` and `AssetUploadSessionInput` are exported from the package root, and so is `AssetPatch`, which was missing there.
+
+- [#352](https://github.com/viuteam/emporix-sdk/pull/352) [`54464af`](https://github.com/viuteam/emporix-sdk/commit/54464af75fdfb0e2cc51f16c6d99373f50664faf) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): send paging and sort on every remaining POST search
+  
+  Nine search methods outside the AI service sent their whole input as the request body: `companies.search`, `customerAdmin.searchCustomers`, `vendors.searchVendors`, `segments.search`, `segments.customers.search`, `segments.groups.search`, `segments.items.search`, `prices.lists.search` and `prices.lists.searchPrices`. Emporix reads paging and sort for these endpoints from the query string, so each one returned only the first page — a `pageNumber` passed in the input went into the body and was ignored.
+  
+  They now send `pageNumber`, `pageSize` and `sort`, and — where the endpoint declares them — `fields`, `expand`, `legalEntityId` and `customerId` as query parameters, keeping the rest in the body. `prices.search` sends `expand` and `fees.searchItemFeesByProductIds` sends `siteFallback` the same way. The input types gained these keys, and `SearchPaging` is exported from the package root. A call without them goes out exactly as before.
+
 ## 4.0.1
 
 ### Patch Changes
