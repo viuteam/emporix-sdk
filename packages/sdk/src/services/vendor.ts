@@ -1,6 +1,7 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { resolveQuery } from "../core/query";
+import { SEARCH_PAGING, splitQuery } from "../core/search";
 import type {
   Vendor,
   VendorList,
@@ -64,9 +65,12 @@ export class VendorService {
     });
   }
 
-  /** Search vendors (`POST /vendors/search`). A built filter in `q` is resolved to a string. */
+  /**
+   * Search vendors (`POST /vendors/search`). A built filter in `q` is resolved to
+   * a string; paging, sort and fields go in the query string.
+   */
   async searchVendors(query: VendorSearchQuery, auth: AuthContext = SERVICE): Promise<VendorList> {
-    const body =
+    const input =
       query.q !== undefined
         ? { ...query, q: resolveQuery(query.q, { compoundLogicalQuery: false }) }
         : query;
@@ -74,7 +78,7 @@ export class VendorService {
       method: "POST",
       path: `${this.base()}/vendors/search`,
       auth,
-      body,
+      ...splitQuery(input, SEARCH_PAGING),
     });
   }
 

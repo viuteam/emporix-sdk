@@ -71,6 +71,33 @@ for await (const x of iterateAll<X>((pageNumber) => fetchPage(pageNumber))) {
 | `client.schema.listInstances` / `searchInstances` | `PaginatedItems<CustomInstance<T>>` |
 | `client.schema.listAllInstances` | `AsyncIterable<CustomInstance<T>>` |
 
+## `POST` searches that return plain arrays
+
+Most admin `search` methods send `q` in a `POST` body and return a plain array. Emporix
+reads their paging from the **query string** and ignores it in the body, so these methods
+take the paging keys next to `q` and the SDK moves them to the query string:
+
+| Method | Query keys besides `q` |
+|---|---|
+| `client.companies.search` | `pageNumber`, `pageSize`, `sort`, `fields` |
+| `client.customerAdmin.searchCustomers` | `pageNumber`, `pageSize`, `sort`, `expand` |
+| `client.vendors.searchVendors` | `pageNumber`, `pageSize`, `sort`, `fields` |
+| `client.segments.search` | `pageNumber`, `pageSize`, `sort`, `fields`, `legalEntityId`, `customerId` |
+| `client.segments.customers.search` / `groups.search` | `pageNumber`, `pageSize`, `sort`, `fields` |
+| `client.segments.items.search` | `pageNumber`, `pageSize`, `sort`, `fields`, `legalEntityId` |
+| `client.prices.lists.search` / `lists.searchPrices` | `pageNumber`, `pageSize`, `sort` |
+| `client.prices.search` | `expand` (the search criteria are the body) |
+| every AI search | see [`ai.md`](./ai.md#searching-and-paging) |
+
+```ts
+const page2 = await client.vendors.searchVendors({ q: "name:Acme", pageNumber: 2, pageSize: 50 });
+```
+
+Without the keys a search returns only the server's first page. There is no
+`hasNextPage` on a plain array: keep paging until a page comes back shorter than
+`pageSize`. `client.fees.searchItemFeesByProductIds` is the exception that takes its
+paging in the body; only its `siteFallback` goes in the query string.
+
 ## Absolute totals and cursors
 
 `PaginatedItems` carries three optional fields beyond the four above:

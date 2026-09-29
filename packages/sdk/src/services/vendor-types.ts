@@ -13,6 +13,7 @@ import type {
   ResourceId,
 } from "../generated/vendor-service";
 import type { QueryFor } from "../core/query";
+import type { SearchPaging } from "../core/search";
 
 /** A vendor (read shape). */
 export type Vendor = GenVendor;
@@ -24,10 +25,14 @@ export type VendorInput = VendorCreate;
 export type VendorUpdate = GenVendorUpdate;
 /** Create response — a resource id. */
 export type VendorCreated = ResourceId;
-/** Search body (`POST /vendors/search`). `q` accepts a raw DSL string or a built filter. */
-export type VendorSearchQuery = Record<string, unknown> & {
-  q?: QueryFor<"VENDOR">;
-};
+/**
+ * Input for `POST /vendors/search`. `q` — a raw DSL string or a built filter —
+ * goes in the body; {@link SearchPaging} in the query string.
+ */
+export type VendorSearchQuery = Record<string, unknown> &
+  SearchPaging & {
+    q?: QueryFor<"VENDOR">;
+  };
 
 /** A vendor location (read shape). */
 export type VendorLocation = GenLocation;

@@ -38,15 +38,18 @@ export interface ItemFeeSearchByProductId {
 }
 
 /**
- * Body of `POST /itemFees/searchByProductIds` — several products, one site.
+ * Input for `POST /itemFees/searchByProductIds` — several products, one site.
  * `productIds` is a **single string** (comma-separated), not an array — see the
- * note on {@link ItemFeeSearchByProductId}.
+ * note on {@link ItemFeeSearchByProductId}. Unlike most searches, this one takes
+ * its paging in the body.
  */
 export interface ItemFeeSearchByProductIds {
   productIds: string;
   siteCode: string;
   pageNumber?: number;
   pageSize?: number;
+  /** Sent as the `siteFallback` query parameter, not in the body. */
+  siteFallback?: boolean;
 }
 
 /**

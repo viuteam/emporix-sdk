@@ -1,6 +1,7 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { resolveQuery } from "../core/query";
+import { splitQuery } from "../core/search";
 import type {
   AdminCustomer,
   AdminCustomerList,
@@ -78,13 +79,21 @@ export class CustomerAdminService {
     });
   }
 
-  /** Search customers (`POST /customers/search`). A built filter in `q` is resolved to a string. */
+  /**
+   * Search customers (`POST /customers/search`). A built filter in `q` is resolved
+   * to a string; `pageNumber`, `pageSize`, `sort` and `expand` go in the query string.
+   */
   async searchCustomers(query: AdminCustomerSearchQuery, auth: AuthContext = SERVICE): Promise<AdminCustomerList> {
-    const body =
+    const input =
       query.q !== undefined
         ? { ...query, q: resolveQuery(query.q, { compoundLogicalQuery: false }) }
         : query;
-    return this.ctx.http.request<AdminCustomerList>({ method: "POST", path: `${this.base()}/search`, auth, body });
+    return this.ctx.http.request<AdminCustomerList>({
+      method: "POST",
+      path: `${this.base()}/search`,
+      auth,
+      ...splitQuery(input, ["pageNumber", "pageSize", "sort", "expand"]),
+    });
   }
 
   /** Retrieve a customer profile by number. */
