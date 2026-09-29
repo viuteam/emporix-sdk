@@ -60,6 +60,7 @@ export type {
 } from "./core/customer-session-store";
 export { HttpClient } from "./core/http";
 export type { RequestOptions, HttpClientOptions, HttpResult } from "./core/http";
+export type { SearchPaging } from "./core/search";
 export { EmporixClient } from "./client";
 export { createEmporixClient } from "./create-emporix-client";
 export type { ServiceClass } from "./create-emporix-client";

@@ -6,8 +6,8 @@ import {
   TemplatesResource,
   LogsResource,
   AnalyticsResource,
-  searchParts,
 } from "./ai-resources";
+import { SEARCH_PAGING, splitQuery } from "../core/search";
 import type {
   TextRequest,
   TextResponse,
@@ -296,7 +296,7 @@ export class AiService {
       method: "POST",
       path: `${this.base()}/agentic/agents/search`,
       auth,
-      ...searchParts(query),
+      ...splitQuery(query, SEARCH_PAGING),
     });
   }
 
@@ -383,7 +383,7 @@ export class AiService {
       method: "POST",
       path: `${this.base()}/agentic/conversations/search`,
       auth,
-      ...searchParts(query),
+      ...splitQuery(query, SEARCH_PAGING),
     });
   }
 

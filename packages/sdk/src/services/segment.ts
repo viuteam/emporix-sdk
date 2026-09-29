@@ -1,6 +1,7 @@
 import type { ClientContext, PaginatedItems } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { requireCustomer } from "../core/require-customer";
+import { SEARCH_PAGING, splitQuery, type SearchPaging } from "../core/search";
 import type { ProductService } from "./product";
 import type { CategoryService } from "./category";
 import type {
@@ -35,8 +36,8 @@ export type SegmentInput = SegmentCreation;
 export type SegmentUpdateInput = SegmentUpdate;
 /** Partial (PATCH) body for a segment. */
 export type SegmentPatchInput = Partial<SegmentUpdate>;
-/** Search body for segments (generated). */
-export type SegmentSearchQuery = SegmentsSearch;
+/** Input for a segment search: the generated body (`{ q? }`) plus {@link SearchPaging} (query). */
+export type SegmentSearchQuery = SegmentsSearch & SearchPaging;
 /** Body for a segment match check (generated). */
 export type SegmentMatchInput = Match;
 /** One entry of a segment bulk request (generated). */
@@ -309,13 +310,20 @@ export class SegmentService {
     return this.ctx.http.request<Segment>({ method: "POST", path: this.base(), auth: authCtx, body: input });
   }
 
-  /** Searches segments (POST body). Default auth: service. */
-  async search(query: SegmentSearchQuery, authCtx: AuthContext = SERVICE): Promise<Segment[]> {
+  /**
+   * Searches segments: `q` in the body; paging, sort, fields, `legalEntityId`
+   * and `customerId` in the query string. `customerId` returns that customer's
+   * segments and needs `customersegment.segment_read`. Default auth: service.
+   */
+  async search(
+    query: SegmentSearchQuery & { legalEntityId?: string; customerId?: string },
+    authCtx: AuthContext = SERVICE,
+  ): Promise<Segment[]> {
     return this.ctx.http.request<Segment[]>({
       method: "POST",
       path: `${this.base()}/search`,
       auth: authCtx,
-      body: query,
+      ...splitQuery(query, [...SEARCH_PAGING, "legalEntityId", "customerId"]),
     });
   }
 
@@ -397,12 +405,16 @@ export class SegmentService {
         auth: authCtx,
         ...(query ? { query } : {}),
       }),
-    search: async (segmentId: string, query: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<SegmentCustomer[]> =>
+    search: async (
+      segmentId: string,
+      query: Record<string, unknown> & SearchPaging,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<SegmentCustomer[]> =>
       this.ctx.http.request<SegmentCustomer[]>({
         method: "POST",
         path: `${this.base()}/${segmentId}/customers/search`,
         auth: authCtx,
-        body: query,
+        ...splitQuery(query, SEARCH_PAGING),
       }),
     get: async (segmentId: string, customerId: string, authCtx: AuthContext = SERVICE): Promise<SegmentCustomer> =>
       this.ctx.http.request<SegmentCustomer>({
@@ -493,7 +505,7 @@ export class SegmentService {
         method: "POST",
         path: `${this.base()}/${encodeURIComponent(segmentId)}/groups/search`,
         auth: authCtx,
-        body: query,
+        ...splitQuery(query, SEARCH_PAGING),
       }),
     get: async (segmentId: string, groupId: string, authCtx: AuthContext = SERVICE): Promise<SegmentGroup> =>
       this.ctx.http.request<SegmentGroup>({
@@ -530,12 +542,16 @@ export class SegmentService {
 
   /** Item→segment assignments (`type` = PRODUCT | CATEGORY). Default auth: service. */
   readonly items = {
-    search: async (segmentId: string, query: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<SegmentItem[]> =>
+    search: async (
+      segmentId: string,
+      query: Record<string, unknown> & SearchPaging & { legalEntityId?: string },
+      authCtx: AuthContext = SERVICE,
+    ): Promise<SegmentItem[]> =>
       this.ctx.http.request<SegmentItem[]>({
         method: "POST",
         path: `${this.base()}/${segmentId}/items/search`,
         auth: authCtx,
-        body: query,
+        ...splitQuery(query, [...SEARCH_PAGING, "legalEntityId"]),
       }),
     get: async (segmentId: string, type: string, itemId: string, authCtx: AuthContext = SERVICE): Promise<SegmentItem> =>
       this.ctx.http.request<SegmentItem>({

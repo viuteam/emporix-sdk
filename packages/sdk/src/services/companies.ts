@@ -1,13 +1,14 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
+import { SEARCH_PAGING, splitQuery, type SearchPaging } from "../core/search";
 import type {
   LegalEntity,
   LegalEntityCreate,
   LegalEntityUpdate,
 } from "../generated/customer-management";
 
-/** Body for `companies.search` — an Emporix `q`-syntax filter. */
-export type LegalEntitySearchInput = { q?: string };
+/** Input for `companies.search`: an Emporix `q`-syntax filter (body) plus {@link SearchPaging} (query). */
+export type LegalEntitySearchInput = { q?: string } & SearchPaging;
 
 /**
  * Storefront-customer access to Legal Entities.
@@ -83,14 +84,15 @@ export class CompaniesService {
 
   /**
    * Searches legal entities via `POST /legal-entities/search` with an Emporix
-   * `q`-syntax filter body. Requires the same read scope as {@link listMine}.
+   * `q`-syntax filter body; paging, sort and fields go in the query string.
+   * Requires the same read scope as {@link listMine}.
    */
   async search(query: LegalEntitySearchInput, auth: AuthContext): Promise<LegalEntity[]> {
     return this.ctx.http.request<LegalEntity[]>({
       method: "POST",
       path: `${this.base()}/search`,
       auth,
-      body: query,
+      ...splitQuery(query, SEARCH_PAGING),
       idempotent: true, // pure read over POST — safe to replay on 5xx/429
     });
   }

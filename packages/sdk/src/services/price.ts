@@ -1,6 +1,7 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
 import { EmporixAuthError } from "../core/errors";
+import { splitQuery, type SearchPaging } from "../core/search";
 import type {
   Match,
   MatchByContext,
@@ -262,13 +263,16 @@ export class PriceService {
     });
   }
 
-  /** Searches flat prices (POST body query). Default auth: service. */
-  async search(query: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<Price[]> {
+  /**
+   * Searches flat prices: the criteria go in the body, `expand` in the query
+   * string. Default auth: service.
+   */
+  async search(query: Record<string, unknown> & { expand?: string }, authCtx: AuthContext = SERVICE): Promise<Price[]> {
     return this.ctx.http.request<Price[]>({
       method: "POST",
       path: `/price/${this.ctx.tenant}/prices/search`,
       auth: authCtx,
-      body: query,
+      ...splitQuery(query, ["expand"]),
     });
   }
 
@@ -356,12 +360,16 @@ export class PriceService {
         auth: authCtx,
         body: input,
       }),
-    search: async (query: Record<string, unknown>, authCtx: AuthContext = SERVICE): Promise<PriceList[]> =>
+    /** `q` in the body; `pageNumber`, `pageSize` and `sort` in the query string. */
+    search: async (
+      query: Record<string, unknown> & Omit<SearchPaging, "fields">,
+      authCtx: AuthContext = SERVICE,
+    ): Promise<PriceList[]> =>
       this.ctx.http.request<PriceList[]>({
         method: "POST",
         path: `/price/${this.ctx.tenant}/price-lists/search`,
         auth: authCtx,
-        body: query,
+        ...splitQuery(query, ["pageNumber", "pageSize", "sort"]),
       }),
     get: async (listId: string, authCtx: AuthContext = SERVICE): Promise<PriceList> =>
       this.ctx.http.request<PriceList>({
@@ -442,16 +450,17 @@ export class PriceService {
         auth: authCtx,
       });
     },
+    /** `q` in the body; `pageNumber`, `pageSize` and `sort` in the query string. */
     searchPrices: async (
       listId: string,
-      query: Record<string, unknown>,
+      query: Record<string, unknown> & Omit<SearchPaging, "fields">,
       authCtx: AuthContext = SERVICE,
     ): Promise<PriceListPrice[]> =>
       this.ctx.http.request<PriceListPrice[]>({
         method: "POST",
         path: `/price/${this.ctx.tenant}/price-lists/${listId}/prices/search`,
         auth: authCtx,
-        body: query,
+        ...splitQuery(query, ["pageNumber", "pageSize", "sort"]),
       }),
     bulkCreatePrices: async (
       listId: string,
