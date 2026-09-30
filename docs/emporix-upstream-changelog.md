@@ -5,6 +5,40 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-09-30 — cart: command chain endpoint
+
+Vendored by the bot's [#359](https://github.com/viuteam/emporix-sdk/pull/359);
+the facade followed separately. Measured by path literal
+(`coverage.mjs --spec cart`): 24 → **25** live operations. **1 new endpoint,
+0 removed, 0 newly deprecated.** The facade covers all 25.
+
+### Endpoints
+
+- **cart** — `POST /cart/{tenant}/carts/{cartId}/execute` (customer token, or
+  `cart.cart_manage`; `cart.cart_manage_external_prices` for external prices,
+  products, fees or discounts) → `client.carts.execute`: runs up to ten existing
+  cart operations on one cart in one request and answers `207` with one result
+  per command. React: `useCartCommands`; Angular:
+  `injectCartMutations().execute`. See [cart.md](./cart.md).
+
+### Fields
+
+Nothing else changed in `cart.yml`: the sync added one tag, the path and five
+schemas (`executeRequest`, `executeCommand`, `executeCommandOptions`,
+`executeResponse`, `executeCommandResult`).
+
+### Behaviour
+
+- `207` covers all-2xx chains **and** partial failures. With the default
+  `onError=fail` the chain stops after the first non-2xx command, whose REST
+  error body is its `data`; the SDK throws that error, and the commands before
+  it are already applied.
+- A whole-request `400` (no commands or more than ten, unknown type, bad
+  `onError` / `versioning`, missing `resourceVersion` under
+  `versioning=explicit`) means no command ran.
+- The request takes about as long as its commands together; Emporix asks
+  clients and gateways to size timeouts for the whole chain.
+
 ## 2026-09-28 — media: direct storage uploads and downloads
 
 Vendored by the bot's [#347](https://github.com/viuteam/emporix-sdk/pull/347)
