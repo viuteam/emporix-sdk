@@ -45,6 +45,9 @@ import type { EmporixStorage } from "../storage";
  *
  * Clears only while `id` is still the stored one — a caller who passes some
  * other cart's id must not be able to wipe this session's cart.
+ *
+ * Feed it a cart READ's error only. A write's 404 can mean just its item or
+ * coupon is gone; `useCartMutations` re-reads the cart before deciding.
  */
 function forgetGoneCart(
   error: unknown,
@@ -184,11 +187,22 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
         return { previous, key, id };
       },
       onError: (e, _v, c) => {
-        if (c) qc.setQueryData(c.key, c.previous);
-        // A write into a cart that was closed elsewhere 404s just like a read.
-        // Same cleanup, so the mutate path recovers too instead of failing
-        // forever against a dead id.
-        if (c) forgetGoneCart(e, c.id, storage, qc);
+        if (!c) return;
+        qc.setQueryData(c.key, c.previous);
+        // A 404 on a write does not say WHAT is gone: Emporix answers an item or
+        // coupon removed in another tab with the same 404 as a cart closed on
+        // another device. Only the cart read is unambiguous, so ask it, and
+        // forget the id only if that 404s too. Fetched rather than invalidated:
+        // a lone add-to-cart button has no mounted cart read to refetch.
+        if (e instanceof EmporixNotFoundError) {
+          qc.fetchQuery({
+            queryKey: c.key,
+            queryFn: () => client.carts.get(c.id, ctx),
+            // The rollback above just stamped the entry fresh; the default
+            // staleTime would answer from the cache instead of asking.
+            staleTime: 0,
+          }).catch((readError: unknown) => forgetGoneCart(readError, c.id, storage, qc));
+        }
       },
       onSuccess: (cart, _v, c) => {
         if (!c) return;
