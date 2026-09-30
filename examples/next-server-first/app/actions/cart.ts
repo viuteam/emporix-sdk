@@ -89,6 +89,10 @@ export async function addToCart(productId: string): Promise<void> {
       // this session still holds its id. Only the 404 tells us — so add first
       // and recover once, rather than verifying the cart on every add, which
       // would cost a billed call each time for the rare case.
+      //
+      // No cart read first, unlike `mutateCart`: this 404 is the cart's. The add
+      // names no line and no coupon, and what else it can miss — the product,
+      // the price — answers 400 (measured on `viu` 2026-09-30).
       if (!(e instanceof EmporixNotFoundError)) throw e;
       clearCart(handle);
       cartId = await freshCart(client, ctx, handle);
@@ -131,10 +135,23 @@ async function mutateCart(
         // is actually right.
         setCart(handle, cartId, await client.carts.get(cartId, ctx));
       } catch (e) {
-        // Closed elsewhere. Drop it here, inside the mutable pass, so the next
-        // page view starts from an empty bag instead of the same 404 forever.
-        // The wrapper flushes even though this rethrows.
-        if (e instanceof EmporixNotFoundError) clearCart(handle);
+        // A 404 does not say WHAT is gone: Emporix answers a line another tab
+        // already removed, and a coupon code it does not know, with the same 404
+        // as a cart a checkout closed elsewhere — measured on `viu` 2026-09-30.
+        // Only the cart read is unambiguous, so ask it. Its 404 drops the id;
+        // anything else keeps it, with the read's count when there is one. One
+        // extra GET, on this path only.
+        //
+        // Dropped here, inside the mutable pass, so the next page view starts
+        // from an empty bag instead of the same 404 forever. The wrapper flushes
+        // even though this rethrows.
+        if (e instanceof EmporixNotFoundError) {
+          try {
+            setCart(handle, cartId, await client.carts.get(cartId, ctx));
+          } catch (read) {
+            if (read instanceof EmporixNotFoundError) clearCart(handle);
+          }
+        }
         throw e;
       }
     }, await emporixOptions());
