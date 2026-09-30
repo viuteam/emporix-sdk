@@ -1646,7 +1646,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 - [ ] **Step 7: Optional live check (only with the user's explicit OK)**
 
-Creates one anonymous throwaway cart on the `viu` tenant and writes nothing to it. Save it as `live-execute.mjs` in your scratchpad directory (never inside the repo) and run it **from the repo root** with `node <scratchpad>/live-execute.mjs` — it resolves the SDK and the env file from the working directory, and prints no credential:
+Creates one anonymous throwaway cart on the `viu` tenant and writes nothing to it. Save it as `live-execute.mjs` in your scratchpad directory (never inside the repo) and run it **from the repo root** with `node <scratchpad>/live-execute.mjs` — it resolves the SDK from the working directory. It needs no credential file: `e2e/.env.local` holds only the test customer's login, while the tenant and the public storefront client id are the defaults in `e2e/playwright.config.ts`:
 
 ```js
 import { pathToFileURL } from "node:url";
@@ -1656,10 +1656,14 @@ const { EmporixClient, EmporixNotFoundError, auth } = await import(
   pathToFileURL(`${process.cwd()}/packages/sdk/dist/index.js`).href
 );
 
-process.loadEnvFile("e2e/.env.local");
+// Same defaults as e2e/playwright.config.ts: tenant `viu` and its public storefront client id.
 const client = new EmporixClient({
-  tenant: process.env.VITE_EMPORIX_TENANT,
-  credentials: { storefront: { clientId: process.env.VITE_EMPORIX_STOREFRONT_CLIENT_ID } },
+  tenant: process.env.VITE_EMPORIX_TENANT ?? "viu",
+  credentials: {
+    storefront: {
+      clientId: process.env.VITE_EMPORIX_STOREFRONT_CLIENT_ID ?? "miFWH87by6AsfQxFSloirT8AV3IZL3seSaC3oR7phbGMV1hO",
+    },
+  },
   logger: false,
 });
 const anon = auth.anonymous();
