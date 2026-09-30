@@ -104,13 +104,13 @@ export type SiteDto = {
      */
     includesTax?: boolean;
     /**
-     * Site's default language, compliant with the ISO 639-1 standard.
+     * Site's default language, compliant with the IETF BCP-47 standard. Regional variants such as `fr-ca` are supported.
      */
     defaultLanguage: string;
     /**
      * Languages supported by the site.
      *
-     * **Note**: The languages must be compliant with the ISO 639-1 standard.
+     * **Note**: The languages must be compliant with the IETF BCP-47 standard. Regional variants such as `fr-ca` are supported.
      */
     languages: Array<string>;
     currency: CurrencyDto;
