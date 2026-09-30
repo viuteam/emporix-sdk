@@ -849,7 +849,8 @@ describe("useCartCommands", () => {
     await act(async () => {
       await result.current.chain.mutateAsync({ commands: [add, getCart], versioning: "follow" });
     });
-    expect(result.current.cart.data?.items).toHaveLength(1);
+    // TanStack notifies observers on a setTimeout(0) scheduler, so the render lags `act`.
+    await waitFor(() => expect(result.current.cart.data?.items).toHaveLength(1));
     await quiet();
     expect(gets).toBe(1);
     expect(new URL(lastUrl).searchParams.get("versioning")).toBe("follow");

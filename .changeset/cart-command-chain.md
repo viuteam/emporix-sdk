@@ -1,5 +1,6 @@
 ---
 "@viu/emporix-sdk": minor
+"@viu/emporix-sdk-react": minor
 ---
 
 feat(cart): add carts.execute for cart command chains
@@ -12,3 +13,8 @@ each command's `data` from its REST operation. With the default
 `onError: "fail"`, a failed command throws the error its REST call would have
 thrown — the commands before it are already applied; `onError: "resume"`
 returns every result. See `docs/cart.md`.
+
+React: `useCartCommands(cartId?)` runs a chain on the active cart and adopts a
+trailing `GetCart` straight into the `useCart` cache — an add-to-cart costs one
+request instead of the write plus a refetch. Any other chain, and any failure,
+invalidates the cart.
