@@ -190,8 +190,34 @@ try {
 }
 ```
 
+A write's `404` is **checked, not trusted**. The cart API answers a line that is
+already gone (removed in another tab) and a coupon code it does not know with the
+same `404` as a closed cart. Clear on it, and a mistyped coupon code empties the bag
+until the next add finds the cart again. `GET /carts/{id}` names nothing but the
+cart, so that read decides:
+
 ```ts
-// A write (Server Action): clear inside the mutable pass, then create a new cart.
+// A write (Server Action): after a 404, clear only if the cart read 404s too.
+try {
+  await client.carts.removeItem(cartId, itemId, ctx);
+} catch (e) {
+  if (e instanceof EmporixNotFoundError) {
+    try {
+      await client.carts.get(cartId, ctx); // still there: keep the id
+    } catch (read) {
+      // Inside the mutable pass, so the next page view starts from an empty bag.
+      if (read instanceof EmporixNotFoundError) handle.delete(STORAGE_KEYS.cartId);
+    }
+  }
+  throw e;
+}
+```
+
+The add can skip that read. It names no line and no coupon, and what else it can
+miss (the product, the price) answers `400` on the live API, so its `404` is the
+cart's. Clear, and create a new cart:
+
+```ts
 try {
   await client.carts.addItem(cartId, item, ctx);
 } catch (e) {
@@ -203,8 +229,9 @@ try {
 ```
 
 Recover on the `404` rather than verifying the cart first: a check would spend a
-billed call on every add for a case that is rare. `examples/next-server-first` does
-exactly this in `app/actions/cart.ts` and both read pages.
+billed call on every write for a case that is rare, and the read above runs on the
+`404` path only. `examples/next-server-first` does exactly this in
+`app/actions/cart.ts` and both read pages.
 
 Do not try to heal this in the proxy. It would have to ask Emporix about the cart on
 every request — the call the session cookie exists to avoid.
