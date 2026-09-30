@@ -20,6 +20,11 @@ import type {
   UpdateCart,
   DiscountResponse,
   CartDtRestrictions,
+  Discount,
+  ExecuteCommand,
+  ExecuteCommandResult,
+  ExecuteResponse,
+  PostCartExecuteData,
 } from "../generated/cart";
 
 /** A cart as returned by the Cart service (all generated fields). */
@@ -67,6 +72,53 @@ export type CartDiscount = DiscountResponse;
 
 /** Lead-time and non-delivery-time restrictions for a cart (`GET …/dtRestrictions`). */
 export type CartDeliveryRestrictions = CartDtRestrictions;
+
+/** Body for applying a discount (`POST /carts/{id}/discounts`, generated). */
+export type CartDiscountInput = Discount;
+
+/**
+ * Request body per command type of {@link CartService.execute}. The spec states
+ * this only in prose — its `data` is an untyped object — so it is the one
+ * hand-written piece. A command type missing here (one Emporix adds after this
+ * was written) keeps the spec's untyped `data` and still works.
+ */
+export interface CartCommandBodies {
+  AddCartItem: CartItemInput;
+  UpdateCartItem: CartItemUpdate;
+  AddCartItemsBatch: CartItemInput[];
+  UpdateCartItemsBatch: CartItemsBatchUpdateInput;
+  UpdateCart: CartUpdateInput;
+  ApplyCartDiscount: CartDiscountInput;
+}
+
+/**
+ * One command of a {@link CartService.execute} chain: `type` picks the REST
+ * operation, `data` is that operation's request body, `options` holds its
+ * remaining path and query parameters (`itemId`, `partial`, `expandCalculation`,
+ * `zipCode`, `countryCode`, `resourceVersion`, `codes`, `discountIndex`). The
+ * cart id is the `execute` path parameter, never a command field.
+ *
+ * `options` is the generated type, where every field is optional: `itemId`
+ * (`UpdateCartItem`, `DeleteCartItem`) and `discountIndex` (`DeleteCartDiscount`)
+ * are required by the server, which reports a missing one on that command.
+ */
+export type CartCommand = {
+  [T in ExecuteCommand["type"]]: Omit<ExecuteCommand, "type" | "data"> & { type: T } &
+    (T extends keyof CartCommandBodies ? { data: CartCommandBodies[T] } : Pick<ExecuteCommand, "data">);
+}[ExecuteCommand["type"]];
+
+/** `onError` and `versioning` of {@link CartService.execute} — both query parameters (generated). */
+export type CartExecuteOptions = NonNullable<PostCartExecuteData["query"]>;
+
+/** The `207` body of {@link CartService.execute}: one result per command that ran, in order (generated). */
+export type CartExecuteResult = ExecuteResponse;
+
+/**
+ * One entry of {@link CartExecuteResult}`.results`: `code`/`status` of the
+ * equivalent REST call, and as `data` its response body — or its error body
+ * when `code` is not 2xx; absent for a 204 (generated).
+ */
+export type CartCommandResult = ExecuteCommandResult;
 
 function requireCartAuth(auth: AuthContext | undefined): AuthContext {
   if (auth && (auth.kind === "customer" || auth.kind === "anonymous")) return auth;
