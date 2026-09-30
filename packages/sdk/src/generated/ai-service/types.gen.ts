@@ -1198,7 +1198,12 @@ export type AgentRequest = BaseForAgentRequestAndResponse & {
     nativeTools?: Array<NativeToolReferenceRequest>;
     llmConfig: EmporixLlm | ApiKeyLlmRequest | SelfHostedLlmRequest;
     mcpServers: AgentMcpServersRequest;
-    metadata?: MetadataRequest;
+    metadata?: MetadataRequest & {
+        /**
+         * Optional note stored on this version. A blank value clears the live note. The next successful update archives the note with this version.
+         */
+        changeNote?: string;
+    };
 };
 
 export type AgentResponse = BaseForAgentRequestAndResponse & {
@@ -1218,7 +1223,61 @@ export type AgentResponse = BaseForAgentRequestAndResponse & {
      * Prompt which is inherited from the template (if agent is created based on the template). The prompt provided by the user is then concatenated with this prompt.
      */
     templatePrompt?: string;
-    metadata?: MetadataResponse;
+    metadata?: AgentMetadataResponse;
+    /**
+     * Stored history of previous agent configurations. Present only when the request sets `allVersions=true`. Omitted otherwise.
+     */
+    versions?: Array<AgentVersion>;
+};
+
+export type AgentVersion = BaseForAgentRequestAndResponse & {
+    /**
+     * Prompt inherited from the template at the time of this version.
+     */
+    templatePrompt?: string;
+    nativeTools?: NativeToolsResponse;
+    llmConfig?: EmporixLlm | ApiKeyLlmResponse | SelfHostedLlmResponse;
+    mcpServers?: AgentMcpServersResponse;
+    metadata: AgentVersionMetadata;
+};
+
+export type AgentVersionMetadata = {
+    /**
+     * Version number of this archived snapshot.
+     */
+    version: number;
+    /**
+     * Date and time when this version was stored. The value is an ISO-8601 instant. For example: `2022-04-30T13:18:02.379Z`
+     */
+    modifiedAt?: string;
+    modifiedBy?: ModifiedBy;
+    /**
+     * Note stored with this snapshot.
+     */
+    changeNote?: string;
+};
+
+/**
+ * Who last changed the agent.
+ */
+export type ModifiedBy = {
+    /**
+     * Identity recorded for the change. `EXTERNAL` is assigned when the request authenticates with an API token. `SYSTEM` is used for automatic updates.
+     *
+     */
+    type: 'CUSTOMER' | 'EMPLOYEE' | 'EXTERNAL' | 'SYSTEM';
+    /**
+     * Identifier of the customer or employee. Omitted for `EXTERNAL` and `SYSTEM`. `id` is the `Hybris-User-Id` header value when `CUSTOMER` or `EMPLOYEE`.
+     */
+    id?: string;
+    /**
+     * First name of the customer or employee.
+     */
+    firstName?: string;
+    /**
+     * Last name of the customer or employee.
+     */
+    lastName?: string;
 };
 
 export type MetadataRequest = {
@@ -1230,13 +1289,21 @@ export type MetadataRequest = {
 
 export type MetadataResponse = MetadataRequest & {
     /**
-     * Date and time when the object was created. The value is approved as an ISO-8601 representation of an Instant. For example: `2022-04-31T13:18:02.379Z`
+     * Date and time when the object was created. The value is approved as an ISO-8601 representation of an Instant. For example: `2022-04-30T13:18:02.379Z`
      */
     createdAt: string;
     /**
-     * Date and time when the object was last modified. The value is approved as an ISO-8601 representation of an Instant. For example: `2022-04-31T13:18:02.379Z`
+     * Date and time when the object was last modified. The value is approved as an ISO-8601 representation of an Instant. For example: `2022-04-30T13:18:02.379Z`
      */
     modifiedAt: string;
+};
+
+export type AgentMetadataResponse = MetadataResponse & {
+    modifiedBy?: ModifiedBy;
+    /**
+     * Note stored for this live version.
+     */
+    changeNote?: string;
 };
 
 /**
@@ -1496,6 +1563,10 @@ export type AgentLogMessageResponse = {
      */
     agentId?: string;
     /**
+     * Version of the agent that wrote this log message.
+     */
+    agentVersion?: number;
+    /**
      * Unique identifier of the request associated with the log.
      */
     requestId?: string;
@@ -1543,6 +1614,10 @@ export type AgentRequestResponse = {
      * Cumulative LLM completion token count for this request.
      */
     completionTokens?: number;
+    /**
+     * Version of the agent which triggered the request.
+     */
+    agentVersion?: number;
     metadata?: MetadataResponse;
 };
 
@@ -1885,6 +1960,21 @@ export type Sort = string;
  * Fields to be returned in the response.
  */
 export type Fields = string;
+
+/**
+ * Returns the configuration stored for this agent version. Omit the parameter to return the live agent.
+ * The response is `404` when the agent or this version does not exist.
+ * Cannot be combined with `allVersions` query parameter.
+ *
+ */
+export type AgentVersion2 = number;
+
+/**
+ * When `true`, the response includes `versions` field containing the stored history of previous configurations.
+ * Cannot be combined with `version` query parameter.
+ *
+ */
+export type AllVersions = boolean;
 
 /**
  * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
@@ -2996,11 +3086,28 @@ export type GetAiRetrieveAgentData = {
          * Fields to be expanded in the response. It means that instead of the object IDs, the whole objects are returned in the response.
          */
         expand?: 'oauth' | 'mcpServers' | 'nativeTools' | 'token';
+        /**
+         * Returns the configuration stored for this agent version. Omit the parameter to return the live agent.
+         * The response is `404` when the agent or this version does not exist.
+         * Cannot be combined with `allVersions` query parameter.
+         *
+         */
+        version?: number;
+        /**
+         * When `true`, the response includes `versions` field containing the stored history of previous configurations.
+         * Cannot be combined with `version` query parameter.
+         *
+         */
+        allVersions?: boolean;
     };
     url: '/ai-service/{tenant}/agentic/agents/{agentId}';
 };
 
 export type GetAiRetrieveAgentErrors = {
+    /**
+     * The request was syntactically incorrect.
+     */
+    400: ErrorMessage;
     /**
      * The authorization token is invalid or has expired.
      */
@@ -3059,6 +3166,14 @@ export type PatchAiUpdateAgentErrors = {
      * Example response
      */
     404: ErrorMessage;
+    /**
+     * There are three possible reasons:
+     * 1. Resource with given code already exists, please choose unique code for your resource
+     * 2. Optimistic locking failed. If user sends metadata/version attribute which is outdated (someone else updated resource in the time user was performing his changes). User should retrieve the latest product data and retry the request.
+     * 3. Optimistic locking failed. User did not provide metadata/version attribute in update request, but someone else updated product while it was internally handled by product service. Resending the same request can result in successful update, but the update can override recently persisted changes.
+     *
+     */
+    409: ErrorMessage;
 };
 
 export type PatchAiUpdateAgentError = PatchAiUpdateAgentErrors[keyof PatchAiUpdateAgentErrors];
