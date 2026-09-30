@@ -1,6 +1,7 @@
 ---
 "@viu/emporix-sdk": minor
 "@viu/emporix-sdk-react": minor
+"@viu/emporix-sdk-angular": minor
 ---
 
 feat(cart): add carts.execute for cart command chains
@@ -18,3 +19,6 @@ React: `useCartCommands(cartId?)` runs a chain on the active cart and adopts a
 trailing `GetCart` straight into the `useCart` cache — an add-to-cart costs one
 request instead of the write plus a refetch. Any other chain, and any failure,
 invalidates the cart.
+
+Angular: `injectCartMutations().execute(commands, opts?)` runs a chain and
+invalidates the cart after success and after a failure.
