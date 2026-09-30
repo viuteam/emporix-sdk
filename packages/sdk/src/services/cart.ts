@@ -1,6 +1,6 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
-import { EmporixNotFoundError, EmporixValidationError } from "../core/errors";
+import { EmporixNotFoundError, EmporixValidationError, errorFromResponse } from "../core/errors";
 import type {
   Cart as GeneratedCart,
   CreateCart,
@@ -588,5 +588,56 @@ export class CartService {
       path: `${this.base()}/${cartId}/dtRestrictions`,
       auth: requireCartAuth(auth),
     });
+  }
+
+  /**
+   * Runs up to 10 cart commands on this cart in one request, in order
+   * (`POST /carts/{cartId}/execute`). The typical chain is `AddCartItem` then
+   * `GetCart`: the calculated cart comes back without a second round trip.
+   *
+   * - `onError: "fail"` (default) stops at the first command that does not
+   *   answer 2xx and **throws the error that command's REST call would have
+   *   thrown** — an `EmporixNotFoundError` for a 404, … — with the command's
+   *   error body. The commands before it **have already been applied**.
+   * - `onError: "resume"` runs every command and resolves with all results;
+   *   check each `code`.
+   * - A `400` for the whole request (no commands or more than 10, an unknown
+   *   type, `versioning: "explicit"` without a `resourceVersion`) means no
+   *   command ran.
+   *
+   * The request takes about as long as its commands together — size the
+   * client's `timeouts.readMs` for long chains. It is never retried: a replay
+   * would apply the writes twice.
+   *
+   * `auth` is forwarded unguarded: a customer or anonymous token works on the
+   * shopper's own cart; a service token needs `cart.cart_manage`, plus
+   * `cart.cart_manage_external_prices` when a command carries an external
+   * price, product, fee or discount.
+   */
+  async execute(
+    cartId: string,
+    commands: CartCommand[],
+    auth: AuthContext,
+    opts: CartExecuteOptions = {},
+  ): Promise<CartExecuteResult> {
+    const path = `${this.base()}/${encodeURIComponent(cartId)}/execute`;
+    const res = await this.ctx.http.request<CartExecuteResult>({
+      method: "POST",
+      path,
+      auth,
+      query: { ...opts },
+      body: { commands },
+    });
+    if (opts.onError !== "resume") {
+      const failed = res.results.find((r) => r.code < 200 || r.code > 299);
+      if (failed) {
+        throw errorFromResponse(
+          failed.code,
+          `POST ${path} → command ${failed.index} (${failed.type}) → ${failed.code}`,
+          failed.data,
+        );
+      }
+    }
+    return res;
   }
 }

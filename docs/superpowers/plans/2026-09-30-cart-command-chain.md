@@ -719,8 +719,8 @@ returns every result. See `docs/cart.md`.
 
 - [ ] **Step 9: Build the SDK so React and Angular see `execute`**
 
-Run: `pnpm -F @viu/emporix-sdk build && grep -c "execute(" packages/sdk/dist/index.d.ts`
-Expected: build succeeds; count `≥ 1`.
+Run: `pnpm -F @viu/emporix-sdk build && grep -l "execute(cartId" packages/sdk/dist/*.d.ts`
+Expected: build succeeds; prints `packages/sdk/dist/cart.d.ts` (the class declarations live in the per-service chunk; `index.d.ts` re-exports them).
 
 - [ ] **Step 10: Commit**
 
