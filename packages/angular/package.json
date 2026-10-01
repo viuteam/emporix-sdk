@@ -1,6 +1,6 @@
 {
   "name": "@viu/emporix-sdk-angular",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Angular bindings for the Emporix SDK: signal-based injectables over TanStack Query",
   "license": "MIT",
   "author": {

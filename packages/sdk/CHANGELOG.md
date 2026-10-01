@@ -1,5 +1,34 @@
 # @viu/emporix-sdk
 
+## 4.2.0
+
+### Minor Changes
+
+- [#361](https://github.com/viuteam/emporix-sdk/pull/361) [`2d33114`](https://github.com/viuteam/emporix-sdk/commit/2d33114f8f7177e1d2178d46633ff3ac976ba3b4) Thanks [@amnael1](https://github.com/amnael1)! - feat(cart): add carts.execute for cart command chains
+  
+  `client.carts.execute(cartId, commands, auth, { onError, versioning })` wraps
+  Emporix's new `POST /cart/{tenant}/carts/{cartId}/execute`: up to ten cart
+  operations on one cart in a single request, typically `AddCartItem` followed by
+  `GetCart`, so the calculated cart comes back with the write. `CartCommand` types
+  each command's `data` from its REST operation. With the default
+  `onError: "fail"`, a failed command throws the error its REST call would have
+  thrown — the commands before it are already applied; `onError: "resume"`
+  returns every result. See `docs/cart.md`.
+  
+  React: `useCartCommands(cartId?)` runs a chain on the active cart and adopts a
+  trailing `GetCart` straight into the `useCart` cache — an add-to-cart costs one
+  request instead of the write plus a refetch. Any other chain, and any failure,
+  invalidates the cart.
+  
+  Angular: `injectCartMutations().execute(commands, opts?)` runs a chain and
+  invalidates the cart after success and after a failure.
+
+### Patch Changes
+
+- [#356](https://github.com/viuteam/emporix-sdk/pull/356) [`bde9867`](https://github.com/viuteam/emporix-sdk/commit/bde986759fd0b0869058d3e975a563fa761ec5a6) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: cart
+
 ## 4.1.0
 
 ### Minor Changes
