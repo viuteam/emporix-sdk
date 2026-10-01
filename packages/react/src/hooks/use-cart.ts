@@ -20,6 +20,9 @@ import {
   type CartValidationResult,
   type CartItem,
   type CartItemsBatchUpdateInput,
+  type CartCommand,
+  type CartExecuteOptions,
+  type CartExecuteResult,
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useReadAuth, type QueryOpts } from "./internal/use-read-auth";
@@ -45,6 +48,9 @@ import type { EmporixStorage } from "../storage";
  *
  * Clears only while `id` is still the stored one — a caller who passes some
  * other cart's id must not be able to wipe this session's cart.
+ *
+ * Feed it a cart READ's error only. A write's 404 can mean just its item or
+ * coupon is gone; `useCartMutations` re-reads the cart before deciding.
  */
 function forgetGoneCart(
   error: unknown,
@@ -132,6 +138,37 @@ export interface CartMutationsApi {
 }
 
 /**
+ * The cart a write targets. The id is resolved at **mutate time** — `cartId`,
+ * else `storage.getCartId()` — so writes right after
+ * `useActiveCart({ create: true })` work without a render race; with neither it
+ * throws a named `EmporixError`. `keyFor` is the `useCart` cache key for that
+ * id, shared so every cart write hits the entry `useCart` reads.
+ */
+function useCartWriteTarget(cartId: string | undefined, hook: string) {
+  const { client, storage } = useEmporix();
+  const { ctx } = useReadAuth();
+  const { siteCode, language } = useReadSite();
+  const { activeCompany } = useActiveCompany();
+
+  const resolveId = (): string => {
+    const id = cartId ?? storage.getCartId();
+    if (!id) {
+      throw new EmporixError(
+        `${hook}: no cartId available — pass one explicitly or call useActiveCart({ create: true }) first`,
+      );
+    }
+    return id;
+  };
+  const keyFor = (id: string) =>
+    emporixKey(
+      "cart",
+      [id, activeCompany?.id ?? null],
+      { tenant: client.tenant, authKind: ctx.kind, siteCode, language },
+    );
+  return { ctx, resolveId, keyFor };
+}
+
+/**
  * Cart write operations with optimistic cache updates and rollback.
  *
  * `cartId` is optional — when omitted, `storage.getCartId()` is resolved at
@@ -143,25 +180,7 @@ export interface CartMutationsApi {
 export function useCartMutations(cartId?: string): CartMutationsApi {
   const { client, storage } = useEmporix();
   const qc = useQueryClient();
-  const { ctx } = useReadAuth();
-  const { siteCode, language } = useReadSite();
-  const { activeCompany } = useActiveCompany();
-
-  const resolveId = (): string => {
-    const id = cartId ?? storage.getCartId();
-    if (!id) {
-      throw new EmporixError(
-        "useCartMutations: no cartId available — pass one explicitly or call useActiveCart({ create: true }) first",
-      );
-    }
-    return id;
-  };
-  const keyFor = (id: string) =>
-    emporixKey(
-      "cart",
-      [id, activeCompany?.id ?? null],
-      { tenant: client.tenant, authKind: ctx.kind, siteCode, language },
-    );
+  const { ctx, resolveId, keyFor } = useCartWriteTarget(cartId, "useCartMutations");
 
   function make<TVars>(
     run: (id: string, vars: TVars) => Promise<Cart>,
@@ -184,11 +203,22 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
         return { previous, key, id };
       },
       onError: (e, _v, c) => {
-        if (c) qc.setQueryData(c.key, c.previous);
-        // A write into a cart that was closed elsewhere 404s just like a read.
-        // Same cleanup, so the mutate path recovers too instead of failing
-        // forever against a dead id.
-        if (c) forgetGoneCart(e, c.id, storage, qc);
+        if (!c) return;
+        qc.setQueryData(c.key, c.previous);
+        // A 404 on a write does not say WHAT is gone: Emporix answers an item or
+        // coupon removed in another tab with the same 404 as a cart closed on
+        // another device. Only the cart read is unambiguous, so ask it, and
+        // forget the id only if that 404s too. Fetched rather than invalidated:
+        // a lone add-to-cart button has no mounted cart read to refetch.
+        if (e instanceof EmporixNotFoundError) {
+          qc.fetchQuery({
+            queryKey: c.key,
+            queryFn: () => client.carts.get(c.id, ctx),
+            // The rollback above just stamped the entry fresh; the default
+            // staleTime would answer from the cache instead of asking.
+            staleTime: 0,
+          }).catch((readError: unknown) => forgetGoneCart(readError, c.id, storage, qc));
+        }
       },
       onSuccess: (cart, _v, c) => {
         if (!c) return;
@@ -248,6 +278,74 @@ export function useCartMutations(cartId?: string): CartMutationsApi {
       client.carts.updateItemsBatch(id, v.items, ctx).then(() => client.carts.get(id, ctx)),
     ),
   };
+}
+
+/** Variables of {@link useCartCommands}: the chain, plus `onError` / `versioning`. */
+export interface CartCommandsVars extends CartExecuteOptions {
+  commands: CartCommand[];
+}
+
+/**
+ * The cart a chain ends with — when it is the cart `useCart` would show: the
+ * last command is a `GetCart` that succeeded at default calculation. A write
+ * after the `GetCart` would make it stale; `expandCalculation: false` or a
+ * `zipCode`/`countryCode` read returns a different cart than `useCart` fetches.
+ */
+function trailingCart(result: CartExecuteResult, commands: CartCommand[]): Cart | undefined {
+  const last = result.results.at(-1);
+  if (!last || last.type !== "GetCart" || last.index !== commands.length - 1) return undefined;
+  if (last.code < 200 || last.code > 299) return undefined;
+  const command = commands[last.index];
+  const options = command?.type === "GetCart" ? command.options : undefined;
+  if (options?.expandCalculation === false || options?.zipCode !== undefined || options?.countryCode !== undefined) {
+    return undefined;
+  }
+  return last.data as Cart;
+}
+
+/**
+ * Runs a cart command chain (`client.carts.execute`, up to 10 commands in one
+ * request) on the given cart, or on the stored one at mutate time.
+ *
+ * When the chain **ends** with a successful `GetCart` at default calculation,
+ * that cart replaces the cached one, so `useCart` / `useActiveCart` show it
+ * without a second request. Any other chain invalidates the cart query — and so
+ * does a failure, because the commands before it were already applied.
+ *
+ * With `onError: "fail"` (the default) a failed command rejects the mutation
+ * with the error its REST call would have thrown; with `"resume"` it resolves
+ * with every result and you check each `code`. No optimistic update.
+ *
+ * Unlike `useCartMutations`, a 404 does not forget the stored cart id: a command
+ * 404 can mean a missing *item*. A cart that is really gone answers 404 on the
+ * refetch, where `useCart` forgets it.
+ */
+export function useCartCommands(
+  cartId?: string,
+): UseMutationResult<CartExecuteResult, unknown, CartCommandsVars, { key: readonly unknown[] }> {
+  const { client } = useEmporix();
+  const qc = useQueryClient();
+  const { ctx, resolveId, keyFor } = useCartWriteTarget(cartId, "useCartCommands");
+
+  return useMutation<CartExecuteResult, unknown, CartCommandsVars, { key: readonly unknown[] }>({
+    mutationFn: ({ commands, ...opts }) => client.carts.execute(resolveId(), commands, ctx, opts),
+    onMutate: async () => {
+      const key = keyFor(resolveId());
+      // An older refetch still in flight must not land after the chain and
+      // overwrite the cart it returned.
+      await qc.cancelQueries({ queryKey: key });
+      return { key };
+    },
+    onSuccess: (result, vars, c) => {
+      if (!c) return;
+      const cart = trailingCart(result, vars.commands);
+      if (cart) qc.setQueryData(c.key, cart);
+      else void qc.invalidateQueries({ queryKey: c.key });
+    },
+    onError: (_e, _v, c) => {
+      if (c) void qc.invalidateQueries({ queryKey: c.key });
+    },
+  });
 }
 
 /**

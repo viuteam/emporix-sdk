@@ -176,6 +176,7 @@ wrote — there is no write-side factory in this package.
 | `useSubcategories` / `useChildCategories` / `useCategoryParents` | category tree navigation |
 | `useCart(cartId?)` / `useActiveCart(opts?)` / `useCreateCart()` / `useCartItems()` | cart read + bootstrap |
 | `useCartMutations(cartId?)` | add/update/remove/clear/coupons/addresses — optimistic + rollback |
+| `useCartCommands(cartId?)` | cart command chain — up to 10 operations in one request; adopts a trailing `GetCart` into the cart cache |
 | `useCartValidation()` | cart item validation |
 | `useCheckout()` / `usePaymentModes()` / `usePaymentMode()` / `useInitializePayment()` | checkout flow + payment modes |
 | `useShippingZones()` | shipping zone reads |

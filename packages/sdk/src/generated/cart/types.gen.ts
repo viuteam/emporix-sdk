@@ -1432,6 +1432,191 @@ export type BatchResponse = Array<SingleBatchResponse>;
 export type CartItemsRequest = Array<CartItemRequest>;
 
 /**
+ * Body of `POST /cart/{tenant}/carts/{cartId}/execute`. Between 1 and 10 commands.
+ */
+export type ExecuteRequest = {
+    /**
+     * Commands to run sequentially. Maximum 10. Request duration is approximately the sum of the chained commands.
+     *
+     * Each item needs `type`. `data` is the REST request body and is omitted for commands that have no body. The cart id is the path parameter. `options` holds remaining path and query equivalents (`itemId`, `partial`, `expandCalculation`, `zipCode`, `countryCode`, `resourceVersion`, `codes`, `discountIndex`).
+     *
+     */
+    commands: Array<ExecuteCommand>;
+};
+
+/**
+ * One operation in the execute chain. `type` selects the REST equivalent. `data` is that endpoint’s request body. The cart id is the execute path parameter. `options` fields are remaining path and query equivalents (`itemId`, `partial`, `expandCalculation`, `zipCode`, `countryCode`, `resourceVersion`, `codes`, `discountIndex`).
+ *
+ * Session and legal-entity identity are request headers, not command fields.
+ *
+ */
+export type ExecuteCommand = {
+    /**
+     * Operation to run.
+     *
+     * Possible values:
+     * * `AddCartItem`
+     * * `UpdateCartItem`
+     * * `DeleteCartItem`
+     * * `DeleteCartItems`
+     * * `GetCart`
+     * * `AddCartItemsBatch`
+     * * `UpdateCartItemsBatch`
+     * * `UpdateCart`
+     * * `ApplyCartDiscount`
+     * * `GetCartDiscounts`
+     * * `DeleteCartDiscounts`
+     * * `DeleteCartDiscount`
+     * * `RefreshCart`
+     * * `ValidateCart`
+     *
+     */
+    type: 'AddCartItem' | 'UpdateCartItem' | 'DeleteCartItem' | 'DeleteCartItems' | 'GetCart' | 'AddCartItemsBatch' | 'UpdateCartItemsBatch' | 'UpdateCart' | 'ApplyCartDiscount' | 'GetCartDiscounts' | 'DeleteCartDiscounts' | 'DeleteCartDiscount' | 'RefreshCart' | 'ValidateCart';
+    /**
+     * Request body of the equivalent REST operation.
+     *
+     * * `AddCartItem` – cart item body
+     * * `UpdateCartItem` – cart item update body
+     * * `AddCartItemsBatch` – list of cart item bodies
+     * * `UpdateCartItemsBatch` – list of cart item updates (maximum 50)
+     * * `UpdateCart` – cart update body
+     * * `ApplyCartDiscount` – discount body
+     *
+     * Omit `data` for `GetCart`, `RefreshCart`, `ValidateCart`, deletes, `GetCartDiscounts`, `DeleteCartDiscounts`, and `DeleteCartDiscount`.
+     *
+     * The service selects the body type from `type`. A single item body is an object. Batch commands send an array.
+     *
+     */
+    data?: {
+        [key: string]: unknown;
+    } | Array<{
+        [key: string]: unknown;
+    }>;
+    options?: ExecuteCommandOptions;
+};
+
+/**
+ * Remaining path and query equivalents for the command. Required fields depend on `type`. The cart id is the execute path parameter, not an option.
+ */
+export type ExecuteCommandOptions = {
+    /**
+     * Cart item unique identifier generated when the product is added to the cart.
+     *
+     * Required for `UpdateCartItem` and `DeleteCartItem`.
+     *
+     */
+    itemId?: string;
+    /**
+     * When `true`, only the provided item or batch fields are updated. Same default as the REST `partial` query parameter (`false`).
+     *
+     * Used by `UpdateCartItem` and `UpdateCartItemsBatch`.
+     *
+     */
+    partial?: boolean;
+    /**
+     * When `true`, `GetCart` returns a fully calculated cart. Same default as the REST `expandCalculation` query parameter (`true`).
+     *
+     * Used by `GetCart`.
+     *
+     */
+    expandCalculation?: boolean;
+    /**
+     * Zip code of the shipping address, used for tax calculations, shipping cost estimations, and pricing. Provide together with `countryCode` if either is specified.
+     *
+     * Used by `GetCart`.
+     *
+     */
+    zipCode?: string;
+    /**
+     * Two-letter country code of the shipping address. Provide together with `zipCode` if either is specified.
+     *
+     * Used by `GetCart`.
+     *
+     */
+    countryCode?: string;
+    /**
+     * Cart resource version used as If-Match for participating writes (`AddCartItem`, `UpdateCartItem`, `UpdateCart`, `ApplyCartDiscount`).
+     *
+     * * `versioning=skip` – ignored
+     * * `versioning=explicit` – required on every participating command (whole-request preflight)
+     * * `versioning=follow` – required to seed the first participating write; omit on later writes
+     *
+     * Extra `resourceVersion` on `GetCart`, `ValidateCart`, `RefreshCart`, deletes, and itemsBatch is ignored.
+     *
+     */
+    resourceVersion?: number;
+    /**
+     * Discount codes to remove. If omitted, `DeleteCartDiscounts` removes all discounts. Same meaning as the REST `codes` query parameter.
+     *
+     * Used by `DeleteCartDiscounts`.
+     *
+     */
+    codes?: Array<string>;
+    /**
+     * Index of the discount in the cart discounts array.
+     *
+     * Required for `DeleteCartDiscount`.
+     *
+     */
+    discountIndex?: string;
+};
+
+/**
+ * Body of a 207 execute response. Present only when the chain was accepted and executed.
+ */
+export type ExecuteResponse = {
+    /**
+     * Ordered results for commands that ran. With `onError=fail`, the array stops after the first non-2xx command.
+     *
+     */
+    results: Array<ExecuteCommandResult>;
+};
+
+/**
+ * Result of one command in the execute chain. `data` matches the REST response body for that command.
+ */
+export type ExecuteCommandResult = {
+    /**
+     * Zero-based index of the command in the request `commands` array.
+     */
+    index: number;
+    /**
+     * Command type that produced this result.
+     */
+    type: string;
+    /**
+     * HTTP status code of the equivalent REST operation.
+     */
+    code: number;
+    /**
+     * HTTP reason phrase that matches `code`.
+     */
+    status: string;
+    /**
+     * Response body of the equivalent REST operation. Omitted when that endpoint returns 204.
+     *
+     * A single-object body (`AddCartItem`, `GetCart`, `ApplyCartDiscount`, `ValidateCart`, or an error) is an object. `GetCartDiscounts`, `AddCartItemsBatch`, and `UpdateCartItemsBatch` return an array. Failures use the same error shape as REST (`code`, `status`, `message`).
+     *
+     */
+    data?: {
+        [key: string]: unknown;
+    } | Array<{
+        [key: string]: unknown;
+    }> | null;
+    /**
+     * Response headers for this command.
+     *
+     * When a participating write applied If-Match, this object contains `hybris-resource-version` set to the version after the write. `versioning=skip` does not send If-Match, so the header is absent.
+     *
+     * `AddCartItemsBatch` does not use this object for item locations. Each created item's `data[].headers.location` uses the same location as REST `POST .../itemsBatch`.
+     *
+     */
+    headers?: {
+        [key: string]: string;
+    };
+};
+
+/**
  * error
  *
  * Schema for API-specific errors.
@@ -2581,6 +2766,93 @@ export type PutCartUpdateCartResponses = {
 };
 
 export type PutCartUpdateCartResponse = PutCartUpdateCartResponses[keyof PutCartUpdateCartResponses];
+
+export type PostCartExecuteData = {
+    body: ExecuteRequest;
+    headers?: {
+        /**
+         * Anonymous customer unique session identifier. Shared by every command in the chain. Commands cannot override this header.
+         *
+         */
+        'session-id'?: string;
+        /**
+         * Legal entity of the shopper context. Shared by every command in the chain. Commands cannot override this header. To act as a different legal entity, send another request.
+         *
+         */
+        'legal-entity-id'?: string;
+    };
+    path: {
+        /**
+         * Cart unique identifier generated when a cart is created.
+         */
+        cartId: string;
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * Controls whether the chain stops after the first non-2xx command.
+         *
+         * Possible values:
+         * * `fail` – Stop after the first non-2xx command. `results` contains only the commands that ran, including the failed one.
+         * * `resume` – Run every command. Later commands still see earlier successful mutations.
+         *
+         * An invalid value returns **400** for the whole request before any command runs.
+         *
+         */
+        onError?: 'fail' | 'resume';
+        /**
+         * If-Match strategy for participating writes (`AddCartItem`, `UpdateCartItem`, `UpdateCart`, `ApplyCartDiscount`).
+         *
+         * Possible values:
+         * * `skip` – Never pass a version. Ignore `options.resourceVersion` if present.
+         * * `explicit` – Every participating command must send `options.resourceVersion`. Missing version on any participating write returns **400** for the whole request (preflight). This is not `skip`.
+         * * `follow` – Seed from the first participating write, then use that cursor for later writes. After the cursor exists, a successful `RefreshCart`, delete, or itemsBatch also bumps it.
+         *
+         * An invalid value returns **400** for the whole request before any command runs.
+         *
+         */
+        versioning?: 'skip' | 'explicit' | 'follow';
+    };
+    url: '/cart/{tenant}/carts/{cartId}/execute';
+};
+
+export type PostCartExecuteErrors = {
+    /**
+     * The execute request is invalid. No command ran. `results` is not returned.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired.
+     *
+     * Details will be provided in the response payload.
+     */
+    401: ErrorMessage;
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Some server-side error occurred. Details will be provided in the response payload.
+     */
+    500: ErrorMessage;
+};
+
+export type PostCartExecuteError = PostCartExecuteErrors[keyof PostCartExecuteErrors];
+
+export type PostCartExecuteResponses = {
+    /**
+     * The command chain was accepted and executed. `results` lists each command that ran. This status is used for all-2xx chains and for partial failures.
+     */
+    207: ExecuteResponse;
+};
+
+export type PostCartExecuteResponse = PostCartExecuteResponses[keyof PostCartExecuteResponses];
 
 export type PutCartRefreshCartData = {
     body?: never;

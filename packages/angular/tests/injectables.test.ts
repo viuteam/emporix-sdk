@@ -52,6 +52,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     cartGet: vi.fn(async () => ({ id: "cart-1", items: [] })),
     cartGetCurrent: vi.fn(async () => ({ id: "cart-new", items: [] })),
     addItem: vi.fn(async () => ({ id: "cart-1" })),
+    cartExecute: vi.fn(async () => ({ results: [] })),
     listPaymentModes: vi.fn(async () => [{ id: "mode-1" }]),
     placeOrder: vi.fn(async () => ({ orderId: "EON1" })),
     listMine: vi.fn(async () => page([{ id: "o1" }])),
@@ -78,7 +79,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     media: { listForProduct: calls.listForProduct },
     prices: { matchByContext: calls.matchByContext },
     availability: { get: calls.availabilityGet },
-    carts: { get: calls.cartGet, getCurrent: calls.cartGetCurrent, addItem: calls.addItem },
+    carts: { get: calls.cartGet, getCurrent: calls.cartGetCurrent, addItem: calls.addItem, execute: calls.cartExecute },
     payments: { listPaymentModes: calls.listPaymentModes },
     checkout: { placeOrder: calls.placeOrder },
     orders: { listMine: calls.listMine, get: calls.orderGet },
@@ -351,6 +352,30 @@ describe("cart injectables", () => {
     await expect(mut.addItem({ itemYrn: "urn:x", quantity: 1 } as never)).rejects.toThrow(
       /no cartId available/,
     );
+  });
+
+  it("cart execute passes the chain through and invalidates the cart", async () => {
+    ctx.storage.setCartId("cart-1");
+    ctx.queryClient.setQueryData(["emporix", "cart", "probe"], { id: "cart-1" });
+    const mut = TestBed.runInInjectionContext(() => injectCartMutations());
+    const commands = [{ type: "GetCart" as const }];
+    await mut.execute(commands, { onError: "resume" });
+    expect(ctx.calls.cartExecute).toHaveBeenCalledWith("cart-1", commands, expect.anything(), { onError: "resume" });
+    expect(ctx.queryClient.getQueryState(["emporix", "cart", "probe"])?.isInvalidated).toBe(true);
+  });
+
+  it("cart execute invalidates after a failed chain too — the earlier commands were applied", async () => {
+    const ctx2 = setup({
+      cartExecute: vi.fn(async () => {
+        throw new EmporixNotFoundError("POST … → command 1 (UpdateCartItem) → 404", 404);
+      }),
+    });
+    ctx2.storage.setCartId("cart-1");
+    ctx2.queryClient.setQueryData(["emporix", "cart", "probe"], { id: "cart-1" });
+    const mut = TestBed.runInInjectionContext(() => injectCartMutations());
+    await expect(mut.execute([{ type: "GetCart" }])).rejects.toBeInstanceOf(EmporixNotFoundError);
+    expect(ctx2.queryClient.getQueryState(["emporix", "cart", "probe"])?.isInvalidated).toBe(true);
+    expect(mut.error()).toBeInstanceOf(EmporixNotFoundError);
   });
 });
 

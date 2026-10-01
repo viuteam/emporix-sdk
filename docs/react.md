@@ -337,7 +337,7 @@ create: true })` then bootstraps a fresh cart on the next render, because its
 bootstrap gate is `cartId === null` — which a stale id never was. Without this
 the device stayed broken until the next login, and every add-to-cart failed.
 
-Three limits worth knowing:
+Four limits worth knowing:
 
 - **Silent by design.** The cart no longer exists server-side, so there is
   nothing to show the shopper and nothing they could do. They see an empty bag.
@@ -348,6 +348,12 @@ Three limits worth knowing:
   the same status means «token expired» far more often.
 - **Only the stored id.** `useCart("some-other-cart")` that 404s leaves
   `storage.cartId` alone — an explicit id is the caller's business.
+- **A write's `404` is checked, not trusted.** Emporix answers an item or coupon
+  that is already gone (removed in another tab) with the same `404` as a closed
+  cart. So after a `404`, `useCartMutations` re-reads the cart and clears the id
+  only if that read 404s too; otherwise the id stays and the cache takes the
+  cart the server has. That costs one extra GET, on the `404` path only, and runs
+  whether or not a cart read is mounted.
 
 The emporix-scoped `retry` default does not retry a `404` either. Emporix bills
 per API call, and a dead cart id would otherwise pay for the same answer twice
@@ -388,6 +394,36 @@ available …")`. Pair with `useActiveCart` to drop manual cart-id threading:
 const { data: cart } = useActiveCart({ create: true });
 const { addItem } = useCartMutations(); // shares the cart cache with useActiveCart
 ```
+
+`useCartCommands(cartId?)` runs a cart command chain — up to ten cart operations
+in one request (`client.carts.execute`, see [cart.md](./cart.md)). When the
+chain ends with a successful `GetCart`, the hook puts that cart straight into
+the cache `useCart` and `useActiveCart` read, so an add-to-cart costs one
+request instead of the write plus a refetch:
+
+```tsx
+const chain = useCartCommands(); // resolves the cart like useCartMutations
+await chain.mutateAsync({
+  commands: [
+    {
+      type: "AddCartItem",
+      data: {
+        itemYrn: "urn:yaas:saasag:caasproduct:product:acme;p1",
+        quantity: 1,
+        price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "CHF" },
+      },
+    },
+    { type: "GetCart" },
+  ],
+});
+```
+
+Any other chain invalidates the cart instead, and so does a failure: the
+commands before the failed one were applied. With the default `onError: "fail"`
+the mutation rejects with the error the failed command's REST call would have
+thrown; with `onError: "resume"` it resolves with every result. There is no
+optimistic update, and — unlike `useCartMutations` — a `404` does not forget the
+stored cart id, because a command `404` can mean a missing item.
 
 `useCreateCart()` creates a cart and persists the resulting `cartId` so a later
 reload can resume the same cart. Auto-detects customer vs anonymous auth from

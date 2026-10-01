@@ -10,7 +10,10 @@ import {
   type AuthContext,
   type Cart,
   type CartAddress,
+  type CartCommand,
   type CartCreated,
+  type CartExecuteOptions,
+  type CartExecuteResult,
   type CartItem,
   type CartItemInput,
   type CartItemUpdate,
@@ -267,15 +270,26 @@ export interface EmporixCartMutations {
    */
   setShippingAddress(address: CartAddress): Promise<unknown>;
   setBillingAddress(address: CartAddress): Promise<unknown>;
+  /**
+   * Runs a cart command chain (`client.carts.execute`, see docs/cart.md).
+   * Invalidates the cart like every write here — after a failure too, because
+   * the commands before the failed one were already applied. It does not adopt
+   * a trailing `GetCart` into the cache the way React's `useCartCommands` does:
+   * this bundle invalidates instead of doing cache surgery (see above).
+   */
+  execute(commands: CartCommand[], opts?: CartExecuteOptions): Promise<CartExecuteResult>;
 }
+
+const CART_WRITE_KEYS = [
+  ["emporix", "cart"],
+  ["emporix", "cart-items"],
+] as const;
 
 export function injectCartMutations(cartId?: Signal<string | null>): EmporixCartMutations {
   const client: EmporixClient = inject(EMPORIX_CLIENT);
   const storage: EmporixStorage = inject(EMPORIX_STORAGE);
-  const b = writeBundle([
-    ["emporix", "cart"],
-    ["emporix", "cart-items"],
-  ]);
+  const qc = injectQueryClient();
+  const b = writeBundle(CART_WRITE_KEYS);
 
   /**
    * Stays here rather than moving into `writeBundle`: resolving a cart id at
@@ -322,5 +336,11 @@ export function injectCartMutations(cartId?: Signal<string | null>): EmporixCart
       write((id, ctx) => client.carts.setShippingAddress(id, address, ctx)),
     setBillingAddress: (address) =>
       write((id, ctx) => client.carts.setBillingAddress(id, address, ctx)),
+    execute: (commands, opts = {}) =>
+      write((id, ctx) => client.carts.execute(id, commands, ctx, opts)).catch(async (e: unknown) => {
+        // `writeBundle` invalidates on success only; a failed chain may have applied writes.
+        for (const key of CART_WRITE_KEYS) await qc.invalidateQueries({ queryKey: [...key] });
+        throw e;
+      }),
   };
 }

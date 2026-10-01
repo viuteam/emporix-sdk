@@ -140,7 +140,11 @@ describe("a cart closed on another device", () => {
   it("drops the id when a WRITE hits the closed cart", async () => {
     // The mutate path resolves the id from storage too, so it needs the same
     // cleanup — otherwise every add-to-cart on this device fails forever.
+    // The write's own 404 is not proof (see the next test); the cart read that
+    // follows it is, and it runs with no cart read mounted, as here.
+    const hits = { n: 0 };
     server.use(
+      gone("closed-cart", hits),
       http.post("https://api.emporix.io/cart/acme/carts/closed-cart/items", () =>
         HttpResponse.json({ message: "cart not found" }, { status: 404 }),
       ),
@@ -154,5 +158,41 @@ describe("a cart closed on another device", () => {
     result.current.addItem.mutate({ itemYrn: "urn:x", quantity: 1 } as never);
 
     await waitFor(() => expect(storage.getCartId()).toBeNull());
+    expect(hits.n).toBe(1);
+  });
+
+  it("keeps the id when a write 404s because only the ITEM is gone", async () => {
+    // Emporix answers a missing item with the same 404 as a missing cart
+    // («Cart item not found in cart … with code 9») — here another tab removed
+    // the line first. The cart itself is fine, so the session keeps it.
+    const gets = { n: 0 };
+    server.use(
+      http.get("https://api.emporix.io/cart/acme/carts/my-cart", () => {
+        gets.n += 1;
+        return HttpResponse.json({ id: "my-cart", items: [] });
+      }),
+      http.delete("https://api.emporix.io/cart/acme/carts/my-cart/items/i9", () =>
+        HttpResponse.json(
+          { code: 404, status: "Not Found", message: "Cart item not found in cart my-cart with code 9" },
+          { status: 404 },
+        ),
+      ),
+    );
+    const storage = createMemoryStorage();
+    storage.setCartId("my-cart");
+
+    const { result } = renderHook(() => ({ cart: useCart(), mut: useCartMutations() }), {
+      wrapper: wrap(storage),
+    });
+    await waitFor(() => expect(result.current.cart.data?.id).toBe("my-cart"));
+
+    result.current.mut.removeItem.mutate({ itemId: "i9" });
+
+    await waitFor(() => expect(result.current.mut.removeItem.isError).toBe(true));
+    expect(storage.getCartId()).toBe("my-cart");
+    // Still kept once the cart read that settles the question has answered.
+    await waitFor(() => expect(gets.n).toBe(2));
+    await waitFor(() => expect(result.current.cart.isFetching).toBe(false));
+    expect(storage.getCartId()).toBe("my-cart");
   });
 });

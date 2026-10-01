@@ -71,6 +71,7 @@ function makeClient() {
       changeCurrency: fn(),
       setShippingAddress: fn(),
       setBillingAddress: fn(),
+      execute: fn(),
     },
     payments: { listPaymentModes: vi.fn(async () => []), getMode: fn(), initialize: fn() },
     shipping: { listZones: vi.fn(async () => []) },
@@ -318,6 +319,7 @@ describe("every cart mutation reaches its facade method", () => {
     ["changeCurrency", (m) => m.changeCurrency("EUR"), () => client.carts.changeCurrency],
     ["setShippingAddress", (m) => m.setShippingAddress({} as never), () => client.carts.setShippingAddress],
     ["setBillingAddress", (m) => m.setBillingAddress({} as never), () => client.carts.setBillingAddress],
+    ["execute", (m) => m.execute([{ type: "GetCart" }]), () => client.carts.execute],
   ];
 
   it.each(ops)("%s", async (_name, call, called) => {
