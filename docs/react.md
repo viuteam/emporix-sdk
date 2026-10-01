@@ -337,7 +337,7 @@ create: true })` then bootstraps a fresh cart on the next render, because its
 bootstrap gate is `cartId === null` — which a stale id never was. Without this
 the device stayed broken until the next login, and every add-to-cart failed.
 
-Three limits worth knowing:
+Four limits worth knowing:
 
 - **Silent by design.** The cart no longer exists server-side, so there is
   nothing to show the shopper and nothing they could do. They see an empty bag.
@@ -348,6 +348,12 @@ Three limits worth knowing:
   the same status means «token expired» far more often.
 - **Only the stored id.** `useCart("some-other-cart")` that 404s leaves
   `storage.cartId` alone — an explicit id is the caller's business.
+- **A write's `404` is checked, not trusted.** Emporix answers an item or coupon
+  that is already gone (removed in another tab) with the same `404` as a closed
+  cart. So after a `404`, `useCartMutations` re-reads the cart and clears the id
+  only if that read 404s too; otherwise the id stays and the cache takes the
+  cart the server has. That costs one extra GET, on the `404` path only, and runs
+  whether or not a cart read is mounted.
 
 The emporix-scoped `retry` default does not retry a `404` either. Emporix bills
 per API call, and a dead cart id would otherwise pay for the same answer twice
