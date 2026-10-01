@@ -239,11 +239,15 @@ export class ProductPage {
 
 ### Four behaviours worth knowing before you rely on them
 
-**`injectCart` forgets a dead cart.** Emporix allows one open cart per site and
-closes it when its order is placed, so another device holding that id 404s
-*permanently* — a stale id is not `null`, so nothing bootstraps over it. On a 404
-the binding clears the stored id, and only while that id is still the stored one:
-a caller passing some other cart's id cannot wipe this session's.
+**`injectCart` and `injectActiveCart` forget a dead cart.** Emporix allows one
+open cart per site and closes it when its order is placed, so another device
+holding that id 404s *permanently* — a stale id is not `null`, so nothing
+bootstraps over it. On a 404 from the cart read, both clear the stored id, and
+only while that id is still the stored one: a caller passing some other cart's id
+cannot wipe this session's. `injectActiveCart({ create: true })` then re-keys and
+bootstraps a fresh cart, with no error state between. Only the read's 404 counts:
+`injectCartMutations` never forgets, because Emporix answers a missing cart item
+with the same 404 as a missing cart.
 
 **`injectCartMutations` resolves the cart id at call time, not construction**, so a
 component that renders before the bootstrap finishes still writes to the right

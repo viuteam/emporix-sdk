@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApplicationRef, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { QueryClient } from "@tanstack/angular-query-experimental";
-import { EmporixNotFoundError, createMemoryStorage, type EmporixStorage } from "@viu/emporix-sdk";
+import {
+  EmporixForbiddenError,
+  EmporixNotFoundError,
+  createMemoryStorage,
+  type EmporixStorage,
+} from "@viu/emporix-sdk";
 import { provideEmporix } from "../src/provide";
 import {
   injectActiveCart,
@@ -270,6 +275,50 @@ describe("cart injectables", () => {
     await new Promise((r) => setTimeout(r, 1200));
     // A caller passing another cart's id must not be able to wipe this session's.
     expect(ctx2.storage.getCartId()).toBe("cart-mine");
+  });
+
+  /**
+   * The same dead end through the bootstrap, which reads the stored id with its
+   * own query. An app that mounts `injectActiveCart` and `injectCartMutations`
+   * but no `injectCart` — the snippet in `docs/angular.md` — never reached the
+   * forget above and stayed on the closed cart.
+   */
+  it("injectActiveCart forgets a dead cart and bootstraps a fresh one, silently", async () => {
+    const ctx2 = setup({
+      cartGet: vi.fn(async (id: string) => {
+        if (id === "cart-dead") throw new EmporixNotFoundError("gone", 404);
+        return { id, items: [] };
+      }),
+    });
+    // Silent means no error state at any point, not just none at the end. A
+    // flash can fall between two of this test's ticks, so the cache is watched
+    // rather than the signal.
+    const failed: unknown[] = [];
+    ctx2.queryClient.getQueryCache().subscribe((e) => {
+      if (e.type === "updated" && e.action.type === "error") failed.push(e.query.queryKey);
+    });
+    ctx2.storage.setCartId("cart-dead");
+    const cart = TestBed.runInInjectionContext(() => injectActiveCart({ create: true }));
+    await settleUntil(() => expect(cart.data()?.id).toBe("cart-new"));
+    expect(ctx2.storage.getCartId()).toBe("cart-new");
+    expect(ctx2.calls.cartGetCurrent).toHaveBeenCalledOnce();
+    expect(failed).toEqual([]);
+  });
+
+  it("injectActiveCart keeps the id on an error that is not a 404", async () => {
+    // Only a 404 means «this cart is gone». A permissions problem or a bad
+    // gateway says nothing about the cart, and forgetting on one would drop a
+    // basket that still exists.
+    const ctx2 = setup({
+      cartGet: vi.fn(async () => {
+        throw new EmporixForbiddenError("nope", 403);
+      }),
+    });
+    ctx2.storage.setCartId("cart-mine");
+    const cart = TestBed.runInInjectionContext(() => injectActiveCart({ create: true }));
+    await settleUntil(() => expect(cart.isError()).toBe(true));
+    expect(ctx2.storage.getCartId()).toBe("cart-mine");
+    expect(ctx2.calls.cartGetCurrent).not.toHaveBeenCalled();
   });
 
   it("injectActiveCart creates one and writes the id to storage", async () => {
