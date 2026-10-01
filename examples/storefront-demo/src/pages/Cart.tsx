@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useActiveCart, useCartMutations } from "@viu/emporix-sdk-react";
+import type { CartCommand } from "@viu/emporix-sdk";
+import { useActiveCart, useCartCommands } from "@viu/emporix-sdk-react";
 import { cartLines, cartTotal, cartCoupons, type CartLineVM } from "../lib/adapters";
 import { useProductNames } from "../lib/useProductNames";
 import { money } from "@viu/emporix-examples-shared";
@@ -13,7 +14,7 @@ import { useToast, errorMessage } from "../app/Toasts";
 export function Cart() {
   const { data: cart, isLoading } = useActiveCart({ create: true });
   const cartId = (cart as { id?: string } | null)?.id;
-  const m = useCartMutations(cartId);
+  const chain = useCartCommands(cartId);
   const { notify } = useToast();
   const nav = useNavigate();
   const [coupon, setCoupon] = useState("");
@@ -23,18 +24,32 @@ export function Cart() {
   const coupons = cartCoupons(cart);
   const names = useProductNames(lines.map((l) => l.productId));
 
+  /**
+   * Every change is one request: the write, then the calculated cart, which the hook
+   * puts straight into the cart cache. Without the trailing `GetCart` each change would
+   * cost a refetch on top.
+   */
+  const run = (command: CartCommand) => chain.mutateAsync({ commands: [command, { type: "GetCart" }] });
+
   async function setQty(line: CartLineVM, q: number) {
     if (q < 1) return;
     try {
       // `partial: true` → quantity-only update; no need to re-send itemYrn/price.
-      await m.updateItem.mutateAsync({ itemId: line.id, patch: { quantity: q } as never, partial: true });
+      await run({ type: "UpdateCartItem", data: { quantity: q }, options: { itemId: line.id, partial: true } });
     } catch (e) {
       notify(errorMessage(e), "error");
     }
   }
   async function remove(line: CartLineVM) {
     try {
-      await m.removeItem.mutateAsync({ itemId: line.id });
+      await run({ type: "DeleteCartItem", options: { itemId: line.id } });
+    } catch (e) {
+      notify(errorMessage(e), "error");
+    }
+  }
+  async function removeCoupon(code: string) {
+    try {
+      await run({ type: "DeleteCartDiscounts", options: { codes: [code] } });
     } catch (e) {
       notify(errorMessage(e), "error");
     }
@@ -44,7 +59,7 @@ export function Cart() {
     const code = coupon.trim();
     if (!code) return;
     try {
-      await m.applyCoupon.mutateAsync({ code });
+      await run({ type: "ApplyCartDiscount", data: { code } });
       setCoupon("");
       notify("Coupon applied", "success");
     } catch (err) {
@@ -114,7 +129,7 @@ export function Cart() {
                 placeholder="Code"
                 style={{ flex: 1 }}
               />
-              <Button type="submit" variant="outline" size="sm" disabled={m.applyCoupon.isPending}>
+              <Button type="submit" variant="outline" size="sm" disabled={chain.isPending}>
                 Apply
               </Button>
             </div>
@@ -122,7 +137,7 @@ export function Cart() {
           {coupons.length > 0 ? (
             <div className="cluster" style={{ marginTop: "var(--s-3)" }}>
               {coupons.map((c) => (
-                <button key={c} type="button" className="tag tag--accent" onClick={() => void m.removeCoupon.mutateAsync({ code: c })}>
+                <button key={c} type="button" className="tag tag--accent" onClick={() => void removeCoupon(c)}>
                   {c} ✕
                 </button>
               ))}

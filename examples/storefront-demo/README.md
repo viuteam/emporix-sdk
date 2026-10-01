@@ -73,8 +73,10 @@ in the footer to reset. You can prefill the setup screen with
   search, product grid with resolved prices (`useProductSearch`,
   `useCategories`, `useMatchPrices`).
 - **Product detail** — gallery, variant picker, add-to-cart with the price row
-  Emporix requires (`useProduct`, `useVariantChildren`, `useCartMutations`).
-- **Cart** — line items, quantity (`?partial=true`), coupons, totals.
+  Emporix requires (`useProduct`, `useVariantChildren`, `useCartCommands`).
+- **Cart** — line items, quantity (`partial`), coupons, totals. Every cart change
+  is one command chain (the write plus `GetCart`), so it costs one request instead
+  of a write and a refetch.
 - **Checkout** — guest **and** signed-in customer; places a real order, then
   clears the closed cart. The customer path sends the `saas-token` header.
 - **Account** — sign in / sign up, profile, password, addresses

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useActiveCart, useCartMutations, useEmporix } from "@viu/emporix-sdk-react";
+import { useActiveCart, useCartCommands, useEmporix } from "@viu/emporix-sdk-react";
 import { productYrn, type PriceVM } from "../lib/adapters";
 import { Button } from "../components/ui/Button";
 import { useToast, errorMessage } from "../app/Toasts";
@@ -17,7 +17,7 @@ export function AddToCartBar({
   const { client } = useEmporix();
   const { data: cart } = useActiveCart({ create: true });
   const cartId = (cart as { id?: string } | null)?.id;
-  const { addItem } = useCartMutations(cartId);
+  const chain = useCartCommands(cartId);
   const { notify } = useToast();
   const nav = useNavigate();
   const [qty, setQty] = useState(1);
@@ -29,16 +29,26 @@ export function AddToCartBar({
   async function add() {
     if (!price?.priceId) return;
     try {
-      await addItem.mutateAsync({
-        itemYrn: productYrn(client.tenant, productId),
-        quantity: qty,
-        price: {
-          priceId: price.priceId,
-          originalAmount: price.amount,
-          effectiveAmount: price.amount,
-          currency: price.currency,
-        },
-      } as never);
+      // One request: the add, then the calculated cart, which the hook puts straight
+      // into the cart cache — no refetch after the add.
+      await chain.mutateAsync({
+        commands: [
+          {
+            type: "AddCartItem",
+            data: {
+              itemYrn: productYrn(client.tenant, productId),
+              quantity: qty,
+              price: {
+                priceId: price.priceId,
+                originalAmount: price.amount,
+                effectiveAmount: price.amount,
+                currency: price.currency,
+              },
+            },
+          },
+          { type: "GetCart" },
+        ],
+      });
       notify(`Added ${qty} × ${productName} to your bag`, "success");
     } catch (e) {
       notify(errorMessage(e), "error");
@@ -60,8 +70,8 @@ export function AddToCartBar({
         <span aria-live="polite">{qty}</span>
         <button type="button" onClick={() => setQty((q) => q + 1)} aria-label="Increase">+</button>
       </div>
-      <Button variant="accent" onClick={() => void add()} disabled={addItem.isPending}>
-        {addItem.isPending ? "Adding…" : "Add to bag"}
+      <Button variant="accent" onClick={() => void add()} disabled={chain.isPending}>
+        {chain.isPending ? "Adding…" : "Add to bag"}
       </Button>
       <Button variant="ghost" onClick={() => nav("/cart")}>
         View bag →
