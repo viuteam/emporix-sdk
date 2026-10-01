@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApplicationRef, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { QueryClient } from "@tanstack/angular-query-experimental";
-import { EmporixNotFoundError, createMemoryStorage, type EmporixStorage } from "@viu/emporix-sdk";
+import {
+  EmporixForbiddenError,
+  EmporixNotFoundError,
+  createMemoryStorage,
+  type EmporixStorage,
+} from "@viu/emporix-sdk";
 import { provideEmporix } from "../src/provide";
 import {
   injectActiveCart,
@@ -47,6 +52,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     cartGet: vi.fn(async () => ({ id: "cart-1", items: [] })),
     cartGetCurrent: vi.fn(async () => ({ id: "cart-new", items: [] })),
     addItem: vi.fn(async () => ({ id: "cart-1" })),
+    cartExecute: vi.fn(async () => ({ results: [] })),
     listPaymentModes: vi.fn(async () => [{ id: "mode-1" }]),
     placeOrder: vi.fn(async () => ({ orderId: "EON1" })),
     listMine: vi.fn(async () => page([{ id: "o1" }])),
@@ -73,7 +79,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     media: { listForProduct: calls.listForProduct },
     prices: { matchByContext: calls.matchByContext },
     availability: { get: calls.availabilityGet },
-    carts: { get: calls.cartGet, getCurrent: calls.cartGetCurrent, addItem: calls.addItem },
+    carts: { get: calls.cartGet, getCurrent: calls.cartGetCurrent, addItem: calls.addItem, execute: calls.cartExecute },
     payments: { listPaymentModes: calls.listPaymentModes },
     checkout: { placeOrder: calls.placeOrder },
     orders: { listMine: calls.listMine, get: calls.orderGet },
@@ -271,6 +277,50 @@ describe("cart injectables", () => {
     expect(ctx2.storage.getCartId()).toBe("cart-mine");
   });
 
+  /**
+   * The same dead end through the bootstrap, which reads the stored id with its
+   * own query. An app that mounts `injectActiveCart` and `injectCartMutations`
+   * but no `injectCart` — the snippet in `docs/angular.md` — never reached the
+   * forget above and stayed on the closed cart.
+   */
+  it("injectActiveCart forgets a dead cart and bootstraps a fresh one, silently", async () => {
+    const ctx2 = setup({
+      cartGet: vi.fn(async (id: string) => {
+        if (id === "cart-dead") throw new EmporixNotFoundError("gone", 404);
+        return { id, items: [] };
+      }),
+    });
+    // Silent means no error state at any point, not just none at the end. A
+    // flash can fall between two of this test's ticks, so the cache is watched
+    // rather than the signal.
+    const failed: unknown[] = [];
+    ctx2.queryClient.getQueryCache().subscribe((e) => {
+      if (e.type === "updated" && e.action.type === "error") failed.push(e.query.queryKey);
+    });
+    ctx2.storage.setCartId("cart-dead");
+    const cart = TestBed.runInInjectionContext(() => injectActiveCart({ create: true }));
+    await settleUntil(() => expect(cart.data()?.id).toBe("cart-new"));
+    expect(ctx2.storage.getCartId()).toBe("cart-new");
+    expect(ctx2.calls.cartGetCurrent).toHaveBeenCalledOnce();
+    expect(failed).toEqual([]);
+  });
+
+  it("injectActiveCart keeps the id on an error that is not a 404", async () => {
+    // Only a 404 means «this cart is gone». A permissions problem or a bad
+    // gateway says nothing about the cart, and forgetting on one would drop a
+    // basket that still exists.
+    const ctx2 = setup({
+      cartGet: vi.fn(async () => {
+        throw new EmporixForbiddenError("nope", 403);
+      }),
+    });
+    ctx2.storage.setCartId("cart-mine");
+    const cart = TestBed.runInInjectionContext(() => injectActiveCart({ create: true }));
+    await settleUntil(() => expect(cart.isError()).toBe(true));
+    expect(ctx2.storage.getCartId()).toBe("cart-mine");
+    expect(ctx2.calls.cartGetCurrent).not.toHaveBeenCalled();
+  });
+
   it("injectActiveCart creates one and writes the id to storage", async () => {
     TestBed.runInInjectionContext(() => injectActiveCart({ create: true }));
     await settleUntil(() => expect(ctx.storage.getCartId()).toBe("cart-new"));
@@ -302,6 +352,30 @@ describe("cart injectables", () => {
     await expect(mut.addItem({ itemYrn: "urn:x", quantity: 1 } as never)).rejects.toThrow(
       /no cartId available/,
     );
+  });
+
+  it("cart execute passes the chain through and invalidates the cart", async () => {
+    ctx.storage.setCartId("cart-1");
+    ctx.queryClient.setQueryData(["emporix", "cart", "probe"], { id: "cart-1" });
+    const mut = TestBed.runInInjectionContext(() => injectCartMutations());
+    const commands = [{ type: "GetCart" as const }];
+    await mut.execute(commands, { onError: "resume" });
+    expect(ctx.calls.cartExecute).toHaveBeenCalledWith("cart-1", commands, expect.anything(), { onError: "resume" });
+    expect(ctx.queryClient.getQueryState(["emporix", "cart", "probe"])?.isInvalidated).toBe(true);
+  });
+
+  it("cart execute invalidates after a failed chain too — the earlier commands were applied", async () => {
+    const ctx2 = setup({
+      cartExecute: vi.fn(async () => {
+        throw new EmporixNotFoundError("POST … → command 1 (UpdateCartItem) → 404", 404);
+      }),
+    });
+    ctx2.storage.setCartId("cart-1");
+    ctx2.queryClient.setQueryData(["emporix", "cart", "probe"], { id: "cart-1" });
+    const mut = TestBed.runInInjectionContext(() => injectCartMutations());
+    await expect(mut.execute([{ type: "GetCart" }])).rejects.toBeInstanceOf(EmporixNotFoundError);
+    expect(ctx2.queryClient.getQueryState(["emporix", "cart", "probe"])?.isInvalidated).toBe(true);
+    expect(mut.error()).toBeInstanceOf(EmporixNotFoundError);
   });
 });
 

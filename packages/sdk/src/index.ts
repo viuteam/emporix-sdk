@@ -141,6 +141,12 @@ export type {
   CartUpdateInput,
   CartDiscount,
   CartDeliveryRestrictions,
+  CartDiscountInput,
+  CartCommandBodies,
+  CartCommand,
+  CartExecuteOptions,
+  CartExecuteResult,
+  CartCommandResult,
 } from "./services/cart";
 export { CheckoutService } from "./services/checkout";
 export type {

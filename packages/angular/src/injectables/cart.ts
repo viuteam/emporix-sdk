@@ -1,12 +1,19 @@
 import { computed, inject, signal, type Injector, type Signal } from "@angular/core";
-import { injectQueryClient, type CreateQueryResult } from "@tanstack/angular-query-experimental";
+import {
+  injectQueryClient,
+  type CreateQueryResult,
+  type QueryClient,
+} from "@tanstack/angular-query-experimental";
 import {
   EmporixError,
   EmporixNotFoundError,
   type AuthContext,
   type Cart,
   type CartAddress,
+  type CartCommand,
   type CartCreated,
+  type CartExecuteOptions,
+  type CartExecuteResult,
   type CartItem,
   type CartItemInput,
   type CartItemUpdate,
@@ -29,6 +36,37 @@ export interface CartOpts {
 
 const pass = (o: CartOpts): { injector?: Injector } =>
   o.injector !== undefined ? { injector: o.injector } : {};
+
+/**
+ * The cart read behind `injectCart` and `injectActiveCart`, so both forget a cart
+ * the server no longer has — see `injectCart` for why a 404 is final.
+ *
+ * Reads only. A write's 404 is ambiguous: Emporix answers a missing cart item with
+ * the same status, so `injectCartMutations` must never forget on one.
+ */
+async function readCart(
+  client: EmporixClient,
+  storage: EmporixStorage,
+  qc: QueryClient,
+  id: string,
+  ctx: AuthContext,
+): Promise<Cart> {
+  try {
+    return await client.carts.get(id, ctx);
+  } catch (e) {
+    if (e instanceof EmporixNotFoundError && storage.getCartId() === id) {
+      // Only while `id` is still the stored one: a caller passing some
+      // other cart's id must not be able to wipe this session's cart.
+      storage.setCartId(null);
+      // Held with staleTime Infinity, so without this the next bootstrap
+      // would re-adopt the same dead cart out of the cache. It also takes
+      // `injectActiveCart`'s own in-flight read with it, cancelled silently —
+      // which is what keeps that heal free of an error flash.
+      qc.removeQueries({ queryKey: ["emporix", "cart-bootstrap"] });
+    }
+    throw e;
+  }
+}
 
 /**
  * A cart by id, falling back to the stored cart id.
@@ -58,22 +96,7 @@ export function injectCart(
       site: "full",
       mode: "read-auth",
       enabled: (opts.enabled ?? true) && resolved() !== null,
-      queryFn: async (ctx) => {
-        const id = resolved() as string;
-        try {
-          return await client.carts.get(id, ctx);
-        } catch (e) {
-          if (e instanceof EmporixNotFoundError && storage.getCartId() === id) {
-            // Only while `id` is still the stored one: a caller passing some
-            // other cart's id must not be able to wipe this session's cart.
-            storage.setCartId(null);
-            // Held with staleTime Infinity, so without this the next bootstrap
-            // would re-adopt the same dead cart out of the cache.
-            qc.removeQueries({ queryKey: ["emporix", "cart-bootstrap"] });
-          }
-          throw e;
-        }
-      },
+      queryFn: (ctx) => readCart(client, storage, qc, resolved() as string, ctx),
     }),
     pass(opts),
   );
@@ -130,11 +153,16 @@ export function injectCartValidation(
  * `create: true` is what makes an empty storage produce a cart rather than
  * nothing. The resulting id is written to storage, which is what re-keys every
  * other cart read — no manual subscription needed anywhere.
+ *
+ * A stored id the server answers 404 for is forgotten, as in `injectCart`, and
+ * the forget re-keys this query. With `create: true` a cart closed by an order on
+ * another device therefore turns into a fresh one, with no error state between.
  */
 export function injectActiveCart(
   opts: CartOpts & { create?: boolean; type?: string; legalEntityId?: string } = {},
 ): CreateQueryResult<Cart | null> {
   const { client, storage } = injectEmporix();
+  const qc = injectQueryClient();
   const site = injectEmporixSite();
   const stored = cartIdSignal(storage, pass(opts));
 
@@ -149,7 +177,7 @@ export function injectActiveCart(
       queryFn: async (ctx) => {
         const siteCode = site.siteCode() as string;
         const existing = stored();
-        if (existing !== null) return client.carts.get(existing, ctx);
+        if (existing !== null) return readCart(client, storage, qc, existing, ctx);
         if (opts.create !== true) return null;
         const cart = await client.carts.getCurrent(ctx, {
           siteCode,
@@ -242,15 +270,26 @@ export interface EmporixCartMutations {
    */
   setShippingAddress(address: CartAddress): Promise<unknown>;
   setBillingAddress(address: CartAddress): Promise<unknown>;
+  /**
+   * Runs a cart command chain (`client.carts.execute`, see docs/cart.md).
+   * Invalidates the cart like every write here — after a failure too, because
+   * the commands before the failed one were already applied. It does not adopt
+   * a trailing `GetCart` into the cache the way React's `useCartCommands` does:
+   * this bundle invalidates instead of doing cache surgery (see above).
+   */
+  execute(commands: CartCommand[], opts?: CartExecuteOptions): Promise<CartExecuteResult>;
 }
+
+const CART_WRITE_KEYS = [
+  ["emporix", "cart"],
+  ["emporix", "cart-items"],
+] as const;
 
 export function injectCartMutations(cartId?: Signal<string | null>): EmporixCartMutations {
   const client: EmporixClient = inject(EMPORIX_CLIENT);
   const storage: EmporixStorage = inject(EMPORIX_STORAGE);
-  const b = writeBundle([
-    ["emporix", "cart"],
-    ["emporix", "cart-items"],
-  ]);
+  const qc = injectQueryClient();
+  const b = writeBundle(CART_WRITE_KEYS);
 
   /**
    * Stays here rather than moving into `writeBundle`: resolving a cart id at
@@ -297,5 +336,11 @@ export function injectCartMutations(cartId?: Signal<string | null>): EmporixCart
       write((id, ctx) => client.carts.setShippingAddress(id, address, ctx)),
     setBillingAddress: (address) =>
       write((id, ctx) => client.carts.setBillingAddress(id, address, ctx)),
+    execute: (commands, opts = {}) =>
+      write((id, ctx) => client.carts.execute(id, commands, ctx, opts)).catch(async (e: unknown) => {
+        // `writeBundle` invalidates on success only; a failed chain may have applied writes.
+        for (const key of CART_WRITE_KEYS) await qc.invalidateQueries({ queryKey: [...key] });
+        throw e;
+      }),
   };
 }
