@@ -389,6 +389,36 @@ const { data: cart } = useActiveCart({ create: true });
 const { addItem } = useCartMutations(); // shares the cart cache with useActiveCart
 ```
 
+`useCartCommands(cartId?)` runs a cart command chain — up to ten cart operations
+in one request (`client.carts.execute`, see [cart.md](./cart.md)). When the
+chain ends with a successful `GetCart`, the hook puts that cart straight into
+the cache `useCart` and `useActiveCart` read, so an add-to-cart costs one
+request instead of the write plus a refetch:
+
+```tsx
+const chain = useCartCommands(); // resolves the cart like useCartMutations
+await chain.mutateAsync({
+  commands: [
+    {
+      type: "AddCartItem",
+      data: {
+        itemYrn: "urn:yaas:saasag:caasproduct:product:acme;p1",
+        quantity: 1,
+        price: { priceId: "pr1", originalAmount: 10, effectiveAmount: 10, currency: "CHF" },
+      },
+    },
+    { type: "GetCart" },
+  ],
+});
+```
+
+Any other chain invalidates the cart instead, and so does a failure: the
+commands before the failed one were applied. With the default `onError: "fail"`
+the mutation rejects with the error the failed command's REST call would have
+thrown; with `onError: "resume"` it resolves with every result. There is no
+optimistic update, and — unlike `useCartMutations` — a `404` does not forget the
+stored cart id, because a command `404` can mean a missing item.
+
 `useCreateCart()` creates a cart and persists the resulting `cartId` so a later
 reload can resume the same cart. Auto-detects customer vs anonymous auth from
 `storage.getCustomerToken()`.

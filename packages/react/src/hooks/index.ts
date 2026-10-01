@@ -36,11 +36,12 @@ export {
   useCart,
   useActiveCart,
   useCartMutations,
+  useCartCommands,
   useCreateCart,
   useCartValidation,
   useCartItems,
 } from "./use-cart";
-export type { CartMutationsApi } from "./use-cart";
+export type { CartMutationsApi, CartCommandsVars } from "./use-cart";
 export { useCheckout, usePaymentModes, usePaymentMode, useInitializePayment } from "./use-checkout";
 export type { CheckoutApi } from "./use-checkout";
 export { useShippingZones } from "./use-shipping";

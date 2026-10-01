@@ -126,6 +126,7 @@ anonymous browsing, both when you need both.
 | `products.*` / `categories.*` (reads) | `anonymous` | — (pass `customer` for personalized pricing) |
 | `carts.*` | — | explicit `customer` or `anonymous` |
 | `carts.merge` | — | `customer` |
+| `carts.execute` ([command chains](../../docs/cart.md)) | — | `customer`, `anonymous`, or `service` with `cart.cart_manage` |
 | `companies.*` / `contacts.*` / `locations.*` / `customerGroups.*` (B2B) | — | `customer` (reads need `*_read_own`; mutations need `*_manage`) |
 | `media.*` (Asset CRUD + download) | `service` | `service` — server-only (`media.asset_read` / `media.asset_manage`); never call from the browser |
 

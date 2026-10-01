@@ -12,8 +12,8 @@ shared builder like every other read (`["emporix", "segments", …]`). Closing t
 gap means fixing the React side; hand-rolling keys here would also drop them out
 of the `["emporix"]`-scoped defaults and invalidation.
 
-**Status: at parity with the React bindings.** 87 injectables covering 110 of
-React's 112 hooks — the primitives, the site context, the customer session, the
+**Status: at parity with the React bindings.** 87 injectables covering 111 of
+React's 113 hooks — the primitives, the site context, the customer session, the
 account-credential operations, every storefront read, eleven mutation bundles and
 the B2B company context. The two that are missing and the three deliberate
 deviations are named in
@@ -249,7 +249,11 @@ a caller passing some other cart's id cannot wipe this session's.
 component that renders before the bootstrap finishes still writes to the right
 cart. It throws a named error when storage is still empty. It has **no optimistic
 updates** — it invalidates. That is a stated gap: optimistic cart surgery has to be
-right per operation or it shows the shopper a basket that does not exist.
+right per operation or it shows the shopper a basket that does not exist. Its
+`execute(commands, opts?)` runs a cart command chain ([cart.md](./cart.md)) and
+invalidates after a failure as well, because the commands before the failed one
+were applied; unlike React's `useCartCommands` it does not adopt a trailing
+`GetCart` into the cache.
 
 **`injectProductMedia` makes no Media-Service call.** It reads `productMedia` off
 the product DTO, because `media.listForProduct` defaults to a service-account
@@ -362,18 +366,18 @@ invalidation model. Hydration is the problem this entry addresses.
 
 ## Coverage against the React bindings
 
-`@viu/emporix-sdk-react` exports **112 hooks** (108 from `./hooks`, four more from
-its root). **110 of them have an equivalent here.** The counts below come from the
+`@viu/emporix-sdk-react` exports **113 hooks** (109 from `./hooks`, four more from
+its root). **111 of them have an equivalent here.** The counts below come from the
 built `.d.ts` of both packages, not from prose:
 
 | | Count |
 |---|---|
 | Angular `inject*` functions | 87 |
 | React hooks with a same-named injectable | 71 |
-| React hooks covered under a different name or shape | 39 |
+| React hooks covered under a different name or shape | 40 |
 | **React hooks with no equivalent** | **2** |
 
-The mapping is not one-to-one, and deliberately so: **31 write operations are
+The mapping is not one-to-one, and deliberately so: **32 write operations are
 grouped into 11 mutation bundles**, because a component wants one `isPending` for
 «the shopping list is saving», not five. `injectShoppingListMutations()` covers
 five React hooks; `injectCompanyMutations()` covers eleven.
