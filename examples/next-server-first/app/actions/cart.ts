@@ -1,7 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { EmporixNotFoundError, type AuthContext, type EmporixClient } from "@viu/emporix-sdk";
+import {
+  EmporixNotFoundError,
+  errorFromResponse,
+  type AuthContext,
+  type Cart,
+  type CartCommand,
+  type CartCommandResult,
+  type CartExecuteResult,
+  type EmporixClient,
+} from "@viu/emporix-sdk";
 import {
   STORAGE_KEYS,
   withEmporixSessionMutable,
@@ -82,8 +91,13 @@ export async function addToCart(productId: string): Promise<void> {
     let cartId = handle.get(STORAGE_KEYS.cartId);
     if (cartId === null) cartId = await freshCart(client, ctx, handle);
 
+    // The add and the read-back in ONE request: the chain ends with `GetCart`, so the
+    // count comes back with the write instead of costing a second billed call. That
+    // count is what buys a shell that costs zero calls on every OTHER page view.
+    const addAndRead: CartCommand[] = [{ type: "AddCartItem", data: item }, { type: "GetCart" }];
+    let chain: CartExecuteResult;
     try {
-      await client.carts.addItem(cartId, item, ctx);
+      chain = await client.carts.execute(cartId, addAndRead, ctx);
     } catch (e) {
       // The same customer checking out on another device CLOSED this cart, and
       // this session still holds its id. Only the 404 tells us — so add first
@@ -92,17 +106,14 @@ export async function addToCart(productId: string): Promise<void> {
       //
       // No cart read first, unlike `mutateCart`: this 404 is the cart's. The add
       // names no line and no coupon, and what else it can miss — the product,
-      // the price — answers 400 (measured on `viu` 2026-09-30).
+      // the price — answers 400 (measured on `viu` 2026-09-30). The chain stops
+      // at the failed add (`onError` defaults to `fail`) and throws that 404.
       if (!(e instanceof EmporixNotFoundError)) throw e;
       clearCart(handle);
       cartId = await freshCart(client, ctx, handle);
-      await client.carts.addItem(cartId, item, ctx);
+      chain = await client.carts.execute(cartId, addAndRead, ctx);
     }
-
-    // `addItem` returns nothing useful, so read the cart back for the count.
-    // One extra GET per add, which is what buys a shell that costs zero calls on
-    // every OTHER page view.
-    setCart(handle, cartId, await client.carts.get(cartId, ctx));
+    setCart(handle, cartId, chain.results.at(-1)?.data as Cart);
   }, await emporixOptions());
   // The ROUTE PATTERN, not a URL: these pages moved under `/[lang]/…` on 2026-08-06 and
   // `revalidatePath("/cart")` has pointed at nothing since. The pattern form covers both
@@ -112,48 +123,51 @@ export async function addToCart(productId: string): Promise<void> {
   revalidatePath("/[lang]", "page");
 }
 
+/** A chain command that answered 2xx. */
+function succeeded(r: CartCommandResult | undefined): boolean {
+  return r !== undefined && r.code >= 200 && r.code < 300;
+}
+
+/** The error the failed command's REST call would have thrown. */
+function commandError(r: CartCommandResult | undefined): Error {
+  return r === undefined
+    ? new Error("Emporix answered the chain without a result for this command.")
+    : errorFromResponse(r.code, `${r.type} → ${r.code}`, r.data);
+}
+
 /**
- * The shared frame for every cart mutation: find the cart, mutate it, pull the
- * count forward, revalidate — and return the error instead of throwing it.
+ * The shared frame for every cart mutation: find the cart, send the mutation and a
+ * cart read as ONE request, pull the count forward, revalidate — and return the error
+ * instead of throwing it.
  *
  * One frame rather than four copies, because the count and the two
  * `revalidatePath` calls are exactly the kind of thing that drifts when repeated.
  */
-async function mutateCart(
-  fn: (client: EmporixClient, ctx: AuthContext, cartId: string) => Promise<unknown>,
-): Promise<ActionState> {
+async function mutateCart(command: CartCommand): Promise<ActionState> {
   try {
     await withEmporixSessionMutable(async (client, ctx, handle) => {
       const cartId = handle.get(STORAGE_KEYS.cartId);
       if (cartId === null) throw new Error("No cart to change.");
-      try {
-        await fn(client, ctx, cartId);
-        // Re-read rather than trusting what the mutation answered. Those answers
-        // carry no `id` — the earlier version passed one straight to setCart and a
-        // quantity change deleted the cart out of the session. Their `items` is
-        // just as unverified, so this pays one GET per mutation for a count that
-        // is actually right.
-        setCart(handle, cartId, await client.carts.get(cartId, ctx));
-      } catch (e) {
-        // A 404 does not say WHAT is gone: Emporix answers a line another tab
-        // already removed, and a coupon code it does not know, with the same 404
-        // as a cart a checkout closed elsewhere — measured on `viu` 2026-09-30.
-        // Only the cart read is unambiguous, so ask it. Its 404 drops the id;
-        // anything else keeps it, with the read's count when there is one. One
-        // extra GET, on this path only.
-        //
-        // Dropped here, inside the mutable pass, so the next page view starts
-        // from an empty bag instead of the same 404 forever. The wrapper flushes
-        // even though this rethrows.
-        if (e instanceof EmporixNotFoundError) {
-          try {
-            setCart(handle, cartId, await client.carts.get(cartId, ctx));
-          } catch (read) {
-            if (read instanceof EmporixNotFoundError) clearCart(handle);
-          }
-        }
-        throw e;
-      }
+      // The mutation and the cart read go out as one chain, and `resume` runs the read
+      // even when the mutation fails. The count comes from that read, not from the
+      // mutation's answer: those answers carry no `id` — an earlier version passed one
+      // straight to setCart and a quantity change deleted the cart out of the session —
+      // and their `items` is just as unverified.
+      //
+      // The read also settles what a failure meant. A 404 does not say WHAT is gone:
+      // Emporix answers a line another tab already removed, and a coupon code it does
+      // not know, with the same 404 as a cart a checkout closed elsewhere — measured on
+      // `viu` 2026-09-30. Only the cart read is unambiguous: its 404 drops the id;
+      // anything else keeps it, with the read's count when there is one. Dropped here,
+      // inside the mutable pass, so the next page view starts from an empty bag instead
+      // of the same 404 forever; the wrapper flushes even though this throws.
+      const [write, read] = (
+        await client.carts.execute(cartId, [command, { type: "GetCart" }], ctx, { onError: "resume" })
+      ).results;
+      if (read !== undefined && succeeded(read)) setCart(handle, cartId, read.data as Cart);
+      else if (read?.code === 404) clearCart(handle);
+      if (!succeeded(write)) throw commandError(write);
+      if (!succeeded(read)) throw commandError(read);
     }, await emporixOptions());
   } catch (e) {
     return { error: describeError(e) };
@@ -194,25 +208,23 @@ export async function setQuantity(_state: ActionState, form: FormData): Promise<
   // Checked here, not just by the input's `min`: the number arrives from a form
   // and `<input min>` is a hint to the browser, not a guarantee to the server.
   if (!Number.isInteger(quantity) || quantity < 1) return { error: "Quantity must be 1 or more." };
-  return mutateCart((client, ctx, cartId) =>
-    // `partial: true` sends the quantity alone. Without it the PUT replaces the
-    // whole line and Emporix wants `itemYrn` and the price row back with it.
-    client.carts.updateItem(cartId, itemId, { quantity }, ctx, { partial: true }),
-  );
+  // `partial: true` sends the quantity alone. Without it the update replaces the
+  // whole line and Emporix wants `itemYrn` and the price row back with it.
+  return mutateCart({ type: "UpdateCartItem", data: { quantity }, options: { itemId, partial: true } });
 }
 
 export async function removeLine(_state: ActionState, form: FormData): Promise<ActionState> {
   const itemId = String(form.get("itemId"));
-  return mutateCart((client, ctx, cartId) => client.carts.removeItem(cartId, itemId, ctx));
+  return mutateCart({ type: "DeleteCartItem", options: { itemId } });
 }
 
 export async function applyCoupon(_state: ActionState, form: FormData): Promise<ActionState> {
   const code = String(form.get("code")).trim();
   if (code === "") return { error: "Enter a coupon code." };
-  return mutateCart((client, ctx, cartId) => client.carts.applyCoupon(cartId, code, ctx));
+  return mutateCart({ type: "ApplyCartDiscount", data: { code } });
 }
 
 export async function removeCoupon(_state: ActionState, form: FormData): Promise<ActionState> {
   const code = String(form.get("code"));
-  return mutateCart((client, ctx, cartId) => client.carts.removeCoupon(cartId, code, ctx));
+  return mutateCart({ type: "DeleteCartDiscounts", options: { codes: [code] } });
 }

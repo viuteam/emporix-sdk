@@ -566,7 +566,8 @@ The fix is in the signature, not the caller: `setCart(handle, cartId, cart)` tak
 id as its own argument, and clearing is a separate `clearCart(handle)`. A partial
 answer can now only make the count wrong, never lose the cart. The count itself
 comes from a re-read, because `items` on those answers is just as unverified as
-`id` was.
+`id` was. That re-read is the `GetCart` at the end of each mutation's command
+chain, so it costs no request of its own (see [`docs/cart.md`](../../docs/cart.md)).
 
 ## The account gate, and the one trust boundary here
 
@@ -708,10 +709,11 @@ because storefront-demo has the same one, and the message it produces is a decen
 demonstration of `describeError` on its own — a shopper reads why, not «Request
 failed».
 
-Two casts the plan for this work suggested, both unnecessary:
-`carts.addItemsBatch(cartId, items, ctx)` takes a **bare array**, not `{ items }`,
-and typechecks without `as never`. `useReorder` carries that cast; it is worth
-trying without before copying it over.
+Two casts the plan for this work suggested, both unnecessary: the batch takes a
+**bare array**, not `{ items }` — as the `data` of the `AddCartItemsBatch` command
+the reorder now sends, just as with `carts.addItemsBatch(cartId, items, ctx)` — and
+typechecks without `as never`. `useReorder` carries that cast; it is worth trying
+without before copying it over.
 
 ## The webhook, and the half of the cache loop that was missing
 

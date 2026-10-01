@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useEmporix,
   useCart,
-  useCartMutations,
+  useCartCommands,
   useCreateCart,
   useMatchPrices,
   useCheckout,
@@ -28,7 +28,7 @@ export default function GuestCheckoutPage(): React.JSX.Element {
   const cart = useCart();
   const cartId = cart.data?.id ?? null;
   const createCart = useCreateCart();
-  const cartMutations = useCartMutations();
+  const cartCommands = useCartCommands();
   const checkout = useCheckout();
   const prices = useMatchPrices(
     { items: [{ itemId: { itemType: "PRODUCT", id: DEMO_PRODUCT_ID }, quantity: { quantity: 1 } }] },
@@ -60,15 +60,25 @@ export default function GuestCheckoutPage(): React.JSX.Element {
         | { priceId?: string; originalValue?: number; effectiveValue?: number }
         | undefined;
       if (!p?.priceId) throw new Error("no price resolved for the product");
-      await cartMutations.addItem.mutateAsync({
-        itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${DEMO_PRODUCT_ID}`,
-        quantity: 1,
-        price: {
-          priceId: p.priceId,
-          originalAmount: p.originalValue ?? 0,
-          effectiveAmount: p.effectiveValue ?? 0,
-          currency: CURRENCY,
-        },
+      // One request: the add, then the calculated cart, which lands straight in the
+      // cache `useCart()` reads — no refetch after the add.
+      await cartCommands.mutateAsync({
+        commands: [
+          {
+            type: "AddCartItem",
+            data: {
+              itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${DEMO_PRODUCT_ID}`,
+              quantity: 1,
+              price: {
+                priceId: p.priceId,
+                originalAmount: p.originalValue ?? 0,
+                effectiveAmount: p.effectiveValue ?? 0,
+                currency: CURRENCY,
+              },
+            },
+          },
+          { type: "GetCart" },
+        ],
       });
     } catch (e) {
       setError(String(e));

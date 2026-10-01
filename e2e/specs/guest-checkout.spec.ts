@@ -10,19 +10,20 @@ test("guest places an order end-to-end", async ({ page }) => {
   await expect(page.getByText(/^Cart: /)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/Unit price:/)).toBeVisible();
 
-  // Capture the addItem POST so we know the server has the item before reload.
+  // Capture the add, so we know the server has the item before reload. The page adds
+  // through a command chain (`AddCartItem` + `GetCart`), which answers 207.
   const addItemReq = page.waitForResponse(
     (r) =>
       r.request().method() === "POST" &&
-      /\/cart\/viu\/carts\/.+\/items$/.test(new URL(r.url()).pathname) &&
-      r.status() === 200 || r.status() === 201,
+      /\/cart\/viu\/carts\/.+\/execute$/.test(new URL(r.url()).pathname) &&
+      r.status() === 207,
     { timeout: 15_000 },
   );
   await page.getByRole("button", { name: "Add sample item" }).click();
   await addItemReq;
 
-  // Reload so useCart refetches; the cache update from addItem doesn't reach
-  // the rendered tree reliably in this Example (known pre-existing UX quirk).
+  // Reload, so the count below comes from a fresh read of the server and not from the
+  // cart the chain put into the cache.
   await page.reload();
   await expect(page.getByText(/Cart:.*\(1 item\(s\)\)/)).toBeVisible({ timeout: 15_000 });
 

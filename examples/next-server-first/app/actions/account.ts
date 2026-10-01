@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { AuthContext, EmporixClient } from "@viu/emporix-sdk";
+import type { AuthContext, Cart, EmporixClient } from "@viu/emporix-sdk";
 import { STORAGE_KEYS, withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
 import { SITE } from "../emporix";
 import { describeError } from "../lib/describe-error";
@@ -176,9 +176,15 @@ export async function reorder(_state: ActionState, form: FormData): Promise<Acti
         cartId = cart?.id ?? null;
         if (cartId === null) throw new Error("Emporix returned no cart.");
       }
-      // A bare array, not `{ items }` — `addItemsBatch` sends the body as given.
-      await client.carts.addItemsBatch(cartId, items, ctx);
-      setCart(handle, cartId, await client.carts.get(cartId, ctx));
+      // The batch and the read-back in ONE request: the chain ends with `GetCart`, so
+      // the count comes back with the write. The batch body is a bare array, not
+      // `{ items }`.
+      const { results } = await client.carts.execute(
+        cartId,
+        [{ type: "AddCartItemsBatch", data: items }, { type: "GetCart" }],
+        ctx,
+      );
+      setCart(handle, cartId, results.at(-1)?.data as Cart);
     }, await emporixOptions());
   } catch (e) {
     return { error: describeError(e) };

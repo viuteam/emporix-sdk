@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import type { CartCommand } from "@viu/emporix-sdk";
 import {
   useActiveCart,
-  useCartMutations,
+  useCartCommands,
   useEmporix,
   useMatchPrices,
 } from "@viu/emporix-sdk-react";
@@ -16,6 +17,9 @@ import { CURRENCY, DEMO_PRODUCT_ID } from "../site";
  *    single hook. `/guest-checkout` deliberately does it the other way, with `useCart()`
  *    plus an explicit `useCreateCart`, so the two pages cover both shapes.
  * 2. **Line-level mutations** — quantity and removal. `/guest-checkout` only ever adds.
+ *    Every change here is one command chain (`useCartCommands`): the write plus a
+ *    `GetCart`, so the calculated cart comes back with the change instead of costing a
+ *    refetch.
  *
  * This page used to add `product: { id: "demo" }` with `priceId: "demo"` and `currency:
  * "EUR"`. None of the three exists on any tenant, so the button could only ever fail; it
@@ -74,7 +78,11 @@ export default function CartPage(): React.JSX.Element {
   const cartId = (cart.data as { id?: string } | null)?.id;
   // The id is passed rather than left to storage: the hook's own error message recommends
   // it, and it makes the dependency visible at the call site.
-  const m = useCartMutations(cartId);
+  const chain = useCartCommands(cartId);
+  // Its own instance, so the add button's pending state is the add's alone.
+  const adding = useCartCommands(cartId);
+  // One request per change: the write, then the calculated cart for the cache.
+  const andRead = (command: CartCommand): CartCommand[] => [command, { type: "GetCart" }];
   const [error, setError] = useState<string | null>(null);
 
   const prices = useMatchPrices(
@@ -96,17 +104,22 @@ export default function CartPage(): React.JSX.Element {
         | { priceId?: string; originalValue?: number; effectiveValue?: number }
         | undefined;
       if (!p?.priceId) throw new Error("no price resolved — check the bound context in app/site.ts");
-      await m.addItem.mutateAsync({
-        // `itemYrn`, not `product: { id }`: the YRN form is what this tenant accepts for an
-        // internal item.
-        itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${DEMO_PRODUCT_ID}`,
-        quantity: 1,
-        price: {
-          priceId: p.priceId,
-          originalAmount: p.originalValue ?? 0,
-          effectiveAmount: p.effectiveValue ?? 0,
-          currency: CURRENCY,
-        },
+      await adding.mutateAsync({
+        commands: andRead({
+          type: "AddCartItem",
+          data: {
+            // `itemYrn`, not `product: { id }`: the YRN form is what this tenant accepts for an
+            // internal item.
+            itemYrn: `urn:yaas:hybris:product:product:${client.tenant};${DEMO_PRODUCT_ID}`,
+            quantity: 1,
+            price: {
+              priceId: p.priceId,
+              originalAmount: p.originalValue ?? 0,
+              effectiveAmount: p.effectiveValue ?? 0,
+              currency: CURRENCY,
+            },
+          },
+        }),
       });
     } catch (e) {
       setError(String(e));
@@ -119,7 +132,9 @@ export default function CartPage(): React.JSX.Element {
     try {
       // `partial: true` → a quantity-only update, so the itemYrn and the price do not have
       // to be sent again.
-      await m.updateItem.mutateAsync({ itemId, patch: { quantity } as never, partial: true });
+      await chain.mutateAsync({
+        commands: andRead({ type: "UpdateCartItem", data: { quantity }, options: { itemId, partial: true } }),
+      });
     } catch (e) {
       setError(String(e));
     }
@@ -128,7 +143,7 @@ export default function CartPage(): React.JSX.Element {
   async function remove(itemId: string): Promise<void> {
     setError(null);
     try {
-      await m.removeItem.mutateAsync({ itemId });
+      await chain.mutateAsync({ commands: andRead({ type: "DeleteCartItem", options: { itemId } }) });
     } catch (e) {
       setError(String(e));
     }
@@ -168,8 +183,8 @@ export default function CartPage(): React.JSX.Element {
         </ul>
       )}
 
-      <button type="button" onClick={() => void add()} disabled={cartId === undefined || m.addItem.isPending}>
-        {m.addItem.isPending ? "Adding…" : "Add a priced product"}
+      <button type="button" onClick={() => void add()} disabled={cartId === undefined || adding.isPending}>
+        {adding.isPending ? "Adding…" : "Add a priced product"}
       </button>
       {unit !== undefined ? <p>Resolved unit price: {unit} {CURRENCY}</p> : null}
       {error !== null ? <pre>{error}</pre> : null}
