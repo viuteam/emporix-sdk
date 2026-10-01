@@ -47,6 +47,7 @@ export {
   useCart,
   useActiveCart,
   useCartMutations,
+  useCartCommands,
   useCreateCart,
   useCartValidation,
   useCartItems,
@@ -146,6 +147,7 @@ export type {
 export type {
   CustomerSessionApi,
   CartMutationsApi,
+  CartCommandsVars,
   CheckoutApi,
   AddressMutationsApi,
   PasswordResetApi,

@@ -12,7 +12,7 @@ A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published a
 |---|---|---|
 | `packages/sdk` | Core SDK: HTTP, auth, services (Product, Category, Cart, Checkout, Customer, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups, Orders, SalesOrders, Availability, TenantConfig, ClientConfig, ShoppingList, RagIndexer, SequentialId, Fee, Webhooks, Schema, AI, Tax, Coupon, RewardPoints, Brand, Label, Country, Currency, Shipping, Returns, Indexing, UnitHandling, Catalog, Vendor, CustomerAdmin, Approval, IAM, CloudFunctions, Invoice, Quote, Import, AuditLog) | yes (`@viu/emporix-sdk`) |
 | `packages/react` | React-Query bindings: hooks, provider, storage adapters | yes (`@viu/emporix-sdk-react`) |
-| `packages/angular` | Angular bindings: `provideEmporix`, 87 signal-based `inject*` over TanStack Query, site + customer session + B2B company context. At parity with `packages/react` (110 of its 112 hooks; writes grouped into 11 mutation bundles). **Decorator-free by rule** so it builds with tsup, not `ng-packagr` | yes (`@viu/emporix-sdk-angular`) |
+| `packages/angular` | Angular bindings: `provideEmporix`, 87 signal-based `inject*` over TanStack Query, site + customer session + B2B company context. At parity with `packages/react` (111 of its 113 hooks; writes grouped into 11 mutation bundles). **Decorator-free by rule** so it builds with tsup, not `ng-packagr` | yes (`@viu/emporix-sdk-angular`) |
 | `packages/mixins` | Typed Emporix mixins: runtime accessor (`readMixin`/`writeMixin`), `mixinQuery` filter builder, `emporix-mixins` codegen CLI | yes (`@viu/emporix-mixins`) |
 | `packages/next` | Next.js server bindings: cache tags (`emporixTags`), `getEmporixClient`, the `/session` server-first entry (`withEmporixSession`, `emporixLogin`, `emporixTokenProxy`), the `/service` service-account entry, `emporixSiteProxy`, webhook route | yes (`@viu/emporix-sdk-next`) |
 | `examples/node-server` | Plain Node consumer (no React) | no |
@@ -61,7 +61,7 @@ not a precedent — the shared style is English.
 
 ## Commitlint rules (enforced by husky)
 
-- **Allowed scopes** (one of): `repo, release, sdk, react, core, customer, product, category, cart, checkout, payment, price, media, segment, availability, auth, http, logger, deps, docs, examples`.
+- **Allowed scopes** (one of): `repo, release, sdk, react, angular, core, customer, product, category, cart, checkout, payment, price, media, segment, availability, auth, http, logger, deps, docs, examples`.
 - **First word after the scope must be lowercase verb**. `feat(react): add useCreateCart` ✓ — `feat(react): Add useCreateCart` ✗ (sentence-case rejected). Names like `CLAUDE.md` in the subject also trip the check; rephrase to `add claude.md` or similar.
 - Source: `commitlint.config.js` + `.husky/commit-msg`.
 

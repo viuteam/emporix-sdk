@@ -1,6 +1,6 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
-import { EmporixNotFoundError, EmporixValidationError } from "../core/errors";
+import { EmporixNotFoundError, EmporixValidationError, errorFromResponse } from "../core/errors";
 import type {
   Cart as GeneratedCart,
   CreateCart,
@@ -20,6 +20,11 @@ import type {
   UpdateCart,
   DiscountResponse,
   CartDtRestrictions,
+  Discount,
+  ExecuteCommand,
+  ExecuteCommandResult,
+  ExecuteResponse,
+  PostCartExecuteData,
 } from "../generated/cart";
 
 /** A cart as returned by the Cart service (all generated fields). */
@@ -67,6 +72,53 @@ export type CartDiscount = DiscountResponse;
 
 /** Lead-time and non-delivery-time restrictions for a cart (`GET …/dtRestrictions`). */
 export type CartDeliveryRestrictions = CartDtRestrictions;
+
+/** Body for applying a discount (`POST /carts/{id}/discounts`, generated). */
+export type CartDiscountInput = Discount;
+
+/**
+ * Request body per command type of {@link CartService.execute}. The spec states
+ * this only in prose — its `data` is an untyped object — so it is the one
+ * hand-written piece. A command type missing here (one Emporix adds after this
+ * was written) keeps the spec's untyped `data` and still works.
+ */
+export interface CartCommandBodies {
+  AddCartItem: CartItemInput;
+  UpdateCartItem: CartItemUpdate;
+  AddCartItemsBatch: CartItemInput[];
+  UpdateCartItemsBatch: CartItemsBatchUpdateInput;
+  UpdateCart: CartUpdateInput;
+  ApplyCartDiscount: CartDiscountInput;
+}
+
+/**
+ * One command of a {@link CartService.execute} chain: `type` picks the REST
+ * operation, `data` is that operation's request body, `options` holds its
+ * remaining path and query parameters (`itemId`, `partial`, `expandCalculation`,
+ * `zipCode`, `countryCode`, `resourceVersion`, `codes`, `discountIndex`). The
+ * cart id is the `execute` path parameter, never a command field.
+ *
+ * `options` is the generated type, where every field is optional: `itemId`
+ * (`UpdateCartItem`, `DeleteCartItem`) and `discountIndex` (`DeleteCartDiscount`)
+ * are required by the server, which reports a missing one on that command.
+ */
+export type CartCommand = {
+  [T in ExecuteCommand["type"]]: Omit<ExecuteCommand, "type" | "data"> & { type: T } &
+    (T extends keyof CartCommandBodies ? { data: CartCommandBodies[T] } : Pick<ExecuteCommand, "data">);
+}[ExecuteCommand["type"]];
+
+/** `onError` and `versioning` of {@link CartService.execute} — both query parameters (generated). */
+export type CartExecuteOptions = NonNullable<PostCartExecuteData["query"]>;
+
+/** The `207` body of {@link CartService.execute}: one result per command that ran, in order (generated). */
+export type CartExecuteResult = ExecuteResponse;
+
+/**
+ * One entry of {@link CartExecuteResult}`.results`: `code`/`status` of the
+ * equivalent REST call, and as `data` its response body — or its error body
+ * when `code` is not 2xx; absent for a 204 (generated).
+ */
+export type CartCommandResult = ExecuteCommandResult;
 
 function requireCartAuth(auth: AuthContext | undefined): AuthContext {
   if (auth && (auth.kind === "customer" || auth.kind === "anonymous")) return auth;
@@ -536,5 +588,56 @@ export class CartService {
       path: `${this.base()}/${cartId}/dtRestrictions`,
       auth: requireCartAuth(auth),
     });
+  }
+
+  /**
+   * Runs up to 10 cart commands on this cart in one request, in order
+   * (`POST /carts/{cartId}/execute`). The typical chain is `AddCartItem` then
+   * `GetCart`: the calculated cart comes back without a second round trip.
+   *
+   * - `onError: "fail"` (default) stops at the first command that does not
+   *   answer 2xx and **throws the error that command's REST call would have
+   *   thrown** — an `EmporixNotFoundError` for a 404, … — with the command's
+   *   error body. The commands before it **have already been applied**.
+   * - `onError: "resume"` runs every command and resolves with all results;
+   *   check each `code`.
+   * - A `400` for the whole request (no commands or more than 10, an unknown
+   *   type, `versioning: "explicit"` without a `resourceVersion`) means no
+   *   command ran.
+   *
+   * The request takes about as long as its commands together — size the
+   * client's `timeouts.readMs` for long chains. It is never retried: a replay
+   * would apply the writes twice.
+   *
+   * `auth` is forwarded unguarded: a customer or anonymous token works on the
+   * shopper's own cart; a service token needs `cart.cart_manage`, plus
+   * `cart.cart_manage_external_prices` when a command carries an external
+   * price, product, fee or discount.
+   */
+  async execute(
+    cartId: string,
+    commands: CartCommand[],
+    auth: AuthContext,
+    opts: CartExecuteOptions = {},
+  ): Promise<CartExecuteResult> {
+    const path = `${this.base()}/${encodeURIComponent(cartId)}/execute`;
+    const res = await this.ctx.http.request<CartExecuteResult>({
+      method: "POST",
+      path,
+      auth,
+      query: { ...opts },
+      body: { commands },
+    });
+    if (opts.onError !== "resume") {
+      const failed = res.results.find((r) => r.code < 200 || r.code > 299);
+      if (failed) {
+        throw errorFromResponse(
+          failed.code,
+          `POST ${path} → command ${failed.index} (${failed.type}) → ${failed.code}`,
+          failed.data,
+        );
+      }
+    }
+    return res;
   }
 }
