@@ -194,44 +194,53 @@ A write's `404` is **checked, not trusted**. The cart API answers a line that is
 already gone (removed in another tab) and a coupon code it does not know with the
 same `404` as a closed cart. Clear on it, and a mistyped coupon code empties the bag
 until the next add finds the cart again. `GET /carts/{id}` names nothing but the
-cart, so that read decides:
+cart, so that read decides.
+
+A [command chain](./cart.md) sends the write and that read as **one request**.
+`onError: "resume"` runs the read even when the write fails, and the read doubles
+as the fresh cart the session needs anyway:
 
 ```ts
-// A write (Server Action): after a 404, clear only if the cart read 404s too.
-try {
-  await client.carts.removeItem(cartId, itemId, ctx);
-} catch (e) {
-  if (e instanceof EmporixNotFoundError) {
-    try {
-      await client.carts.get(cartId, ctx); // still there: keep the id
-    } catch (read) {
-      // Inside the mutable pass, so the next page view starts from an empty bag.
-      if (read instanceof EmporixNotFoundError) handle.delete(STORAGE_KEYS.cartId);
-    }
-  }
-  throw e;
+// A write (Server Action): the change and the cart read in one request.
+const [write, read] = (
+  await client.carts.execute(
+    cartId,
+    [{ type: "DeleteCartItem", options: { itemId } }, { type: "GetCart" }],
+    ctx,
+    { onError: "resume" },
+  )
+).results;
+// Only the read's 404 clears — inside the mutable pass, so the next page view
+// starts from an empty bag.
+if (read?.code === 404) handle.delete(STORAGE_KEYS.cartId);
+if (write && (write.code < 200 || write.code > 299)) {
+  throw errorFromResponse(write.code, `${write.type} → ${write.code}`, write.data);
 }
 ```
 
-The add can skip that read. It names no line and no coupon, and what else it can
+The add needs no such read. It names no line and no coupon, and what else it can
 miss (the product, the price) answers `400` on the live API, so its `404` is the
-cart's. Clear, and create a new cart:
+cart's. With the default `onError: "fail"` the chain stops at the failed add and
+`execute` throws that `404`. Clear, and create a new cart:
 
 ```ts
+const addAndRead: CartCommand[] = [{ type: "AddCartItem", data: item }, { type: "GetCart" }];
 try {
-  await client.carts.addItem(cartId, item, ctx);
+  await client.carts.execute(cartId, addAndRead, ctx);
 } catch (e) {
   if (!(e instanceof EmporixNotFoundError)) throw e;
   handle.delete(STORAGE_KEYS.cartId);
   const fresh = await client.carts.getCurrent(ctx, { siteCode, create: true });
-  await client.carts.addItem(fresh!.id!, item, ctx);
+  await client.carts.execute(fresh!.id!, addAndRead, ctx);
 }
 ```
 
 Recover on the `404` rather than verifying the cart first: a check would spend a
-billed call on every write for a case that is rare, and the read above runs on the
-`404` path only. `examples/next-server-first` does exactly this in
-`app/actions/cart.ts` and both read pages.
+billed call on every write for a case that is rare. With the chain, the read that
+settles a `404` rides along in the same request. Without one (`carts.removeItem`
+and friends), the same rule costs a `GET` on the `404` path.
+`examples/next-server-first` does exactly this in `app/actions/cart.ts` and both
+read pages.
 
 Do not try to heal this in the proxy. It would have to ask Emporix about the cart on
 every request — the call the session cookie exists to avoid.
