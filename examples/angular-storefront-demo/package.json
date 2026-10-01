@@ -16,7 +16,7 @@
     "@angular/core": "^22.1.3",
     "@angular/forms": "^22.1.3",
     "@angular/platform-browser": "^22.1.3",
-    "@angular/router": "^22.1.3",
+    "@angular/router": "^22.2.0",
     "@tanstack/angular-query-experimental": "^5.102.3",
     "@viu/emporix-examples-shared": "workspace:*",
     "@viu/emporix-sdk": "workspace:*",
