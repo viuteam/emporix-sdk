@@ -1,5 +1,36 @@
 # @viu/emporix-sdk-angular
 
+## 0.4.0
+
+### Minor Changes
+
+- [#361](https://github.com/viuteam/emporix-sdk/pull/361) [`2d33114`](https://github.com/viuteam/emporix-sdk/commit/2d33114f8f7177e1d2178d46633ff3ac976ba3b4) Thanks [@amnael1](https://github.com/amnael1)! - feat(cart): add carts.execute for cart command chains
+  
+  `client.carts.execute(cartId, commands, auth, { onError, versioning })` wraps
+  Emporix's new `POST /cart/{tenant}/carts/{cartId}/execute`: up to ten cart
+  operations on one cart in a single request, typically `AddCartItem` followed by
+  `GetCart`, so the calculated cart comes back with the write. `CartCommand` types
+  each command's `data` from its REST operation. With the default
+  `onError: "fail"`, a failed command throws the error its REST call would have
+  thrown — the commands before it are already applied; `onError: "resume"`
+  returns every result. See `docs/cart.md`.
+  
+  React: `useCartCommands(cartId?)` runs a chain on the active cart and adopts a
+  trailing `GetCart` straight into the `useCart` cache — an add-to-cart costs one
+  request instead of the write plus a refetch. Any other chain, and any failure,
+  invalidates the cart.
+  
+  Angular: `injectCartMutations().execute(commands, opts?)` runs a chain and
+  invalidates the cart after success and after a failure.
+
+### Patch Changes
+
+- [#362](https://github.com/viuteam/emporix-sdk/pull/362) [`5257a2e`](https://github.com/viuteam/emporix-sdk/commit/5257a2e20d091d0e799f24a6f89e9bca9bfa2d20) Thanks [@amnael1](https://github.com/amnael1)! - fix(angular): `injectActiveCart` forgets a cart the server no longer has
+  
+  Emporix closes a cart when its order is placed, so another device still holding that id gets a 404 on every read. `injectCart` already dropped the id on that 404, but `injectActiveCart` reads the stored id through its own bootstrap query and did not. An app following the `docs/angular.md` snippet — `injectActiveCart({ create: true })` plus `injectCartMutations()`, no `injectCart` — stayed on the closed cart for good: a stale id is not `null`, so the create path never ran.
+  
+  `injectActiveCart` now forgets the id the same way: only on a 404, and only while it is still the stored one. The cleared id re-keys the bootstrap, which creates a fresh cart with no error state in between. Any other error keeps the id. Cart writes still never forget, because Emporix answers a missing cart item with the same 404.
+
 ## 0.3.0
 
 ### Minor Changes

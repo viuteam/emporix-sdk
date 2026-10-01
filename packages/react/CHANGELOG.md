@@ -1,5 +1,46 @@
 # @viu/emporix-sdk-react
 
+## 4.2.0
+
+### Minor Changes
+
+- [#361](https://github.com/viuteam/emporix-sdk/pull/361) [`2d33114`](https://github.com/viuteam/emporix-sdk/commit/2d33114f8f7177e1d2178d46633ff3ac976ba3b4) Thanks [@amnael1](https://github.com/amnael1)! - feat(cart): add carts.execute for cart command chains
+  
+  `client.carts.execute(cartId, commands, auth, { onError, versioning })` wraps
+  Emporix's new `POST /cart/{tenant}/carts/{cartId}/execute`: up to ten cart
+  operations on one cart in a single request, typically `AddCartItem` followed by
+  `GetCart`, so the calculated cart comes back with the write. `CartCommand` types
+  each command's `data` from its REST operation. With the default
+  `onError: "fail"`, a failed command throws the error its REST call would have
+  thrown — the commands before it are already applied; `onError: "resume"`
+  returns every result. See `docs/cart.md`.
+  
+  React: `useCartCommands(cartId?)` runs a chain on the active cart and adopts a
+  trailing `GetCart` straight into the `useCart` cache — an add-to-cart costs one
+  request instead of the write plus a refetch. Any other chain, and any failure,
+  invalidates the cart.
+  
+  Angular: `injectCartMutations().execute(commands, opts?)` runs a chain and
+  invalidates the cart after success and after a failure.
+
+### Patch Changes
+
+- [#358](https://github.com/viuteam/emporix-sdk/pull/358) [`091be2b`](https://github.com/viuteam/emporix-sdk/commit/091be2b01891544c220c1a1fa76642bd80c9bf5c) Thanks [@amnael1](https://github.com/amnael1)! - Keep the cart when a write 404s only because its item is gone.
+  
+  `useCartMutations` used to treat every `404` as «this cart is gone» and cleared
+  `storage.cartId`. But Emporix answers an item that is already gone with the same
+  `404` as a closed cart («Cart item not found in cart … with code 9»). So removing
+  or updating a line that another tab had already removed dropped the whole cart.
+  The UI showed no cart until `useActiveCart({ create: true })` bootstrapped it
+  again.
+  
+  A write's `404` is now checked instead of trusted. The hook re-reads the cart and
+  clears the id only if that read 404s too, which it does only when the cart really
+  was closed, for example by a checkout on another device. Otherwise the id stays
+  and the cache takes the cart the server has, so the missing line disappears
+  instead of coming back with the rollback. The extra GET happens only on the `404`
+  path, and the recovery still works when no cart read is mounted.
+
 ## 4.1.0
 
 ### Minor Changes
