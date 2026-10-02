@@ -47,6 +47,12 @@ export function useTelemetrySource({
   useEffect(() => {
     if (!onTelemetry) return;
     const startedAt = new Map<string, number>();
+    // TanStack calls query-cache listeners synchronously, and some calls happen
+    // inside a component's render: useQuery builds its observer during render,
+    // and the new observer reports its first result to the cache at once. A
+    // handler that sets state would then update another component mid-render.
+    // Build each event now, deliver it on a microtask — FIFO keeps the order.
+    const deferEmit = (e: EmporixTelemetryEvent) => queueMicrotask(() => safeEmit(e));
 
     const unsubQuery = qc.getQueryCache().subscribe((event) => {
       const key = event.query.queryKey;
@@ -56,7 +62,7 @@ export function useTelemetrySource({
         if (action.type === "fetch") {
           const isRefetch = event.query.state.dataUpdateCount > 0;
           if (isRefetch) {
-            safeEmit({
+            deferEmit({
               type: "query.refetch",
               queryKey: key,
               tenant: client.tenant,
@@ -67,7 +73,7 @@ export function useTelemetrySource({
         } else if (action.type === "success") {
           const start = startedAt.get(event.query.queryHash);
           startedAt.delete(event.query.queryHash);
-          safeEmit({
+          deferEmit({
             type: "cache.miss",
             queryKey: key,
             tenant: client.tenant,
@@ -75,7 +81,7 @@ export function useTelemetrySource({
           });
         } else if (action.type === "error") {
           startedAt.delete(event.query.queryHash);
-          safeEmit({
+          deferEmit({
             type: "query.error",
             queryKey: key,
             tenant: client.tenant,
@@ -85,7 +91,7 @@ export function useTelemetrySource({
       } else if (event.type === "observerResultsUpdated") {
         const s = event.query.state;
         if (s.status === "success" && s.fetchStatus === "idle" && s.dataUpdateCount > 0) {
-          safeEmit({ type: "cache.hit", queryKey: key, tenant: client.tenant });
+          deferEmit({ type: "cache.hit", queryKey: key, tenant: client.tenant });
         }
       }
     });

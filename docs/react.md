@@ -271,6 +271,12 @@ The event stream is a typed discriminated union — exhaustive switches are
 type-safe. Without `onTelemetry`, the whole telemetry layer is no-op and
 incurs no overhead.
 
+Query-cache events (`cache.*`, `query.*`) reach the handler on a microtask after
+the cache notification, never inside a component's render, so a handler that
+sets React state is safe for them. Every other event is delivered synchronously,
+the moment its source fires: a mutation settling, a storage write, your own
+`emit` call.
+
 To emit your own events on the same channel:
 
 ```tsx

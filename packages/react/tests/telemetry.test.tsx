@@ -10,7 +10,7 @@ import {
   useEmporixTelemetry,
   type EmporixTelemetryEvent,
 } from "../src/telemetry";
-import type { ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
 const server = setupServer(
   http.get("https://api.emporix.io/customerlogin/auth/anonymous/login", () =>
@@ -103,6 +103,54 @@ describe("Telemetry — cache events", () => {
     await new Promise((r) => setTimeout(r, 10));
     const cacheMisses = events.filter((e) => e.type === "cache.miss");
     expect(cacheMisses).toEqual([]);
+  });
+
+  it("a cache hit found during a render reaches onTelemetry after that render", async () => {
+    const client = makeClient();
+    const storage = createMemoryStorage();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    // Already cached: TanStack builds the reader's observer inside the
+    // reader's render, and the new observer reports the cached result at once.
+    queryClient.setQueryData(["emporix", "telemetry-render-phase"], { ok: true });
+    const events: EmporixTelemetryEvent[] = [];
+
+    function CachedReader() {
+      useQuery({
+        queryKey: ["emporix", "telemetry-render-phase"],
+        queryFn: () => Promise.resolve({ ok: true }),
+      });
+      return null;
+    }
+    // A handler that sets state, like a telemetry HUD.
+    function App({ showReader }: { showReader: boolean }) {
+      const [, setCount] = useState(0);
+      const onTelemetry = useCallback((e: EmporixTelemetryEvent) => {
+        events.push(e);
+        setCount((n) => n + 1);
+      }, []);
+      return (
+        <EmporixProvider
+          client={client}
+          storage={storage}
+          queryClient={queryClient}
+          onTelemetry={onTelemetry}
+        >
+          {showReader ? <CachedReader /> : null}
+        </EmporixProvider>
+      );
+    }
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { rerender } = render(<App showReader={false} />);
+    // Mount the reader once the provider's subscriptions are live, like an
+    // add-to-cart bar that appears after its product has loaded.
+    rerender(<App showReader />);
+    await waitFor(() => expect(events.some((e) => e.type === "cache.hit")).toBe(true));
+    const messages = errorSpy.mock.calls.map((args) => args.map(String).join(" "));
+    errorSpy.mockRestore();
+    expect(messages.filter((m) => m.includes("Cannot update a component"))).toEqual([]);
   });
 });
 
