@@ -293,6 +293,19 @@ export class ImportService {
    * `streamIds` runs a subset — see {@link ImportRunInput} for what is rejected,
    * and note it takes ids where {@link getStreamOrder} reports names.
    *
+   * A run executes each stream's **published** mappings. Publishing needs
+   * `importtool.import_manage` and is not part of the public API, so it happens
+   * in the Management Dashboard's Import Tool rather than through this SDK; a dry
+   * run with `mappings: "draft"` checks unpublished changes first. A stream whose
+   * mappings were never published is `ABORTED` in the run details, and the run
+   * finishes `PARTIAL`.
+   *
+   * **A refused run still resolves.** When `streamIds` names such a stream, or
+   * every enabled stream is in that state, the service answers `200` with the
+   * run anyway, and the run then finishes `ABORTED` with a `message` naming the
+   * streams. Read it back with {@link getRun}, or follow it with
+   * {@link streamRun}, before treating a resolved call as a started import.
+   *
    * Not retried on a 5xx: a POST that timed out may already have queued a run.
    *
    * @example
@@ -592,7 +605,8 @@ export class ImportService {
    *
    * Returns a **new** run — the retry is its own run with `retry: true`, not a
    * mutation of the original. Poll it with {@link getRun} or follow it with
-   * {@link streamRun} exactly as you would a triggered run.
+   * {@link streamRun} exactly as you would a triggered run. Like one, it runs the
+   * published mappings and can finish `ABORTED`.
    *
    * Not retried on a 5xx, for the same reason {@link triggerRun} is not: a POST
    * that timed out may already have queued the retry.

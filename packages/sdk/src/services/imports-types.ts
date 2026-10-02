@@ -49,9 +49,18 @@ export type ImportSchedule = Schedule;
  * `dryRunSample` carries the previewed records on a dry run and is absent on a
  * normal one. `origin` echoes what asked for the run, and is absent on runs
  * recorded before that field existed.
+ *
+ * `mappingVersions` lists the published mapping version each stream runs with,
+ * fixed when the run starts — version `0` means the stream has no published
+ * mappings. It is absent on a dry run of the draft mappings and on runs recorded
+ * before 2026-09-28. `dryRunPublished` says which mappings a dry run used.
  */
 export type ImportRun = GenImportRun;
-/** Per-stream progress within a run. */
+/**
+ * Per-stream progress within a run. A stream `ABORTED` was not run because of
+ * its configuration — typically mappings that were never published — and its
+ * `message` says why.
+ */
 export type ImportRunStream = GenImportRunStream;
 /** A run together with its per-stream progress — what `getRun` resolves to. */
 export type ImportRunDetail = RunDetail;
@@ -83,7 +92,7 @@ export type ImportDiagnosticKind = TraitDiagnosticsKind;
 export type ImportRunDiagnosticsQuery = NonNullable<GetImporttoolListRunDiagnosticsData["query"]>;
 
 /**
- * Body for `triggerRun`: `{ mode?, dryRun?, force?, sampleSize?, origin?, streamIds? }`.
+ * Body for `triggerRun`: `{ mode?, dryRun?, force?, sampleSize?, origin?, streamIds?, mappings? }`.
  *
  * - `mode` defaults to `DELTA` server-side.
  * - `streamIds` runs only those streams — **ids, not names** (`getStreamOrder`
@@ -94,6 +103,10 @@ export type ImportRunDiagnosticsQuery = NonNullable<GetImporttoolListRunDiagnost
  *   idempotency.
  * - `sampleSize` is **dry-run only**: how many mapped records to sample per
  *   stream into the run's `dryRunSample`. Clamped to 1–100, defaults to 25.
+ * - `mappings` is **dry-run only** too: `"published"` (the default) checks what
+ *   a real run would execute, `"draft"` checks saved mapping changes before they
+ *   are published. A real run always uses the published mappings, so the field
+ *   has no effect there.
  * - `origin` is free text naming *what* asked for the run (`"Dashboard"`, an
  *   integration scenario, your own scheduler), as opposed to `trigger`, which
  *   only ever records `MANUAL` or `SCHEDULED`. Omitted or blank, the service
@@ -102,7 +115,11 @@ export type ImportRunDiagnosticsQuery = NonNullable<GetImporttoolListRunDiagnost
  *   audit trail is worse than a refused request.
  */
 export type ImportRunInput = NonNullable<PostImporttoolTriggerRunData["body"]>;
-/** Lifecycle status of an {@link ImportRun}. */
+/**
+ * Lifecycle status of an {@link ImportRun}. `ABORTED` means the service refused
+ * to start the run because of its configuration — mappings that were never
+ * published, or a changed target schema — and nothing was read or written.
+ */
 export type ImportRunStatus = NonNullable<ImportRun["status"]>;
 /** Run mode — `FULL` re-reads everything, `DELTA` only what changed. */
 export type ImportRunMode = NonNullable<ImportRunInput["mode"]>;

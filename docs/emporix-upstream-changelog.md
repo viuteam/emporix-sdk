@@ -5,6 +5,20 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-10-02 — release notes: Import Tool, cloud function hosting (no API change)
+
+Two [product releases](https://developer.emporix.io/release-notes) with no API
+change behind them, checked so the next sync does not have to:
+
+- **Import Tool** — the Management Dashboard interface over the Import Service.
+  Upstream `import-service` `api.yml` is byte-identical to the vendored copy; the
+  API change that prepared it shipped on 2026-09-28 (below).
+- **Cloud function hosting** — dashboard lifecycle features: descriptions and
+  tags, a sandbox test, build history, and deleting a function now removes its
+  deployments. The invocation endpoint that `client.cloudFunctions.invoke` wraps,
+  `/cloud-functions/{tenant}/functions/{functionId}[/sub-path]`, is unchanged,
+  and `emporix/api-references` has no spec for hosting management.
+
 ## 2026-09-30 — cart: command chain endpoint
 
 Vendored by the bot's [#359](https://github.com/viuteam/emporix-sdk/pull/359);
@@ -76,6 +90,40 @@ endpoints, 0 removed, 0 newly deprecated.** The facade covers all nine.
   message still says «10 megabytes».
 - A `PENDING` asset whose file has arrived is completed by the download URL call
   or by retrieving the asset; `media.asset-created` fires only then.
+
+## 2026-09-28 — import-service: published mappings for import runs
+
+Vendored by the bot's [#345](https://github.com/viuteam/emporix-sdk/pull/345)
+(types only) and documented on 2026-10-02. Measured by path literal
+(`coverage.mjs --spec import-service`): 24 → **24** live operations. **0 new
+endpoints, 0 removed, 0 newly deprecated.** The facade covers all 24.
+
+### Fields
+
+Nothing to build — they arrived through the type aliases. They did need
+documenting:
+
+| Where | Field | Note |
+|---|---|---|
+| `triggerRun` body | `mappings` (`published` / `draft`) | dry-run only, default `published`; no effect on a real run |
+| run | `mappingVersions[]` | `{ streamId, version }`, fixed when the run starts; `0` = no published mappings; absent on a draft dry run and on older runs |
+| run | `dryRunPublished` | which mappings a dry run used |
+| run and stream status | `ABORTED` | refused because of the configuration; nothing read or written |
+
+### Behaviour
+
+- A run executes each stream's **published** mappings. Publishing needs
+  `importtool.import_manage` and is not in the public API reference, so the SDK
+  cannot do it; it happens in the Import Tool.
+- A stream whose mappings were never published is not run: it is `ABORTED` in
+  the run details, and the run finishes `PARTIAL`.
+- **A refused run still answers `200`.** When `streamIds` names such a stream,
+  or every enabled stream is one, `triggerRun` resolves with the run, which then
+  finishes `ABORTED` with a `message` naming the streams. `retryRun` can end
+  `ABORTED` the same way.
+- A dry run with a `mappings` value other than `published` or `draft` answers
+  `400`, with a Spring-style body (`timestamp`, `status`, `error`, `path`)
+  instead of the usual error message. The SDK's type admits only the two values.
 
 ## 2026-09-14 … 2026-09-25 — segment IAM groups, import run diagnostics, AI attachment reuse
 
