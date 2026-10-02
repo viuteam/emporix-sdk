@@ -1,5 +1,49 @@
 # @viu/emporix-sdk-react
 
+## 4.2.1
+
+### Patch Changes
+
+- [#367](https://github.com/viuteam/emporix-sdk/pull/367) [`f094049`](https://github.com/viuteam/emporix-sdk/commit/f09404920296fd378630494741160b36a7768973) Thanks [@amnael1](https://github.com/amnael1)! - Stop a changed `initialCustomerToken` from updating components mid-render.
+  
+  With `customerSession="external"`, changing `initialCustomerToken` after mount
+  made React log «Cannot update a component while rendering a different
+  component», with or without `onTelemetry`. The provider wrote the new token to
+  storage during its own render, and storage notifies synchronously, so every
+  component reading the token, and an `onTelemetry` handler that sets state on the
+  `storage.write` event, was updated in the middle of that render. In owned mode,
+  a token seeding a slot that a logout had emptied did the same.
+  
+  The first seed into a storage still happens during the render, so the children's
+  first render is authenticated. Any later change is written in a layout effect,
+  after the render and before paint.
+  
+  In external mode the hooks now read the token from the prop rather than from
+  storage, so the render that changes it already sends the new one. Reading
+  storage there, a host that switches tenant and token in one render would have
+  had every query send the previous token to the new tenant. While the prop is
+  set, a token written to storage from inside the tree, by `useCustomerSession`'s
+  `login` or `logout` for instance, no longer reaches the hooks.
+
+- [#366](https://github.com/viuteam/emporix-sdk/pull/366) [`8842d76`](https://github.com/viuteam/emporix-sdk/commit/8842d76e8e9986f01e976e3c3b949a8cfbb0ffe7) Thanks [@amnael1](https://github.com/amnael1)! - Deliver query-cache telemetry outside React renders.
+  
+  When a component mounted onto cached data, an `onTelemetry` handler that sets
+  state, as a telemetry HUD does, made React log «Cannot update a component while
+  rendering a different component». TanStack Query builds a query's observer
+  during the component's render, and the new observer reports its cached result
+  to the query cache straight away. The SDK's cache listener passed the resulting
+  `cache.hit` to `onTelemetry` synchronously, so the handler ran in the middle of
+  another component's render.
+  
+  The query-cache events (`cache.hit`, `cache.miss`, `query.refetch`,
+  `query.error`) now reach `onTelemetry` on a microtask after the cache
+  notification. Their payloads, `durationMs` included, are still taken when the
+  notification fires, and they keep their order among themselves. Mutation, auth,
+  storage, company and custom events are still delivered synchronously, so one of
+  those emitted in the same tick as a cache change can now arrive before the
+  cache event. A test that asserts a cache event right after the cache changed
+  needs a `waitFor`.
+
 ## 4.2.0
 
 ### Minor Changes
