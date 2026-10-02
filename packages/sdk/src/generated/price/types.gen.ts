@@ -1106,7 +1106,7 @@ export type SearchRequest = {
     /**
      * A standard query parameter is used to search for specific values.
      *
-     * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+     * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
      *
      */
     q?: string;
@@ -1183,7 +1183,7 @@ export type TraitPagedPageSize = number;
 /**
  * A standard query parameter is used to search for specific values.
  *
- * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+ * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
  *
  */
 export type TraitQParam = string;
@@ -1416,7 +1416,7 @@ export type GetPriceListAllPricesData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -2478,7 +2478,7 @@ export type GetPriceRetrievePriceListsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -2964,7 +2964,7 @@ export type GetPriceListPricesInPriceListData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;

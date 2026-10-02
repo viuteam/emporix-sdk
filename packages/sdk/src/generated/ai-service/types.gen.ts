@@ -1694,7 +1694,7 @@ export type QParamSearchBody = {
     /**
      * A standard query parameter is used to search for specific values.
      *
-     * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+     * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
      *
      */
     q?: string;
@@ -1887,7 +1887,7 @@ export type PathTenant = string;
  *
  * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
  *
- * On [Starting agent chat](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+ * On [Starting agent chat](https://developer.emporix.io/api-documentation/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-documentation/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
  *
  */
 export type HeaderSessionId = string;
@@ -1922,7 +1922,7 @@ export type HeaderXTotalCount = boolean;
 /**
  * A standard query parameter is used to search for specific values.
  *
- * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+ * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
  *
  */
 export type QParam = string;
@@ -2145,7 +2145,7 @@ export type GetAiListJobsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -2384,7 +2384,7 @@ export type PostAiAgentsChatData = {
          *
          * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
          *
-         * On [Starting agent chat](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         * On [Starting agent chat](https://developer.emporix.io/api-documentation/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-documentation/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
          *
          */
         'session-id'?: string;
@@ -2440,7 +2440,7 @@ export type PostAiAgentsChatStreamData = {
          *
          * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
          *
-         * On [Starting agent chat](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         * On [Starting agent chat](https://developer.emporix.io/api-documentation/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-documentation/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
          *
          */
         'session-id'?: string;
@@ -2513,7 +2513,7 @@ export type PostAiAgentsChatAsyncData = {
          *
          * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
          *
-         * On [Starting agent chat](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         * On [Starting agent chat](https://developer.emporix.io/api-documentation/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-documentation/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
          *
          */
         'session-id'?: string;
@@ -2574,7 +2574,7 @@ export type PostAiAgentsUploadAttachmentData = {
          *
          * Reuse the same value on later chat and attachment calls to continue the same session, access attachments from that session, and keep conversational memory when `enabledMemory` is `true` on the agent. A new value starts a new session.
          *
-         * On [Starting agent chat](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-references/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
+         * On [Starting agent chat](https://developer.emporix.io/api-documentation/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat), the value is `sessionId` in the JSON response. On [Starting agent chat stream](https://developer.emporix.io/api-documentation/api-guides/artificial-intelligence/ai-service/api-reference/agent-chat#post-ai-service-tenant-agentic-chat-stream), the value is `session_id` in the SSE `done` event. When a chat request includes `attachments`, send the same value returned as `sessionId` from the upload or from assigning existing media. Do not send `sessionId` in the request body. Omitting `session-id` when you assign media starts a new session and returns that `sessionId`.
          *
          */
         'session-id'?: string;
@@ -2660,7 +2660,7 @@ export type GetAiListTemplatesData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -2880,7 +2880,7 @@ export type GetAiListAgentsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -3279,7 +3279,7 @@ export type GetAiListConversationsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -3414,7 +3414,7 @@ export type GetAiListToolsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -3773,7 +3773,7 @@ export type GetAiListTokensData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -4106,7 +4106,7 @@ export type GetAiListOauthsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -4498,7 +4498,7 @@ export type GetAiListMcpServersData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -4976,7 +4976,7 @@ export type GetAiListRequestsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -5182,7 +5182,7 @@ export type GetAiListSessionsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;

@@ -151,7 +151,7 @@ export type Payment = {
 export type PaymentMethod = {
     /**
      * Payment provider, possible values:
-     * * `payment-gateway` - When the Emporix Payment-Gateway service should be used to handle a payment. For details about custom attributes that are required for a particular payment mode, check https://developer.emporix.io/user-guides/system-management/payment-gateway/payments.
+     * * `payment-gateway` - When the Emporix Payment-Gateway service is used to handle a payment. For details about custom attributes that are required for a particular payment mode, check https://developer.emporix.io/api-documentation/api-guides/checkout/payment-gateway.
      * * `custom` - When a custom provider is used. In this case the created order has the `IN_CHECKOUT` status.
      * * `none` - For payment by cash or invoice.
      *
@@ -162,11 +162,11 @@ export type PaymentMethod = {
      */
     customAttributes?: {
         /**
-         * Payment token used for the tokenized credit card flows. The field is used when provider type is `payment-gateway`. For more details, check https://developer.emporix.io/user-guides/system-management/payment-gateway/payments
+         * Payment token used for the tokenized credit card flows. The field is used when provider type is `payment-gateway`. For more details, check https://developer.emporix.io/api-documentation/api-guides/checkout/payment-gateway
          */
         token?: string;
         /**
-         * Identifier of a payment mode. The payment mode has to be configured in the Emporix Payment Gateway service beforehand. For more details, check https://developer.emporix.io/user-guides/system-management/payment-gateway/payments
+         * Identifier of a payment mode. The payment mode has to be configured in the Emporix Payment Gateway service beforehand. For more details, check https://developer.emporix.io/api-documentation/api-guides/checkout/payment-gateway
          */
         modeId?: string;
         /**
@@ -592,7 +592,7 @@ export type SortQueryParam = string;
 /**
  * A standard query parameter is used to search for specific values.
  *
- * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+ * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
  *
  */
 export type QQueryParam = string;
@@ -647,7 +647,7 @@ export type GetApprovalListApprovalsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;

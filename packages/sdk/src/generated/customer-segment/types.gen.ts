@@ -54,7 +54,7 @@ export type SegmentsSearch = {
     /**
      * A standard query parameter is used to search for specific values.
      *
-     * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param/)
+     * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
      *
      */
     q?: string;
@@ -418,7 +418,7 @@ export type Type = string;
 /**
  * A standard query parameter is used to search for specific values.
  *
- * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+ * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
  *
  */
 export type QParam = string;
@@ -521,7 +521,7 @@ export type GetCustomerSegmentRetrieveSegmentsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -758,7 +758,7 @@ export type GetCustomerSegmentRetrieveOwnSegmentsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -1300,7 +1300,7 @@ export type GetCustomerSegmentRetrieveCustomersData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -1923,7 +1923,7 @@ export type GetCustomerSegmentRetrieveGroupsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -2314,7 +2314,7 @@ export type GetCustomerSegmentRetrieveSegmentsItemsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -2411,7 +2411,7 @@ export type GetCustomerSegmentRetrieveSegmentItemsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
