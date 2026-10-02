@@ -153,7 +153,7 @@ export type PathTenant = string;
  * * `related:elemMatch(...)` — ElemMatch syntax, for example `q=related:elemMatch(entity:group entityId:1gr5e52e-6e27-4ac5-9471-2467d3fb7501)`.
  * * `compoundLogicalQuery` — Nested `OR` / `AND` expressions, for example `q=compoundLogicalQuery:((entity:group type:update) OR (related:elemMatch(entity:group)))`.
  *
- * See also [Query Parameter](https://developer.emporix.io/api-references/standard-practices/q-param).
+ * See also [Query Parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param).
  */
 export type QueryQ = string;
 
@@ -193,7 +193,7 @@ export type GetChangelogRetrieveTenantChangelogsData = {
          * * `related:elemMatch(...)` — ElemMatch syntax, for example `q=related:elemMatch(entity:group entityId:1gr5e52e-6e27-4ac5-9471-2467d3fb7501)`.
          * * `compoundLogicalQuery` — Nested `OR` / `AND` expressions, for example `q=compoundLogicalQuery:((entity:group type:update) OR (related:elemMatch(entity:group)))`.
          *
-         * See also [Query Parameter](https://developer.emporix.io/api-references/standard-practices/q-param).
+         * See also [Query Parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param).
          */
         q?: string;
         /**

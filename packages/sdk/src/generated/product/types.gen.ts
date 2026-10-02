@@ -1189,7 +1189,7 @@ export type SearchProducts = {
     /**
      * A standard query parameter is used to search for specific values.
      *
-     * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+     * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
      *
      */
     q?: string;
@@ -1327,7 +1327,7 @@ export type PathProductId = string;
 /**
  * A standard query parameter is used to search for specific values.
  *
- * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+ * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
  *
  */
 export type QueryQProduct = string;
@@ -1613,7 +1613,7 @@ export type GetProductListProductsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;

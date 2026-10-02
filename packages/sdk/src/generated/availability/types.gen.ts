@@ -494,7 +494,7 @@ export type AllSites = boolean;
 /**
  * A standard query parameter is used to search for specific values.
  *
- * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+ * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
  *
  */
 export type Q = string;
@@ -789,7 +789,7 @@ export type GetAvailabilityRetrieveAvailabilitySiteData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -841,7 +841,7 @@ export type PostAvailabilitySearchProductsSiteData = {
         /**
          * A standard query parameter used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q: string;

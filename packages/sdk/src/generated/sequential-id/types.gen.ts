@@ -192,7 +192,7 @@ export type CoreError = {
 };
 
 /**
- * Site code used to resolve placeholders from [Retrieving a site](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/site-settings#get-site-tenant-sites-sitecode) and [Retrieving site mixins](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/mixins#get-site-tenant-sites-sitecode-mixins).
+ * Site code used to resolve placeholders from [Retrieving a site](https://developer.emporix.io/api-documentation/api-guides/configuration/site-settings-service/api-reference/site-settings#get-site-tenant-sites-sitecode) and [Retrieving site mixins](https://developer.emporix.io/api-documentation/api-guides/configuration/site-settings-service/api-reference/mixins#get-site-tenant-sites-sitecode-mixins).
  *
  * Placeholders such as **\_\_year__**, **\_\_month__**, **\_\_day__**, **\_\_hour__**, **\_\_minute__**, **\_\_second__**, and **\_\_country__**,
  * which are defined in the schema, can have default values computed when their counterparts are missing in the request body.
@@ -549,7 +549,7 @@ export type PostSequentialIdCreateSchemaTypeNextIdData = {
     };
     query?: {
         /**
-         * Site code used to resolve placeholders from [Retrieving a site](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/site-settings#get-site-tenant-sites-sitecode) and [Retrieving site mixins](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/mixins#get-site-tenant-sites-sitecode-mixins).
+         * Site code used to resolve placeholders from [Retrieving a site](https://developer.emporix.io/api-documentation/api-guides/configuration/site-settings-service/api-reference/site-settings#get-site-tenant-sites-sitecode) and [Retrieving site mixins](https://developer.emporix.io/api-documentation/api-guides/configuration/site-settings-service/api-reference/mixins#get-site-tenant-sites-sitecode-mixins).
          *
          * Placeholders such as **\_\_year__**, **\_\_month__**, **\_\_day__**, **\_\_hour__**, **\_\_minute__**, **\_\_second__**, and **\_\_country__**,
          * which are defined in the schema, can have default values computed when their counterparts are missing in the request body.
@@ -609,7 +609,7 @@ export type PostSequentialIdCreateSchemaTypesNextIdsData = {
     path?: never;
     query?: {
         /**
-         * Site code used to resolve placeholders from [Retrieving a site](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/site-settings#get-site-tenant-sites-sitecode) and [Retrieving site mixins](https://developer.emporix.io/api-references/api-guides/configuration/site-settings-service/api-reference/mixins#get-site-tenant-sites-sitecode-mixins).
+         * Site code used to resolve placeholders from [Retrieving a site](https://developer.emporix.io/api-documentation/api-guides/configuration/site-settings-service/api-reference/site-settings#get-site-tenant-sites-sitecode) and [Retrieving site mixins](https://developer.emporix.io/api-documentation/api-guides/configuration/site-settings-service/api-reference/mixins#get-site-tenant-sites-sitecode-mixins).
          *
          * Placeholders such as **\_\_year__**, **\_\_month__**, **\_\_day__**, **\_\_hour__**, **\_\_minute__**, **\_\_second__**, and **\_\_country__**,
          * which are defined in the schema, can have default values computed when their counterparts are missing in the request body.

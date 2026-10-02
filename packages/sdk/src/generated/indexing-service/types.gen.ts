@@ -168,7 +168,7 @@ export type HeaderXTotalCount = boolean;
 /**
  * A standard query parameter is used to search for specific values.
  *
- * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+ * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
  *
  */
 export type QParam = string;
@@ -582,7 +582,7 @@ export type GetIndexingReindexJobsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * See: [Standard Practices - Query parameter](https://developer.emporix.io/docs/content/q-param)
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;

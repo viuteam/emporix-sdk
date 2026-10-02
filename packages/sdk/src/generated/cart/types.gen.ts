@@ -36,7 +36,7 @@ export type Search = {
     /**
      * A standard query parameter is used to search for specific values.
      *
-     * See: [Standard practises - Query parameter](https://developer.emporix.io/api-references/standard-practices/q-param/)
+     * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
      *
      */
     q?: string;
@@ -92,7 +92,7 @@ export type BaseCart = {
      * * If the cart has a legal entity, it gets the first location of the legal entity that has both `country` and `zipCode`, and matches the required `type` - then the address has origin=`LEGAL_ENTITY`.
      * * Otherwise, if the cart has a logged-in customer, it finds the `default` address that has both `country` and `zipCode`, and matches the required `type`. If there is no matching default address with the required information, it uses the first customer address that meets the criteria. The address has origin=`CUSTOMER`.
      * * Otherwise, the cart uses the site homebase address. Then the address has origin=`SITE`.
-     * These addresses are used in the tax country code determination [How to determine a tax country at cart level](https://developer.emporix.io/api-references/api-guides/checkout/cart/cart#how-to-determine-a-tax-country-at-cart-level) and shipping cost calculation [How to calculate shipping cost at cart level](https://developer.emporix.io/api-references/api-guides/checkout/cart/cart#how-to-calculate-shipping-cost-at-cart-level).
+     * These addresses are used in the tax country code determination [How to determine a tax country at cart level](https://developer.emporix.io/api-documentation/api-guides/checkout/cart/cart#how-to-determine-a-tax-country-at-cart-level) and shipping cost calculation [How to calculate shipping cost at cart level](https://developer.emporix.io/api-documentation/api-guides/checkout/cart/cart#how-to-calculate-shipping-cost-at-cart-level).
      */
     addresses?: Array<AddressResponse>;
     channel?: Channel;
