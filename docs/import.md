@@ -4,12 +4,18 @@ Bindings for the Emporix **Import Service** (`/importtool/{tenant}/…`): import
 configurations and their streams, cron schedules, run control, and the records an
 import produced.
 
+The Management Dashboard's [Import Tool](https://developer.emporix.io/import-tool)
+(released 2026-10-02) is the interface on top of this service. Creating
+configurations, streams and mappings — and publishing the mappings — happens
+there: the public API reads configurations and streams, and manages schedules
+and runs, but has no operation that writes either.
+
 > **Server-side only.** Every operation requires the service
 > (clientCredentials) token with the `importtool.import_trigger` scope. There is
 > no customer or anonymous variant — see
 > [Why there is no React hook](#why-there-is-no-react-hook).
 
-> **Preview.** Upstream marks all 15 operations as preview: the contract may
+> **Preview.** Upstream marks all 24 operations as preview: the contract may
 > change without a major version, and nearly every response field is optional in
 > the spec. Treat run counters and statuses as possibly absent.
 
@@ -107,6 +113,38 @@ await client.imports.triggerRun("cfg1", { streamIds: ["str1", "str2"] }); // a s
 `streamIds` runs only the listed streams, still in the computed order; omit it to
 run all of them. The service rejects an empty list, a list with no stream of this
 configuration, and a child stream that cannot produce data without its parent.
+
+### Published and draft mappings
+
+Since 2026-09-28 a run executes each stream's **published** mappings. Saved but
+unpublished changes are the *draft* mappings, and they take effect only once
+published — in the Import Tool, since publishing needs `importtool.import_manage`
+and is not part of the public API. A dry run can check the drafts first:
+
+```ts
+const check = await client.imports.triggerRun("cfg1", {
+  dryRun: true,
+  mappings: "draft",   // dry-run only; "published" is the default
+});
+```
+
+A real run ignores `mappings`. It fixes each stream's published mapping version
+when it starts and reports it in `mappingVersions` (`{ streamId, version }`;
+version `0` means no published mappings), so a version published mid-run applies
+from the next run. `dryRunPublished` tells you which mappings a dry run used;
+a dry run of the drafts carries no `mappingVersions`.
+
+**A run refused for unpublished mappings still resolves.**
+
+| Situation | `triggerRun` | The run |
+|---|---|---|
+| one enabled stream never published, others fine | `200` | that stream `ABORTED` with a `message`, the run `PARTIAL` |
+| `streamIds` names a never-published stream, or every enabled stream is one | `200` | `ABORTED`, with a `message` naming the streams; nothing read or written |
+
+So a resolved `triggerRun` is not proof that anything ran: read the run back with
+`getRun`, or follow `streamRun`, and check its final status. `retryRun` can end
+`ABORTED` the same way. `ABORTED` also covers other configuration problems —
+upstream names a changed target schema.
 
 ### Run diagnostics
 
@@ -362,7 +400,9 @@ real tenant: that `deleteSchedule` really does accept a configuration that no
 longer exists, that `origin` is refused rather than truncated past 40
 characters, and which `sections` value (if any) gates `sourceIssues`. The same
 goes for `getStreamOrder`, the diagnostics calls and `streamIds` (2026-09-14 /
-2026-09-23): wired to the spec, never seen on the wire.
+2026-09-23): wired to the spec, never seen on the wire. And for the published
+mappings (2026-09-28): `mappings`, `mappingVersions`, `dryRunPublished` and the
+`200` that comes back for a run the service then aborts.
 
 All methods take an optional trailing `auth` argument (default: the `"backend"`
 service credential set).
