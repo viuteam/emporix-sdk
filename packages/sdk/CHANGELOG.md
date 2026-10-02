@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 4.2.3
+
+### Patch Changes
+
+- [#374](https://github.com/viuteam/emporix-sdk/pull/374) [`3418d90`](https://github.com/viuteam/emporix-sdk/commit/3418d9066fa2f9f1ec83a0499f1fa365cbee21b0) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: ai-rag-indexer,ai-service,approval-service,audit-logs-changelog,availability,cart,category,checkout,customer,customer-segment,customer-service,import-service,indexing-service,label-service,order-v2,price,product,sequential-id,session-context,shopping-list
+
 ## 4.2.2
 
 ### Patch Changes
