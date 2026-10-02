@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useContext, useMemo, useSyncExternalStore } from "react";
 import { useEmporix } from "../../provider";
 import { getCustomerSessionStore } from "./customer-session-store";
+import { HostTokenContext } from "./use-provider-wiring";
 
 /**
  * Reactive render-time view of the stored customer token. Replaces raw
@@ -9,12 +10,17 @@ import { getCustomerSessionStore } from "./customer-session-store";
  * unrelated re-render — and (b) could tear under concurrent rendering.
  * Server snapshot reads the same store: a server-side memory storage seeded
  * with `initialCustomerToken` must render authenticated markup.
+ *
+ * Under `customerSession: "external"` the host's prop wins over the stored
+ * copy — see {@link HostTokenContext}.
  */
 export function useCustomerToken(): string | null {
   const { storage } = useEmporix();
+  const hostToken = useContext(HostTokenContext);
   const store = useMemo(() => getCustomerSessionStore(storage), [storage]);
   const getToken = useCallback(() => store.getSnapshot().token, [store]);
-  return useSyncExternalStore(store.subscribe, getToken, getToken);
+  const stored = useSyncExternalStore(store.subscribe, getToken, getToken);
+  return hostToken ?? stored;
 }
 
 /**

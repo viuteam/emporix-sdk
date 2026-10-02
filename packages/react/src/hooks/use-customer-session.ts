@@ -4,6 +4,7 @@ import { auth, type Customer, type EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "../storage";
 import { EmporixSiteContext, useEmporix, type SiteContextValue } from "../provider";
 import { bootstrapCart } from "./internal/bootstrap-cart";
+import { useCustomerToken } from "./internal/use-storage-snapshot";
 import {
   getCustomerSessionStore,
   type CustomerSessionState,
@@ -76,11 +77,14 @@ export function useCustomerSession(): CustomerSessionApi {
   // External token changes (login/logout from any consumer, another tab) are
   // mirrored into the shared store by its own storage subscription — see
   // getCustomerSessionStore — so no per-hook mirror effect is needed here.
+  // The token itself is read like every other hook reads it: under
+  // customerSession "external" the host's prop wins over `session.token`.
+  const customerToken = useCustomerToken();
 
   const meQuery = useQuery({
-    queryKey: ["emporix", "customer", "me", { tenant: client.tenant, hasToken: session.token !== null }],
-    enabled: session.token !== null,
-    queryFn: () => client.customers.me(auth.customer(session.token as string)),
+    queryKey: ["emporix", "customer", "me", { tenant: client.tenant, hasToken: customerToken !== null }],
+    enabled: customerToken !== null,
+    queryFn: () => client.customers.me(auth.customer(customerToken as string)),
     // 30s — matches Balanced default. Lets honourPreferredSite's fetchQuery
     // (with staleTime: Infinity) reuse the cache instead of refetching.
     staleTime: 30_000,
@@ -182,11 +186,11 @@ export function useCustomerSession(): CustomerSessionApi {
   );
 
   const logout = useCallback(async () => {
-    if (session.token) {
+    if (customerToken) {
       // Best-effort server invalidation; the local session is cleared
       // regardless (the token may already be expired/invalid).
       try {
-        await client.customers.logout(auth.customer(session.token));
+        await client.customers.logout(auth.customer(customerToken));
       } catch {
         /* ignore — proceed to clear locally */
       }
@@ -206,7 +210,7 @@ export function useCustomerSession(): CustomerSessionApi {
     // customer's data straight from cache. bootstrap-cart.ts already
     // documents this contract.
     qc.removeQueries({ queryKey: ["emporix"] });
-  }, [client, session.token, storage, qc, setSession]);
+  }, [client, customerToken, storage, qc, setSession]);
 
   const refresh = useCallback(async () => {
     await meQuery.refetch();
@@ -231,12 +235,12 @@ export function useCustomerSession(): CustomerSessionApi {
   }, [client, storage, qc, session.refreshToken, session.saasToken, setSession]);
 
   return {
-    customerToken: session.token,
+    customerToken,
     refreshToken: session.refreshToken,
     saasToken: session.saasToken,
     customer: meQuery.data ?? null,
-    isAuthenticated: session.token !== null,
-    isLoading: meQuery.isLoading && session.token !== null,
+    isAuthenticated: customerToken !== null,
+    isLoading: meQuery.isLoading && customerToken !== null,
     login,
     signup,
     socialLogin,

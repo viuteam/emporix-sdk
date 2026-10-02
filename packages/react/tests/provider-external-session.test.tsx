@@ -7,6 +7,9 @@ import { EmporixClient } from "@viu/emporix-sdk";
 import { EmporixProvider, useEmporix } from "../src/provider";
 import { createMemoryStorage } from "../src/storage/memory";
 import { useActiveCompany } from "../src/company-context";
+import { useCustomerToken } from "../src/hooks/internal/use-storage-snapshot";
+import { useEmporixQuery } from "../src/hooks/internal/use-emporix-query";
+import { useCustomerSession } from "../src/hooks/use-customer-session";
 import type { EmporixStorage } from "../src/storage";
 import type { ReactNode } from "react";
 
@@ -15,10 +18,10 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-function client(): EmporixClient {
+function client(tenant = "acme"): EmporixClient {
   // No credentials at all: a host-owned token needs none. validateConfig only
   // requires the object to exist, and DefaultTokenProvider checks lazily.
-  return new EmporixClient({ tenant: "acme", credentials: {}, logger: false });
+  return new EmporixClient({ tenant, credentials: {}, logger: false });
 }
 
 function wrap(opts: { token?: string; storage?: EmporixStorage }) {
@@ -71,6 +74,98 @@ describe("EmporixProvider customerSession='external'", () => {
     await waitFor(() => expect(storage.getCustomerToken()).toBe("host-2"));
     // The whole point: rotation must not be implemented by rebuilding storage.
     expect(storage.getCartId()).toBe("cart-9");
+  });
+
+  it("a rotated token reaches its readers without updating them while the provider renders", () => {
+    const c = client();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const storage = createMemoryStorage();
+    const seen: (string | null)[] = [];
+    function RotationReader() {
+      const token = useCustomerToken();
+      seen.push(token);
+      return <span>{token}</span>;
+    }
+    const Harness = ({ token }: { token: string }) => (
+      <EmporixProvider
+        client={c}
+        queryClient={qc}
+        storage={storage}
+        customerSession="external"
+        initialCustomerToken={token}
+      >
+        <RotationReader />
+      </EmporixProvider>
+    );
+
+    // React logs this warning once per rendering component per module, and the
+    // rendering component is always EmporixProvider: an earlier test in this
+    // file that triggered it would hide it from this one.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { rerender } = render(<Harness token="host-1" />);
+    rerender(<Harness token="host-2" />);
+    const messages = errorSpy.mock.calls.map((args) => args.map(String).join(" "));
+    errorSpy.mockRestore();
+
+    // The first render already has the token: no anonymous first pass.
+    expect(seen[0]).toBe("host-1");
+    expect(seen.at(-1)).toBe("host-2");
+    expect(messages.filter((m) => m.includes("Cannot update a component"))).toEqual([]);
+  });
+
+  it("a token that changes with the tenant is what the new tenant's first requests send", async () => {
+    const sent: string[] = [];
+    server.use(
+      http.get("https://api.emporix.io/product/:tenant/products/p1", ({ request, params }) => {
+        sent.push(`product ${String(params.tenant)} ${request.headers.get("authorization")}`);
+        return HttpResponse.json({ id: "p1" });
+      }),
+      http.get("https://api.emporix.io/customer/:tenant/me", ({ request, params }) => {
+        sent.push(`me ${String(params.tenant)} ${request.headers.get("authorization")}`);
+        return HttpResponse.json({ id: "c1" });
+      }),
+    );
+    const clients = { acme: client("acme"), other: client("other") };
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const storage = createMemoryStorage();
+    // Both render-time token readers: the read-hook factory and the session hook.
+    function TenantReader() {
+      const { client: c } = useEmporix();
+      useEmporixQuery({
+        mode: "customer",
+        site: "none",
+        resource: "product",
+        args: ["p1"] as const,
+        queryFn: (ctx) => c.products.get("p1", undefined, ctx),
+      });
+      useCustomerSession();
+      return null;
+    }
+    // A dashboard host switches tenants by re-rendering the module with a new
+    // appState: the client and the token change in the same render, and the
+    // tenant in every query key makes that render fetch.
+    const Harness = ({ tenant, token }: { tenant: keyof typeof clients; token: string }) => (
+      <EmporixProvider
+        client={clients[tenant]}
+        queryClient={qc}
+        storage={storage}
+        customerSession="external"
+        initialCustomerToken={token}
+      >
+        <TenantReader />
+      </EmporixProvider>
+    );
+
+    const { rerender } = render(<Harness tenant="acme" token="acme-1" />);
+    await waitFor(() => expect(sent).toHaveLength(2));
+    rerender(<Harness tenant="other" token="other-1" />);
+    await waitFor(() => expect(sent).toHaveLength(4));
+    expect([...sent].sort()).toEqual([
+      "me acme Bearer acme-1",
+      "me other Bearer other-1",
+      "product acme Bearer acme-1",
+      "product other Bearer other-1",
+    ]);
   });
 
   it("makes no legal-entities request on mount even with a token present", async () => {
@@ -204,5 +299,31 @@ describe("EmporixProvider customerSession='owned' (default)", () => {
       ),
     });
     expect(result.current.storage.getCustomerToken()).toBe("live");
+  });
+
+  it("seeds an empty slot before the children's first render", () => {
+    server.use(
+      http.get("https://api.emporix.io/customer-management/acme/legal-entities", () =>
+        HttpResponse.json([]),
+      ),
+    );
+    const seen: (string | null)[] = [];
+    function OwnedSeedReader() {
+      seen.push(useCustomerToken());
+      return null;
+    }
+    render(
+      <EmporixProvider
+        client={client()}
+        queryClient={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        storage={createMemoryStorage()}
+        initialCustomerToken="ssr-1"
+      >
+        <OwnedSeedReader />
+      </EmporixProvider>,
+    );
+    // The first render, not just eventually: one without the token would key
+    // and fetch every read anonymously.
+    expect(seen[0]).toBe("ssr-1");
   });
 });

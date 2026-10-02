@@ -5,7 +5,7 @@ import { EmporixTelemetryContext } from "./telemetry";
 import { CompanyContextProvider } from "./company-context";
 import { SiteContextProvider } from "./site-context";
 import { useEmporixQueryDefaults } from "./hooks/internal/use-emporix-query-defaults";
-import { useProviderWiring } from "./hooks/internal/use-provider-wiring";
+import { HostTokenContext, useProviderWiring } from "./hooks/internal/use-provider-wiring";
 import { useTelemetrySource } from "./hooks/internal/use-telemetry-source";
 import { useCustomerTokenRefresher } from "./hooks/internal/use-customer-token-refresher";
 import type { EmporixContextValue, EmporixProviderProps } from "./provider.types";
@@ -75,27 +75,29 @@ export function EmporixProvider({
 
   return (
     <EmporixContext.Provider value={value}>
-      <EmporixTelemetryContext.Provider value={telemetryValue}>
-        <QueryClientProvider client={qc}>
-          <SiteContextProvider
-            client={client}
-            storage={value.storage}
-            {...(initialSiteCode !== undefined ? { initialSiteCode } : {})}
-            {...(initialLanguage !== undefined ? { initialLanguage } : {})}
-          >
-            <CompanyContextProvider
+      <HostTokenContext.Provider value={session === "external" ? initialCustomerToken : undefined}>
+        <EmporixTelemetryContext.Provider value={telemetryValue}>
+          <QueryClientProvider client={qc}>
+            <SiteContextProvider
               client={client}
               storage={value.storage}
-              customerSession={session}
-              {...(initialActiveLegalEntityId !== undefined
-                ? { initialActiveLegalEntityId }
-                : {})}
+              {...(initialSiteCode !== undefined ? { initialSiteCode } : {})}
+              {...(initialLanguage !== undefined ? { initialLanguage } : {})}
             >
-              {children}
-            </CompanyContextProvider>
-          </SiteContextProvider>
-        </QueryClientProvider>
-      </EmporixTelemetryContext.Provider>
+              <CompanyContextProvider
+                client={client}
+                storage={value.storage}
+                customerSession={session}
+                {...(initialActiveLegalEntityId !== undefined
+                  ? { initialActiveLegalEntityId }
+                  : {})}
+              >
+                {children}
+              </CompanyContextProvider>
+            </SiteContextProvider>
+          </QueryClientProvider>
+        </EmporixTelemetryContext.Provider>
+      </HostTokenContext.Provider>
     </EmporixContext.Provider>
   );
 }
