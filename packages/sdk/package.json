@@ -1,6 +1,6 @@
 {
   "name": "@viu/emporix-sdk",
-  "version": "4.2.2",
+  "version": "4.2.3",
   "description": "TypeScript SDK for the Emporix Commerce Engine",
   "license": "MIT",
   "author": {
