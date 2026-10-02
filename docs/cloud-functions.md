@@ -1,6 +1,6 @@
 # Cloud Functions
 
-Invoke tenant-hosted [Emporix cloud functions](https://developer.emporix.io/ce/extensibility-and-integrations/extensibility-cases/extension-hosting)
+Invoke tenant-hosted [Emporix cloud functions](https://developer.emporix.io/user-guides/extensibility-and-integrations/extensibility-cases/extension-hosting)
 from the SDK or React. Request and response bodies are **whatever your function
 returns** — the API is generic (`<TRes, TReq>`), not schema-generated.
 
