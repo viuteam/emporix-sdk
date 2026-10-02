@@ -63,7 +63,10 @@ export interface EmporixProviderProps {
    * `"external"` — the token was handed in by a host application (an Emporix
    * Managed Dashboard module, an embedded admin UI). The SDK never refreshes it,
    * never bootstraps a company context from it, and treats a changed
-   * `initialCustomerToken` as authoritative. `autoRefreshCustomerToken` is
+   * `initialCustomerToken` as authoritative: hooks read the token from the prop,
+   * so the render that changes it already sends the new one, and storage receives
+   * it right after that render. While the prop is set, a token written to storage
+   * from inside the tree does not reach the hooks. `autoRefreshCustomerToken` is
    * ignored; `onCustomerSessionExpired` still fires on a 401.
    */
   customerSession?: "owned" | "external";

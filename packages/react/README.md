@@ -85,7 +85,7 @@ Every hook now works on the host's token — including the token-gated ones (`us
 | --- | --- | --- |
 | `companies.listMine()` on mount | yes, when a token is present | **never** |
 | refresh on a customer 401 | only with `autoRefreshCustomerToken` | **never**; `onCustomerSessionExpired` fires and the 401 propagates |
-| a changed `initialCustomerToken` | seeds only an empty slot | **authoritative** — written into storage |
+| a changed `initialCustomerToken` | seeds only an empty slot | **authoritative** — hooks read it from the prop, storage follows right after the render |
 
 **Six things to get right**
 
