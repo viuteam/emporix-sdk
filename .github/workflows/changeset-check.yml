@@ -4,6 +4,12 @@ on:
     # The `no-release` gate reads the event payload, and `gh pr create --label`
     # attaches labels after `opened`, so label changes need runs of their own.
     types: [opened, synchronize, reopened, labeled, unlabeled]
+# The newest event wins: a `labeled` run cancels an `opened` run still in
+# flight, whose failure would otherwise land after the skip on the same commit.
+# Per workflow, not per job: the run that skips the job must still cancel.
+concurrency:
+  group: changeset-check-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   changeset:
     name: changeset
