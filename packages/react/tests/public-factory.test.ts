@@ -4,9 +4,9 @@ import * as pkg from "../src/index";
 /**
  * The query factory is a supported API, not an internal.
  *
- * It is what a consumer wraps the SDK's back-office operations with — roughly
- * three quarters of ~490 operations have no hook here, because a storefront
- * token cannot call them and a Managed Dashboard token can. Without this export
+ * It is what a consumer wraps the SDK's back-office operations with — most of
+ * the SDK's ~630 operations have no hook here, because a storefront token
+ * cannot call them and a Managed Dashboard token can. Without this export
  * the only option is a hand-rolled `useQuery`, whose cache key then sits outside
  * `["emporix"]` and misses both the scoped invalidation and the provider's query
  * defaults.

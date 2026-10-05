@@ -33,8 +33,9 @@ export {
   SESSION_MAX_AGE,
   emporixSessionHandle,
   type EmporixSessionHandle,
-  // Deprecated in 0.5.0, removed in 0.6.0. A test pins that these are the same
-  // function, so dropping them is a deliberate act rather than a silent break.
+  // Deprecated in 0.5.0, kept throughout 1.x, removed in the next major version.
+  // A test pins that these are the same function, so dropping them is a
+  // deliberate act rather than a silent break.
   sessionCookieJar,
   type SessionCookieJar,
 } from "./session-cookies";

@@ -245,12 +245,12 @@ async function buildHandle(
  * described cookies, and in store mode six of the eight session keys are not
  * cookies at all. Same function, no behaviour change — switch the import.
  *
- * Scheduled for removal in **0.6.0**.
+ * Still exported throughout 1.x; removed in the next major version.
  */
 export const sessionCookieJar = emporixSessionHandle;
 
 /**
- * @deprecated Renamed to {@link EmporixSessionHandle} in 0.5.0. Scheduled for
- * removal in **0.6.0**.
+ * @deprecated Renamed to {@link EmporixSessionHandle} in 0.5.0. Still exported
+ * throughout 1.x; removed in the next major version.
  */
 export type SessionCookieJar = EmporixSessionHandle;

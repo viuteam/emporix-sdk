@@ -15,7 +15,7 @@ export function CompanySwitcher(): React.JSX.Element | null {
         else void switchTo(value);
       }}
     >
-      <option value="">Privat (B2C)</option>
+      <option value="">Private (B2C)</option>
       {companies.map((c) => (
         <option key={c.id} value={c.id}>
           {c.name}
