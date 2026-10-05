@@ -45,31 +45,48 @@ function buildClient(c: DemoConfig): EmporixClient {
 }
 
 /**
- * Persists the active currency into DemoConfig (localStorage) whenever it
- * changes, so a full page reload rebuilds the client with that currency. Must
- * render inside EmporixProvider (uses the site context). Renders nothing.
+ * Persists the active site, currency and country into DemoConfig (localStorage)
+ * whenever they change, so a full page reload rebuilds the client with the
+ * context the guest session is actually priced in. Without it, a site switch in
+ * the header outlived the reload on the server (the session context had been
+ * PATCHed) while the page fell back to the setup's site. Must render inside
+ * EmporixProvider (uses the site context). Renders nothing.
  */
-function CurrencyPersistor({ onPersist }: { onPersist: (currency: string) => void }) {
-  const { currency } = useSiteContext();
+function ContextPersistor({ onPersist }: { onPersist: (partial: Partial<DemoConfig>) => void }) {
+  const { siteCode, currency, targetLocation } = useSiteContext();
   const ref = useRef(onPersist);
   ref.current = onPersist;
   useEffect(() => {
-    if (currency) ref.current(currency);
-  }, [currency]);
+    const partial: Partial<DemoConfig> = {};
+    if (siteCode) partial.siteCode = siteCode;
+    if (currency) partial.currency = currency;
+    if (targetLocation) partial.targetLocation = targetLocation;
+    if (Object.keys(partial).length > 0) ref.current(partial);
+  }, [siteCode, currency, targetLocation]);
   return null;
 }
 
 function DemoApp({
   config,
   reset,
-  persistCurrency,
+  persistContext,
 }: {
   config: DemoConfig;
   reset: () => void;
-  persistCurrency: (currency: string) => void;
+  persistContext: (partial: Partial<DemoConfig>) => void;
 }) {
   const client = useMemo(() => buildClient(config), [config]);
   const storage = useMemo(() => createLocalStorageStorage(), []);
+
+  function startOver() {
+    // A new setup means a new price context. The stored guest session still
+    // carries the old one on the server, and the cart belongs to it: drop both,
+    // so the next anonymous sign-in binds the newly chosen site.
+    storage.setAnonymousSession(null);
+    storage.setCartId(null);
+    storage.setSiteCode(null);
+    reset();
+  }
 
   return (
     <EmporixProvider
@@ -79,10 +96,10 @@ function DemoApp({
       onTelemetry={pushTelemetry}
       {...(config.siteCode ? { initialSiteCode: config.siteCode } : {})}
     >
-      <CurrencyPersistor onPersist={persistCurrency} />
+      <ContextPersistor onPersist={persistContext} />
       <ToastProvider>
         <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AppShell tenant={config.tenant} onReset={reset}>
+          <AppShell tenant={config.tenant} onReset={startOver}>
             <RouteError>
               <Routes>
                 <Route
@@ -118,9 +135,7 @@ function DemoApp({
 export function App() {
   return (
     <ConfigGate>
-      {(config, reset, persist) => (
-        <DemoApp config={config} reset={reset} persistCurrency={(c) => persist({ currency: c })} />
-      )}
+      {(config, reset, persist) => <DemoApp config={config} reset={reset} persistContext={persist} />}
     </ConfigGate>
   );
 }

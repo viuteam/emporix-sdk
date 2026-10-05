@@ -9,11 +9,14 @@ import { money } from "@viu/emporix-examples-shared";
  */
 export function ProductCard({
   vm,
+  code,
   price,
   onAdd,
   adding = false,
 }: {
   vm: ProductCardVM;
+  /** The product's own `code`. `vm.code` falls back to the id, so it cannot tell. */
+  code?: string | undefined;
   price?: PriceVM | undefined;
   onAdd?: (() => void) | undefined;
   adding?: boolean;
@@ -26,7 +29,7 @@ export function ProductCard({
         {vm.image ? <img src={vm.image} alt="" loading="lazy" /> : <span className="pc__ph">{initials(vm.name)}</span>}
       </Link>
       <div className="pc__meta">
-        {vm.code !== vm.id ? <span className="pc__code">Art. {vm.code}</span> : null}
+        {code ? <span className="pc__code">Art. {code}</span> : null}
         <Link to={href} className="pc__name">
           {vm.name}
         </Link>

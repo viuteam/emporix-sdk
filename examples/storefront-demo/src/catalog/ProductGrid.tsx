@@ -13,17 +13,21 @@ export function ProductGrid({
 }) {
   // One hook for the whole grid; see useAddToCart for why not one per card.
   const { add, isPending } = useAddToCart();
-  const cards = products.map(toProductCard).map((vm) => ({ vm, price: priceOf?.(vm.id) }));
+  const cards = products.map((p) => {
+    const vm = toProductCard(p);
+    return { vm, code: (p as { code?: string }).code, price: priceOf?.(vm.id) };
+  });
   // ponytail: priced products first within what is loaded — a priced product on
   // a page not loaded yet does not move up. Upgrade path: match prices over more
   // than one page before sorting.
   cards.sort((a, b) => Number(!a.price) - Number(!b.price));
   return (
     <div className="product-grid">
-      {cards.map(({ vm, price }, i) => (
+      {cards.map(({ vm, code, price }, i) => (
         <ProductCard
           key={vm.id || i}
           vm={vm}
+          code={code}
           price={price}
           adding={isPending}
           {...(price ? { onAdd: () => void add(vm.id, vm.name, price, 1) } : {})}

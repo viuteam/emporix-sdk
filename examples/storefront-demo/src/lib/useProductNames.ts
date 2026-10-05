@@ -27,10 +27,12 @@ export function useProductDetails(productIds: string[]): Record<string, ProductD
       for (const p of products) {
         const vm = toProductCard(p);
         if (!vm.id) continue;
+        // The product's own `code`: `vm.code` falls back to the id, so it cannot tell.
+        const code = (p as { code?: string }).code;
         map[vm.id] = {
           name: vm.name,
           ...(vm.image ? { image: vm.image } : {}),
-          ...(vm.code !== vm.id ? { code: vm.code } : {}),
+          ...(code ? { code } : {}),
         };
       }
       return map;

@@ -18,6 +18,16 @@ export function CategoryTree({ activeId }: { activeId?: string | undefined }) {
   );
 }
 
+/** The node with `id` anywhere in the tree. */
+export function findCategory(nodes: CategoryNode[], id: string): CategoryNode | undefined {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const hit = findCategory(n.subcategories ?? [], id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
 function contains(node: CategoryNode, id: string | undefined): boolean {
   if (!id) return false;
   return node.id === id || (node.subcategories ?? []).some((c) => contains(c, id));

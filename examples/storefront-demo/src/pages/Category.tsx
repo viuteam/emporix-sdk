@@ -1,7 +1,12 @@
 import { Link, useParams } from "react-router-dom";
-import { useCategory, useProductsInCategoryInfinite, useSubcategories } from "@viu/emporix-sdk-react";
+import {
+  useCategory,
+  useCategoryTree,
+  useProductsInCategoryInfinite,
+  useSubcategories,
+} from "@viu/emporix-sdk-react";
 import { ProductGrid } from "../catalog/ProductGrid";
-import { CategorySidebar } from "../catalog/CategorySidebar";
+import { CategorySidebar, findCategory } from "../catalog/CategorySidebar";
 import { usePrices } from "../lib/usePrices";
 import { catId, catLabel } from "../lib/adapters";
 import { Button } from "../components/ui/Button";
@@ -16,7 +21,12 @@ export function Category() {
   const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useProductsInCategoryInfinite(categoryId, { pageSize: 24 });
   const products = data?.pages.flatMap((pg) => pg.items) ?? [];
-  const subcats = subs ?? [];
+  // The subcategories endpoint can come back empty for a category whose children
+  // the tree does list (seen on a parent whose products all sit one level down);
+  // the tree is what the sidebar shows, so fall back to it.
+  const { data: tree } = useCategoryTree();
+  const treeChildren = findCategory(tree ?? [], categoryId)?.subcategories ?? [];
+  const subcats: unknown[] = (subs ?? []).length > 0 ? [...(subs ?? [])] : [...treeChildren];
   const priceOf = usePrices(products);
 
   return (

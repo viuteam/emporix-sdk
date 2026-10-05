@@ -48,7 +48,7 @@ export function Product() {
       <div className="pdp__grid">
         <ProductGallery media={productImages(product)} alt={name} />
         <div className="pdp__info">
-          {code && code !== id ? <p className="pc__code">Art. {code}</p> : null}
+          {code ? <p className="pc__code">Art. {code}</p> : null}
           <h1 className="pdp__title">{name}</h1>
           {price ? (
             <p className="price pdp__price">{money(price.amount, price.currency)}</p>
