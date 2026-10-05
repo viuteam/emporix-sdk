@@ -111,6 +111,14 @@ export type {
   AgentsImportRequest,
 } from "./ai-types";
 
+export type {
+  AgenticCrudResource,
+  AnalyticsResource,
+  JobsResource,
+  LogsResource,
+  TemplatesResource,
+} from "./ai-resources";
+
 const SERVICE: AuthContext = { kind: "service" };
 
 /**

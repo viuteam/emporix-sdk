@@ -86,6 +86,7 @@ export type {
   ChangeEmailInput,
   ConfirmEmailChangeInput,
   ResendActivationInput,
+  CustomerTokenValidation,
 } from "./services/customer";
 export { ProductService } from "./services/product";
 export type {
@@ -136,6 +137,8 @@ export type {
   CartItem,
   CartItemsBatchUpdateInput,
   CartItemsBatchUpdateResult,
+  CartItemBatchEntry,
+  CartItemsBatchResponse,
   CartSearchInput,
   CartSummary,
   CartUpdateInput,
@@ -228,6 +231,8 @@ export type {
   SegmentItemInput,
   SegmentItemBulkInput,
   SegmentAssignmentBulkResult,
+  SegmentGroup,
+  SegmentGroupInput,
 } from "./services/segment";
 export { SiteService } from "./services/site";
 export type {
@@ -237,6 +242,8 @@ export type {
   SiteMixin,
   SiteMixins,
   SiteMixinCreated,
+  SiteAddress,
+  SiteHomeBase,
 } from "./services/site";
 export { InvoiceService } from "./services/invoice";
 export type { InvoiceJobDraft, InvoiceJobCreated, InvoiceJob } from "./services/invoice";
@@ -253,9 +260,15 @@ export type {
   QuoteReasonUpdate,
   QuoteReasonCreated,
   ListQuoteReasonsQuery,
+  QuoteReasonsResource,
 } from "./services/quote";
 export { SessionContextService } from "./services/session-context";
-export type { SessionContext, SessionContextPatch, SessionAttributeInput } from "./services/session-context";
+export type {
+  SessionContext,
+  SessionContextData,
+  SessionContextPatch,
+  SessionAttributeInput,
+} from "./services/session-context";
 export { IamService } from "./services/iam";
 export type {
   IamUser,
