@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import type { CartCommand } from "@viu/emporix-sdk";
 import { useActiveCart, useCartCommands } from "@viu/emporix-sdk-react";
 import { cartLines, cartTotal, cartCoupons, type CartLineVM } from "../lib/adapters";
-import { useProductNames } from "../lib/useProductNames";
+import { useProductDetails } from "../lib/useProductNames";
 import { money } from "@viu/emporix-examples-shared";
 import { Button } from "../components/ui/Button";
 import { Loading } from "../components/ui/Spinner";
@@ -22,7 +22,7 @@ export function Cart() {
   const lines = cartLines(cart);
   const total = cartTotal(cart);
   const coupons = cartCoupons(cart);
-  const names = useProductNames(lines.map((l) => l.productId));
+  const details = useProductDetails(lines.map((l) => l.productId));
 
   /**
    * Every change is one request: the write, then the calculated cart, which the hook
@@ -70,14 +70,14 @@ export function Cart() {
   if (isLoading) {
     return (
       <div className="container">
-        <Loading label="Loading your bag" />
+        <Loading label="Loading your cart" />
       </div>
     );
   }
   if (lines.length === 0) {
     return (
       <div className="container">
-        <EmptyState title="Your bag is empty">
+        <EmptyState title="Your cart is empty">
           Nothing here yet — <Link to="/" className="u-underline">browse the catalogue</Link>.
         </EmptyState>
       </div>
@@ -85,49 +85,55 @@ export function Cart() {
   }
 
   return (
-    <div className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <h2 className="serif" style={{ marginBottom: "var(--s-6)" }}>Your bag</h2>
+    <div className="container page">
+      <h1 className="page-title">Your cart</h1>
       <div className="cart">
         <ul className="cart__lines">
-          {lines.map((l) => (
-            <li key={l.id} className="cart__line">
-              <div className="cart__thumb">
-                {l.image ? <img src={l.image} alt="" /> : <div className="pc__ph" />}
-              </div>
-              <div className="cart__line-main">
-                <span className="serif" style={{ fontSize: "var(--step-1)" }}>
-                  {names[l.productId] ?? l.name ?? l.productId}
-                </span>
-                <div className="cluster" style={{ gap: "var(--s-4)", marginTop: "var(--s-2)" }}>
-                  <div className="qty" role="group" aria-label="Quantity">
-                    <button type="button" onClick={() => void setQty(l, l.quantity - 1)} aria-label="Decrease">–</button>
-                    <span>{l.quantity}</span>
-                    <button type="button" onClick={() => void setQty(l, l.quantity + 1)} aria-label="Increase">+</button>
+          {lines.map((l) => {
+            const d = details[l.productId];
+            const image = d?.image ?? l.image;
+            return (
+              <li key={l.id} className="cart__line">
+                <div className="cart__thumb">{image ? <img src={image} alt="" /> : <span className="pc__ph" />}</div>
+                <div>
+                  {d?.code ? <span className="pc__code">Art. {d.code}</span> : null}
+                  <p className="cart__name">{d?.name ?? (l.name || l.productId)}</p>
+                  <div className="cluster cart__actions">
+                    <div className="qty" role="group" aria-label="Quantity">
+                      <button type="button" onClick={() => void setQty(l, l.quantity - 1)} aria-label="Decrease">
+                        –
+                      </button>
+                      <span>{l.quantity}</span>
+                      <button type="button" onClick={() => void setQty(l, l.quantity + 1)} aria-label="Increase">
+                        +
+                      </button>
+                    </div>
+                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => void remove(l)}>
+                      Remove
+                    </button>
                   </div>
-                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => void remove(l)}>
-                    Remove
-                  </button>
                 </div>
-              </div>
-              <div className="price" style={{ fontSize: "var(--step-1)" }}>
-                {l.lineTotal ? money(l.lineTotal.amount, l.lineTotal.currency) : ""}
-              </div>
-            </li>
-          ))}
+                <div className="price cart__line-total">
+                  {l.lineTotal ? money(l.lineTotal.amount, l.lineTotal.currency) : ""}
+                </div>
+              </li>
+            );
+          })}
         </ul>
 
         <aside className="cart__summary surface">
-          <h3 className="serif">Summary</h3>
-          <form onSubmit={applyCoupon} style={{ marginTop: "var(--s-4)" }}>
-            <label className="field__label" htmlFor="coupon">Coupon</label>
-            <div className="cluster" style={{ gap: "var(--s-2)", marginTop: "var(--s-2)" }}>
+          <h2>Summary</h2>
+          <form onSubmit={applyCoupon} className="coupon-form">
+            <label className="field__label" htmlFor="coupon">
+              Coupon
+            </label>
+            <div className="cluster">
               <input
                 id="coupon"
                 className="input"
                 value={coupon}
                 onChange={(e) => setCoupon(e.target.value)}
                 placeholder="Code"
-                style={{ flex: 1 }}
               />
               <Button type="submit" variant="outline" size="sm" disabled={chain.isPending}>
                 Apply
@@ -135,7 +141,7 @@ export function Cart() {
             </div>
           </form>
           {coupons.length > 0 ? (
-            <div className="cluster" style={{ marginTop: "var(--s-3)" }}>
+            <div className="cluster cart__coupons">
               {coupons.map((c) => (
                 <button key={c} type="button" className="tag tag--accent" onClick={() => void removeCoupon(c)}>
                   {c} ✕
@@ -144,14 +150,13 @@ export function Cart() {
             </div>
           ) : null}
 
-          <hr className="rule" style={{ marginBlock: "var(--s-5)" }} />
+          <hr className="rule" />
           <div className="cart__total">
-            <span className="eyebrow">Total</span>
-            <span className="price" style={{ fontSize: "var(--step-2)" }}>
-              {total ? money(total.amount, total.currency) : "—"}
-            </span>
+            <span>Total</span>
+            <span className="price cart__grand">{total ? money(total.amount, total.currency) : "—"}</span>
           </div>
-          <Button variant="accent" block onClick={() => nav("/checkout")} style={{ marginTop: "var(--s-4)" }}>
+          <p className="field__hint">Delivery is chosen in the checkout.</p>
+          <Button variant="accent" block onClick={() => nav("/checkout")} className="cart__checkout">
             Checkout →
           </Button>
         </aside>
