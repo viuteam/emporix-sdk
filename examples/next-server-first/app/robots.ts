@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { LANGUAGES } from "./lib/languages";
 import { absoluteUrl } from "./lib/site-url";
 
 /**
@@ -16,15 +17,20 @@ import { absoluteUrl } from "./lib/site-url";
  *
  * The disallow list is the routes that are `ƒ` for a reason — per visitor, or an
  * unbounded query space. `/debug` is on it although it is prerendered: it
- * describes the demo, not the shop, and it is linked from every page.
+ * describes the demo, not the shop, and it is linked from every page. Each one is
+ * listed under every language prefix: the routes live under `/[lang]/`, and a
+ * Disallow matches by prefix, so the unprefixed list this file had until
+ * 2026-10-05 disallowed nothing.
  */
+const PER_VISITOR = ["/search", "/cart", "/checkout", "/login", "/account", "/debug"];
+
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/search", "/cart", "/checkout", "/login", "/account", "/debug", "/api/"],
+        disallow: [...LANGUAGES.flatMap((lang) => PER_VISITOR.map((route) => `/${lang}${route}`)), "/api/"],
       },
     ],
     // Absolute, because the sitemaps protocol says so — a relative path here is
