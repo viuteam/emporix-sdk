@@ -34,12 +34,11 @@ export async function login(formData: FormData): Promise<void> {
   // cart id itself, inside the package and therefore outside setCart, so a swap
   // would leave the header showing the guest cart's count.
   //
-  // Guarded rather than unconditional because the swap is rare: on the `viu`
-  // tenant it never happens — the customer login refreshes the same anonymous
-  // session, Emporix binds the cart to it, and `getCurrent` answers with the
-  // guest cart. Measured twice on 2026-08-03. An unconditional re-read would
-  // spend a cart GET on every login to fix a path this tenant does not take;
-  // the two handle reads around it are free by comparison.
+  // Guarded rather than unconditional: a guest who logs in normally moves onto the
+  // customer's cart (the README records the count going from 1 to 4 live), but
+  // where nothing moved a re-read would spend a cart GET for nothing. The two
+  // handle reads around it are free by comparison. Until 2026-10-05 this comment
+  // said the swap never happens on `viu`, from two measurements on 2026-08-03.
   if (cartIdBefore !== (await readCartId())) {
     await withEmporixSessionMutable(async (client, ctx, handle) => {
       const cartId = handle.get(STORAGE_KEYS.cartId);

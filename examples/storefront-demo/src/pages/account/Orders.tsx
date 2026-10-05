@@ -28,12 +28,7 @@ function OrdersInner() {
         <Loading label="Loading orders" />
       ) : orders.length === 0 ? (
         <EmptyState title="No orders yet">
-          Confirmed orders show up here — <Link to="/" className="u-underline">start shopping</Link>.
-          <br />
-          <span className="muted" style={{ fontSize: "var(--step--1)" }}>
-            Orders still awaiting payment aren't listed yet — this demo's
-            "custom" payment is a stub, so its orders stay pending.
-          </span>
+          Your orders show up here — <Link to="/" className="u-underline">start shopping</Link>.
         </EmptyState>
       ) : (
         <div className="stack" style={{ gap: "var(--s-3)" }}>

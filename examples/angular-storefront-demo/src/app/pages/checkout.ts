@@ -85,10 +85,19 @@ export class Checkout {
   protected readonly modeId = signal<string | null>(null);
   private readonly shippingOverride = signal<string | null>(null);
 
-  protected readonly placing = signal(false);
-  protected readonly error = signal<string | null>(null);
-  protected readonly orderId = signal<string | null>(null);
-
+  /**
+   * The order's state, read from the binding that tracks the request.
+   *
+   * These were signals of their own until 2026-10-05, and nothing set them once
+   * `place()` moved onto `injectCheckout`: the button never disabled while an order
+   * was in flight, and neither the order id nor an error ever showed.
+   */
+  protected readonly placing = this.checkout.isPending;
+  protected readonly error = computed(() => this.checkout.error()?.message ?? null);
+  protected readonly orderId = computed(() => {
+    const placed = this.checkout.result();
+    return placed === null ? null : (placed.orderId ?? "(no order id returned)");
+  });
 
   /** The profile's name, when it has one — otherwise a placeholder. */
   private contactNameFromProfile(): string {

@@ -204,8 +204,8 @@ export default async function CategoryPage({
           `productsIn` uses, filtered to `ref.type === "CATEGORY"` instead of
           `"PRODUCT"` — and this tenant expresses hierarchy in trees, so that filter
           answered empty for every category tried. Which is why this nav used to be
-          dead, and why storefront-demo's still is. The hierarchy was always
-          available; the old code read the wrong source. */}
+          dead; storefront-demo falls back to the tree the same way now. The
+          hierarchy was always available; the old code read the wrong source. */}
       {children.length > 0 ? (
         <nav
           className="catnav"

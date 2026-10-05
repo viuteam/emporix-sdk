@@ -16,7 +16,7 @@ export type FormAction = (state: ActionState, form: FormData) => Promise<ActionS
  *
  * It takes the action as a prop rather than being written per form. Server
  * Actions are serializable across the boundary, and `children` stays
- * server-rendered — so eight forms need one `"use client"`, not eight.
+ * server-rendered — so every form shares this one `"use client"`.
  *
  * This makes the actions **return** their error instead of throwing it, which is
  * the shape a real app wants anyway: a failed coupon should not be a Next error
