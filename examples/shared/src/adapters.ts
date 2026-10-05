@@ -5,8 +5,9 @@ import type { Product, Media, PriceMatch } from "@viu/emporix-sdk";
  * View-model adapters — the SINGLE place that reads SDK/generated field names.
  * If Emporix changes a read shape, fix it here, not across the UI.
  *
- * Shared by `examples/storefront-demo` and `examples/next-server-first`, because
- * the shapes these normalize are Emporix's, not any one demo's: orders come back
+ * Shared by `examples/storefront-demo`, `examples/next-server-first` and
+ * `examples/angular-storefront-demo`, because the shapes these normalize are
+ * Emporix's, not any one demo's: orders come back
  * in two forms, cart lines want their price row echoed on update, text fields are
  * sometimes a string and sometimes a locale map.
  *

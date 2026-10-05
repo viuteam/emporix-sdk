@@ -26,9 +26,10 @@ import { TIMEOUTS } from "../../../../emporix";
 /**
  * A product page whose whole state lives in the URL.
  *
- * The variant choice is `?variant=<childId>`, so a picked variant is shareable and
- * survives a reload. storefront-demo's `VariantPicker` holds it in a hook; here
- * each variant is a link and the page re-renders on the server.
+ * The variant choice is a path segment, `/<lang>/product/<id>/<childId>`, so a
+ * picked variant is shareable and survives a reload. storefront-demo's
+ * `VariantPicker` holds it in a hook; here each variant is a link and the page
+ * re-renders on the server.
  */
 export const revalidate = 3600;
 
@@ -54,12 +55,11 @@ export function generateStaticParams(): { id: string }[] {
  * it. Next memoizes identical fetches within a request, so no memo layer is needed
  * here — and if that ever changes, the probe is how you find out.
  *
- * **The canonical drops the variant segment.** `/de/product/x/anything` renders 200
- * today, and a self-referencing canonical would bless every one of those as its own
- * document. Every variant points at the parent instead: one line, no extra call, and
- * the right answer for near-identical variant pages regardless. It does not remove
- * the junk URLs — that needs the segment validation this demo has not done yet — it
- * stops them competing with the real one.
+ * **The canonical drops the variant segment.** Every variant points at the parent:
+ * one line, no extra call, and the right answer for near-identical variant pages.
+ * It was written when `/de/product/x/anything` still rendered 200 and a
+ * self-referencing canonical would have blessed each of those as its own document;
+ * the page now answers 404 for a segment that names no variant.
  */
 export async function generateMetadata({
   params,

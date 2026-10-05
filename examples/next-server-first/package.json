@@ -14,7 +14,6 @@
     "@viu/emporix-examples-shared": "workspace:*",
     "@viu/emporix-sdk": "workspace:*",
     "@viu/emporix-sdk-next": "workspace:*",
-    "@viu/emporix-sdk-react": "workspace:*",
     "next": "^16.3.6",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

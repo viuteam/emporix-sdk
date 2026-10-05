@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "examples/storefront-demo/**"
+      # The demo's response adapters live here; a change must redeploy it too.
+      - "examples/shared/**"
       - "packages/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:

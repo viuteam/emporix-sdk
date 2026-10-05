@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { safeNext } from "../app/lib/safe-next";
 
 /**
- * The only trust boundary in this demo, and the only thing here with unit tests —
- * the other examples have none and say so. An open redirect is not a demo detail:
+ * The only trust boundary in this demo. An open redirect is not a demo detail:
  * `/login?next=https://evil.com` would hand a visitor who just typed their
  * password to somebody else's site.
  */
