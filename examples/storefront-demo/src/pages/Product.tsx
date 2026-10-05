@@ -36,28 +36,29 @@ export function Product() {
   const desc = productDescription(product);
   const price = priceOf(id);
 
+  const code = (product as { code?: string }).code;
+
   return (
-    <div className="container pdp" style={{ paddingBlock: "var(--s-6)" }}>
-      <p style={{ marginBottom: "var(--s-5)" }}>
-        <Link to="/" className="eyebrow u-underline">← Catalogue</Link>
+    <div className="container page">
+      <p className="back-link">
+        <Link to="/" className="u-underline">
+          ← Catalogue
+        </Link>
       </p>
       <div className="pdp__grid">
         <ProductGallery media={productImages(product)} alt={name} />
         <div className="pdp__info">
-          <h1 className="serif" style={{ fontSize: "var(--step-3)" }}>{name}</h1>
+          {code ? <p className="pc__code">Art. {code}</p> : null}
+          <h1 className="pdp__title">{name}</h1>
           {price ? (
-            <p className="price" style={{ fontSize: "var(--step-2)", marginTop: "var(--s-3)" }}>
-              {money(price.amount, price.currency)}
-            </p>
-          ) : null}
+            <p className="price pdp__price">{money(price.amount, price.currency)}</p>
+          ) : (
+            <p className="pc__noprice">No price in this context</p>
+          )}
           {desc ? (
             // Description may contain merchant HTML — render it (sanitized in
             // `productDescription`) rather than stripping the markup.
-            <div
-              className="pdp__desc muted"
-              style={{ marginTop: "var(--s-4)", maxWidth: "52ch" }}
-              dangerouslySetInnerHTML={{ __html: desc }}
-            />
+            <div className="pdp__desc" dangerouslySetInnerHTML={{ __html: desc }} />
           ) : null}
           <VariantPicker productId={id} />
           <AddToCartBar productId={id} productName={name} price={price} />

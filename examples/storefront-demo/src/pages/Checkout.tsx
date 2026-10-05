@@ -15,6 +15,7 @@ import { Button } from "../components/ui/Button";
 import { Field } from "../components/ui/Field";
 import { Loading } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Alert } from "../components/ui/Alert";
 import { useToast, errorMessage } from "../app/Toasts";
 import { AddressSection } from "../checkout/AddressSection";
 import { PaymentSelector } from "../checkout/PaymentSelector";
@@ -165,18 +166,10 @@ export function Checkout() {
     <div className="container" style={{ paddingBlock: "var(--s-6)" }}>
       <h2 className="serif" style={{ marginBottom: "var(--s-5)" }}>Checkout</h2>
 
-      <div
-        role="alert"
-        style={{
-          border: "1px solid var(--oxblood)",
-          borderRadius: "var(--radius-lg)",
-          padding: "var(--s-4)",
-          marginBottom: "var(--s-6)",
-          background: "color-mix(in oklab, var(--oxblood) 7%, var(--paper))",
-        }}
-      >
-        <strong className="serif" style={{ color: "var(--oxblood)" }}>Live order.</strong>{" "}
-        <span className="muted">Placing this order creates a real order in tenant <strong>{client.tenant}</strong>.</span>
+      <div style={{ marginBottom: "var(--s-6)" }}>
+        <Alert tone="warning">
+          <strong>Live order.</strong> Placing this order creates a real order in tenant <strong>{client.tenant}</strong>.
+        </Alert>
       </div>
 
       <form onSubmit={submit} className="cart">

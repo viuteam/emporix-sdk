@@ -15,7 +15,7 @@ export function AppShell({
   return (
     <>
       <Header />
-      <main style={{ minHeight: "62vh" }}>{children}</main>
+      <main className="site-main">{children}</main>
       <Footer tenant={tenant} onReset={onReset} />
       <TelemetryHUD />
     </>

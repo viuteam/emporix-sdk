@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import { useProductNameSearch } from "@viu/emporix-sdk-react";
 import { ProductGrid } from "../catalog/ProductGrid";
+import { CategorySidebar } from "../catalog/CategorySidebar";
 import { usePrices } from "../lib/usePrices";
 import { Loading } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -14,20 +15,20 @@ export function Search() {
   const priceOf = usePrices(products);
 
   return (
-    <div className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <p className="eyebrow">Search</p>
-      <h2 className="serif" style={{ marginBlock: "var(--s-2) var(--s-5)" }}>
-        {q ? `“${q}”` : "Search the catalogue"}
-      </h2>
-      {!q ? (
-        <EmptyState title="Search the catalogue">Type a query in the header.</EmptyState>
-      ) : isLoading || isFetching ? (
-        <Loading />
-      ) : products.length === 0 ? (
-        <EmptyState title="No matches">Nothing found for “{q}”.</EmptyState>
-      ) : (
-        <ProductGrid products={products} priceOf={priceOf} />
-      )}
+    <div className="container with-sidebar">
+      <CategorySidebar />
+      <section>
+        <h1 className="page-title">{q ? `Results for “${q}”` : "Search"}</h1>
+        {!q ? (
+          <EmptyState title="Search the catalogue">Type a query in the header.</EmptyState>
+        ) : isLoading || isFetching ? (
+          <Loading />
+        ) : products.length === 0 ? (
+          <EmptyState title="No matches">Nothing found for “{q}”.</EmptyState>
+        ) : (
+          <ProductGrid products={products} priceOf={priceOf} />
+        )}
+      </section>
     </div>
   );
 }

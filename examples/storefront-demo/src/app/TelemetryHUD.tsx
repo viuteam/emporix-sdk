@@ -6,42 +6,25 @@ export function TelemetryHUD() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div style={{ position: "fixed", left: "var(--gutter)", bottom: "var(--s-5)", zIndex: 40 }}>
+    <div className="telemetry">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="btn btn--outline btn--sm"
-        style={{ background: "var(--paper)" }}
+        className="btn btn--outline btn--sm telemetry__toggle"
         aria-expanded={open}
       >
         ◴ telemetry {events.length ? `(${events.length})` : ""}
       </button>
       {open ? (
-        <div
-          className="surface"
-          style={{
-            position: "absolute",
-            bottom: "calc(100% + var(--s-2))",
-            left: 0,
-            width: "min(86vw, 24rem)",
-            maxHeight: "50vh",
-            overflow: "auto",
-            padding: "var(--s-3)",
-            boxShadow: "var(--shadow-2)",
-            fontSize: "var(--step--2)",
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
+        <div className="surface telemetry__panel">
           {events.length === 0 ? (
             <p className="muted">No events yet — interact with the store.</p>
           ) : (
-            <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: "2px" }}>
+            <ul className="telemetry__list">
               {events.map((e) => (
-                <li key={e.id} style={{ display: "flex", gap: "var(--s-3)", padding: "2px 0", borderBottom: "1px solid var(--line)" }}>
-                  <span style={{ color: "var(--oxblood)", minWidth: "9rem" }}>{e.type}</span>
-                  <span className="muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {e.detail}
-                  </span>
+                <li key={e.id} className="telemetry__row">
+                  <span className="telemetry__type">{e.type}</span>
+                  <span className="telemetry__detail">{e.detail}</span>
                 </li>
               ))}
             </ul>

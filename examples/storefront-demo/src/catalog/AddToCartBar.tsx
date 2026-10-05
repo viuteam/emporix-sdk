@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useActiveCart, useCartCommands, useEmporix } from "@viu/emporix-sdk-react";
-import { productYrn, type PriceVM } from "../lib/adapters";
+import type { PriceVM } from "../lib/adapters";
 import { Button } from "../components/ui/Button";
-import { useToast, errorMessage } from "../app/Toasts";
+import { useAddToCart } from "./useAddToCart";
 
 export function AddToCartBar({
   productId,
@@ -14,68 +13,43 @@ export function AddToCartBar({
   productName: string;
   price?: PriceVM | undefined;
 }) {
-  const { client } = useEmporix();
-  const { data: cart } = useActiveCart({ create: true });
-  const cartId = (cart as { id?: string } | null)?.id;
-  const chain = useCartCommands(cartId);
-  const { notify } = useToast();
+  const { add, isPending } = useAddToCart();
   const nav = useNavigate();
   const [qty, setQty] = useState(1);
-
-  // Emporix requires a priceId on internal-type cart items — so only priced
-  // products are purchasable. Surface that instead of letting the API 400.
+  // Emporix requires a priceId on internal-type cart items — only priced products
+  // are purchasable. Say so instead of letting the API answer 400.
   const purchasable = Boolean(price?.priceId);
 
-  async function add() {
-    if (!price?.priceId) return;
-    try {
-      // One request: the add, then the calculated cart, which the hook puts straight
-      // into the cart cache — no refetch after the add.
-      await chain.mutateAsync({
-        commands: [
-          {
-            type: "AddCartItem",
-            data: {
-              itemYrn: productYrn(client.tenant, productId),
-              quantity: qty,
-              price: {
-                priceId: price.priceId,
-                originalAmount: price.amount,
-                effectiveAmount: price.amount,
-                currency: price.currency,
-              },
-            },
-          },
-          { type: "GetCart" },
-        ],
-      });
-      notify(`Added ${qty} × ${productName} to your bag`, "success");
-    } catch (e) {
-      notify(errorMessage(e), "error");
-    }
-  }
-
-  if (!purchasable) {
-    return (
-      <p className="muted" style={{ marginTop: "var(--s-5)" }}>
-        This product has no price in the current context and can’t be added to the bag.
-      </p>
-    );
-  }
-
   return (
-    <div className="cluster" style={{ gap: "var(--s-4)", marginTop: "var(--s-5)" }}>
-      <div className="qty" role="group" aria-label="Quantity">
-        <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease">–</button>
-        <span aria-live="polite">{qty}</span>
-        <button type="button" onClick={() => setQty((q) => q + 1)} aria-label="Increase">+</button>
+    <div className="buy-bar">
+      <div className="cluster">
+        <div className="qty" role="group" aria-label="Quantity">
+          <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease">
+            –
+          </button>
+          <span aria-live="polite">{qty}</span>
+          <button type="button" onClick={() => setQty((q) => q + 1)} aria-label="Increase">
+            +
+          </button>
+        </div>
+        <Button
+          variant="accent"
+          onClick={() => {
+            if (price) void add(productId, productName, price, qty);
+          }}
+          disabled={!purchasable || isPending}
+        >
+          {isPending ? "Adding…" : "Add to cart"}
+        </Button>
+        <Button variant="ghost" onClick={() => nav("/cart")}>
+          View cart →
+        </Button>
       </div>
-      <Button variant="accent" onClick={() => void add()} disabled={chain.isPending}>
-        {chain.isPending ? "Adding…" : "Add to bag"}
-      </Button>
-      <Button variant="ghost" onClick={() => nav("/cart")}>
-        View bag →
-      </Button>
+      {!purchasable ? (
+        <p className="muted buy-bar__hint">
+          No price for this product on the selected site. Prices depend on the site chosen in the setup.
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,15 +1,5 @@
 import { useActiveSite, useSiteContext } from "@viu/emporix-sdk-react";
 
-const selectStyle = {
-  width: "auto",
-  border: "none",
-  padding: "0.2em 0.3em",
-  fontSize: "var(--step--2)",
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.12em",
-  background: "transparent",
-};
-
 export function LanguageSwitcher() {
   const { language, setLanguage } = useSiteContext();
   const activeSite = useActiveSite();
@@ -25,8 +15,7 @@ export function LanguageSwitcher() {
       aria-label="Language"
       value={language ?? ""}
       onChange={(e) => void setLanguage(e.target.value)}
-      className="field__control"
-      style={selectStyle}
+      className="switcher"
     >
       {languages.map((l) => (
         <option key={l} value={l}>
