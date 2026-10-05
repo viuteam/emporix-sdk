@@ -5,16 +5,12 @@ the browser**, not even an anonymous one.
 
 The browser makes no Emporix calls at all. Server Components read, Server Actions
 write, and a narrow proxy serves the public catalog. There is no
-`EmporixProvider`, no client-side `EmporixClient` and no storage adapter — the
-browser has nothing to hold a token in.
+`EmporixProvider`, no client-side `EmporixClient` that holds a token and no
+storage adapter — the browser has nothing to hold a token in.
 
-`@viu/emporix-sdk-react` appears in `package.json` only because it is a required
-peer of `@viu/emporix-sdk-next`. **No react hook or storage adapter is imported
-by any file here.**
-
-Two diagrams of the session machinery live in the package README —
-[how a request finds its client and its storage backend](../../packages/next/README.md#how-the-session-is-managed),
-and [the ordering trap inside login](../../packages/next/README.md#the-ordering-trap-in-login).
+Two diagrams of the session machinery live in [`docs/next.md`](../../docs/next.md) —
+[how a request finds its client and its storage backend](../../docs/next.md#how-the-session-is-managed),
+and [the ordering trap inside login](../../docs/next.md#the-ordering-trap-in-login).
 Read them before the code if you want the shape first.
 
 ## Run it
@@ -23,6 +19,10 @@ Read them before the code if you want the shape first.
 cp .env.example .env.local   # then fill in tenant and storefront client id
 pnpm -F @viu/emporix-examples-next-server-first dev
 ```
+
+`NEXT_PUBLIC_EMPORIX_TENANT` must name the same tenant as `EMPORIX_TENANT`: the
+typeahead builds its request path from it (falling back to `viu`), and the catalog
+route answers 403 for any other tenant.
 
 Optionally seal the session cookies. Add to `.env.local`:
 
@@ -65,7 +65,7 @@ With this set the browser holds one opaque `emporix.sid` and nothing else; the
 values live in Redis. Unset it and the example runs on cookies again, no code
 change — both modes stay reachable.
 
-The adapter is `app/session-store.ts`, about forty lines against `redis`. It
+The adapter is `app/session-store.ts`, about fifty lines against `redis`. It
 lives here rather than in the package, which is what keeps
 `@viu/emporix-sdk-next` at zero runtime dependencies. Copy it.
 
@@ -100,18 +100,18 @@ encryption looked like it had done nothing.
 | `/[lang]` | catalog rendered on the server with the memoized tagged client — **prerendered, `revalidate 3600`** |
 | `/[lang]/search` | a form GET as the whole state container — no `useState`, back button works |
 | `/[lang]/categories` | all 21 category-tree roots from one cached call — **prerendered** |
-| `/[lang]/category/[id]/[[...page]]` | breadcrumb and children from the tree, pagination as a path segment, an over-range page that says so — **ISR** |
+| `/[lang]/category/[id]/[[...page]]` | breadcrumb and children from the tree, pagination as a path segment, an over-range page 404s — **ISR** |
 | `/[lang]/product/[id]/[[...variant]]` | `notFound()` on an unknown id instead of a 500, variant as a path segment — **ISR** |
 | `/[lang]/login` | `emporixLogin` / `emporixLogout` via Server Actions, session in httpOnly cookies |
 | `/[lang]/cart` | `withEmporixSession*`, a guest cart bound to a server-managed anonymous session |
-| `/[lang]/checkout` | four reads in one session, and a `saasToken` that authorizes an order without ever reaching the browser |
+| `/[lang]/checkout` | five reads in one session, and a `saasToken` that authorizes an order without ever reaching the browser |
 | `/[lang]/account` | a per-page auth gate, because Next 16 middleware cannot read cookies |
 | `/[lang]/account/profile` | a form that owns every field it shows, so clearing one works |
 | `/[lang]/account/addresses` | CRUD through three Server Actions and one `ActionForm` |
 | `/[lang]/account/orders[/id]` | the two order shapes Emporix returns, read by one adapter |
 | `/[lang]/debug` | **what the browser can actually read** — green only when no secret is reachable from JavaScript |
 | `POST /api/emporix/webhook` | the backend invalidating tagged catalog reads, verified by HMAC |
-| typeahead on `/` | a client-side catalog read with no token, through `/api/emporix` |
+| typeahead on `/[lang]` | a client-side catalog read with no token, through `/api/emporix` |
 
 ## Why the catalog lives under `/[lang]/…`
 
@@ -192,10 +192,11 @@ general «prefix anything unprefixed» rule would turn clean 404s into redirect-
 chains, and an allowlist is exactly the kind of thing that outlives its reason.
 
 **The one compromise, named.** `siteContext(lang?)` still takes an optional language and
-falls back to `DEFAULT_LANGUAGE`, because 23 call sites asked for the context without one
-and most are Server Actions that mutate and redirect rather than render. Every page that
-renders localized content passes its `lang`. What that leaves: an Emporix error surfaced
-by a cart or account action can arrive in the default language on a page in the other one.
+falls back to `DEFAULT_LANGUAGE`, because ten call sites still ask for the context without
+one — all of them `emporixOptions()` in Server Actions, which mutate and redirect rather
+than render. Every page that renders localized content passes its `lang`. What that
+leaves: an Emporix error surfaced by a cart or account action can arrive in the default
+language on a page in the other one.
 
 **The dated verification records below keep their original URLs.** A table headed
 «Verified 2026-08-03» measured `/cart` and `/account`, because that is what those routes
@@ -238,7 +239,7 @@ So the shell re-reads on two triggers, in `lib/session-changed.ts`:
 A `window` event rather than a context provider, because «no provider» is a claim this
 demo makes about itself, and two client components agreeing on one fact do not need a
 store. `ActionForm` is the single place that fires it, which is the same reason that
-component exists: eight forms, one `"use client"`.
+component exists: twelve actions, one `"use client"`.
 
 The add-to-cart buttons moved onto `ActionForm` for this, which brought them into the shape
 the four other cart mutations already had — so a failed add is now an inline message
@@ -268,10 +269,6 @@ Two things fix it, and neither replaces the other:
 not: measured, it fixes the 500 and 404s every product and category page with it,
 because it cascades to the child segments.
 
-The sitemap lists both languages and every category — 3'266 URLs on this tenant,
-out of the tree that is already cached for the category pages, so a sitemap request
-costs no Emporix call at all. Products are not in it yet.
-
 `SITE_BASE_URL` decides the host in `robots.txt` and `sitemap.xml`. Unset it falls
 back to `http://localhost:3000`, because a wrong absolute URL points crawlers at
 somebody else's site and an obviously local one is the lesser failure.
@@ -285,7 +282,8 @@ pages probed.
 - `metadataBase` comes from `SITE_BASE_URL`. Without it Next warns and emits relative
   hrefs, which a crawler resolves against whatever host it happened to use.
 - `title.template` in the root layout appends the site name, so each page returns
-  only its own half.
+  only its own half. The exception is `/[lang]` itself: it sits in the layout's own
+  segment, where the template does not apply, so it spells its title out in full.
 - `lib/seo.ts` builds the canonical and the `hreflang` set in one place, because
   `hreflang` is only useful when every page agrees about it. `x-default` points at the
   default language rather than at the emitting page.
@@ -306,11 +304,6 @@ upstream calls whether or not `generateMetadata` repeats the page's own
 `products.get`, and `GET /product/viu/products/<id>` appears exactly once. Next
 memoizes identical fetches within a request. If that ever changes, the probe is how
 you find out — not a cache wrapper added on suspicion.
-
-**What is still missing.** `<html lang>` says `en` on every page: only the root layout
-may render `<html>` and it cannot see the `[lang]` segment, so the language sits on a
-wrapper inside it — correct for assistive technology, which honours the nearest
-ancestor, and honest about the English shell around it.
 
 ### Structured data
 
@@ -334,7 +327,7 @@ because an Emporix product has no `gtin`, `sku` or `ean` field.
 
 **The payload is escaped, not just stringified.** Merchant text goes into a `<script>`
 body, so a description containing `</script>` would close the element and everything
-after it would be parsed as HTML. `jsonLdScript` replaces every `<` with `<`.
+after it would be parsed as HTML. `jsonLdScript` replaces every `<` with `\u003c`.
 Measured: 0 of 200 descriptions on this tenant contain `<` — which is exactly why the
 unescaped version would have passed every test written against today's data, and why this
 one has a test that feeds it a closing script tag.
@@ -382,9 +375,9 @@ earlier build was served for a page whose code had already changed.
 ## Checkout
 
 `/[lang]/checkout` reads the cart, the payment modes, the shipping zones and — for a
-logged-in customer — the saved addresses in **one** `withEmporixSession` with
-four parallel calls, then posts a native form to a Server Action. No client
-state: in this mode there is no client to hold any.
+logged-in customer — the saved addresses and the profile in **one**
+`withEmporixSession` with five parallel calls, then posts a native form to a Server
+Action. No client state: in this mode there is no client to hold any.
 
 The point: the Server Action reads the `saasToken` from an httpOnly cookie and
 passes it to Emporix as a header. The browser never sees it. In the SPA mode the
@@ -392,10 +385,10 @@ same token has to be readable by JavaScript, because the checkout runs there.
 
 Two details worth knowing before you read the code:
 
-- **One session, not four.** Each `withEmporixSession` call builds its own guest
+- **One session, not five.** Each `withEmporixSession` call builds its own guest
   client with its own token provider. Since the session cookie carries the
-  anonymous access token, four calls normally cost **zero** token round trips —
-  but in the one request where that token expires, all four would redeem the same
+  anonymous access token, five calls normally cost **zero** token round trips —
+  but in the one request where that token expires, all five would redeem the same
   refresh token in parallel, and Emporix rotates it on every redemption. One call
   keeps that impossible instead of unlikely.
 - **The Server Action is the authority on shipping.** The page resolves the zone
@@ -404,9 +397,17 @@ Two details worth knowing before you read the code:
   that, not the radio that was clicked. The radio list can therefore go stale if
   you change the country — a deliberate limit for a demo with a fixed CH context.
 
+A picked payment mode goes out as
+`{ provider: "payment-gateway", method: mode.code, customAttributes: { modeId }, amount }`.
+The form posts only the mode's id, so `submitCheckout` reads `listPaymentModes`
+itself, in the same `Promise.all` as the cart and the shipping zones, to find the
+code — without `method` Emporix answers 400 «payments[0].method must not be null».
+
 With no configured payment mode the order goes out with the `custom` provider,
 which Emporix documents as creating the order in the `IN_CHECKOUT` status — a
-real order waiting for payment, not a paid one. The done page says exactly that.
+real order waiting for payment, not a paid one. The done page explains that case
+and prints `IN_CHECKOUT` whichever provider placed the order: all it receives is
+the order id.
 
 ## The shell costs zero Emporix calls
 
@@ -427,9 +428,9 @@ The language switcher added later holds to the same rule: its list is a literal,
 not a `sites.get`.
 
 This is a denormalization with a known ceiling: **write the cart id anywhere but
-`setCart` and the badge drifts.** Four call sites go through it — add to cart,
-cart onboarding after login, the checkout that closes the cart, and the cart
-mutations.
+`setCart` and the badge drifts.** Five call sites go through it — add to cart,
+reorder, cart onboarding after login, the checkout that closes the cart, and the
+cart mutations.
 
 `cartCount` refuses to report a count when there is no cart id, and that is not
 cosmetic — it is what covers logout. `SESSION_COOKIES` in the package's
@@ -466,13 +467,10 @@ where nothing moved.
 | header afterwards | «Cart» with no number, logout button instead of the login link |
 | `/debug`, `document.cookie` | PASS, `emporix.siteCode` only |
 
-What this does **not** prove: that the re-read corrects a stale **non-zero**
-count. That needs the merge path to fire with a differing item count, and on this
-tenant it does not fire at all — see the section below.
-
 ## Pagination is a URL here, not a «Load more» button
 
-`/category/[id]` reads `?page=N`. storefront-demo uses
+`/[lang]/category/[id]` takes the page number as a path segment,
+`/[lang]/category/[id]/N`, and a page past the end 404s. storefront-demo uses
 `useProductsInCategoryInfinite` and appends pages to a list, which needs client
 state to hold the accumulation — there is none in this mode, so this **pages**
 instead. A real behavioural difference, and the trade is not one-sided: page 3 is
@@ -480,7 +478,7 @@ a URL that can be linked, bookmarked and crawled, which an accumulating list
 cannot.
 
 **Verified 2026-08-03** with `PAGE_SIZE` temporarily at 5, against a category
-holding 11 products:
+holding 11 products, on the `?page=N` URLs of that day:
 
 | URL | Products | Page links rendered |
 |---|---|---|
@@ -490,9 +488,8 @@ holding 11 products:
 | `?page=4` | 0 | none, «Nothing on page 4 · Back to page 1» |
 | `?page=0`, `?page=abc`, `?page=-5` | 5 | page 1 — the bound holds |
 
-The `?page=4` row is a fix that came out of the check: it first said «No products
-in this category», which is a lie about a category holding eleven. A page number
-in a URL is exactly the kind of thing that goes stale in a bookmark.
+The last two rows are history: a page past the end and a malformed page number have
+answered 404 since 2026-08-06 — see «One URL per document» above.
 
 The subcategory nav is fed by the category **tree**, not by
 `categories.subcategories` — see «Category browsing» below for why that distinction
@@ -500,11 +497,12 @@ was worth a day.
 
 ## The product page keeps its state in the URL
 
-`/product/[id]` takes the variant choice as `?variant=<childId>`, so a picked
-variant is shareable and survives a reload. storefront-demo's `VariantPicker`
+`/[lang]/product/[id]` takes the variant choice as a path segment,
+`/[lang]/product/[id]/<childId>`, so a picked variant is shareable and survives a
+reload; a segment that names no variant 404s. storefront-demo's `VariantPicker`
 holds it in a hook instead.
 
-**Verified 2026-08-03:**
+**Verified 2026-08-03**, on the `?variant=` URLs of that day:
 
 | Check | Result |
 |---|---|
@@ -513,7 +511,8 @@ holds it in a hook instead.
 | `?variant=bogus` and `?variant=` | 200, falls back to the parent |
 | an unknown product id | **404**, not 500 |
 
-The last row is a fix that came out of the check. `products.get` throws
+The third row is history: a segment that names no variant has answered 404 since
+2026-08-06. The last row is a fix that came out of the check. `products.get` throws
 `EmporixNotFoundError` and nothing caught it, so a stale link produced a server
 error page. A product URL outlives the product — it sits in bookmarks, in search
 indexes and in other people's links — so `notFound()` is the ordinary case here,
@@ -528,8 +527,7 @@ about it. Adding a Node-capable sanitizer would be a dependency for one demo lin
 **The variant nav never renders on this tenant.** Swept 300 products across five
 pages on 2026-08-03: every one is `productType: BASIC`, and
 `listVariantChildren` answered empty for all of them. Kept anyway, because the
-branch is what a tenant with variants needs — but it is unexercised here, the same
-as the subcategory nav above.
+branch is what a tenant with variants needs — but it is unexercised here.
 
 ## The cart, mutated through Server Actions
 
@@ -569,16 +567,21 @@ comes from a re-read, because `items` on those answers is just as unverified as
 `id` was. That re-read is the `GetCart` at the end of each mutation's command
 chain, so it costs no request of its own (see [`docs/cart.md`](../../docs/cart.md)).
 
+That read also settles what a failed write meant: the chain runs with
+`onError: "resume"`, and only a 404 from its `GetCart` clears the cart id — a line
+already gone or an unknown coupon answers the same 404 and keeps it. `addToCart`,
+whose 404 can only be the cart's, clears the id and retries once on a fresh cart;
+the reasoning is in [`docs/next.md`](../../docs/next.md#a-cart-id-in-the-session-can-be-dead).
+
 ## The account gate, and the one trust boundary here
 
-`requireCustomer(next)` sits at the top of every account page. Per page, and not
+`requireCustomer(lang, next)` sits at the top of every account page. Per page, and not
 by choice: Next 16 runs middleware in `proxy.ts`, which is Node-runtime and has no
 `cookies()`. storefront-demo gates from the client with a `RequireAuth` component,
 which means it renders once, unauthenticated, before deciding. This never does.
 
-The `?next=` it writes is where the demo grows a trust boundary, so `safeNext` is
-**one of the two things in these examples with unit tests** — the other is
-`stripHtml`, and both are boundaries rather than features. `//evil.com` starts with a
+The `?next=` it writes is where the demo grows a trust boundary, so `safeNext` has
+unit tests of its own in `tests/safe-next.test.ts`. `//evil.com` starts with a
 slash and is still an absolute URL — the browser reads it as protocol-relative —
 which is exactly what a naive `startsWith("/")` check waves through.
 
@@ -623,8 +626,8 @@ its form has to think about stale state after a save and this one does not.
 | wrong current password | `401 — "Access denied. Entered credentials are incorrect."`, nothing changed |
 
 The password was deliberately never changed successfully: the test account's
-password lives in `.env.local`, and a successful change would leave that file
-stale. The two failure paths are what can be checked without breaking the next
+password lives in `e2e/.env.local`, shared with the e2e suite, and a successful
+change would leave that file stale. The two failure paths are what can be checked without breaking the next
 person's login.
 
 **A design error found while tidying up.** The first version left empty fields out
@@ -721,13 +724,21 @@ without before copying it over.
 (`revalidate: 3600`). Nothing shortened that hour: the package shipped
 `createEmporixWebhookRoute` and no example mounted it, so a product renamed in the
 backend stayed wrong for up to sixty minutes. `app/api/emporix/webhook/route.ts`
-closes the loop in eight lines:
+closes the loop with a per-request `POST` that checks the secret — not at module
+scope, see «Or let the backend invalidate the catalog cache» above — and then hands
+the request to the factory:
 
 ```ts
-export const POST = createEmporixWebhookRoute({
-  secret,
-  maxAgeSeconds: 300, // without it, an intercepted delivery stays replayable
-});
+export async function POST(request: Request): Promise<Response> {
+  const secret = process.env.EMPORIX_WEBHOOK_SECRET;
+  if (secret === undefined || secret === "") {
+    throw new Error("EMPORIX_WEBHOOK_SECRET is not set — see the README.");
+  }
+  return createEmporixWebhookRoute({
+    secret,
+    maxAgeSeconds: 300, // without it, an intercepted delivery stays replayable
+  })(request);
+}
 ```
 
 Point an Emporix webhook subscription at `POST /api/emporix/webhook` with the same
@@ -774,8 +785,9 @@ Second, that a renamed product appears — that needs a write to the tenant, whi
 this verification run did not make.
 
 `logging: { fetches: { fullUrl: true } }` in `next.config.mjs` looks like the
-obvious instrument and prints **nothing** under Turbopack in Next 16.2.12. Do not
-spend time on it; use the cache directory.
+obvious instrument and printed **nothing** under Turbopack — measured on Next
+16.2.12, not re-checked on the `^16.3.6` the example pins now. Do not spend time on
+it; use the cache directory.
 
 ## The language switch, and why the context stopped being a constant
 
@@ -818,8 +830,9 @@ this whole demo is arranged to avoid.
 
 The tenant has **one** site (`main`, default, CHF) declaring **two** languages
 (`en`, `de`, default `de`), so this is a language switcher and not a site
-switcher: a site dropdown with one entry demonstrates nothing, and the proxy
-pins `main` on every request anyway.
+switcher: a site dropdown with one entry demonstrates nothing, and
+`lib/site-context.ts` pins `main` for every request anyway. (The tenant has a
+second site since; the demo still pins `main`.)
 
 | Check | Result |
 |---|---|
@@ -832,15 +845,16 @@ pins `main` on every request anyway.
 What «no choice made» actually means, because it is not what the site config
 suggests: with no `Accept-Language`, Emporix returns the **whole** localized map
 (`{"de": "…", "en": "…"}`) and does **not** apply the site's `defaultLanguage`.
-The English title then comes from the demo's own `LOCALE_ORDER`, which starts with
-`en`. Set a language and Emporix sends a plain string instead. So the switch does
+The English title then came from the demo's own `LOCALE_ORDER`, which started with
+`en` that day; since 2026-08-05 it starts with `de`, the tenant's default. Set a
+language and Emporix sends a plain string instead. So the switch does
 not merely change which key the client picks — it changes what Emporix sends,
 which is exactly why it belongs on the server in this mode.
 
-**One inconsistency, measured and left in:** the typeahead reads through
-`/api/emporix`, and that route does not forward the language — a request with
-`emporix.language=de` still comes back with the full map, so the dropdown shows
-English while the page around it is German. It is not a two-line fix: the tagged
+**One inconsistency, measured that day and left in:** the typeahead reads through
+`/api/emporix`, and that route does not forward the language — its request comes
+back with the full map and the dropdown picks a key itself, which showed English
+on a German page. It is not a two-line fix: the tagged
 fetch cache does not key on headers, so a language-aware proxy would serve one
 visitor's language to the next until the language becomes part of the cache key.
 Naming the cause beats a fix that poisons a shared cache.
@@ -862,8 +876,8 @@ is what an earlier version of this file claimed. Measured 2026-08-04:
 | `categories.parents(id)` | `/categories/{id}/parents` | 404 on a root, 2–4 ancestors on a leaf |
 | `categories.tree()` | `/category-trees` | the whole hierarchy, children inline |
 
-The old code called the first one. storefront-demo still does, so its subcategory
-nav is dead for the same reason.
+The old code called the first one. storefront-demo still calls it first, but falls
+back to the tree when it comes back empty.
 
 And the assignments endpoint is not empty — that was the misleading part.
 `productsIn(id)` reads **the same URL** and keeps `ref.type === "PRODUCT"`, which is
@@ -1092,9 +1106,13 @@ after login `/cart` showed the **customer** id with **both**. That is why the
 page prints the cart id at all.
 
 The checkout run also answered two configuration questions about the tenant:
-`listPaymentModes` returns **empty**, so the `custom` provider path is the one
-that actually runs here; and a shipping zone for `CH` **is** configured, with a
-single «Free Shipping» method at cost 0.
+`listPaymentModes` returned **empty** that day, so the `custom` provider path is
+the one that ran; and a shipping zone for `CH` **is** configured, with a single
+«Free Shipping» method at cost 0. The first answer is out of date: on 2026-10-05
+storefront-demo's live checkout found an `invoice` mode — payment modes are
+configured per tenant — so the gateway path is the one that runs here now, and
+`custom` is only the fallback when no mode is configured. This example's own
+gateway order has not been placed live.
 
 Also driven through a real browser: Add to cart from the catalog, `/cart` showing
 the item, and `/debug` **green** while the cart cookies exist — they are httpOnly,
@@ -1106,11 +1124,13 @@ anonymous token, and 5 matching products rendered.
 ### One open question, answered
 
 A guest cart read in a Server Component gets a read-only session handle, so it cannot
-persist the rotated anonymous session — the next read reuses the previous refresh
-token. Three consecutive reads all succeeded, so **Emporix tolerates anonymous
-refresh-token reuse**. That is tenant behaviour, not a guarantee: if it ever
-changes, the fix is to fetch the cart through a Server Action, or to have the
-proxy keep a short-lived anonymous access token in the cookie.
+persist a rotated anonymous session. Since the session cookie carries the anonymous
+access token, such a read normally redeems nothing; once that token has expired, every
+read redeems the same stored refresh token again until a Server Action stores a new one.
+Three consecutive reads on 2026-08-01, before the access token was stored, did exactly
+that and all succeeded, so **Emporix tolerates anonymous refresh-token reuse**. That is
+tenant behaviour, not a guarantee: if it ever changes, it is the reads after expiry that
+break, and the fix is to fetch the cart through a Server Action.
 
 ### The login leg
 
@@ -1118,7 +1138,6 @@ Exercised live on 2026-08-01, with a human typing the password — entering
 credentials into a form is not something the assistant that wrote this does.
 Everything on either side of that keystroke was driven automatically.
 
-Run it yourself: put the test account in `.env.local`
-(`EMPORIX_TEST_CUSTOMER_EMAIL` / `_PASSWORD`), log in at `/login`, then open
-`/debug`. Expect it to stay green — the three token cookies are httpOnly, so
+Run it yourself: log in at `/de/login` with a customer account of your tenant, then
+open `/de/debug`. Expect it to stay green — the three token cookies are httpOnly, so
 JavaScript must not see them.

@@ -13,7 +13,7 @@ type AppState = { tenant: string; language: string; token: string }
 The module never authenticates. That `token` is a customer token whose scopes reach
 operations a storefront token could not, which is what makes the React package usable here
 at all — see the [Managed Dashboard section](../../packages/react/README.md#managed-dashboard-module-host-owned-token)
-for the full recipe and the five things to get right.
+for the full recipe and the six things to get right.
 
 ## What this example does differently from the upstream template
 
@@ -118,7 +118,7 @@ build. So a `build:dev` bundle carries `"dev"` at the call site and resolves to
 | [`src/emporix.ts`](./src/emporix.ts) | one client per tenant, `credentials: {}`, host from the resolved environment |
 | [`src/environments.ts`](./src/environments.ts) | the single source for API host and dashboard origin per mode |
 | [`src/ProductList.tsx`](./src/ProductList.tsx) | `useProducts` with `totalCount: true` — the "X of Y" a dashboard table wants |
-| [`vite.config.ts`](./vite.config.ts) | what is shared with the host (`react`, `react-dom`) and what deliberately is not |
+| [`vite.config.ts`](./vite.config.ts) | what is shared with the host (`react`, `react-dom`), and why in the array form |
 | [`src/admin/useBrands.ts`](./src/admin/useBrands.ts) | wrapping a back-office operation the package ships no hook for, through the public `useEmporixQuery` |
 | [`src/admin/ScopeError.tsx`](./src/admin/ScopeError.tsx) | rendering a 403 as the configuration answer it is, branching on `EmporixForbiddenError` |
 
@@ -162,10 +162,12 @@ with the token in an untracked `.env.local`.
 | Does the table refresh itself? | **yes** — the mutation's invalidation triggered the refetch, no reload |
 | Brand delete | removed; the tenant is back to the state it was found in |
 
-**Not exercised: the 403 path.** `ScopeError` is covered by a unit test, but
-producing a real 403 needs a token that lacks the scope, and the dashboard token
-has it. Verifying it live would mean minting a storefront token for this tenant —
-worth doing before anyone relies on that message, and not something to fabricate.
+**Not exercised live: the 403 path.** The unit tests check that a 403 rejects
+with `EmporixForbiddenError` (`tests/brands.test.tsx`, `tests/labels.test.tsx`),
+but no test renders `ScopeError`, and producing a real 403 needs a token that
+lacks the scope — the dashboard token has it. Verifying it live would mean
+minting a storefront token for this tenant — worth doing before anyone relies on
+that message, and not something to fabricate.
 
 **Both tenants' brand and label lists are empty**, so the table, the empty state
 and one create/delete cycle are proven, while pagination and editing an existing

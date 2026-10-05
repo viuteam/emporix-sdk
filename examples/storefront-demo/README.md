@@ -7,10 +7,11 @@ app drives every common (non-B2B) commerce flow against that real tenant.
 
 It doubles as a reference: each screen is a worked example of the hooks, and the
 SDK/response field reads live in exactly one place — but that place is no longer
-this demo. They moved to [`examples/shared`](../shared) so this demo and
-`next-server-first` cannot drift apart. `src/lib/adapters.ts` is now a re-export of
-that package plus the two helpers that need a browser (`sanitizeHtml`,
-`productDescription`). Follow the re-export, not the filename.
+this demo. They moved to [`examples/shared`](../shared) so this demo,
+`next-server-first` and `angular-storefront-demo` cannot drift apart.
+`src/lib/adapters.ts` is now a re-export of that package plus the two helpers
+that need a browser (`sanitizeHtml`, `productDescription`). Follow the
+re-export, not the filename.
 
 > ## ⚠️ This places **real orders**
 > The demo talks to a **real Emporix tenant**. Checkout creates a **real
@@ -20,8 +21,9 @@ that package plus the two helpers that need a browser (`sanitizeHtml`,
 ## Live demo & deployment
 
 This demo is built and deployed to GitHub Pages by `.github/workflows/pages.yml`
-on every push to `main` (no build artifacts are committed). Once enabled it is
-served at:
+on every push to `main` that touches the demo, `examples/shared`, `packages/` or
+the workflow itself, and on a manual run (no build artifacts are committed). Once
+enabled it is served at:
 
 ```
 https://viuteam.github.io/emporix-sdk/
@@ -106,10 +108,12 @@ drops the stored guest session and cart. `VITE_DEMO_DEFAULT_TENANT` and
   reload keeps it; `setSaasToken` is optional on a storage adapter, though, and a
   session without it gets a sign-in form in the checkout's first step instead of
   a failing «Place order».
-- **Order history shows finalized orders.** A freshly placed order sits in
-  `IN_CHECKOUT` until payment settles; it is reachable by id (the confirmation
-  links straight to it) but won't appear in the history list until finalized.
-  The demo's "custom" payment provider is a stub, so its orders stay pending.
+- **Orders can stay in `IN_CHECKOUT`.** The checkout preselects the tenant's
+  first payment mode and sends it as `payment-gateway`; such an order may wait in
+  `IN_CHECKOUT` until its payment settles. Only a tenant without any mode falls
+  back to the `custom` provider, which Emporix documents as creating the order in
+  `IN_CHECKOUT`. A signed-in customer's confirmation links straight to the order;
+  a guest's has no link, because the order pages need a sign-in.
 - **Two order shapes.** The list and the single-order GET return different
   shapes; `orderVM`/`orderItems` read both. They live in
   [`examples/shared/src/adapters.ts`](../shared/src/adapters.ts), not in this
@@ -123,8 +127,9 @@ drops the stored guest session and cart. `VITE_DEMO_DEFAULT_TENANT` and
 
 ```
 src/
+  App.tsx      providers (EmporixProvider, ToastProvider), ContextPersistor and the routes
   config/      the two-step setup (SetupScreen, connect.ts) and its gate (ConfigGate)
-  app/         provider wiring, shell, header/footer, toasts, telemetry HUD
+  app/         shell, header/footer, toasts, route error boundary, telemetry HUD
   catalog/     product card/grid, add-to-cart hook, gallery, variant picker, category chips and sidebar
   checkout/    accordion steps, order summary, totals, confirmation
   account/     auth, profile, addresses, orders, returns, rewards, lists

@@ -72,12 +72,14 @@ The sections below highlight the most-used services; per-service guides live in
 
 ## Searching by mixin (custom) fields
 
-`products.search`, `categories.search`, `orders.listMine(auth, { q })`,
-`customerAdmin.searchCustomers({ q })` and `vendors.searchVendors({ q })` accept a
-raw Emporix `q` string **or** a type-safe filter built with `mixinQuery` from
-[`@viu/emporix-mixins`](../mixins). The filter is entity-gated (a filter built for
-one entity is a compile error on another) and an `or()` filter is rejected on
-services that don't support `compoundLogicalQuery`.
+`products.search`, `categories.search`, `categories.searchByQuery`,
+`orders.listMine(auth, { q })`, `orders.listForLegalEntity(id, auth, { q })`,
+`salesOrders.list(auth, { q })`, `customerAdmin.searchCustomers({ q })` and
+`vendors.searchVendors({ q })` accept a raw Emporix `q` string **or** a type-safe
+filter built with `mixinQuery` from [`@viu/emporix-mixins`](../mixins). The
+filter is entity-gated (a filter built for one entity is a compile error on
+another) and an `or()` filter is rejected on services that don't support
+`compoundLogicalQuery`.
 
 ```ts
 import { mixinQuery } from "@viu/emporix-mixins";
@@ -96,7 +98,7 @@ See [`../../docs/mixin-search.md`](../../docs/mixin-search.md) for the capabilit
 | `tenant` (required) | — | lowercase, 3–16 chars, `^[a-z][a-z0-9]{2,15}$` |
 | `credentials` (required) | — | the object itself is required; which sets it holds is up to you |
 | `credentials.backend` | — | `{ clientId, secret, scope? }` — service token |
-| `credentials.storefront` | — | `{ clientId }` — anonymous token (no secret) |
+| `credentials.storefront` | — | `{ clientId, context? }` — anonymous token (no secret). `context` holds `currency` / `siteCode` / `targetLocation`, bound to the anonymous token and needed by `prices.matchByContext`, plus `language` (`Accept-Language`); `sdk.setStorefrontContext()` switches it at runtime |
 | `credentials.custom` | — | `Record<name, { clientId, secret, scope? }>` |
 | `host` | `https://api.emporix.io` | |
 | `timeouts` | `{ connectMs: 10000, readMs: 60000 }` | |
@@ -104,6 +106,7 @@ See [`../../docs/mixin-search.md`](../../docs/mixin-search.md) for the capabilit
 | `cache` | `{ expirationBufferSeconds: 60, maxLifetimeSeconds: 3600 }` | token cache |
 | `logger` | console @ `warn` | `false`, a `Logger`, or `{ level, services, pretty, redact }` |
 | `tokenProvider` | built-in | inject for SSO/token-exchange |
+| `fetch` | global `fetch` | replaces `fetch` for API requests; token requests and SSE streams keep the global one |
 
 `credentials: {}` is legal: a client that never mints its own token, for when the
 token comes from outside. The Managed Dashboard module in
@@ -115,8 +118,10 @@ anonymous browsing, both when you need both.
 ## AuthContext per method
 
 `auth.service(name?)`, `auth.anonymous()`, `auth.customer(token)`,
-`auth.raw(token)`. The last argument of every service method is the
-`AuthContext`; defaults below apply when omitted.
+`auth.raw(token)`. The `AuthContext` is usually a service method's last
+argument — some take options after it (`orders.listMine(auth, opts)`,
+`availability.get(productId, siteCode, auth, opts)`); defaults below apply when
+omitted.
 
 | Method | Default | Required kind |
 | --- | --- | --- |
@@ -124,7 +129,8 @@ anonymous browsing, both when you need both.
 | `customers.me` / `.update` / `.changePassword` / `.addresses.*` | — | `customer` or `raw` |
 | `customers.anonymous()` | — | obtains anonymous session (token ignored) |
 | `products.*` / `categories.*` (reads) | `anonymous` | — (pass `customer` for personalized pricing) |
-| `carts.*` | — | explicit `customer` or `anonymous` |
+| `carts.*` (shopper methods) | — | explicit `customer` or `anonymous` |
+| `carts.search` / `.delete` / `.update` | — | any kind, unguarded — `service` for admin use; the server enforces scope |
 | `carts.merge` | — | `customer` |
 | `carts.execute` ([command chains](../../docs/cart.md)) | — | `customer`, `anonymous`, or `service` with `cart.cart_manage` |
 | `companies.*` / `contacts.*` / `locations.*` / `customerGroups.*` (B2B) | — | `customer` (reads need `*_read_own`; mutations need `*_manage`) |
@@ -133,7 +139,9 @@ anonymous browsing, both when you need both.
 `AuthContext` is **per call, never stored** — one client safely serves many
 concurrent shoppers (SSR/edge/multi-tenant). SDK-managed (`service`/`anonymous`)
 401s refresh-and-retry once; caller-managed (`customer`/`raw`) 401s propagate as
-`EmporixAuthError`. Full details in [`../../docs/auth.md`](../../docs/auth.md).
+`EmporixAuthError` — unless a refresher is registered with
+`sdk.setCustomerTokenRefresher(...)`, which refreshes and retries a `customer`
+401 once. Full details in [`../../docs/auth.md`](../../docs/auth.md).
 
 ## Logging
 
@@ -161,11 +169,16 @@ customer's role lacks scope for surface as `EmporixInsufficientScopeError`
 ## Media
 
 `sdk.media` covers the full `/media/{tenant}/assets/*` surface: create
-(`uploadFile` / `link` / `create`), list (paginated, `PaginatedItems<Asset>`),
-get, update (JSON metadata or BLOB multipart file-replacement via the
-`replaceFile` sugar), remove, and download (resolves to either a redirect
-URL for `PUBLIC` assets or an `ArrayBuffer` for `PRIVATE`). All endpoints
-require a server-only scope — every call defaults to a `service`
+(`uploadFile` / `link` / `create`, or `startUploadSession` for a direct upload
+to storage once Emporix Support enables it for the tenant), list (paginated,
+`PaginatedItems<Asset>`), get, update (JSON metadata or BLOB multipart
+file-replacement via the `replaceFile` sugar), `patch` (JSON Patch — the way to
+change a BLOB's metadata without re-uploading the file), remove,
+`getDownloadUrl` (a storage URL with no size limit, which Emporix recommends for
+every download), and download (resolves to either a redirect URL for `PUBLIC`
+assets or an `ArrayBuffer` for `PRIVATE`; above the streaming limit, 30 MB by
+default, it fails with a `413` and only `getDownloadUrl` serves the file). All
+endpoints require a server-only scope — every call defaults to a `service`
 `AuthContext`. Storefronts read media via `product.productMedia` (denormalised
 on the product) or the `useProductMedia(productId)` hook, not by calling
 the Media service directly. See [`../../docs/media.md`](../../docs/media.md).
@@ -186,12 +199,27 @@ stock record. There is no restock-date field.
 ## Subpath exports
 
 `@viu/emporix-sdk` (the package root) re-exports **everything** — every service,
-type, and helper. Tree-shakeable subpaths are published for the high-traffic
+type, and helper. Subpaths are published for the high-traffic
 services: `./customer`, `./product`, `./category`, `./cart`, `./checkout`,
 `./payment`, `./price`, `./media`, `./segment`, `./companies`, `./contacts`,
 `./locations`, `./customer-groups`, `./orders`, `./availability`. All other
 services (Tax, Coupon, RewardPoints, Shipping, Returns, Catalog, Vendor,
 CustomerAdmin, Approval, …) are reached from the package root.
+
+A subpath import alone does not shrink a bundle: `EmporixClient` imports every
+service. When bundle size matters, build the client with `createEmporixClient`,
+which instantiates only the service classes you pass (`segments` also needs
+`products` and `categories` in the map):
+
+```ts
+import { createEmporixClient, ProductService, CartService } from "@viu/emporix-sdk";
+
+const sdk = createEmporixClient(
+  { tenant: "mytenant", credentials: { storefront: { clientId: "..." } } },
+  { products: ProductService, carts: CartService },
+);
+const products = await sdk.products.list(); // no other service is bundled
+```
 
 ## Changelog
 

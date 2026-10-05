@@ -4,7 +4,7 @@ Repo-wide conventions for Claude / agentic workflows. Read me at session start.
 
 ## What this is
 
-A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published as `@viu/emporix-sdk` and `@viu/emporix-sdk-react` on npm. The `viu` tenant is the primary internal consumer; external storefronts can use it via the public packages.
+A TypeScript SDK for the Emporix Commerce Engine, with React, Angular and Next.js bindings and a typed-mixins toolkit. Published on npm as `@viu/emporix-sdk`, `@viu/emporix-sdk-react`, `@viu/emporix-sdk-angular`, `@viu/emporix-sdk-next` and `@viu/emporix-mixins`. The `viu` tenant is the primary internal consumer; external storefronts can use it via the public packages.
 
 ## Workspace layout
 
@@ -12,14 +12,18 @@ A TypeScript SDK and React bindings for the Emporix Commerce Engine. Published a
 |---|---|---|
 | `packages/sdk` | Core SDK: HTTP, auth, services (Product, Category, Cart, Checkout, Customer, Payment, Price, Media, Segment, Site, SessionContext, Companies, Contacts, Locations, CustomerGroups, Orders, SalesOrders, Availability, TenantConfig, ClientConfig, ShoppingList, RagIndexer, SequentialId, Fee, Webhooks, Schema, AI, Tax, Coupon, RewardPoints, Brand, Label, Country, Currency, Shipping, Returns, Indexing, UnitHandling, Catalog, Vendor, CustomerAdmin, Approval, IAM, CloudFunctions, Invoice, Quote, Import, AuditLog) | yes (`@viu/emporix-sdk`) |
 | `packages/react` | React-Query bindings: hooks, provider, storage adapters | yes (`@viu/emporix-sdk-react`) |
-| `packages/angular` | Angular bindings: `provideEmporix`, 87 signal-based `inject*` over TanStack Query, site + customer session + B2B company context. At parity with `packages/react` (111 of its 113 hooks; writes grouped into 11 mutation bundles). **Decorator-free by rule** so it builds with tsup, not `ng-packagr` | yes (`@viu/emporix-sdk-angular`) |
+| `packages/angular` | Angular bindings: `provideEmporix`, 87 signal-based `inject*` over TanStack Query, site + customer session + B2B company context. At parity with `packages/react` (113 of its 115 hooks; writes grouped into 11 mutation bundles). **Decorator-free by rule** so it builds with tsup, not `ng-packagr` | yes (`@viu/emporix-sdk-angular`) |
 | `packages/mixins` | Typed Emporix mixins: runtime accessor (`readMixin`/`writeMixin`), `mixinQuery` filter builder, `emporix-mixins` codegen CLI | yes (`@viu/emporix-mixins`) |
 | `packages/next` | Next.js server bindings: cache tags (`emporixTags`), `getEmporixClient`, the `/session` server-first entry (`withEmporixSession`, `emporixLogin`, `emporixTokenProxy`), the `/service` service-account entry, `emporixSiteProxy`, webhook route | yes (`@viu/emporix-sdk-next`) |
 | `examples/node-server` | Plain Node consumer (no React) | no |
 | `examples/vite-spa` | Smallest React integration (Vite); **the e2e suite boots this one** | no |
-| `examples/storefront-demo` | Complete reference storefront, 17 routes (Vite) | no |
+| `examples/storefront-demo` | Complete reference storefront, 18 routes (Vite) | no |
 | `examples/next-app-router` | Next 16 with client-side hooks | no |
 | `examples/next-server-first` | Next 16, no token in the browser | no |
+| `examples/md-module` | Managed Dashboard module: Module Federation remote on the host's token (Vite) | no |
+| `examples/angular-storefront` | Smallest Angular 22 integration; **the AOT test rig** CI builds with `ng build`. Package name `@viu/emporix-examples-angular` | no |
+| `examples/angular-storefront-demo` | Complete Angular 22 reference storefront (signals). Package name `@viu/emporix-examples-angular-storefront` — not the rig | no |
+| `examples/shared` | Unpublished helper package (Emporix shape normalization) for `storefront-demo`, `next-server-first` and `angular-storefront-demo`; nothing to run | no |
 | `e2e/` | Playwright end-to-end suite against the `viu` tenant | no |
 | `docs/` | Public docs (`auth.md`, `react.md`, `pagination.md`, `e2e.md`, ...) + design docs under `docs/superpowers/{specs,plans}/` | n/a |
 
@@ -76,7 +80,7 @@ not a precedent — the shared style is English.
 
 ## Test architecture
 
-- **Unit tests** (Vitest, `jsdom` env in React) — `packages/sdk/tests/`, `packages/react/tests/`. HTTP mocked with MSW. `pnpm -r test`.
+- **Unit tests** (Vitest, `jsdom` env in React and Angular) — `packages/*/tests/`. HTTP mocked with MSW in the SDK, React and mixins suites. `pnpm -r test`.
 - **E2E tests** (Playwright + Chromium) — `e2e/specs/`. Boots `examples/vite-spa` via `webServer` in `playwright.config.ts`, hits the real `viu` tenant. Some specs need `EMPORIX_TEST_CUSTOMER_EMAIL/_PASSWORD`; the config loads `e2e/.env.local` itself, so the file is enough. Without the values those specs **skip**, which in the output looks a lot like passing — check the count. `pnpm e2e`.
 - Chrome DevTools MCP is the interactive-debug fallback if Playwright Agent CLI is unavailable; see `docs/e2e.md`.
 
@@ -88,8 +92,8 @@ not a precedent — the shared style is English.
 - `packages/angular` must stay **decorator-free** — no `@Injectable()`, components, directives, pipes or NgModules. That is what lets it build with tsup instead of `ng-packagr`. An ESLint rule and `check:dist` both enforce it, and CI builds `examples/angular-storefront` with AOT to prove the artifact works.
 - New React **read** hooks must use the internal `useEmporixQuery` factory (`packages/react/src/hooks/internal/use-emporix-query.ts`) — `mode: "read-auth"` (customer-or-anonymous) or `mode: "customer"` (token-gated) — instead of hand-rolling `useQuery`. It centralizes auth resolution, the `emporixKey`, `enabled` gating and `staleTime`. `useEmporixQuery` is **exported from the package root** — consumers wrap the back-office operations this package does not (see the Managed Dashboard section of `packages/react/README.md`), which is why it is a supported API and not an internal any more. Most read hooks already follow this; `useCheckout`'s mutations stay on `useMutation`.
 - `client.carts.merge(customerCartId, [anonCartId], auth)` — the path-ID is the **customer** cart (target), the body lists anonymous cart IDs to merge in. Easy to invert.
-- `EmporixStorage` keys: `emporix.customerToken`, `emporix.cartId`, `emporix.anonymousSession`, `emporix.siteCode`, `emporix.activeLegalEntityId`, `emporix.refreshToken`. The `anonymousSession` carries `{ refreshToken, sessionId }` and is what makes the guest cart survive page reloads (PR #26). The `refreshToken` is mirrored from the customer session and is needed for B2B refresh-on-switch — without it, `setActiveCompany` falls back to local-state-only.
-- Examples typecheck against the built `dist/` of `@viu/emporix-sdk` and `@viu/emporix-sdk-react`. Run `pnpm -F @viu/emporix-sdk build && pnpm -F @viu/emporix-sdk-react build` before `pnpm -F @viu/emporix-examples-* typecheck` if you've changed SDK/React source.
+- `EmporixStorage` keys (`STORAGE_KEYS`): `emporix.customerToken`, `emporix.cartId`, `emporix.anonymousSession`, `emporix.siteCode`, `emporix.language`, `emporix.activeLegalEntityId`, `emporix.refreshToken`, `emporix.saasToken`. The `anonymousSession` carries `{ refreshToken, sessionId }` and is what makes the guest cart survive page reloads (PR #26). The `refreshToken` is mirrored from the customer session and is needed for B2B refresh-on-switch — without it, `setActiveCompany` falls back to local-state-only.
+- Examples typecheck against the built `dist/` of the packages they use — `@viu/emporix-sdk`, `-react`, `-angular`, `-next`. After changing package source, run `pnpm build` (or `pnpm -F <package> build` for the ones you touched) before `pnpm -F @viu/emporix-examples-* typecheck`.
 
 ## When you're not sure
 

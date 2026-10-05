@@ -1,8 +1,9 @@
 # @viu/emporix-sdk-next
 
 Next.js server-side bindings for [`@viu/emporix-sdk`](../sdk): cache tags,
-cookie session, and webhook-driven revalidation. Server-only — every export
-reaches for `next/headers` or `next/cache`.
+cookie session, and webhook-driven revalidation — plus one browser entry,
+`…/public-client`, that sends client-side catalog reads through a same-origin
+route.
 
 > **Why the package is shaped this way** — the session flow diagrams, the login
 > ordering trap, the dynamic-rendering cost of one `cookies()` call, and the
@@ -49,10 +50,10 @@ explicit because making it implicit is what would introduce the leak.
 | Import | Contains |
 |---|---|
 | `@viu/emporix-sdk-next` | `getEmporixClient`, `createTaggingFetch`, `emporixTags`, `emporixTagsForUrl`, `emporixSession`, `emporixSessionMutable` |
-| `…/session` | server-first mode — `withEmporixSession(Mutable)`, `emporixLogin/Logout/Refresh`, `emporixTokenProxy`, `emporixSessionHandle`, `createEmporixPublicRoute`, `assertSameOrigin`, `STORAGE_KEYS`, `SESSION_*` |
+| `…/session` | server-first mode — `withEmporixSession(Mutable)`, `emporixSession(Mutable)` (also on the root), `emporixLogin/Logout/Refresh`, `emporixTokenProxy`, `emporixSessionHandle`, `createEmporixPublicRoute`, `assertSameOrigin`, `setEmporixErrorReporter` and its `EmporixError*` types, the `EmporixSessionStore` type, `STORAGE_KEYS`, `SESSION_*` |
 | `…/proxy` | `emporixSiteProxy` |
 | `…/service` | `getEmporixServiceClient` |
-| `…/webhook` | `createEmporixWebhookRoute`, `canonicalJson` |
+| `…/webhook` | `createEmporixWebhookRoute`, `verifyEmporixSignature`, `canonicalJson` |
 | `…/public-client` | `createProxyFetch`, `createProxyTokenProvider` — the only entry shipping `"use client"` |
 
 The split keeps a Route Handler from pulling in `next/headers` — and a `proxy.ts`
@@ -74,9 +75,10 @@ for how the session moves through a request.
 ```ts
 // app/actions/cart.ts
 "use server";
+import type { CartItemInput } from "@viu/emporix-sdk";
 import { withEmporixSessionMutable } from "@viu/emporix-sdk-next/session";
 
-export async function addToCart(cartId: string, item: CartItemRequest) {
+export async function addToCart(cartId: string, item: CartItemInput) {
   return withEmporixSessionMutable((client, ctx) =>
     client.carts.addItem(cartId, item, ctx),
   );
@@ -123,7 +125,7 @@ to serialize into a response body.
 `emporixRefresh(opts?)` rotates the customer session from the httpOnly refresh
 cookie and returns the fresh access token, or `null` when there is nothing to
 refresh. `emporixTokenProxy` calls it for you — reach for it directly only if you
-rotate somewhere other than the proxy. Like the other readers it takes `store`.
+rotate somewhere other than the proxy. Like every session call it takes `store`.
 
 ### Token rotation belongs in the proxy
 
@@ -172,6 +174,11 @@ const client = new EmporixClient({
 browser token-free: the SDK's default provider fetches an anonymous token over
 the global `fetch`, which a rewriting `fetch` cannot intercept, so the answer is
 not to request one.
+
+`createProxyFetch` rewrites only URLs on `NEXT_PUBLIC_EMPORIX_HOST` (default
+`https://api.emporix.io`), so that value and the browser client's `host` must
+agree — set one without the other and the calls go straight to Emporix, past the
+proxy, with a placeholder token. The route itself forwards to `EMPORIX_HOST`.
 
 The route's allowlist is `emporixTagsForUrl` — a URL is proxyable exactly when it
 yields cache tags. Cart, order, customer and token endpoints yield none and get a
@@ -225,10 +232,10 @@ for the full inventory and the reasoning per site. A working adapter is in
 
 ## Session cookie hardening
 
-| Control | Default | Configure with |
+| Control | Default | Defined by |
 |---|---|---|
-| Idle window (sliding) | 30 days | `SESSION_MAX_AGE.refreshToken` |
-| Absolute ceiling | 90 days | `SESSION_ABSOLUTE_MAX` |
+| Idle window (sliding) | 30 days | `SESSION_MAX_AGE.refreshToken` (read-only) |
+| Absolute ceiling | 90 days | fixed in the package — not exported, not configurable |
 | `__Host-` prefix | on over https | derived from the same signal as `secure` |
 | Encryption | off | `EMPORIX_COOKIE_SECRET` |
 
@@ -266,10 +273,10 @@ set, and works fine until then — so the mistake survives review. Use
 a cookie write during render.
 
 > **Deprecated aliases.** `sessionCookieJar` and `SessionCookieJar` were renamed to
-> `emporixSessionHandle` / `EmporixSessionHandle` in 0.5.0. Both old names are
-> still exported as of 0.8.x and are still the same function; they are
-> `@deprecated` and will be removed in **1.0.0**. A one-line find-and-replace is
-> the whole migration.
+> `emporixSessionHandle` / `EmporixSessionHandle` in 0.5.0. Both old names stay
+> exported and `@deprecated` throughout 1.x — still the same function and type —
+> and are removed in the next major version. A one-line find-and-replace is the
+> whole migration.
 
 ## Server-side sessions
 
@@ -290,18 +297,24 @@ Three methods. The package ships **no** implementation, which is what keeps it a
 zero runtime dependencies — copy the Redis one from
 `examples/next-server-first/app/session-store.ts`.
 
-Pass it to all three readers:
+Pass it to every session call — `withEmporixSession(Mutable)`,
+`emporixLogin/Logout/Refresh`, `emporixTokenProxy`, `emporixSession(Mutable)` and
+`emporixSessionHandle`, the writers as much as the readers:
 
 ```ts
 const EMPORIX = { context: CONTEXT, store };
 
 await withEmporixSession(fn, EMPORIX);              // pages
+await emporixLogin(credentials, EMPORIX);           // Server Actions
 await emporixTokenProxy(request, { site, store });  // proxy.ts
 await emporixSession({ store });                    // session values
 ```
 
-Forget it in one place and that place silently falls back to cookie mode. There
-is no error, because cookie mode is a legitimate configuration.
+Forget it in one place and that place silently falls back to cookie mode — a
+writer then puts the session into cookies that no store-mode reader looks at.
+There is no error, because cookie mode is a legitimate configuration. In store
+mode `emporixSessionMutable` also hands back a `flush()` to await once you are
+done writing.
 
 ### What stays in the cookie
 
@@ -363,20 +376,21 @@ streaming needs its own Route Handler:
 ## Server Component
 
 ```tsx
-import { getEmporixClient, emporixSession } from "@viu/emporix-sdk-next";
+import { getEmporixClient } from "@viu/emporix-sdk-next";
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { auth } = await emporixSession();
   const sdk = getEmporixClient();                       // memoized per process
-  const product = await sdk.products.get(id, undefined, auth);
+  const product = await sdk.products.get(id);           // anonymous — the tagged client's only kind
   return <h1>{product.name}</h1>;
 }
 ```
 
 Catalog GETs are tagged automatically — `emporix:product:{id}` and
 `emporix:products` here. Cart, order, customer and token requests map to no tags
-and are therefore never cached.
+and are therefore never cached. A read that needs the customer's token — a
+customer price, say — takes the `auth` from `emporixSession()` through
+`getEmporixClient({ tagged: false })`, per the one rule above.
 
 ## Server Action
 
@@ -443,15 +457,17 @@ Construct them yourself with `emporixTags`, or map a URL with
 `emporixTagsForUrl(url, tenant)`.
 
 Tags are derived from the request URL rather than passed per call, because the
-SDK has 596 request call sites and a per-call tag would be forgotten at one of
-them. The mapper keeps a reserved-segment set (`bulk`, `search`, `recalculate`,
-`jobs`) so real paths like `/products/bulk` yield the collection tag instead of
-a tag for a product called "bulk".
+SDK has about 600 request call sites and a per-call tag would be forgotten at
+one of them. The mapper keeps a reserved-segment set (`bulk`, `search`,
+`recalculate`, `jobs`) so real paths like `/products/bulk` yield the collection
+tag instead of a tag for a product called "bulk".
 
 ## Environment
 
 `EMPORIX_TENANT`, `EMPORIX_STOREFRONT_CLIENT_ID`, optionally `EMPORIX_HOST` — or
-pass `tenant` / `clientId` / `host` explicitly.
+pass `tenant` / `clientId` / `host` explicitly. The browser entry
+`…/public-client` reads `NEXT_PUBLIC_EMPORIX_HOST` instead, which has to agree
+with the browser client's `host` — see the client-side catalog reads above.
 
 A Next app usually has to pass them explicitly: any value its Client Components
 also read needs the `NEXT_PUBLIC_` prefix, and these server-only names do not
@@ -470,24 +486,28 @@ getEmporixClient({
 and for prefetch-key parity with the client-side `EmporixProvider` — bind the same
 values on both sides or hydration is a cache miss instead of a hit.
 
-`getEmporixClient` configures **storefront** (anonymous) credentials only. There
-is no option for a `backend` / service credential set, because a secret does not
-belong in a memoized factory where it becomes part of a cache key. Server-side
-work needing a `service` AuthContext — `media.*`, for instance — constructs its
-own client:
+`getEmporixClient` configures **storefront** (anonymous) credentials only; there
+is no option for a service credential set. Server-side work needing a `service`
+AuthContext — `media.*`, for instance — goes through `getEmporixServiceClient`
+(see *Service accounts* above), never through a client with a tagging `fetch`:
+Next's fetch cache does not key on the `Authorization` header, so a cached
+privileged GET would be served to other visitors. Pass the set's name — `media.*`
+defaults to `auth.service()`, which means a `backend` set that factory does not
+create:
 
 ```ts
-import { EmporixClient } from "@viu/emporix-sdk";
-import { createTaggingFetch } from "@viu/emporix-sdk-next";
+import { auth } from "@viu/emporix-sdk";
+import { getEmporixServiceClient } from "@viu/emporix-sdk-next/service";
 
-const sdk = new EmporixClient({
-  tenant,
-  credentials: { backend: { clientId, secret } },
-  fetch: createTaggingFetch({ tenant, revalidate: 3600 }),
+const service = getEmporixServiceClient({           // module scope
+  credentials: { assets: { clientId, secret } },
 });
+
+// in a Route Handler, Server Action or Server Component
+const asset = await service.media.get(assetId, auth.service("assets"));
 ```
 
-Both entry points also take a request budget —
+`getEmporixClient` and `withEmporixSession*` also take a request budget —
 `{ timeouts: { connectMs, readMs } }`. The SDK's defaults (10 s / 60 s) are a poor
 fit for a storefront under load; see
 [`docs/next.md`](https://github.com/viuteam/emporix-sdk/blob/main/docs/next.md#picking-a-request-budget).
@@ -496,7 +516,8 @@ fit for a storefront under load; see
 
 `siteCode` and `language` go into two places that have to agree: the server's
 `getEmporixClient({ context })` and `prefetchEmporix` keys, and the client's
-`SiteContextProvider`. Disagree and every hydration cache hit becomes a miss.
+`EmporixProvider` (`initialSiteCode`, `initialLanguage`). Disagree and every
+hydration cache hit becomes a miss.
 A `proxy.ts` is the only place to resolve them before the render.
 
 `emporixSiteProxy` owns the cookie mechanics. You own the routing policy:

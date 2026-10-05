@@ -2,20 +2,22 @@
 
 `@viu/emporix-sdk-angular` wires the Emporix SDK into an Angular application:
 one `provideEmporix()`, signal-based `inject*` functions over TanStack Query, and
-the same cache keys and auth resolution as `@viu/emporix-sdk-react` — literally
-the same key builder, asserted by test.
+the same key builder and auth resolution as `@viu/emporix-sdk-react` — literally
+the same `emporixKey`, asserted by test.
 
-**One exception to that key parity: the seven segment reads.** React's segment
-hooks hand-roll `["emporix", "segment", "list", { … }]` instead of calling
-`emporixKey`, so their keys differ from the ones here, which go through the
-shared builder like every other read (`["emporix", "segments", …]`). Closing the
-gap means fixing the React side; hand-rolling keys here would also drop them out
-of the `["emporix"]`-scoped defaults and invalidation.
+**The builder is shared; many keys are not.** Each binding picks its own resource
+names and arguments, so a good number of reads key differently from their React
+counterparts — among them the order reads (`my-orders`, `order`,
+`order-transitions` and `sales-order` here; `orders` and `salesorders` in React),
+the company reads (deviation 2 below), reward points and the infinite lists. The
+seven segment reads differ for a second reason: React's segment hooks hand-roll
+`["emporix", "segment", "list", { … }]` instead of calling `emporixKey`.
+Invalidate by the keys this package builds, never by React's.
 
-**Status: at parity with the React bindings.** 87 injectables covering 111 of
-React's 113 hooks — the primitives, the site context, the customer session, the
+**Status: at parity with the React bindings.** 87 injectables covering 113 of
+React's 115 hooks — the primitives, the site context, the customer session, the
 account-credential operations, every storefront read, eleven mutation bundles and
-the B2B company context. The two that are missing and the three deliberate
+the B2B company context. The two that are missing and the two deliberate
 deviations are named in
 [Coverage against the React bindings](#coverage-against-the-react-bindings), so
 the gap is a list rather than something you discover by failing to import.
@@ -192,11 +194,12 @@ for testing your own query composition without a DI container.
 
 ## The injectables
 
-79 of them beside the seven primitives, grouped by area. Every read is a thin
-wrapper over `injectEmporixQuery` or `injectEmporixInfinite` and every write over
-`writeBundle`, so the auth resolution, the cache key, the `enabled` gate and the
-post-write invalidation each live in exactly one place. Arguments are **signals**,
-read inside the options callback, so changing one re-keys and refetches.
+80 of them beside the seven primitives, grouped by area. Every read is a thin
+wrapper over `injectEmporixQuery` or `injectEmporixInfinite` and every mutation
+bundle over `writeBundle`, so the auth resolution, the cache key, the `enabled`
+gate and the post-write invalidation each live in exactly one place. Arguments
+are **signals**, read inside the options callback, so changing one re-keys and
+refetches.
 
 | Area | Injectables |
 |---|---|
@@ -370,14 +373,14 @@ invalidation model. Hydration is the problem this entry addresses.
 
 ## Coverage against the React bindings
 
-`@viu/emporix-sdk-react` exports **113 hooks** (109 from `./hooks`, four more from
-its root). **111 of them have an equivalent here.** The counts below come from the
+`@viu/emporix-sdk-react` exports **115 hooks** (109 from `./hooks`, six more from
+its root). **113 of them have an equivalent here.** The counts below come from the
 built `.d.ts` of both packages, not from prose:
 
 | | Count |
 |---|---|
 | Angular `inject*` functions | 87 |
-| React hooks with a same-named injectable | 71 |
+| React hooks with a same-named injectable | 73 |
 | React hooks covered under a different name or shape | 40 |
 | **React hooks with no equivalent** | **2** |
 
@@ -410,7 +413,7 @@ If you need something that is not here, call the SDK directly through
 `injectEmporix().client` and wrap it in `injectEmporixQuery` yourself — that is
 exactly what the shipped injectables do.
 
-### Three places this deviates from React on purpose
+### Two places this deviates from React on purpose
 
 Each is a decision with a reason, not a porting gap.
 
@@ -419,17 +422,17 @@ Each is a decision with a reason, not a porting gap.
    whoever the bearer is. React forces `auth.anonymous()` in
    `useAddSessionAttribute` while its own site context passes the live context to
    `sessionContext.patch` — the two can land on different sessions.
-2. **The company switch is a queue, not a race.** Two concurrent switches both
-   read the refresh token, and Emporix rotates it server-side, so the second would
-   spend one the first consumed. `injectEmporixSiteSwitch` can use a race guard
-   because it rotates nothing; this cannot.
-3. **The five company reads key under their own resources.** React keys four of
-   them under one `"companies"` key, so adding a location refetches every company
+2. **The five company reads key under their own resources.** React keys all five
+   under one `"companies"` key, so adding a location refetches every company
    panel on the page — and Emporix bills per request.
 
-The first is a defect on the React side worth its own fix. A fourth deviation is
+The first is a defect on the React side worth its own fix. A third deviation is
 gone: React's customer-only hooks used to throw during render without a token,
 and now behave like these — reads stay disabled, writes reject when run.
+
+The company switch is not a deviation: both bindings queue concurrent switches,
+because Emporix rotates the refresh token and a racing second switch would spend
+one the first already consumed.
 
 ## Why there is no `ng-packagr`
 

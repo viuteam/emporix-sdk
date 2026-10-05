@@ -18,11 +18,11 @@ shipped as a pnpm workspace monorepo.
 | --- | --- |
 | [`@viu/emporix-sdk`](./packages/sdk) | Core, framework-agnostic SDK: auth, HTTP, logging + the full Emporix service surface — **catalog** (Product, Category, Price, Brand, Label, Catalog), **cart & checkout** (Cart, Checkout, Payment, Coupon, Tax, Shipping, Fee), **orders & fulfilment** (Orders, SalesOrders, Quote, Invoice, Returns, Availability, Indexing), **customers & B2B** (Customer, CustomerAdmin, Companies, Contacts, Locations, CustomerGroups, Approval, RewardPoints, Segment, IAM), and **platform** (Site, SessionContext, TenantConfig, ClientConfig, Media, Schema, Webhooks, SequentialId, UnitHandling, Country, Currency, Vendor, ShoppingList, CloudFunctions, AI, RagIndexer, Import, AuditLog) |
 | [`@viu/emporix-sdk-react`](./packages/react) | React bindings: provider, hooks, storage adapters, SSR helpers |
-| [`@viu/emporix-sdk-angular`](./packages/angular) | Angular bindings: `provideEmporix`, signal-based `inject*` over TanStack Query, site context and customer session. Built with tsup rather than `ng-packagr` because it holds no decorators |
+| [`@viu/emporix-sdk-angular`](./packages/angular) | Angular bindings: `provideEmporix`, signal-based `inject*` over TanStack Query, site context, customer session and B2B company context (`injectEmporixCompany`, `injectCompanySwitch`). Built with tsup rather than `ng-packagr` because it holds no decorators |
 | [`@viu/emporix-mixins`](./packages/mixins) | Generic, tenant-agnostic toolkit to resolve Emporix mixins as typed values and keep them in sync with the Schema Service (runtime accessor + pluggable sources + `emporix-mixins` codegen CLI) |
 | [`@viu/emporix-sdk-next`](./packages/next) | Next.js server bindings: URL-derived cache tags, cookie- or store-backed session for RSC and Server Actions, a **server-first mode** that keeps every Emporix token out of the browser (login, token proxy, site detection), service-account clients, webhook-driven `revalidateTag`. Needs no React. |
 
-Five runnable examples live in [`examples/`](./examples) — see its
+Eight runnable examples live in [`examples/`](./examples) — see its
 [README](./examples/README.md) for which one answers which question:
 
 | Example | Shows |
@@ -33,6 +33,8 @@ Five runnable examples live in [`examples/`](./examples) — see its
 | [`next-app-router`](./examples/next-app-router) | Next 16 with client-side hooks |
 | [`next-server-first`](./examples/next-server-first) | Next 16 with **no Emporix token in the browser** |
 | [`md-module`](./examples/md-module) | an Emporix **Managed Dashboard module** — the host owns the customer token |
+| [`angular-storefront`](./examples/angular-storefront) | the smallest Angular integration — a test rig for the AOT production build, not a demo |
+| [`angular-storefront-demo`](./examples/angular-storefront-demo) | the Angular counterpart of `storefront-demo` (**places real orders**) |
 
 Example packages are private and never published.
 
@@ -69,10 +71,13 @@ const me = await sdk.customers.me(auth.customer(customerToken));
 ```
 
 See [`packages/sdk/README.md`](./packages/sdk/README.md),
-[`packages/react/README.md`](./packages/react/README.md), and
+[`packages/react/README.md`](./packages/react/README.md),
+[`packages/angular/README.md`](./packages/angular/README.md),
+[`packages/next/README.md`](./packages/next/README.md), and
 [`packages/mixins/README.md`](./packages/mixins/README.md) for full guides, plus
 [`docs/auth.md`](./docs/auth.md), [`docs/logging.md`](./docs/logging.md),
-[`docs/react.md`](./docs/react.md), and [`docs/`](./docs) for per-service guides
+[`docs/react.md`](./docs/react.md), [`docs/angular.md`](./docs/angular.md),
+[`docs/next.md`](./docs/next.md), and [`docs/`](./docs) for per-service guides
 (b2b, checkout, media, availability, returns, coupon, reward-points, approval, …).
 
 ## Development
@@ -80,9 +85,9 @@ See [`packages/sdk/README.md`](./packages/sdk/README.md),
 ```bash
 nvm use          # picks Node 24 from .nvmrc (matches CI primary)
 pnpm install
+pnpm build       # library packages — before typecheck: examples check against dist/
 pnpm typecheck   # repo-wide (packages + examples)
-pnpm test        # library packages
-pnpm build       # library packages
+pnpm test        # library packages + the md-module and next-server-first suites
 ```
 
 CI exercises Node 20, 22, and 24 in the PR-check matrix; release + e2e run on
@@ -90,8 +95,10 @@ Node 24 LTS (`.github/workflows/*.yml`). The published packages'
 runtime floor is `engines.node: ">=20.19.0"` — that's the support contract for
 consumers, not a development requirement.
 
-Root `build`/`test`/`lint` are scoped to `./packages/*` (the publishable
-libraries); examples are excluded from the release gate but still typechecked.
+Root `build`/`lint` are scoped to `./packages/*` (the publishable libraries);
+root `test` adds the two examples with real suites, `md-module` and
+`next-server-first`. `release.yml` runs build, typecheck and test before it
+publishes, so a broken example blocks a release too.
 
 ## Releases — two-PR Changesets model
 
@@ -99,10 +106,13 @@ Versions are driven by [Changesets](https://github.com/changesets/changesets),
 **not** commit messages (Conventional Commits are enforced only for history
 hygiene — see [`CONTRIBUTING.md`](./CONTRIBUTING.md)).
 
-1. Every PR that changes `packages/*/src/**` adds a changeset
-   (`pnpm changeset`). CI enforces this unless the PR is labelled `no-release`.
+1. Every PR that changes a file under `packages/*` — any file, not only
+   `src/**` — adds a changeset (`pnpm changeset`). CI enforces this with
+   `pnpm changeset status`; a PR that releases nothing is labelled `no-release`
+   or carries an empty changeset (`pnpm changeset --empty`).
 2. Merging to `main` with unconsumed changesets makes the Changesets action
-   open/update a **"Version Packages"** PR (version bumps + changelog).
+   open/update a **`chore(release): version packages`** PR (version bumps +
+   changelog).
 3. Merging that PR publishes the changed packages to npm with provenance and
    creates GitHub releases.
 
