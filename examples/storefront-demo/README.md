@@ -88,10 +88,11 @@ drops the stored guest session and cart. `VITE_DEMO_DEFAULT_TENANT` and
   delivery, payment, review) for guests **and** signed-in customers; a customer
   with everything on file starts at the review. Delivery methods come cheapest
   first, and the summary replaces Emporix's delivery estimate with the chosen
-  method: subtotal, delivery and VAT (net with a VAT line on a site whose prices
-  exclude tax), and a gross total that is also the payment amount. Places a real
-  order, then clears the closed cart. The customer path sends the `saas-token`
-  header; a `payment-gateway` mode also sends its code as `method`.
+  method: subtotal, discount, fees, delivery and VAT (net with a VAT line on a
+  site whose prices exclude tax), and a gross total that is also the payment
+  amount. Places a real order, then clears the closed cart. The customer path
+  sends the `saas-token` header; a `payment-gateway` mode also sends its code as
+  `method`.
 - **Account** — sign in / sign up, profile, password, addresses
   (`useCustomerSession`, `useUpdateCustomer`, `useChangePassword`,
   `useCustomerAddresses`/`useAddressMutations`), and password reset.

@@ -28,6 +28,11 @@
     - The re-sign-in form was checked by removing the stored token, and its wording fixed (`4454a50`).
     - A VAT line of zero is hidden.
   - The same missing `method` sits in `next-server-first` and the Angular demo. That is left to a separate task, outside this scope.
+- **2026-10-05, review before PR 2 was opened:** the totals had three faults the live check did not exercise.
+  - Discounts were subtracted twice: the subtotal already came from `discountedPrice`, and a discount line followed it.
+  - The cart's fees (`totalFee`, part of `finalPrice`) were left out, so a tenant with fees would have got too low a payment amount.
+  - The lines could miss the total by a cent, because the cart computes with more than two decimals: express showed 2.08 + 39.00 + 3.21 against 44.30.
+  - `CheckoutTotals` now carries the lines as shown (`subtotal` before discounts, `discount`, `fees`, `delivery`) and derives the VAT from the total. The code in Tasks 10 and 11 below is the earlier version.
 
 ## Global Constraints
 

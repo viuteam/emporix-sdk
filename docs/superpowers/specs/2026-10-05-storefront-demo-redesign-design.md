@@ -77,7 +77,10 @@ its `app/styles/tokens.css`.
    VAT 2.5 %), `totalShipping` (the estimate: net 12.90, gross 13.94, VAT 8.1 %)
    and `finalPrice` (net 14.98, gross 16.08) — `finalPrice` contains the delivery
    estimate. `discountedPrice` and `totalDiscount` are absent without discounts.
-   The demo uses none of it.
+   The demo uses none of it. The values carry more than two decimals (items net
+   2.0846, gross 2.1367), so lines rounded one by one can miss the rounded total
+   by a cent. The cart spec's examples add `price` as the items before discounts
+   and `totalFee` for fees, which `finalPrice` contains as well.
 6. ~~A signed-in customer loses the `saasToken` on reload.~~ Taken from the
    demo's README, which was stale: the SDK has persisted the token since
    `bcb35c4` (2026-06-13), as the PR 2 live check showed. What remains true is
@@ -257,19 +260,25 @@ with «Edit». The step is not part of the URL.
   step 5 is open. This removes the accordion's cost for repeat orders.
 - **Summary** (`OrderSummary`): sticky on the right; on narrow screens a
   collapsible bar above the steps showing the total. Lines show image, article
-  number, `quantity × unit price` and the line total; below them subtotal,
-  discount (when non-zero), delivery, VAT, the free-delivery hint and the total.
-  On a site whose prices exclude tax (`site.includesTax` is `false`, as on the
-  B2B site) subtotal and delivery are labelled «excl. VAT» and the VAT is its own
-  line; otherwise they are gross and the VAT shows as «incl. VAT».
+  number, `quantity × unit price` and the line total; below them the subtotal
+  before discounts, discount and fees (when non-zero), delivery, VAT, the
+  free-delivery hint and the total. On a site whose prices exclude tax
+  (`site.includesTax` is `false`, as on the B2B site) subtotal, fees and delivery
+  are labelled «excl. VAT» and the VAT is its own line; otherwise they are gross
+  and the VAT shows as «incl. VAT».
 - **Totals** are one pure function, `checkoutTotals(cart, delivery, includesTax)`
   in `src/checkout/totals.ts`, built on what the live cart returned:
   - items, net and gross, from `calculatedPrice.discountedPrice` or `.price`;
+    the subtotal is `.price`, before discounts, and the discount the difference;
+    fees come from `totalFee`;
   - the delivery **replaces** the cart's estimate: the chosen method's fee is the
     net amount (as the cart treated the standard fee), taxed at the rate the cart
     applied to its estimate (`totalShipping`); before a method is chosen, the
     cart's estimate stands in;
-  - `tax` is the VAT on items plus delivery, `total` the gross sum;
+  - `total` is the gross sum of items, fees and delivery, rounded once, as
+    `finalPrice` is; `tax` is what the total holds beyond the net lines as shown,
+    each rounded to cents, so on a tax-exclusive site the lines add up to the
+    total;
   - the free-delivery threshold and `pickFee` compare against the items net on a
     tax-exclusive site and gross otherwise;
   - without `calculatedPrice` it falls back to `subTotalPrice` (items) and shows

@@ -55,21 +55,21 @@ export function OrderSummary({
 }
 
 /**
- * Subtotal, discount, delivery, VAT and total. On a tax-exclusive site the parts
- * are net and the VAT is its own line; otherwise they are gross and the VAT shows
- * as «incl.». A VAT of zero is not shown. Without a chosen method the delivery is
- * the cart's estimate. Shared by the summary and the cart page.
+ * Subtotal, discount, fees, delivery, VAT and total. On a tax-exclusive site the
+ * parts are net and the VAT is its own line; otherwise they are gross and the VAT
+ * shows as «incl.». A discount, fees or VAT of zero is not shown. Without a chosen
+ * method the delivery is the cart's estimate. Shared by the summary and the cart
+ * page.
  */
 export function TotalsRows({ totals, deliveryName }: { totals: CheckoutTotals; deliveryName?: string | undefined }) {
   const m = (n: number) => money(n, totals.currency);
   const net = !totals.includesTax;
   const excl = net ? " (excl. VAT)" : "";
-  const delivery = net ? totals.deliveryNet : totals.deliveryGross;
   return (
     <div className="co-totals">
       <div className="co-totals__row">
         <span>Subtotal{excl}</span>
-        <span>{m(net ? totals.itemsNet : totals.itemsGross)}</span>
+        <span>{m(totals.subtotal)}</span>
       </div>
       {totals.discount > 0 ? (
         <div className="co-totals__row">
@@ -77,12 +77,18 @@ export function TotalsRows({ totals, deliveryName }: { totals: CheckoutTotals; d
           <span>−{m(totals.discount)}</span>
         </div>
       ) : null}
+      {totals.fees > 0 ? (
+        <div className="co-totals__row">
+          <span>Fees{excl}</span>
+          <span>{m(totals.fees)}</span>
+        </div>
+      ) : null}
       <div className="co-totals__row">
         <span>
           {deliveryName ? `Delivery · ${deliveryName}` : "Estimated delivery"}
           {excl}
         </span>
-        <span>{delivery === 0 ? "Free" : m(delivery)}</span>
+        <span>{totals.delivery === 0 ? "Free" : m(totals.delivery)}</span>
       </div>
       {net && totals.tax ? (
         <div className="co-totals__row">
