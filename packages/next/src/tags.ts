@@ -2,7 +2,7 @@
  * Cache-tag vocabulary and the URL→tag mapping.
  *
  * Tags are derived from the request URL rather than passed per call because the
- * SDK has 596 `http.request({...})` call sites, each building its own options
+ * SDK has about 600 `http.request({...})` call sites, each building its own options
  * literal — a per-call tag would be forgotten somewhere. Deriving centrally
  * makes that impossible.
  */
