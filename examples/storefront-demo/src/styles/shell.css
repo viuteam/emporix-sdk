@@ -206,3 +206,32 @@
   font-size: var(--step--1);
   color: var(--text-2);
 }
+
+/* Setup screen */
+.setup {
+  max-width: 44rem;
+  padding-block: var(--s-7);
+}
+.setup__title {
+  margin-block: var(--s-2) var(--s-3);
+}
+.setup__lead {
+  max-width: 52ch;
+  margin-bottom: var(--s-4);
+}
+.setup__form {
+  margin-top: var(--s-5);
+}
+.setup__advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-2);
+  padding-block: var(--s-2);
+}
+.setup__sites {
+  border: 0;
+  padding: 0;
+}
+.setup__sites legend {
+  margin-bottom: var(--s-2);
+}
