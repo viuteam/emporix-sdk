@@ -20,6 +20,14 @@
     - a parent category falls back to the tree's children;
     - the cart summary splits off Emporix's delivery estimate.
   - The live cart's `calculatedPrice` (items net/gross, a delivery estimate inside `finalPrice`, net prices on the B2B site) amended Tasks 10, 11, 14 and 15. The amended passages say so.
+- **2026-10-05, PR 2 live check (Task 16):**
+  - Delivery methods are sorted by fee (`2cee052`). The zone listed express first, so the cheapest one, which the cart's own estimate uses, was not preselected.
+  - The first real order failed with `400` «payments[0].method must not be null». The `payment-gateway` method now carries the mode's code (`09ba48b`). The retry placed guest order `EON1330`, with `amount: 16.08` accepted.
+  - The `saasToken` survives a reload: the SDK has persisted it since `bcb35c4`.
+    - Step 4's reload expectation was wrong.
+    - The re-sign-in form was checked by removing the stored token, and its wording fixed (`4454a50`).
+    - A VAT line of zero is hidden.
+  - The same missing `method` sits in `next-server-first` and the Angular demo. That is left to a separate task, outside this scope.
 
 ## Global Constraints
 

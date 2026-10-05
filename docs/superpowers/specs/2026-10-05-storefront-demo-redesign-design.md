@@ -78,11 +78,20 @@ its `app/styles/tokens.css`.
    and `finalPrice` (net 14.98, gross 16.08) — `finalPrice` contains the delivery
    estimate. `discountedPrice` and `totalDiscount` are absent without discounts.
    The demo uses none of it.
-6. A signed-in customer loses the `saasToken` on reload, because it lives in
-   memory only. The form still renders; only «Place order» fails.
+6. ~~A signed-in customer loses the `saasToken` on reload.~~ Taken from the
+   demo's README, which was stale: the SDK has persisted the token since
+   `bcb35c4` (2026-06-13), as the PR 2 live check showed. What remains true is
+   that `setSaasToken` is optional on a storage adapter, so the checkout still
+   guards a session without the token — the form used to render and only «Place
+   order» failed.
 7. Payment modes render as `code · integrationType`. The confirmation shows the
    order id only, and its «View order» link sends a guest to the sign-in page,
    because `OrderDetail` sits behind `RequireAuth`.
+8. **Every `payment-gateway` order failed.** Found in the PR 2 live check: the
+   checkout answers `400` «payments[0].method must not be null» because the
+   payment method carried only `customAttributes.modeId`. The spec's own example
+   sends `method: invoice`, the mode's code. On a tenant without payment modes
+   the `custom` fallback hid it.
 
 ## Decisions
 
@@ -334,7 +343,7 @@ Per PR:
 |---|---|
 | Which `calculatedPrice` fields does a live cart return? | **Answered in the PR 1 live check (2026-10-05).** `price`, `shipping`, `totalShipping` and `finalPrice`, each with net, gross, tax and rate; `finalPrice` contains Emporix's delivery estimate; prices on the B2B site are net (`includesTax: false`). This reshaped the totals above. |
 | Does `setSite` re-price a guest? | **Answered in the PR 1 live check.** Yes, immediately (the visitor already has a cart by then). It also showed the switch outliving a reload on the server while the page fell back to the setup's site; fixed in PR 1 by persisting site, currency and country, and by dropping the guest session on «Change setup». No SDK change needed. |
-| Does Emporix accept the gross total, delivery included, as the payment amount? | Open: the one real order in PR 2. If it rejects it, send what it accepts and document why. |
+| Does Emporix accept the gross total, delivery included, as the payment amount? | **Answered in the PR 2 live check.** Yes: guest order `EON1330` on the B2B site, two items with standard delivery, `amount: 16.08` (items net 2.08 + delivery net 12.90 + VAT 1.10). The first attempt failed for another reason, the missing `method` (finding 8). |
 
 ## Out of scope
 

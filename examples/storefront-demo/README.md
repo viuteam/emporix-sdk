@@ -84,8 +84,14 @@ drops the stored guest session and cart. `VITE_DEMO_DEFAULT_TENANT` and
   Emporix already counts into the cart's total. Every cart change is one command
   chain (the write plus `GetCart`), so it costs one request instead of a write
   and a refetch.
-- **Checkout** — guest **and** signed-in customer; places a real order, then
-  clears the closed cart. The customer path sends the `saas-token` header.
+- **Checkout** — an accordion of five steps (contact, shipping address,
+  delivery, payment, review) for guests **and** signed-in customers; a customer
+  with everything on file starts at the review. Delivery methods come cheapest
+  first, and the summary replaces Emporix's delivery estimate with the chosen
+  method: subtotal, delivery and VAT (net with a VAT line on a site whose prices
+  exclude tax), and a gross total that is also the payment amount. Places a real
+  order, then clears the closed cart. The customer path sends the `saas-token`
+  header; a `payment-gateway` mode also sends its code as `method`.
 - **Account** — sign in / sign up, profile, password, addresses
   (`useCustomerSession`, `useUpdateCustomer`, `useChangePassword`,
   `useCustomerAddresses`/`useAddressMutations`), and password reset.
@@ -94,10 +100,11 @@ drops the stored guest session and cart. `VITE_DEMO_DEFAULT_TENANT` and
 
 ## Things worth knowing
 
-- **Customer checkout needs an in-session login.** The `saasToken` (required as
-  the `saas-token` header) is held in memory only — never persisted. It is
-  shared across components within a session, but a full page reload clears it,
-  so sign in and check out in the same session.
+- **Customer checkout needs the `saasToken`.** It is required as the
+  `saas-token` header. The SDK persists it next to the customer token, so a
+  reload keeps it; `setSaasToken` is optional on a storage adapter, though, and a
+  session without it gets a sign-in form in the checkout's first step instead of
+  a failing «Place order».
 - **Order history shows finalized orders.** A freshly placed order sits in
   `IN_CHECKOUT` until payment settles; it is reachable by id (the confirmation
   links straight to it) but won't appear in the history list until finalized.
@@ -118,10 +125,10 @@ src/
   config/      the two-step setup (SetupScreen, connect.ts) and its gate (ConfigGate)
   app/         provider wiring, shell, header/footer, toasts, telemetry HUD
   catalog/     product card/grid, add-to-cart hook, gallery, variant picker, category chips and sidebar
-  checkout/    address/shipping/payment form parts
+  checkout/    accordion steps, order summary, totals, confirmation
   account/     auth, profile, addresses, orders, returns, rewards, lists
   components/  ui/ primitives — Button, Field, Tag, Spinner, EmptyState, Alert, RadioCard
   pages/       routed screens (Home, Categories, Search, Category, Product, Cart, Checkout, account/*)
   lib/         re-export of examples/shared, plus usePrices / useProductNames / countries
-  styles/      design tokens, base, shell and catalogue stylesheets
+  styles/      design tokens, base, shell, catalogue and checkout stylesheets
 ```
