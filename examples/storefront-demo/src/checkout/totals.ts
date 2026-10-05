@@ -52,7 +52,7 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /**
  * The checkout's money, built on what a live cart returns: `calculatedPrice`
- * carries the items net and gross, and a delivery estimate (the zone's first
+ * carries the items net and gross, and a delivery estimate (the cheapest
  * method) in `totalShipping` that `finalPrice` already contains. The chosen
  * delivery replaces that estimate, taxed at the rate the cart applied to it. On a
  * tax-exclusive site the configured fee is the net amount (that is how the cart

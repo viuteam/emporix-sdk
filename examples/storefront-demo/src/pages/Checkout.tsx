@@ -95,7 +95,8 @@ export function Checkout() {
   const orderValue = checkoutTotals(cart, null, includesTax)?.orderValue;
   const shipCountry = shipping.country || firstCountry || "";
   const { options, isLoading: optionsLoading } = useDeliveryOptions(shipCountry, orderValue);
-  // The first method is preselected; the fallback only once nothing resolved.
+  // The cheapest method (options come sorted) is preselected; the fallback only
+  // once nothing resolved.
   const delivery =
     options.find((o) => o.methodId === deliveryId) ?? options[0] ?? (optionsLoading ? null : fallbackDelivery(shipCountry));
   const totals = checkoutTotals(cart, delivery, includesTax);

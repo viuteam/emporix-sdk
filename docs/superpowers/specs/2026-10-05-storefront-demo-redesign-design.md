@@ -65,7 +65,7 @@ its `app/styles/tokens.css`.
    `paymentMethods[0].amount` (which `checkout.yml` defines as "Amount to be paid
    by the customer") are both `cart.totalPrice`. A live cart on the B2B site
    (2026-10-05, after the first version of this spec) showed what that is: the
-   items **net** plus Emporix's own delivery estimate **net** (the zone's first
+   items **net** plus Emporix's own delivery estimate **net** (the cheapest
    method, CHF 12.90), without VAT — CHF 14.98 for two items worth CHF 2.08. The
    summary then lists the chosen delivery fee on top, and a shopper who picks
    express still pays the standard estimate. On a site with free delivery and

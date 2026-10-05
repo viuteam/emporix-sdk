@@ -13,8 +13,10 @@ import { freeFrom, type DeliveryChoice } from "./totals";
 /**
  * The methods of the zone that ships to `country`, each priced from its fee
  * table at the order value (`CheckoutTotals.orderValue`: items net on a
- * tax-exclusive site). Lives outside the step so the checkout can preselect a
- * method before step 3 ever opens.
+ * tax-exclusive site), cheapest first. The first one is preselected, so the
+ * default matches the delivery estimate the cart itself counts — the zone lists
+ * its methods in no useful order (express came first on the test tenant). Lives
+ * outside the step so the checkout can preselect a method before step 3 opens.
  */
 export function useDeliveryOptions(
   country: string,
@@ -42,7 +44,8 @@ export function useDeliveryOptions(
             ...(free !== undefined ? { freeFrom: free } : {}),
           },
         ];
-      });
+      })
+      .sort((a, b) => a.amount - b.amount);
   }, [zones, country, orderValue]);
   return { options, isLoading };
 }

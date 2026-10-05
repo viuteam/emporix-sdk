@@ -3004,7 +3004,7 @@ git switch -c feat/storefront-demo-checkout feat/storefront-demo-redesign
 
 > **Amended after the PR 1 live check (2026-10-05).** A live cart returned the
 > items net and gross in `calculatedPrice.price`, and a delivery estimate (the
-> zone's first method, net CHF 12.90, VAT 8.1 %) in `totalShipping` that
+> cheapest method, net CHF 12.90, VAT 8.1 %) in `totalShipping` that
 > `finalPrice` already contains. The first version of this task added the chosen
 > fee to `finalPrice` and would have counted delivery twice. The function below
 > replaces the estimate with the chosen delivery instead.
@@ -3066,7 +3066,7 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /**
  * The checkout's money, built on what a live cart returns: `calculatedPrice`
- * carries the items net and gross, and a delivery estimate (the zone's first
+ * carries the items net and gross, and a delivery estimate (the cheapest
  * method) in `totalShipping` that `finalPrice` already contains. The chosen
  * delivery replaces that estimate, taxed at the rate the cart applied to it. On a
  * tax-exclusive site the configured fee is the net amount (that is how the cart
