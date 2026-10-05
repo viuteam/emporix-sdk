@@ -12,7 +12,7 @@ pnpm -F @viu/emporix-sdk-angular build
 pnpm -F @viu/emporix-examples-angular exec ng build --configuration production
 ```
 
-That build runs in `pr-check.yml` on every PR.
+That build runs in `pr-check.yml` on every PR against `main`.
 
 ## Why it renders a value instead of nothing
 
@@ -34,7 +34,8 @@ not only the way `tsc` does.
   reason.
 - **TypeScript.** `@angular/compiler-cli@22` peers `typescript >=6.0 <6.1`, so
   this example declares TypeScript 6 while the rest of the workspace is on 5.9.
-  It is contained here; `packages/angular` itself compiles fine on 5.9.
+  It is contained to the two Angular examples (`angular-storefront-demo` pins
+  `~6.0.2` too); `packages/angular` itself compiles fine on 5.9.
 
 Decorators are used in this app and that is not a contradiction: the
 no-decorator rule applies to `packages/angular`, which is compiled by tsup. This

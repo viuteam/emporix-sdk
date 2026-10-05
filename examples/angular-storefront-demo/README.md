@@ -12,6 +12,9 @@ pnpm -F @viu/emporix-sdk-angular build
 pnpm -F @viu/emporix-examples-angular-storefront start
 ```
 
+The Angular CLI runs only on Node `^22.22.3 || ^24.15.0 || >=26.0.0` and exits on
+anything older.
+
 There is nothing to configure first. The app asks for a tenant and a public
 storefront client id on the setup screen and keeps them in `localStorage` — **no
 configuration lives in this source tree**, so the example can be committed and
@@ -21,7 +24,7 @@ built in CI without pointing at anyone's account.
 
 **[`src/app/pages/home.ts`](./src/app/pages/home.ts) first**, because it is now
 four lines of data layer: `injectProductsInfinite` for the catalog and
-`injectMatchPrices` for what is on screen. The package ships 86 injectables, so
+`injectMatchPrices` for what is on screen. The package ships 87 injectables, so
 the components call them directly.
 
 [`src/app/lib/queries.ts`](./src/app/lib/queries.ts) is what is left of the local
@@ -70,7 +73,7 @@ Building this is what found a bug in the package: `injectEmporixInfinite` built 
 `queryFn` through `emporixQueryOptions`, whose signature takes no arguments, so
 TanStack's `pageParam` was dropped and every page would have re-fetched page one.
 The interface now takes `fetchPage(pageNumber, ctx)` and owns the cursor logic
-itself, mirroring React's internal `useEmporixInfinite`. Verified live: 24 distinct
+itself, mirroring React's `useEmporixInfinite`. Verified live: 24 distinct
 products across two pages, item 13 a different product from item 1.
 
 ## Two things running it taught us
@@ -96,29 +99,38 @@ rendered blank columns.
 
 **Checkout is complete and does place orders.** It resolves delivery options from
 the tenant's shipping zones (with the applicable fee via the SDK's `pickFee`),
-offers the configured payment modes, assembles the `CheckoutInput` and calls
-`client.checkout.placeOrder`. The payload is shown in a `<details>` block above the
-button, so you can read exactly what will be sent before sending it.
+offers the configured payment modes, assembles the `CheckoutInput` and passes it
+to `injectCheckout().placeOrder(...)`. The template follows the binding's
+`isPending` and `error` signals: «Place order» is disabled while the order is in
+flight, success shows the order number from `placeOrder`'s result, and a failure
+shows the error. The payload is shown in a `<details>` block below the button, so
+you can read exactly what will be sent before sending it.
 
-Four things it has to get right, each of which Emporix rejects otherwise:
+Five things it has to get right, each of which Emporix rejects otherwise:
 
 - **`customer.id` present exactly when signed in.** Without it a customer
   checkout answers «Cannot found customer»; with it, a guest is claiming an
   account it does not own.
 - **The `saas-token` header on a customer checkout.** That token comes from login
   and cannot be re-minted by a refresh, which is why the session persists it.
+  `injectCheckout` attaches it.
 - **One `SHIPPING` and one `BILLING` address.** Billing mirrors shipping here.
 - **Dropping the local cart id on success.** Emporix closes the cart, so a kept
   id makes every later cart read 404 with nothing to bootstrap over.
+  `injectCheckout` drops it.
+- **`method` on a `payment-gateway` payment.** The selected mode's code goes
+  along as `method`; without it Emporix answers 400 «payments[0].method must not
+  be null».
 
 The default payment provider is `custom`, which records the order without
 attempting a capture — that is why every existing order on the demo tenant reads
-`IN_CHECKOUT`. Selecting a configured mode routes through the payment gateway for
-real, so pick that only if you mean it.
+`IN_CHECKOUT`. Selecting a configured mode sends it as `payment-gateway`, `method`
+included, and routes through the payment gateway for real, so pick that only if
+you mean it.
 
 ## What is not here
 
-Compared with `storefront-demo`'s 17 routes, this has 10. The gap is no longer the
+Compared with `storefront-demo`'s 18 routes, this has 10. The gap is no longer the
 package — `@viu/emporix-sdk-angular` now covers the whole storefront surface — it
 is that a reference app does not need a route per injectable. Missing here but
 available in the package: reward points, returns, coupons, segments, approvals,

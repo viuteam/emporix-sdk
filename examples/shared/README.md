@@ -1,9 +1,10 @@
 # Shared example helpers
 
 **Not a demo, and not published.** A helper set that
-[`storefront-demo`](../storefront-demo) and
-[`next-server-first`](../next-server-first) both need, extracted so the two
-cannot drift apart.
+[`storefront-demo`](../storefront-demo),
+[`next-server-first`](../next-server-first) and
+[`angular-storefront-demo`](../angular-storefront-demo) all need, extracted so
+they cannot drift apart.
 
 ## Why it exists
 
@@ -35,9 +36,14 @@ to keep forever.
 `src/format.ts` has no imports at all — paste it anywhere. `src/adapters.ts`
 imports `@viu/emporix-sdk` twice, and the two are not the same weight: the `type`
 import of `Product`, `Media` and `PriceMatch` vanishes at compile time, but
-`productIdFromYrn` is a **runtime** function. Copy that one too — it is eleven
-lines in `packages/sdk/src/core/yrn.ts` — or keep the SDK as a dependency. This
-README claimed «no dependency beyond types» until someone checked.
+`productIdFromYrn` is a **runtime** function. Copy that one too — it is five
+lines of code in `packages/sdk/src/core/yrn.ts` — or keep the SDK as a
+dependency. This README claimed «no dependency beyond types» until someone
+checked.
+
+One line is tenant-specific: `LOCALE_ORDER` in `src/adapters.ts` starts with the
+site's default language (`de` on the `viu` tenant) — put yours first when you
+copy it.
 
 ## What is not here
 
@@ -49,8 +55,9 @@ tag-stripping path while believing it had a sanitizer. Server-side callers use
 ## Conventions
 
 No build step: `exports` points at `src/`, and consumers typecheck against the
-source. This package's own `test` and `lint` are no-ops, like the other examples,
-and it is mostly covered by the two demos typechecking, building and running.
+source. This package's own `test` and `lint` are no-ops, as in most of the
+examples, and it is mostly covered by its three consumers typechecking, building
+and running.
 
 One exception, and it earned its place: `stripHtml` is unit-tested from
 [`next-server-first/tests/strip-html.test.ts`](../next-server-first/tests/strip-html.test.ts),
