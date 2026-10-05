@@ -1,4 +1,5 @@
 export { CompaniesService } from "./services/companies";
+export type { LegalEntitySearchInput } from "./services/companies";
 export type {
   LegalEntity,
   LegalEntityCreate,

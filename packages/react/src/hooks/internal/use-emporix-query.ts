@@ -49,8 +49,8 @@ export type EmporixQueryConfig<T, TArgs extends readonly unknown[] = readonly un
  * the hand-rolled `useQuery` it replaced — same key, same gate, same staleness.
  *
  * **Public, so you can wrap the operations this package does not.** The SDK
- * exposes ~490 operations and the hooks cover about a quarter of them; the rest
- * are back-office calls a storefront token cannot make. In a Managed Dashboard
+ * wraps about 630 operations and the hooks cover the storefront-facing part; the
+ * rest are back-office calls a storefront token cannot make. In a Managed Dashboard
  * module the host's token *can*, so wrapping one is a five-line hook — and going
  * through this factory is what keeps its cache key identical to every other
  * read's, which hand-rolling `useQuery` does not.
@@ -58,14 +58,14 @@ export type EmporixQueryConfig<T, TArgs extends readonly unknown[] = readonly un
  * @example
  * ```ts
  * // An admin read, in a Managed Dashboard module.
- * function useBrands(params: { pageNumber?: number } = {}) {
+ * function useBrands(query: Record<string, string | number> = {}) {
  *   const { client } = useEmporix();
  *   return useEmporixQuery({
  *     mode: "customer", // the host's token, which has the scopes
  *     site: "none", // brands are tenant-scoped, not site-scoped
  *     resource: "brands",
- *     args: [params],
- *     queryFn: (ctx) => client.brands.list(params, ctx),
+ *     args: [query],
+ *     queryFn: (ctx) => client.brands.listBrands(query, ctx),
  *   });
  * }
  * ```
