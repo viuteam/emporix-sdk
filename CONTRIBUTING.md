@@ -18,16 +18,18 @@ docs: document the SSO token-exchange seam
 
 ## Changesets — declaring release intent
 
-Before opening a PR that changes `packages/*/src/**`, run:
+Before opening a PR that changes any file under `packages/*`, run:
 
 ```bash
 pnpm changeset
 ```
 
 Pick the affected package(s), bump level, and a summary. This writes
-`.changeset/<name>.md`, reviewed like any other file. CI fails a PR that
-touches `packages/*/src/**` without a changeset, unless it is labelled
-`no-release`.
+`.changeset/<name>.md`, reviewed like any other file. CI's
+`pnpm changeset status` gate fails a PR that touches any file under
+`packages/*` — a README or a test as much as `src/**` — without a changeset,
+unless it is labelled `no-release`. A PR that releases nothing can also carry an
+empty changeset (`pnpm changeset --empty`).
 
 ### Examples
 
@@ -69,8 +71,8 @@ auto-bumps `@viu/emporix-sdk-react` to point at it. Example packages
 ## Two-PR release flow
 
 1. Merge feature PRs (each with its changeset) into `main`.
-2. The Changesets action opens/updates a **"Version Packages"** PR with version
-   bumps and changelog entries.
+2. The Changesets action opens/updates a **`chore(release): version packages`**
+   PR with version bumps and changelog entries.
 3. Merging that PR publishes to npm (with provenance) and creates GitHub
    releases.
 
