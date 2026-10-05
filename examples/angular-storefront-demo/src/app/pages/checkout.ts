@@ -145,7 +145,8 @@ export class Checkout {
   });
 
   protected readonly paymentModes = computed(
-    () => (this.modes.data() as Array<{ id?: string; name?: string }> | undefined) ?? [],
+    () =>
+      (this.modes.data() as Array<{ id?: string; code?: string; name?: string }> | undefined) ?? [],
   );
 
   /** What the form still lacks, so the disabled button says why. */
@@ -188,6 +189,7 @@ export class Checkout {
     const amount = this.total()?.amount ?? 0;
     const customerId = this.session.customer()?.id;
     const authenticated = this.session.isAuthenticated();
+    const mode = this.paymentModes().find((m) => m.id === this.modeId());
 
     return {
       cartId: this.cartId() ?? "",
@@ -214,11 +216,14 @@ export class Checkout {
                 : {}),
             }
           : { methodId: "free", zoneId: a.country, methodName: "Free Shipping", amount: 0 },
+      // `payment-gateway` also needs `method`, the mode's code (`invoice`): without
+      // it the checkout answers 400 «payments[0].method must not be null».
       paymentMethods:
         this.modeId() !== null
           ? [
               {
                 provider: "payment-gateway",
+                ...(mode?.code !== undefined ? { method: mode.code } : {}),
                 customAttributes: { modeId: this.modeId() as string },
                 amount,
               },

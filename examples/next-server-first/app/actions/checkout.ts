@@ -54,13 +54,15 @@ export async function submitCheckout(formData: FormData): Promise<void> {
   let orderId: string | undefined;
   try {
     const result = await withEmporixSessionMutable(async (client, ctx, handle) => {
-      const [cart, zones, customerId] = await Promise.all([
+      const [cart, zones, modes, customerId] = await Promise.all([
         client.carts.get(cartId, ctx),
         client.shipping.listZones(
           SITE.siteCode,
           { expand: "methods,fees", activeMethods: "true" },
           ctx,
         ),
+        // The form posts only the mode's id; the code it needs as `method` is here.
+        client.payments.listPaymentModes(ctx),
         // Emporix REQUIRES `customer.id` for a logged-in checkout and REJECTS it
         // for a guest — 400 either way if you get it backwards.
         loggedIn ? client.customers.me(ctx).then((c) => c.id) : Promise.resolve(undefined),
@@ -95,6 +97,7 @@ export async function submitCheckout(formData: FormData): Promise<void> {
         country,
       };
 
+      const mode = modes.find((m) => m.id === modeId);
       const input: CheckoutInput = {
         cartId,
         customer: {
@@ -113,8 +116,17 @@ export async function submitCheckout(formData: FormData): Promise<void> {
         ],
         // `custom` is a documented Emporix provider, not a demo stand-in: the
         // order it creates carries the IN_CHECKOUT status and waits for payment.
+        // `payment-gateway` also needs `method`, the mode's code (`invoice`): without
+        // it the checkout answers 400 «payments[0].method must not be null».
         paymentMethods: modeId
-          ? [{ provider: "payment-gateway", customAttributes: { modeId }, amount: total }]
+          ? [
+              {
+                provider: "payment-gateway",
+                ...(mode?.code ? { method: mode.code } : {}),
+                customAttributes: { modeId },
+                amount: total,
+              },
+            ]
           : [{ provider: "custom", amount: total }],
       };
 
