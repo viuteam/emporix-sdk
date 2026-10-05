@@ -174,8 +174,17 @@ export function Checkout() {
       },
       addresses: [toAddress(shipping, "SHIPPING"), toAddress(billing, "BILLING")],
       // The payment amount is the total the shopper saw: items plus delivery, gross.
+      // `payment-gateway` also needs `method`, the mode's code (`invoice`): without
+      // it the checkout answers 400 «payments[0].method must not be null».
       paymentMethods: modeId
-        ? [{ provider: "payment-gateway", customAttributes: { modeId }, amount: totals.total }]
+        ? [
+            {
+              provider: "payment-gateway",
+              ...(mode?.code ? { method: mode.code } : {}),
+              customAttributes: { modeId },
+              amount: totals.total,
+            },
+          ]
         : [{ provider: "custom", amount: totals.total }],
     };
     try {
