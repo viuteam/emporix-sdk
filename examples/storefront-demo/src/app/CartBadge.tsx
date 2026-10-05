@@ -5,8 +5,14 @@ export function CartBadge() {
   const { data: cart } = useActiveCart();
   const count = cart?.items?.length ?? 0;
   return (
-    <Link to="/cart" className="u-underline">
-      Bag{count ? ` · ${count}` : ""}
+    <Link to="/cart" className="cart-link">
+      Cart
+      {count ? (
+        <span className="cart-link__count">
+          {count}
+          <span className="sr-only"> items</span>
+        </span>
+      ) : null}
     </Link>
   );
 }

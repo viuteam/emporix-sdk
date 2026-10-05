@@ -45,8 +45,8 @@ export function AuthTabs() {
   }
 
   return (
-    <div className="surface" style={{ maxWidth: "30rem", marginInline: "auto", padding: "var(--s-5)" }}>
-      <div className="cluster" role="tablist" aria-label="Account" style={{ gap: "var(--s-4)", marginBottom: "var(--s-4)" }}>
+    <div className="surface auth-card">
+      <div className="auth-tabs" role="tablist" aria-label="Account">
         {(["login", "signup"] as const).map((t) => (
           <button
             key={t}
@@ -54,19 +54,14 @@ export function AuthTabs() {
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className="btn btn--ghost btn--sm"
-            style={{
-              borderBottom: tab === t ? "2px solid var(--oxblood)" : "2px solid transparent",
-              color: tab === t ? "var(--ink)" : "var(--muted)",
-              borderRadius: 0,
-            }}
+            className="auth-tab"
           >
             {t === "login" ? "Sign in" : "Create account"}
           </button>
         ))}
       </div>
 
-      <form onSubmit={submit} className="stack" style={{ gap: "var(--s-3)" }}>
+      <form onSubmit={submit} className="stack">
         <Field
           label="Email"
           type="email"
@@ -93,13 +88,13 @@ export function AuthTabs() {
             onChange={(e) => setConfirm(e.target.value)}
           />
         ) : null}
-        <Button type="submit" variant="accent" block disabled={busy} style={{ marginTop: "var(--s-2)" }}>
+        <Button type="submit" variant="accent" block disabled={busy}>
           {busy ? "Please wait…" : tab === "login" ? "Sign in" : "Create account"}
         </Button>
       </form>
 
       {tab === "login" ? (
-        <p className="muted" style={{ marginTop: "var(--s-4)", fontSize: "var(--step--1)" }}>
+        <p className="auth-card__foot">
           Forgot your password? <Link to="/reset-password" className="u-underline">Reset it</Link>.
         </p>
       ) : null}

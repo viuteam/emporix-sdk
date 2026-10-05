@@ -46,21 +46,23 @@ the workflow (`/emporix-sdk/`). For a custom domain set `VITE_BASE=/` and add a
 pnpm -F @viu/emporix-examples-storefront-demo dev
 ```
 
-Vite prints a local URL (e.g. `http://localhost:5173`). On first load you get a
-setup screen — enter:
+Vite prints a local URL (e.g. `http://localhost:5173`). On first load the setup
+screen asks for two things, in two steps:
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| **Tenant** | yes | lowercase, 3–16 chars (`a–z`, `0–9`) |
-| **Storefront client id** | yes | the **public** storefront client id (no secret) |
-| Host | no | defaults to `https://api.emporix.io` |
-| Site code | no | e.g. `main` |
-| Currency | no | e.g. `CHF` — currency **and** country are needed for prices to resolve |
-| Country (`targetLocation`) | no | e.g. `CH` |
+1. **Connect** — the **tenant** (lowercase, 3–16 chars, `a–z`, `0–9`) and its
+   **public storefront client id** (no secret). The API host sits under
+   «Advanced» and defaults to `https://api.emporix.io`. «Connect» signs in
+   anonymously right away, so a wrong tenant or client id fails here.
+2. **Choose a site** — the tenant's active sites, with currency and ship-to
+   countries. The site sets the price context: its currency and its home country
+   become the session's `currency` and `targetLocation`, which is what makes
+   prices resolve. Optionally pick a **featured category** to fill the home page;
+   choose one whose products have a price on that site.
 
-Config is kept in `localStorage` (`emporix.demo.config`); use **Change tenant**
-in the footer to reset. You can prefill the setup screen with
-`VITE_DEMO_DEFAULT_TENANT` and `VITE_DEMO_DEFAULT_STOREFRONT_CLIENT_ID`.
+Config is kept in `localStorage` (`emporix.demo.config`), and a site switch in
+the header is saved there too. **Change setup** in the footer starts over and
+drops the stored guest session and cart. `VITE_DEMO_DEFAULT_TENANT` and
+`VITE_DEMO_DEFAULT_STOREFRONT_CLIENT_ID` prefill step 1.
 
 > Examples typecheck against the **built** `dist/` of the SDK packages. After
 > changing SDK/React source run `pnpm -F @viu/emporix-sdk build && pnpm -F
@@ -69,16 +71,28 @@ in the footer to reset. You can prefill the setup screen with
 
 ## Flow checklist
 
-- **Catalog** — home + curated category-tree nav with sub-category drill-down,
-  search, product grid with resolved prices (`useProductSearch`,
-  `useCategories`, `useMatchPrices`).
-- **Product detail** — gallery, variant picker, add-to-cart with the price row
-  Emporix requires (`useProduct`, `useVariantChildren`, `useCartCommands`).
-- **Cart** — line items, quantity (`partial`), coupons, totals. Every cart change
-  is one command chain (the write plus `GetCart`), so it costs one request instead
-  of a write and a refetch.
-- **Checkout** — guest **and** signed-in customer; places a real order, then
-  clears the closed cart. The customer path sends the `saas-token` header.
+- **Catalog** — home with a featured category and category chips, a
+  category-tree sidebar on category and search pages, and grids that put priced
+  products first and add to the cart from the card (`useProductsInCategory`,
+  `useCategoryTree`, `useMatchPrices`, `useCartCommands`).
+- **Product detail** — gallery, article number, variant picker, add-to-cart with
+  the price row Emporix requires; without a price in the site's context the
+  button is disabled and says why (`useProduct`, `useVariantChildren`,
+  `useCartCommands`).
+- **Cart** — line items with image and article number, quantity (`partial`),
+  coupons, and a summary that separates the subtotal from the delivery estimate
+  Emporix already counts into the cart's total. Every cart change is one command
+  chain (the write plus `GetCart`), so it costs one request instead of a write
+  and a refetch.
+- **Checkout** — an accordion of five steps (contact, shipping address,
+  delivery, payment, review) for guests **and** signed-in customers; a customer
+  with everything on file starts at the review. Delivery methods come cheapest
+  first, and the summary replaces Emporix's delivery estimate with the chosen
+  method: subtotal, discount, fees, delivery and VAT (net with a VAT line on a
+  site whose prices exclude tax), and a gross total that is also the payment
+  amount. Places a real order, then clears the closed cart. The customer path
+  sends the `saas-token` header; a `payment-gateway` mode also sends its code as
+  `method`.
 - **Account** — sign in / sign up, profile, password, addresses
   (`useCustomerSession`, `useUpdateCustomer`, `useChangePassword`,
   `useCustomerAddresses`/`useAddressMutations`), and password reset.
@@ -87,10 +101,11 @@ in the footer to reset. You can prefill the setup screen with
 
 ## Things worth knowing
 
-- **Customer checkout needs an in-session login.** The `saasToken` (required as
-  the `saas-token` header) is held in memory only — never persisted. It is
-  shared across components within a session, but a full page reload clears it,
-  so sign in and check out in the same session.
+- **Customer checkout needs the `saasToken`.** It is required as the
+  `saas-token` header. The SDK persists it next to the customer token, so a
+  reload keeps it; `setSaasToken` is optional on a storage adapter, though, and a
+  session without it gets a sign-in form in the checkout's first step instead of
+  a failing «Place order».
 - **Order history shows finalized orders.** A freshly placed order sits in
   `IN_CHECKOUT` until payment settles; it is reachable by id (the confirmation
   links straight to it) but won't appear in the history list until finalized.
@@ -99,20 +114,22 @@ in the footer to reset. You can prefill the setup screen with
   shapes; `orderVM`/`orderItems` read both. They live in
   [`examples/shared/src/adapters.ts`](../shared/src/adapters.ts), not in this
   demo — `src/lib/adapters.ts` only re-exports them.
-- **Prices need currency + country.** Without both in the session context the
-  price-match returns nothing and products show no price.
+- **Prices depend on the site.** The price match resolves against the session's
+  currency and country, which the setup derives from the chosen site. A product
+  without a price in that context shows «No price in this context» and cannot be
+  added to the cart.
 
 ## Layout
 
 ```
 src/
-  config/      runtime tenant/client-id gate (SetupScreen, ConfigGate)
+  config/      the two-step setup (SetupScreen, connect.ts) and its gate (ConfigGate)
   app/         provider wiring, shell, header/footer, toasts, telemetry HUD
-  catalog/     product card/grid, gallery, variant picker, category nav
-  checkout/    address/shipping/payment form parts
+  catalog/     product card/grid, add-to-cart hook, gallery, variant picker, category chips and sidebar
+  checkout/    accordion steps, order summary, totals, confirmation
   account/     auth, profile, addresses, orders, returns, rewards, lists
-  components/  ui/ primitives — Button, Field, Tag, Spinner, EmptyState
-  pages/       routed screens (Home, Search, Category, Product, Cart, Checkout, account/*)
-  lib/         re-export of examples/shared, plus usePrices / useProductNames
-  styles/      Editorial-Luxe design tokens + global stylesheet
+  components/  ui/ primitives — Button, Field, Tag, Spinner, EmptyState, Alert, RadioCard
+  pages/       routed screens (Home, Categories, Search, Category, Product, Cart, Checkout, account/*)
+  lib/         re-export of examples/shared, plus usePrices / useProductNames / countries
+  styles/      design tokens, base, shell, catalogue and checkout stylesheets
 ```

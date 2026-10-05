@@ -9,6 +9,8 @@ export interface DemoConfig {
   currency?: string;
   /** ISO country code for the pricing context (e.g. `DE`). Needed for price resolution. */
   targetLocation?: string;
+  /** Category whose products fill the home page; chosen in the setup. */
+  featuredCategoryId?: string;
 }
 
 const KEY = "emporix.demo.config";
@@ -29,6 +31,7 @@ export function normalizeConfig(c: DemoConfig): DemoConfig {
   if (c.siteCode?.trim()) out.siteCode = c.siteCode.trim();
   if (c.currency?.trim()) out.currency = c.currency.trim();
   if (c.targetLocation?.trim()) out.targetLocation = c.targetLocation.trim();
+  if (c.featuredCategoryId?.trim()) out.featuredCategoryId = c.featuredCategoryId.trim();
   return out;
 }
 

@@ -10,7 +10,7 @@ export function ProductGallery({ media, alt }: { media: Media[]; alt: string }) 
   return (
     <div>
       <div className="pdp__hero">
-        {hero ? <img src={hero} alt={alt} /> : <div className="pc__ph" style={{ aspectRatio: "1 / 1" }} />}
+        {hero ? <img src={hero} alt={alt} /> : <span className="pc__ph" aria-hidden="true" />}
       </div>
       {urls.length > 1 ? (
         <div className="pdp__thumbs">

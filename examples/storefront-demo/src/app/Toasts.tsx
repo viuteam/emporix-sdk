@@ -30,34 +30,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div
-        aria-live="polite"
-        style={{
-          position: "fixed",
-          right: "var(--gutter)",
-          bottom: "var(--s-5)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "var(--s-2)",
-          zIndex: 50,
-          maxWidth: "min(92vw, 26rem)",
-        }}
-      >
+      <div aria-live="polite" className="toasts">
         {toasts.map((t) => (
-          <div
-            key={t.id}
-            role={t.kind === "error" ? "alert" : "status"}
-            className="reveal"
-            style={{
-              background: "var(--ink)",
-              color: "var(--paper)",
-              borderLeft: `3px solid ${t.kind === "error" ? "var(--oxblood)" : t.kind === "success" ? "var(--good)" : "var(--muted)"}`,
-              padding: "var(--s-3) var(--s-4)",
-              borderRadius: "var(--radius)",
-              boxShadow: "var(--shadow-2)",
-              fontSize: "var(--step--1)",
-            }}
-          >
+          <div key={t.id} role={t.kind === "error" ? "alert" : "status"} className={`toast toast--${t.kind}`}>
             {t.message}
           </div>
         ))}

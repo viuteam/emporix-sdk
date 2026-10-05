@@ -1,35 +1,59 @@
-import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import type { ProductCardVM, PriceVM } from "../lib/adapters";
 import { money } from "@viu/emporix-examples-shared";
 
+/**
+ * One product in a grid. Image and name link to the product page; «Add to cart»
+ * sits outside the links (a button inside a link is invalid HTML) and only
+ * appears when the site's context resolves a price.
+ */
 export function ProductCard({
   vm,
+  code,
   price,
-  index,
-  lead = false,
+  onAdd,
+  adding = false,
 }: {
   vm: ProductCardVM;
+  /** The product's own `code`. `vm.code` falls back to the id, so it cannot tell. */
+  code?: string | undefined;
   price?: PriceVM | undefined;
-  index: number;
-  lead?: boolean;
+  onAdd?: (() => void) | undefined;
+  adding?: boolean;
 }) {
+  const href = `/product/${encodeURIComponent(vm.id)}`;
   return (
-    <Link
-      to={`/product/${encodeURIComponent(vm.id)}`}
-      className={`pc reveal${lead ? " pc--lead" : ""}`}
-      style={{ "--i": index % 12 } as CSSProperties}
-    >
-      <div className="pc__media">
-        {vm.image ? <img src={vm.image} alt={vm.imageAlt} loading="lazy" /> : <div className="pc__ph" />}
-      </div>
+    <article className="pc">
+      {/* The name below is the accessible link; this one is a larger click target. */}
+      <Link to={href} className="pc__media" tabIndex={-1} aria-hidden="true">
+        {vm.image ? <img src={vm.image} alt="" loading="lazy" /> : <span className="pc__ph">{initials(vm.name)}</span>}
+      </Link>
       <div className="pc__meta">
-        <span className="index">no. {String(index + 1).padStart(2, "0")}</span>
-        <span className="pc__name">
-          <span className="u-underline">{vm.name}</span>
-        </span>
-        {price ? <span className="price pc__price">{money(price.amount, price.currency)}</span> : null}
+        {code ? <span className="pc__code">Art. {code}</span> : null}
+        <Link to={href} className="pc__name">
+          {vm.name}
+        </Link>
+        {price ? (
+          <span className="price pc__price">{money(price.amount, price.currency)}</span>
+        ) : (
+          <span className="pc__noprice">No price in this context</span>
+        )}
+        {price && onAdd ? (
+          <button type="button" className="btn btn--accent btn--sm pc__add" onClick={onAdd} disabled={adding}>
+            Add to cart
+          </button>
+        ) : null}
       </div>
-    </Link>
+    </article>
   );
+}
+
+/** Up to two initials for the placeholder of a product without an image. */
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w.charAt(0).toUpperCase())
+    .join("");
 }

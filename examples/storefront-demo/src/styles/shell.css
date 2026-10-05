@@ -1,0 +1,237 @@
+/* App shell: header, footer, toasts, telemetry, sign-in card. */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--bg);
+  border-bottom: var(--line-w) solid var(--line);
+}
+.utility-bar {
+  background: var(--surface);
+  font-size: var(--step--1);
+}
+.utility-bar__inner {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 2rem;
+}
+.switcher {
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--step--1);
+  padding: 0.2em 0.35em;
+  cursor: pointer;
+}
+.switcher:hover {
+  color: var(--text);
+}
+.main-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding-block: var(--s-3);
+}
+.wordmark {
+  font-weight: 700;
+  font-size: var(--step-1);
+  white-space: nowrap;
+}
+.main-bar__search {
+  flex: 1;
+  max-width: 28rem;
+}
+.main-bar__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  margin-left: auto;
+  font-size: var(--step--1);
+  font-weight: 600;
+}
+.main-bar__link:hover,
+.cart-link:hover {
+  color: var(--accent);
+}
+.cart-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+.cart-link__count {
+  min-width: 1.5em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: var(--step--2);
+  text-align: center;
+}
+@media (max-width: 40rem) {
+  .main-bar {
+    flex-wrap: wrap;
+  }
+  .main-bar__search {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+
+.site-main {
+  min-height: 62vh;
+}
+
+.site-footer {
+  border-top: var(--line-w) solid var(--line);
+  margin-top: var(--s-8);
+}
+.site-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  padding-block: var(--s-5);
+  font-size: var(--step--1);
+}
+.site-footer__reset {
+  margin-left: auto;
+}
+
+/* Toasts */
+.toasts {
+  position: fixed;
+  right: var(--gutter);
+  bottom: var(--s-5);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-width: min(92vw, 26rem);
+}
+.toast {
+  background: var(--text);
+  color: var(--bg);
+  border-left: 4px solid var(--text-2);
+  border-radius: var(--radius);
+  padding: var(--s-3) var(--s-4);
+  box-shadow: var(--shadow-2);
+  font-size: var(--step--1);
+}
+.toast--error {
+  border-left-color: var(--danger);
+}
+.toast--success {
+  border-left-color: var(--success);
+}
+
+/* Telemetry HUD */
+.telemetry {
+  position: fixed;
+  left: var(--gutter);
+  bottom: var(--s-5);
+  z-index: 40;
+}
+.telemetry__toggle {
+  background: var(--bg);
+}
+.telemetry__panel {
+  position: absolute;
+  bottom: calc(100% + var(--s-2));
+  left: 0;
+  width: min(86vw, 24rem);
+  max-height: 50vh;
+  overflow: auto;
+  padding: var(--s-3);
+  box-shadow: var(--shadow-2);
+  font-size: var(--step--2);
+  font-variant-numeric: tabular-nums;
+}
+.telemetry__list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.telemetry__row {
+  display: flex;
+  gap: var(--s-3);
+  padding: 2px 0;
+  border-bottom: var(--line-w) solid var(--line);
+}
+.telemetry__type {
+  color: var(--accent);
+  min-width: 9rem;
+}
+.telemetry__detail {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sign-in card (account page) */
+.auth-card {
+  max-width: 30rem;
+  margin-inline: auto;
+  padding: var(--s-5);
+}
+.auth-tabs {
+  display: flex;
+  gap: var(--s-4);
+  margin-bottom: var(--s-4);
+  border-bottom: var(--line-w) solid var(--line);
+}
+.auth-tab {
+  margin-bottom: -1px;
+  padding: var(--s-2) 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+.auth-tab[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.auth-card__foot {
+  margin-top: var(--s-4);
+  font-size: var(--step--1);
+  color: var(--text-2);
+}
+
+/* Setup screen */
+.setup {
+  max-width: 44rem;
+  padding-block: var(--s-7);
+}
+.setup__title {
+  margin-block: var(--s-2) var(--s-3);
+}
+.setup__lead {
+  max-width: 52ch;
+  margin-bottom: var(--s-4);
+}
+.setup__form {
+  margin-top: var(--s-5);
+}
+.setup__advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-2);
+  padding-block: var(--s-2);
+}
+.setup__sites {
+  border: 0;
+  padding: 0;
+}
+.setup__sites legend {
+  margin-bottom: var(--s-2);
+}

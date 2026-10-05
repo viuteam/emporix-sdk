@@ -7,9 +7,9 @@ export function VariantPicker({ productId }: { productId: string }) {
   const variants = data ?? [];
   if (variants.length === 0) return null;
   return (
-    <div style={{ marginTop: "var(--s-5)" }}>
+    <div className="variants">
       <span className="field__label">Variants</span>
-      <div className="cluster" style={{ marginTop: "var(--s-2)" }}>
+      <div className="cluster variants__list">
         {variants.map((v) => (
           <Link key={catId(v)} to={`/product/${encodeURIComponent(catId(v))}`} className="tag">
             {productName(v)}

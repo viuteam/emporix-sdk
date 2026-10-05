@@ -4,9 +4,9 @@ export function Spinner({ label = "Loading…" }: { label?: string }) {
 
 export function Loading({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="cluster" style={{ justifyContent: "center", padding: "var(--s-7) 0", color: "var(--muted)" }}>
+    <div className="loading">
       <Spinner label={label} />
-      <span className="eyebrow">{label}</span>
+      <span>{label}</span>
     </div>
   );
 }
