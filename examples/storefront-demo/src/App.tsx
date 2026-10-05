@@ -10,6 +10,7 @@ import { RouteError } from "./app/RouteError";
 import { pushTelemetry } from "./app/telemetry-store";
 import { Placeholder } from "./pages/Placeholder";
 import { Home } from "./pages/Home";
+import { Categories } from "./pages/Categories";
 import { Search } from "./pages/Search";
 import { Category } from "./pages/Category";
 import { Product } from "./pages/Product";
@@ -84,7 +85,11 @@ function DemoApp({
           <AppShell tenant={config.tenant} onReset={reset}>
             <RouteError>
               <Routes>
-                <Route path="/" element={<Home />} />
+                <Route
+                  path="/"
+                  element={<Home tenant={config.tenant} featuredCategoryId={config.featuredCategoryId} />}
+                />
+                <Route path="/categories" element={<Categories />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/category/:id" element={<Category />} />
                 <Route path="/product/:idOrCode" element={<Product />} />
