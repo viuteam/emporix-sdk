@@ -256,9 +256,6 @@ importers:
       '@viu/emporix-sdk-next':
         specifier: workspace:*
         version: link:../../packages/next
-      '@viu/emporix-sdk-react':
-        specifier: workspace:*
-        version: link:../../packages/react
       next:
         specifier: ^16.3.6
         version: 16.3.6(@playwright/test@1.60.0)(@types/node@24.12.4)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(sass@1.104.1)
