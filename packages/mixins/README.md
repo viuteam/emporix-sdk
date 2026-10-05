@@ -45,9 +45,9 @@ const q = mixinQuery(mixins.attrs, {
 await client.products.search(q);   // also categories.search, orders.listMine(auth, { q }), …
 ```
 
-- `and(...)` joins with a space (AND); `or(...)` emits `compoundLogicalQuery`,
-  which is only valid on compound-capable services (Product, Approval,
-  Availability, Quote, Schema).
+- `and(...)` joins with a space (AND). `or(...)` emits `compoundLogicalQuery`, and
+  so does an `and()` that contains one; the SDK accepts that only on
+  `products.search` — the other methods that take a built filter throw on it.
 - `raw(fragment)` is an escape hatch for a non-mixin clause.
 - Values containing whitespace throw (the `q` escaping is unverified) — use `raw()`.
 

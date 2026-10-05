@@ -8,9 +8,11 @@ Angular bindings for `@viu/emporix-sdk`, built on
 Angular 20 – 22.
 
 One `provideEmporix()` wires the SDK, a storage backend and TanStack Query into an
-application; 86 signal-based `inject*` functions run the reads and writes with the
-same cache keys and auth resolution as the React bindings — literally the same key
-builder, asserted by test.
+application; 87 signal-based `inject*` functions run the reads and writes with the
+same key builder and auth resolution as the React bindings, asserted by test. The
+keys built from it still differ in many places — the order, company and segment
+reads among them; see
+[`docs/angular.md`](https://github.com/viuteam/emporix-sdk/blob/main/docs/angular.md).
 
 ## Install
 
@@ -91,18 +93,23 @@ component gets one `isPending` and one `error` for «the cart is saving» instea
 five. Every bundle shares one internal write path, so the pending flag, the error
 signal and the post-write invalidation cannot drift between areas.
 
+`injectCartMutations().execute(commands, opts?)` runs a cart command chain — up to
+ten cart operations in one request. Unlike React's `useCartCommands` it does not
+adopt a trailing `GetCart` into the cache: it invalidates the cart, after a failed
+chain too.
+
 ## What is covered
 
 | Area | Injectables |
 |---|---|
 | Catalog | 20 — products, categories, both searches, media, variants, infinite reads |
-| Cart | 6 — read, items, validation, bootstrap, create, mutations |
+| Cart | 6 — read, items, validation, bootstrap, create, mutations (incl. command chains) |
 | Checkout | 5 — payment modes, shipping zones, place order, initialize payment |
 | Customer | 5 — profile, addresses, address mutations, password reset |
-| Orders | 5 — mine, infinite, one, sales order, mutations (cancel/transition/reorder) |
+| Orders | 6 — mine, infinite, one, transitions, sales order, mutations (cancel/transition/reorder/sales-order update) |
 | Prices | 4 — match, chunked match, availability, bulk availability |
 | Site | 3 — list, active, default |
-| B2B | 8 — company context, switch, four reads, mutations |
+| B2B | 8 — company context, switch, five reads, mutations |
 | Segments | 7 |
 | Loyalty | 5 — reward points, redeem options, redemption, coupons |
 | Returns | 3 |
@@ -114,10 +121,10 @@ Plus seven primitives: `injectEmporix`, `injectEmporixQuery`,
 `injectEmporixInfinite`, `injectEmporixSite`, `injectEmporixSiteSwitch`,
 `injectCustomerSession`, `injectCustomerCredentials`.
 
-That covers **109 of the React package's 111 hooks**. The two without an
+That covers **113 of the React package's 115 hooks**. The two without an
 equivalent are `useEmporixTelemetry` and `useEmporixErrorHandler` — both React
-provider infrastructure rather than storefront surface. Four places deviate from
-React on purpose; each is named with its reason in
+provider infrastructure rather than storefront surface. Where it deviates from
+React on purpose, each place is named with its reason in
 [`docs/angular.md`](https://github.com/viuteam/emporix-sdk/blob/main/docs/angular.md).
 
 ## Why no `ng-packagr`

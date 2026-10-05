@@ -22,7 +22,7 @@ import { EmporixProvider, createLocalStorage } from "@viu/emporix-sdk-react";
 
 const client = new EmporixClient({
   tenant: "mytenant",
-  credentials: { backend: { clientId: "", secret: "" }, storefront: { clientId: "x" } },
+  credentials: { storefront: { clientId: "x" } }, // never a backend secret in the browser
 });
 
 <EmporixProvider client={client} storage={createLocalStorage()}>
@@ -118,26 +118,29 @@ A working remote is in [`examples/md-module`](../../examples/md-module).
 
 ### Operations without a hook
 
-The hooks in this package cover the storefront: roughly a quarter of the SDK's
-~490 operations. The rest are back-office calls — brands, labels, catalogs, tax,
+The hooks in this package cover the storefront part of the 627 operations the
+SDK wraps. The rest are back-office calls — brands, labels, catalogs, tax,
 fees, schemas, webhooks, invoices, quotes, vendors, imports, tenant config and
 more — and they have no hook **because a storefront token cannot make them**. Of
-48 SDK service files, 21 have no hook at all.
+the client's 48 facades, 24 have no hook at all.
 
 A dashboard token can. So wrap what you need with `useEmporixQuery`, the same
-factory every read hook in this package uses:
+factory most read hooks in this package use:
 
 ```tsx
+import type { EmporixClient } from "@viu/emporix-sdk";
 import { useEmporix, useEmporixQuery } from "@viu/emporix-sdk-react";
 
-function useBrands(params: { pageNumber?: number; pageSize?: number } = {}) {
+type BrandQuery = Parameters<EmporixClient["brands"]["listBrands"]>[0];
+
+function useBrands(query: BrandQuery = {}) {
   const { client } = useEmporix();
   return useEmporixQuery({
     mode: "customer", // the host's token — the one with the scopes
     site: "none", // brands are tenant-scoped, not site-scoped
     resource: "brands",
-    args: [params],
-    queryFn: (ctx) => client.brands.list(params, ctx),
+    args: [query],
+    queryFn: (ctx) => client.brands.listBrands(query, ctx),
   });
 }
 ```
@@ -155,6 +158,11 @@ Three things that factory gives you that a hand-rolled `useQuery` does not:
 Most admin methods default their `auth` parameter to a **service** context —
 client credentials with a secret, which a browser does not have. Always pass the
 `ctx` the factory hands you; do not call the facade without it.
+
+For paged lists, `useEmporixInfinite` (also a root export) runs the
+`pageNumber`/`hasNextPage` cursor but resolves no auth: give it a `queryKey` built
+with `emporixKey` from `@viu/emporix-sdk` and a `fetchPage` that passes its own
+auth context.
 
 For writes, use `useMutation` directly and invalidate the resource key you
 wrote — there is no write-side factory in this package.
@@ -182,7 +190,7 @@ wrote — there is no write-side factory in this package.
 | `useShippingZones()` | shipping zone reads |
 | `useMatchPrices()` / `useMatchPricesChunked()` | price matching (chunked variant for large carts) |
 | `useProductMedia()` | product media reads |
-| `useMyOrders` / `useMyOrdersInfinite` / `useOrder` / `useCancelOrder` / `useOrderTransition` / `useReorder` | order history + actions |
+| `useMyOrders` / `useMyOrdersInfinite` / `useOrder` / `useOrderTransitions` / `useCancelOrder` / `useOrderTransition` / `useReorder` | order history, allowed status transitions + actions |
 | `useSalesOrder` / `useUpdateSalesOrder` | sales-order read + update |
 | `useAvailability` / `useAvailabilities` | site-aware availability reads |
 | `useValidateCoupon` / `useRedeemCoupon` | coupon validation + redemption |
@@ -211,11 +219,15 @@ public storefront client id, so a hook would mean a secret in the browser bundle
 Call it from a server route instead ([`../../docs/import.md`](../../docs/import.md)).
 
 Query keys are namespaced `["emporix", resource, ...args, meta]` where `meta`
-holds the cache discriminators — at minimum `{ tenant, authKind }`, plus
-`siteCode` for site-aware hooks and `legalEntityId` for B2B-aware hooks (cart,
-checkout, addresses, etc. invalidate automatically on company switch).
-Every query hook accepts `{ auth }` to override the token kind for that
-call (default: `customer` if a token is stored, else `anonymous`).
+holds the cache discriminators `{ tenant, authKind, siteCode?, language? }` — the
+last two only on hooks whose answer depends on them. B2B-aware hooks also key on
+the active company id (cart, checkout, addresses, etc. invalidate automatically
+on company switch).
+The product and category reads (not `useProductMedia`), the cart reads,
+`useSites` / `useDefaultSite` / `useActiveSite`, `useCustomerAddresses` and
+`useCloudFunction` accept `{ auth }` to override the auth context for that call
+(default: `customer` if a token is stored, else `anonymous` — `useCustomerAddresses`
+stays disabled instead); the other reads resolve auth themselves.
 
 ## Storage adapters
 
