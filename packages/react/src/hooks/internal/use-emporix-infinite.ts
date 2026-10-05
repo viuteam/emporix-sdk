@@ -23,13 +23,13 @@ import type { PaginatedItems } from "@viu/emporix-sdk";
  * const { client, storage } = useEmporix();
  * const token = storage.getCustomerToken();
  * useEmporixInfinite({
- *   queryKey: emporixKey("brands-infinite", [pageSize], {
+ *   queryKey: emporixKey("fees-infinite", [pageSize], {
  *     tenant: client.tenant,
  *     authKind: token !== null ? "customer" : "anonymous",
  *   }),
  *   enabled: token !== null,
  *   fetchPage: (pageNumber) =>
- *     client.brands.list({ pageNumber, pageSize }, auth.customer(token as string)),
+ *     client.fees.list({ pageNumber, pageSize }, auth.customer(token as string)),
  * });
  * ```
  */
