@@ -10,6 +10,17 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-05-storefront-demo-redesign-design.md` (commit `2b657f6`). Read it before Task 1; this plan argues from it.
 
+## Execution notes
+
+- **2026-10-05, PR 1 live check (Task 7):**
+  - The runtime site switch re-prices immediately, so Task 8 did not run.
+  - Four findings were fixed in one extra commit (`f14717e`):
+    - the article number now shows whenever a product has a `code`;
+    - site, currency and country are persisted, and «Change setup» drops the guest session;
+    - a parent category falls back to the tree's children;
+    - the cart summary splits off Emporix's delivery estimate.
+  - The live cart's `calculatedPrice` (items net/gross, a delivery estimate inside `finalPrice`, net prices on the B2B site) amended Tasks 10, 11, 14 and 15. The amended passages say so.
+
 ## Global Constraints
 
 - Everything committed is **English**: code, comments, UI strings, commit messages, PR bodies.
@@ -2987,9 +2998,16 @@ git switch -c feat/storefront-demo-checkout feat/storefront-demo-redesign
 **Interfaces:**
 - Produces:
   - `interface DeliveryChoice { methodId: string; zoneId: string; methodName: string; amount: number; shippingTaxCode?: string; freeFrom?: number }`
-  - `interface CheckoutTotals { currency: string; subtotal: number; discount: number; delivery: number; total: number; tax?: number; freeDeliveryGap?: number }`
-  - `checkoutTotals(cart: unknown, delivery: DeliveryChoice | null): CheckoutTotals | undefined`
+  - `interface CheckoutTotals { currency: string; includesTax: boolean; itemsNet: number; itemsGross: number; discount: number; deliveryNet: number; deliveryGross: number; tax?: number; total: number; orderValue: number; freeDeliveryGap?: number }`
+  - `checkoutTotals(cart: unknown, delivery: DeliveryChoice | null, includesTax: boolean): CheckoutTotals | undefined`
   - `freeFrom(fees: ShippingMethod["fees"]): number | undefined`
+
+> **Amended after the PR 1 live check (2026-10-05).** A live cart returned the
+> items net and gross in `calculatedPrice.price`, and a delivery estimate (the
+> zone's first method, net CHF 12.90, VAT 8.1 %) in `totalShipping` that
+> `finalPrice` already contains. The first version of this task added the chosen
+> fee to `finalPrice` and would have counted delivery twice. The function below
+> replaces the estimate with the chosen delivery instead.
 
 - [ ] **Step 1: Create `src/checkout/totals.ts`**
 
@@ -3001,6 +3019,7 @@ export interface DeliveryChoice {
   methodId: string;
   zoneId: string;
   methodName: string;
+  /** The fee as configured on the zone. */
   amount: number;
   shippingTaxCode?: string;
   /** Lowest order value at which this method costs nothing, when its fee table has such a tier. */
@@ -3009,54 +3028,93 @@ export interface DeliveryChoice {
 
 export interface CheckoutTotals {
   currency: string;
-  /** Items before discounts, gross. */
-  subtotal: number;
+  /** The site's prices include tax: show gross lines and «incl. VAT». */
+  includesTax: boolean;
+  /** Items after discounts. */
+  itemsNet: number;
+  itemsGross: number;
   /** Discounts as the cart reports them. */
   discount: number;
-  delivery: number;
-  /** What the shopper pays: the cart's final price plus the delivery fee. Also the payment amount. */
-  total: number;
-  /** Tax inside the cart's final price. Items only: the cart does not know the delivery. */
+  /** The chosen delivery, or the cart's estimate before one is chosen. */
+  deliveryNet: number;
+  deliveryGross: number;
+  /** VAT on items and delivery; absent when the cart reports no calculation. */
   tax?: number;
-  /** How much more the items must cost before this delivery method is free. */
+  /** What the shopper pays, gross, with the chosen delivery. Also the payment amount. */
+  total: number;
+  /** What fee tiers and the free-delivery threshold compare against. */
+  orderValue: number;
+  /** How much more the items must cost before the chosen method is free. */
   freeDeliveryGap?: number;
 }
 
+type ReadPrice = { netValue?: number; grossValue?: number; taxRate?: number };
 type ReadCart = {
   currency?: string;
-  totalPrice?: { amount?: number; currency?: string };
+  totalPrice?: { currency?: string };
+  subTotalPrice?: { amount?: number; currency?: string };
+  shipping?: { fee?: { amount?: number } };
   calculatedPrice?: {
-    price?: { grossValue?: number };
+    price?: ReadPrice;
+    discountedPrice?: ReadPrice;
+    totalShipping?: ReadPrice;
     totalDiscount?: { value?: number };
-    finalPrice?: { grossValue?: number; taxValue?: number };
   };
 };
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /**
- * The checkout's money, in one place. Reads the cart's `calculatedPrice` and falls
- * back to the deprecated `totalPrice` on carts without it. Delivery is added here
- * because the cart does not know which method the shopper picked — and `total`,
- * delivery included, is what goes out as the payment amount.
+ * The checkout's money, built on what a live cart returns: `calculatedPrice`
+ * carries the items net and gross, and a delivery estimate (the zone's first
+ * method) in `totalShipping` that `finalPrice` already contains. The chosen
+ * delivery replaces that estimate, taxed at the rate the cart applied to it. On a
+ * tax-exclusive site the configured fee is the net amount (that is how the cart
+ * treated the standard fee); on a tax-inclusive one it is taken as gross, which
+ * the test tenant could not confirm. Without `calculatedPrice` it falls back to
+ * `subTotalPrice` and reports no tax.
  */
-export function checkoutTotals(cart: unknown, delivery: DeliveryChoice | null): CheckoutTotals | undefined {
+export function checkoutTotals(
+  cart: unknown,
+  delivery: DeliveryChoice | null,
+  includesTax: boolean,
+): CheckoutTotals | undefined {
   const c = cart as ReadCart | null | undefined;
-  const currency = c?.totalPrice?.currency ?? c?.currency;
-  const items = c?.calculatedPrice?.finalPrice?.grossValue ?? c?.totalPrice?.amount;
-  if (!currency || items === undefined) return undefined;
-  const fee = delivery?.amount ?? 0;
+  const currency = c?.currency ?? c?.totalPrice?.currency ?? c?.subTotalPrice?.currency;
+  const calc = c?.calculatedPrice;
+  const items = calc?.discountedPrice ?? calc?.price;
+  const itemsNet = items?.netValue ?? c?.subTotalPrice?.amount;
+  if (!currency || itemsNet === undefined) return undefined;
+  const itemsGross = items?.grossValue ?? itemsNet;
+  const estimate = calc?.totalShipping;
+  const factor = 1 + (estimate?.taxRate ?? 0) / 100;
+  let deliveryNet: number;
+  let deliveryGross: number;
+  if (!delivery) {
+    deliveryNet = estimate?.netValue ?? c?.shipping?.fee?.amount ?? 0;
+    deliveryGross = estimate?.grossValue ?? deliveryNet;
+  } else if (includesTax) {
+    deliveryGross = delivery.amount;
+    deliveryNet = delivery.amount / factor;
+  } else {
+    deliveryNet = delivery.amount;
+    deliveryGross = delivery.amount * factor;
+  }
+  const orderValue = includesTax ? itemsGross : itemsNet;
   const out: CheckoutTotals = {
     currency,
-    subtotal: c?.calculatedPrice?.price?.grossValue ?? items,
-    discount: c?.calculatedPrice?.totalDiscount?.value ?? 0,
-    delivery: fee,
-    total: round2(items + fee),
+    includesTax,
+    itemsNet,
+    itemsGross,
+    discount: calc?.totalDiscount?.value ?? 0,
+    deliveryNet,
+    deliveryGross,
+    total: round2(itemsGross + deliveryGross),
+    orderValue,
   };
-  const tax = c?.calculatedPrice?.finalPrice?.taxValue;
-  if (tax !== undefined) out.tax = tax;
-  if (delivery?.freeFrom !== undefined && fee > 0 && items < delivery.freeFrom) {
-    out.freeDeliveryGap = round2(delivery.freeFrom - items);
+  if (calc) out.tax = round2(itemsGross - itemsNet + deliveryGross - deliveryNet);
+  if (delivery?.freeFrom !== undefined && delivery.amount > 0 && orderValue < delivery.freeFrom) {
+    out.freeDeliveryGap = round2(delivery.freeFrom - orderValue);
   }
   return out;
 }
@@ -3077,30 +3135,34 @@ export function freeFrom(fees: ShippingMethod["fees"]): number | undefined {
 pnpm -F @viu/emporix-examples-storefront-demo typecheck
 ```
 
-Expected: exit 0. Then check the three numbers the live test will see, without committing anything:
+Expected: exit 0. Then check the numbers against the live cart from the PR 1 check (two items on the B2B site), without committing anything:
 
 ```bash
 node --experimental-strip-types --input-type=module -e '
 const { checkoutTotals, freeFrom } = await import("./examples/storefront-demo/src/checkout/totals.ts");
-const cart = { currency: "CHF", calculatedPrice: { price: { grossValue: 108.25 }, finalPrice: { grossValue: 108.25, taxValue: 8.12 } } };
+const cart = { currency: "CHF", subTotalPrice: { amount: 2.08 }, calculatedPrice: {
+  price: { netValue: 2.0846, grossValue: 2.1367, taxRate: 2.5 },
+  totalShipping: { netValue: 12.9, grossValue: 13.9449, taxRate: 8.1 } } };
 const fees = [{ minOrderValue: { amount: 0 }, cost: { amount: 12.9 } }, { minOrderValue: { amount: 150 }, cost: { amount: 0 } }];
-const d = { methodId: "standard", zoneId: "ch", methodName: "Standard", amount: 12.9, freeFrom: freeFrom(fees) };
-const t = checkoutTotals(cart, d);
-console.log(JSON.stringify(t));
-if (t.total !== 121.15 || t.freeDeliveryGap !== 41.75 || freeFrom(fees) !== 150) process.exit(1);
-console.log(JSON.stringify(checkoutTotals({ totalPrice: { amount: 10, currency: "CHF" } }, null)));'
+const standard = { methodId: "standard", zoneId: "ch", methodName: "Standard", amount: 12.9, freeFrom: freeFrom(fees) };
+const express = { methodId: "express", zoneId: "ch", methodName: "Express", amount: 39 };
+const s = checkoutTotals(cart, standard, false), x = checkoutTotals(cart, express, false), e = checkoutTotals(cart, null, false);
+console.log(s.total, s.tax, s.freeDeliveryGap, x.total, x.tax, e.total);
+if (s.total !== 16.08 || s.tax !== 1.1 || s.freeDeliveryGap !== 147.92 || x.total !== 44.3 || e.total !== 16.08 || freeFrom(fees) !== 150) process.exit(1);
+console.log(JSON.stringify(checkoutTotals({ subTotalPrice: { amount: 10, currency: "CHF" } }, null, true)));'
 ```
 
-Expected: `{"currency":"CHF","subtotal":108.25,"discount":0,"delivery":12.9,"total":121.15,"tax":8.12,"freeDeliveryGap":41.75}` then `{"currency":"CHF","subtotal":10,"discount":0,"delivery":0,"total":10}`; exit 0. (`totals.ts` imports only a type, so Node's type stripping runs it as is.)
+Expected: `16.08 1.1 147.92 44.3 3.21 16.08`, then `{"currency":"CHF","includesTax":true,"itemsNet":10,"itemsGross":10,"discount":0,"deliveryNet":0,"deliveryGross":0,"total":10,"orderValue":10}`; exit 0. The standard total equals the cart's own `finalPrice.grossValue` (16.0816). (`totals.ts` imports only a type, so Node's type stripping runs it as is.)
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add examples/storefront-demo/src/checkout/totals.ts
 git commit -m "feat(examples): compute checkout totals including delivery" \
-  -m "One function reads calculatedPrice (falling back to the deprecated
-totalPrice), adds the chosen delivery fee and reports how far the cart is from
-free delivery. Its total becomes the payment amount." \
+  -m "One function reads calculatedPrice, replaces the cart's delivery estimate
+with the chosen method taxed at the cart's shipping rate, and reports VAT and
+how far the cart is from free delivery. Its gross total becomes the payment
+amount." \
   -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
@@ -3118,6 +3180,7 @@ free delivery. Its total becomes the payment amount." \
   - `type StepState = "open" | "done" | "todo"`
   - `CheckoutStep({ index: number; title: string; state: StepState; summary?: ReactNode; onEdit?: (() => void) | undefined; children?: ReactNode })`
   - `OrderSummary({ lines: CartLineVM[]; details: Record<string, ProductDetails>; totals: CheckoutTotals | undefined; deliveryName?: string | undefined })`
+  - `TotalsRows({ totals: CheckoutTotals; deliveryName?: string | undefined })` — also used by the cart page (Task 15)
   - Classes `.checkout`, `.checkout__head`, `.co-layout`, `.co-steps`, `.co-step*`, `.co-actions`, `.form-grid*`, `.co-check`, `.co-card`, `.co-review*`, `.co-summary*`, `.co-lines`, `.co-line*`, `.co-totals*`, `.confirmation*`.
 
 - [ ] **Step 1: Create `src/checkout/CheckoutStep.tsx`**
@@ -3221,41 +3284,62 @@ export function OrderSummary({
             );
           })}
         </ul>
-        {totals ? (
-          <div className="co-totals">
-            <div className="co-totals__row">
-              <span>Subtotal</span>
-              <span>{money(totals.subtotal, totals.currency)}</span>
-            </div>
-            {totals.discount > 0 ? (
-              <div className="co-totals__row">
-                <span>Discount</span>
-                <span>−{money(totals.discount, totals.currency)}</span>
-              </div>
-            ) : null}
-            <div className="co-totals__row">
-              <span>Delivery{deliveryName ? ` · ${deliveryName}` : ""}</span>
-              <span>
-                {deliveryName ? (totals.delivery === 0 ? "Free" : money(totals.delivery, totals.currency)) : "Chosen in step 3"}
-              </span>
-            </div>
-            {totals.freeDeliveryGap !== undefined ? (
-              <p className="co-totals__hint">Add {money(totals.freeDeliveryGap, totals.currency)} for free delivery</p>
-            ) : null}
-            <div className="co-totals__row co-totals__grand">
-              <span>Total</span>
-              <span>{money(totals.total, totals.currency)}</span>
-            </div>
-            {totals.tax !== undefined ? (
-              <div className="co-totals__row muted">
-                <span>incl. VAT on items</span>
-                <span>{money(totals.tax, totals.currency)}</span>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        {totals ? <TotalsRows totals={totals} deliveryName={deliveryName} /> : null}
       </div>
     </aside>
+  );
+}
+
+/**
+ * Subtotal, discount, delivery, VAT and total. On a tax-exclusive site the parts
+ * are net and the VAT is its own line; otherwise they are gross and the VAT shows
+ * as «incl.». Without a chosen method the delivery is the cart's estimate. Shared
+ * by the summary and the cart page.
+ */
+export function TotalsRows({ totals, deliveryName }: { totals: CheckoutTotals; deliveryName?: string | undefined }) {
+  const m = (n: number) => money(n, totals.currency);
+  const net = !totals.includesTax;
+  const excl = net ? " (excl. VAT)" : "";
+  const delivery = net ? totals.deliveryNet : totals.deliveryGross;
+  return (
+    <div className="co-totals">
+      <div className="co-totals__row">
+        <span>Subtotal{excl}</span>
+        <span>{m(net ? totals.itemsNet : totals.itemsGross)}</span>
+      </div>
+      {totals.discount > 0 ? (
+        <div className="co-totals__row">
+          <span>Discount</span>
+          <span>−{m(totals.discount)}</span>
+        </div>
+      ) : null}
+      <div className="co-totals__row">
+        <span>
+          {deliveryName ? `Delivery · ${deliveryName}` : "Estimated delivery"}
+          {excl}
+        </span>
+        <span>{delivery === 0 ? "Free" : m(delivery)}</span>
+      </div>
+      {net && totals.tax !== undefined ? (
+        <div className="co-totals__row">
+          <span>VAT</span>
+          <span>{m(totals.tax)}</span>
+        </div>
+      ) : null}
+      {totals.freeDeliveryGap !== undefined ? (
+        <p className="co-totals__hint">Add {m(totals.freeDeliveryGap)} for free delivery</p>
+      ) : null}
+      <div className="co-totals__row co-totals__grand">
+        <span>Total</span>
+        <span>{m(totals.total)}</span>
+      </div>
+      {!net && totals.tax !== undefined ? (
+        <div className="co-totals__row muted">
+          <span>incl. VAT</span>
+          <span>{m(totals.tax)}</span>
+        </div>
+      ) : null}
+    </div>
   );
 }
 ```
@@ -4102,9 +4186,9 @@ default preselected." \
 **Interfaces:**
 - Consumes: `DeliveryChoice`, `freeFrom` (Task 10); `AddressPicker`, `addressErrors`, `AddressDraft` (Task 13); `countryName` (Task 4); `useShippingZones`; `resolveZone`, `pickFee`, `ShippingMethod`, `PaymentMode`, `Address` from the SDK; `pickText` from `../lib/adapters`.
 - Produces:
-  - `useDeliveryOptions(country: string, itemsTotal: number | undefined): { options: DeliveryChoice[]; isLoading: boolean }`
+  - `useDeliveryOptions(country: string, orderValue: number | undefined): { options: DeliveryChoice[]; isLoading: boolean }`
   - `fallbackDelivery(country: string): DeliveryChoice`
-  - `DeliveryStep({ options: DeliveryChoice[]; isLoading: boolean; country: string; currency: string; value: string | null; onChange: (methodId: string) => void; onContinue: () => void })`
+  - `DeliveryStep({ options: DeliveryChoice[]; isLoading: boolean; country: string; currency: string; includesTax: boolean; value: string | null; onChange: (methodId: string) => void; onContinue: () => void })`
   - `interface PaymentDraft { modeId: string | null; billingSame: boolean; billing: AddressDraft }`
   - `modeLabel(m: PaymentMode): string`
   - `PaymentStep({ modes: PaymentMode[]; isLoading: boolean; value: PaymentDraft; onChange: (patch: Partial<PaymentDraft>) => void; saved: Address[]; countries: string[]; onContinue: () => void })`
@@ -4126,12 +4210,13 @@ import { freeFrom, type DeliveryChoice } from "./totals";
 
 /**
  * The methods of the zone that ships to `country`, each priced from its fee
- * table at the current items total. Lives outside the step so the checkout can
- * preselect a method before step 3 ever opens.
+ * table at the order value (`CheckoutTotals.orderValue`: items net on a
+ * tax-exclusive site). Lives outside the step so the checkout can preselect a
+ * method before step 3 ever opens.
  */
 export function useDeliveryOptions(
   country: string,
-  itemsTotal: number | undefined,
+  orderValue: number | undefined,
 ): { options: DeliveryChoice[]; isLoading: boolean } {
   const { data: zones, isLoading } = useShippingZones();
   const options = useMemo(() => {
@@ -4141,7 +4226,7 @@ export function useDeliveryOptions(
     return (zone.methods ?? [])
       .filter((m) => m.active !== false && (m.fees?.length ?? 0) > 0)
       .flatMap((m): DeliveryChoice[] => {
-        const fee = pickFee(m.fees, itemsTotal ?? 0);
+        const fee = pickFee(m.fees, orderValue ?? 0);
         const methodId = m.id;
         if (!fee || !methodId) return [];
         const free = freeFrom(m.fees);
@@ -4156,7 +4241,7 @@ export function useDeliveryOptions(
           },
         ];
       });
-  }, [zones, country, itemsTotal]);
+  }, [zones, country, orderValue]);
   return { options, isLoading };
 }
 
@@ -4171,6 +4256,7 @@ export function DeliveryStep({
   isLoading,
   country,
   currency,
+  includesTax,
   value,
   onChange,
   onContinue,
@@ -4179,12 +4265,14 @@ export function DeliveryStep({
   isLoading: boolean;
   country: string;
   currency: string;
+  includesTax: boolean;
   value: string | null;
   onChange: (methodId: string) => void;
   onContinue: () => void;
 }) {
   return (
     <div>
+      {!includesTax && options.length > 0 ? <p className="field__hint">Prices excl. VAT.</p> : null}
       {isLoading ? (
         <Spinner label="Loading delivery options" />
       ) : options.length === 0 ? (
@@ -4574,13 +4662,15 @@ export function Checkout() {
     if (firstCountry) setShipping((s) => (s.country ? s : { ...s, country: firstCountry }));
   }, [firstCountry]);
 
-  const itemsTotal = checkoutTotals(cart, null)?.total;
+  // A site that says nothing about tax is taken as tax-inclusive, the B2C default.
+  const includesTax = site?.includesTax !== false;
+  const orderValue = checkoutTotals(cart, null, includesTax)?.orderValue;
   const shipCountry = shipping.country || firstCountry || "";
-  const { options, isLoading: optionsLoading } = useDeliveryOptions(shipCountry, itemsTotal);
+  const { options, isLoading: optionsLoading } = useDeliveryOptions(shipCountry, orderValue);
   // The first method is preselected; the fallback only once nothing resolved.
   const delivery =
     options.find((o) => o.methodId === deliveryId) ?? options[0] ?? (optionsLoading ? null : fallbackDelivery(shipCountry));
-  const totals = checkoutTotals(cart, delivery);
+  const totals = checkoutTotals(cart, delivery, includesTax);
   const modeId = payment.modeId ?? modes[0]?.id ?? null;
   const mode = modes.find((m) => m.id === modeId);
   const paymentLabel = mode ? modeLabel(mode) : "Custom (demo)";
@@ -4749,6 +4839,7 @@ export function Checkout() {
               isLoading={optionsLoading}
               country={shipCountry}
               currency={currency}
+              includesTax={includesTax}
               value={delivery?.methodId ?? null}
               onChange={setDeliveryId}
               onContinue={() => continueFrom(3)}
@@ -4787,6 +4878,25 @@ export function Checkout() {
   );
 }
 ```
+
+- [ ] **Step 3b: The cart page shows the same totals**
+
+In `src/pages/Cart.tsx`, import `useActiveSite` from `@viu/emporix-sdk-react`, `TotalsRows` from `../checkout/OrderSummary` and `checkoutTotals` from `../checkout/totals`; replace the PR 1 block that reads `subTotalPrice` / `shipping.fee` (the `sums`, `subtotal` and `estimatedDelivery` constants) with:
+
+```tsx
+  const site = useActiveSite();
+  // Same function as the checkout, with the cart's delivery estimate, so cart and
+  // checkout show the same numbers.
+  const totals = checkoutTotals(cart, null, site?.includesTax !== false);
+```
+
+and replace everything between `<hr className="rule" />` and the hint paragraph (the subtotal, estimated-delivery and total rows) with:
+
+```tsx
+          {totals ? <TotalsRows totals={totals} /> : null}
+```
+
+Delete the now unused `cartTotal` import and `total` constant. Keep the hint «Emporix estimates the delivery; you choose the method at checkout.»
 
 - [ ] **Step 4: Delete the replaced components**
 
@@ -4829,20 +4939,20 @@ and offers «View order» only to signed-in customers." \
 With the dev server and the setup from Task 7 (B2B site), put two or three priced products into the cart and open the checkout. Check and screenshot:
 1. Step 1 opens with empty fields; «Continue» with empty fields shows the three errors next to the fields.
 2. Step 2: the country select lists the site's ship-to countries; «Continue» with empty fields shows the errors.
-3. Step 3: the methods with prices; «Free from CHF 150.00» on the standard method; the summary shows the delivery fee and «Add CHF X for free delivery» while the items cost less than CHF 150; the total equals items plus delivery.
+3. Step 3: the methods with prices and «Prices excl. VAT.»; «Free from CHF 150.00» on the standard method. With the two TENA items of the PR 1 check (net CHF 2.08) the summary reads: Subtotal (excl. VAT) 2.08, Delivery · Standard (excl. VAT) 12.90, VAT 1.10, «Add CHF 147.92 for free delivery», Total 16.08 — the cart's own `finalPrice.grossValue`. Choosing express changes it to 39.00 / 3.21 / 44.30, without the hint.
 4. Step 4: «Invoice»; unchecking «Billing address same as shipping» opens a second address block.
 5. Step 5: the four rows with «Edit»; «Edit» on step 2 reopens it while steps 3 and 4 stay done.
 6. At 375px the summary is a bar above the steps that opens the lines.
 
 Stop at step 5. Do **not** press «Place order».
 
-- [ ] **Step 2: Read the live cart's totals (spec, open question 2)**
+- [ ] **Step 2: Compare the summary with the live cart**
 
-Use `read_network_requests` with `urlPattern: "/carts/"`, pick the latest `GET …/carts/{id}` (the id is `localStorage["emporix.cartId"]`), and open its response body. Record whether `calculatedPrice.price.grossValue`, `calculatedPrice.finalPrice.grossValue` and `calculatedPrice.finalPrice.taxValue` are present. If `calculatedPrice` is missing, the summary uses `totalPrice` and shows no tax line — that is the designed fallback; note it in the PR.
+Open question 2 was answered in the PR 1 check. Re-check it on the cart used here: the browser pane's network panel does not show the SDK's API calls, so read the cart from the app's React Query cache instead (inspection only), as in the PR 1 check — walk the fibers from `#root` to the `QueryClientProvider`, find the `["emporix","cart",…]` entry, and compare `calculatedPrice.finalPrice.grossValue` with the summary's standard-delivery total. They must agree to the cent.
 
 - [ ] **Step 3: The real order (spec, open question 1) — only with the user's explicit go-ahead now**
 
-Ask the user, naming the tenant, the site and the delivery method: «Place one real guest order on the B2B site with standard delivery to confirm the payment amount including delivery is accepted?» Only on an explicit yes: place it, then record the order number, the confirmation page (screenshot), and from `read_network_requests` the `POST …/checkouts/order` request body (`paymentMethods[0].amount` must equal the shown total) and its response status. If Emporix rejects the amount, apply the spec's fallback (send the items total, as before) and document why in the PR.
+Ask the user, naming the tenant, the site and the delivery method: «Place one real guest order on the B2B site with standard delivery to confirm the payment amount including delivery is accepted?» Only on an explicit yes: place it, then record the order number, the confirmation page (screenshot), and from `read_network_requests` the `POST …/checkouts/order` request body (`paymentMethods[0].amount` must equal the shown gross total; if the network panel does not show the request, log the `input` right before `mutateAsync` behind a one-off console marker and remove it afterwards) and its response status. If Emporix rejects the amount, send what it accepts and document why in the PR.
 
 - [ ] **Step 4: Customer flow (the user signs in; the agent types no password)**
 
