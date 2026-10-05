@@ -65,7 +65,7 @@ its `app/styles/tokens.css`.
    `paymentMethods[0].amount` (which `checkout.yml` defines as "Amount to be paid
    by the customer") are both `cart.totalPrice`. A live cart on the B2B site
    (2026-10-05, after the first version of this spec) showed what that is: the
-   items **net** plus Emporix's own delivery estimate **net** (the zone's first
+   items **net** plus Emporix's own delivery estimate **net** (the cheapest
    method, CHF 12.90), without VAT — CHF 14.98 for two items worth CHF 2.08. The
    summary then lists the chosen delivery fee on top, and a shopper who picks
    express still pays the standard estimate. On a site with free delivery and
@@ -77,12 +77,24 @@ its `app/styles/tokens.css`.
    VAT 2.5 %), `totalShipping` (the estimate: net 12.90, gross 13.94, VAT 8.1 %)
    and `finalPrice` (net 14.98, gross 16.08) — `finalPrice` contains the delivery
    estimate. `discountedPrice` and `totalDiscount` are absent without discounts.
-   The demo uses none of it.
-6. A signed-in customer loses the `saasToken` on reload, because it lives in
-   memory only. The form still renders; only «Place order» fails.
+   The demo uses none of it. The values carry more than two decimals (items net
+   2.0846, gross 2.1367), so lines rounded one by one can miss the rounded total
+   by a cent. The cart spec's examples add `price` as the items before discounts
+   and `totalFee` for fees, which `finalPrice` contains as well.
+6. ~~A signed-in customer loses the `saasToken` on reload.~~ Taken from the
+   demo's README, which was stale: the SDK has persisted the token since
+   `bcb35c4` (2026-06-13), as the PR 2 live check showed. What remains true is
+   that `setSaasToken` is optional on a storage adapter, so the checkout still
+   guards a session without the token — the form used to render and only «Place
+   order» failed.
 7. Payment modes render as `code · integrationType`. The confirmation shows the
    order id only, and its «View order» link sends a guest to the sign-in page,
    because `OrderDetail` sits behind `RequireAuth`.
+8. **Every `payment-gateway` order failed.** Found in the PR 2 live check: the
+   checkout answers `400` «payments[0].method must not be null» because the
+   payment method carried only `customAttributes.modeId`. The spec's own example
+   sends `method: invoice`, the mode's code. On a tenant without payment modes
+   the `custom` fallback hid it.
 
 ## Decisions
 
@@ -248,19 +260,25 @@ with «Edit». The step is not part of the URL.
   step 5 is open. This removes the accordion's cost for repeat orders.
 - **Summary** (`OrderSummary`): sticky on the right; on narrow screens a
   collapsible bar above the steps showing the total. Lines show image, article
-  number, `quantity × unit price` and the line total; below them subtotal,
-  discount (when non-zero), delivery, VAT, the free-delivery hint and the total.
-  On a site whose prices exclude tax (`site.includesTax` is `false`, as on the
-  B2B site) subtotal and delivery are labelled «excl. VAT» and the VAT is its own
-  line; otherwise they are gross and the VAT shows as «incl. VAT».
+  number, `quantity × unit price` and the line total; below them the subtotal
+  before discounts, discount and fees (when non-zero), delivery, VAT, the
+  free-delivery hint and the total. On a site whose prices exclude tax
+  (`site.includesTax` is `false`, as on the B2B site) subtotal, fees and delivery
+  are labelled «excl. VAT» and the VAT is its own line; otherwise they are gross
+  and the VAT shows as «incl. VAT».
 - **Totals** are one pure function, `checkoutTotals(cart, delivery, includesTax)`
   in `src/checkout/totals.ts`, built on what the live cart returned:
   - items, net and gross, from `calculatedPrice.discountedPrice` or `.price`;
+    the subtotal is `.price`, before discounts, and the discount the difference;
+    fees come from `totalFee`;
   - the delivery **replaces** the cart's estimate: the chosen method's fee is the
     net amount (as the cart treated the standard fee), taxed at the rate the cart
     applied to its estimate (`totalShipping`); before a method is chosen, the
     cart's estimate stands in;
-  - `tax` is the VAT on items plus delivery, `total` the gross sum;
+  - `total` is the gross sum of items, fees and delivery, rounded once, as
+    `finalPrice` is; `tax` is what the total holds beyond the net lines as shown,
+    each rounded to cents, so on a tax-exclusive site the lines add up to the
+    total;
   - the free-delivery threshold and `pickFee` compare against the items net on a
     tax-exclusive site and gross otherwise;
   - without `calculatedPrice` it falls back to `subTotalPrice` (items) and shows
@@ -334,7 +352,7 @@ Per PR:
 |---|---|
 | Which `calculatedPrice` fields does a live cart return? | **Answered in the PR 1 live check (2026-10-05).** `price`, `shipping`, `totalShipping` and `finalPrice`, each with net, gross, tax and rate; `finalPrice` contains Emporix's delivery estimate; prices on the B2B site are net (`includesTax: false`). This reshaped the totals above. |
 | Does `setSite` re-price a guest? | **Answered in the PR 1 live check.** Yes, immediately (the visitor already has a cart by then). It also showed the switch outliving a reload on the server while the page fell back to the setup's site; fixed in PR 1 by persisting site, currency and country, and by dropping the guest session on «Change setup». No SDK change needed. |
-| Does Emporix accept the gross total, delivery included, as the payment amount? | Open: the one real order in PR 2. If it rejects it, send what it accepts and document why. |
+| Does Emporix accept the gross total, delivery included, as the payment amount? | **Answered in the PR 2 live check.** Yes: guest order `EON1330` on the B2B site, two items with standard delivery, `amount: 16.08` (items net 2.08 + delivery net 12.90 + VAT 1.10). The first attempt failed for another reason, the missing `method` (finding 8). |
 
 ## Out of scope
 

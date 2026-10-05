@@ -20,6 +20,19 @@
     - a parent category falls back to the tree's children;
     - the cart summary splits off Emporix's delivery estimate.
   - The live cart's `calculatedPrice` (items net/gross, a delivery estimate inside `finalPrice`, net prices on the B2B site) amended Tasks 10, 11, 14 and 15. The amended passages say so.
+- **2026-10-05, PR 2 live check (Task 16):**
+  - Delivery methods are sorted by fee (`2cee052`). The zone listed express first, so the cheapest one, which the cart's own estimate uses, was not preselected.
+  - The first real order failed with `400` «payments[0].method must not be null». The `payment-gateway` method now carries the mode's code (`09ba48b`). The retry placed guest order `EON1330`, with `amount: 16.08` accepted.
+  - The `saasToken` survives a reload: the SDK has persisted it since `bcb35c4`.
+    - Step 4's reload expectation was wrong.
+    - The re-sign-in form was checked by removing the stored token, and its wording fixed (`4454a50`).
+    - A VAT line of zero is hidden.
+  - The same missing `method` sits in `next-server-first` and the Angular demo. That is left to a separate task, outside this scope.
+- **2026-10-05, review before PR 2 was opened:** the totals had three faults the live check did not exercise.
+  - Discounts were subtracted twice: the subtotal already came from `discountedPrice`, and a discount line followed it.
+  - The cart's fees (`totalFee`, part of `finalPrice`) were left out, so a tenant with fees would have got too low a payment amount.
+  - The lines could miss the total by a cent, because the cart computes with more than two decimals: express showed 2.08 + 39.00 + 3.21 against 44.30.
+  - `CheckoutTotals` now carries the lines as shown (`subtotal` before discounts, `discount`, `fees`, `delivery`) and derives the VAT from the total. The code in Tasks 10 and 11 below is the earlier version.
 
 ## Global Constraints
 
@@ -3004,7 +3017,7 @@ git switch -c feat/storefront-demo-checkout feat/storefront-demo-redesign
 
 > **Amended after the PR 1 live check (2026-10-05).** A live cart returned the
 > items net and gross in `calculatedPrice.price`, and a delivery estimate (the
-> zone's first method, net CHF 12.90, VAT 8.1 %) in `totalShipping` that
+> cheapest method, net CHF 12.90, VAT 8.1 %) in `totalShipping` that
 > `finalPrice` already contains. The first version of this task added the chosen
 > fee to `finalPrice` and would have counted delivery twice. The function below
 > replaces the estimate with the chosen delivery instead.
@@ -3066,7 +3079,7 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /**
  * The checkout's money, built on what a live cart returns: `calculatedPrice`
- * carries the items net and gross, and a delivery estimate (the zone's first
+ * carries the items net and gross, and a delivery estimate (the cheapest
  * method) in `totalShipping` that `finalPrice` already contains. The chosen
  * delivery replaces that estimate, taxed at the rate the cart applied to it. On a
  * tax-exclusive site the configured fee is the net amount (that is how the cart

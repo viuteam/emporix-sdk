@@ -2,8 +2,10 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { CartCommand } from "@viu/emporix-sdk";
-import { useActiveCart, useCartCommands } from "@viu/emporix-sdk-react";
-import { cartLines, cartTotal, cartCoupons, type CartLineVM } from "../lib/adapters";
+import { useActiveCart, useActiveSite, useCartCommands } from "@viu/emporix-sdk-react";
+import { cartLines, cartCoupons, type CartLineVM } from "../lib/adapters";
+import { TotalsRows } from "../checkout/OrderSummary";
+import { checkoutTotals } from "../checkout/totals";
 import { useProductDetails } from "../lib/useProductNames";
 import { money } from "@viu/emporix-examples-shared";
 import { Button } from "../components/ui/Button";
@@ -20,13 +22,11 @@ export function Cart() {
   const [coupon, setCoupon] = useState("");
 
   const lines = cartLines(cart);
-  const total = cartTotal(cart);
   const coupons = cartCoupons(cart);
-  // Emporix already counts a delivery estimate (the zone's first method) into
-  // `totalPrice`; show the two parts so the lines and the total add up.
-  const sums = cart as { subTotalPrice?: { amount?: number }; shipping?: { fee?: { amount?: number } } } | null;
-  const subtotal = sums?.subTotalPrice?.amount;
-  const estimatedDelivery = sums?.shipping?.fee?.amount;
+  const site = useActiveSite();
+  // Same function as the checkout, with the cart's delivery estimate, so cart and
+  // checkout show the same numbers.
+  const totals = checkoutTotals(cart, null, site?.includesTax !== false);
   const details = useProductDetails(lines.map((l) => l.productId));
 
   /**
@@ -156,22 +156,7 @@ export function Cart() {
           ) : null}
 
           <hr className="rule" />
-          {total && subtotal !== undefined ? (
-            <div className="cart__total">
-              <span>Subtotal</span>
-              <span className="price">{money(subtotal, total.currency)}</span>
-            </div>
-          ) : null}
-          {total && estimatedDelivery !== undefined ? (
-            <div className="cart__total">
-              <span>Estimated delivery</span>
-              <span className="price">{money(estimatedDelivery, total.currency)}</span>
-            </div>
-          ) : null}
-          <div className="cart__total">
-            <span>Total</span>
-            <span className="price cart__grand">{total ? money(total.amount, total.currency) : "—"}</span>
-          </div>
+          {totals ? <TotalsRows totals={totals} /> : null}
           <p className="field__hint">Emporix estimates the delivery; you choose the method at checkout.</p>
           <Button variant="accent" block onClick={() => nav("/checkout")} className="cart__checkout">
             Checkout →

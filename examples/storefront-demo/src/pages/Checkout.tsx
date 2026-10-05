@@ -1,84 +1,151 @@
-import { useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { EmporixError, EmporixNotFoundError } from "@viu/emporix-sdk";
+import type { PaymentMode } from "@viu/emporix-sdk";
 import {
   useActiveCart,
+  useActiveSite,
   useCheckout,
-  useCustomerSession,
   useCustomerAddresses,
+  useCustomerSession,
   useEmporix,
+  usePaymentModes,
 } from "@viu/emporix-sdk-react";
-import { cartLines, cartTotal } from "../lib/adapters";
-import { useProductNames } from "../lib/useProductNames";
 import { money } from "@viu/emporix-examples-shared";
-import { Button } from "../components/ui/Button";
-import { Field } from "../components/ui/Field";
+import { cartLines } from "../lib/adapters";
+import { useProductDetails } from "../lib/useProductNames";
 import { Loading } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
-import { Alert } from "../components/ui/Alert";
-import { useToast, errorMessage } from "../app/Toasts";
-import { AddressSection } from "../checkout/AddressSection";
-import { PaymentSelector } from "../checkout/PaymentSelector";
-import { ShippingSelector, type SelectedShipping } from "../checkout/ShippingSelector";
-import { EMPTY_ADDRESS, type AddressDraft } from "../checkout/AddressFields";
+import { errorMessage } from "../app/Toasts";
+import { CheckoutStep, type StepState } from "../checkout/CheckoutStep";
+import { ContactStep, contactErrors, type ContactDraft } from "../checkout/ContactStep";
+import { AddressStep } from "../checkout/AddressStep";
+import { DeliveryStep, fallbackDelivery, useDeliveryOptions } from "../checkout/DeliveryStep";
+import { PaymentStep, modeLabel, type PaymentDraft } from "../checkout/PaymentStep";
+import { ReviewStep, type SubmitError } from "../checkout/ReviewStep";
+import { OrderSummary } from "../checkout/OrderSummary";
+import { Confirmation, type PlacedOrder } from "../checkout/Confirmation";
+import { EMPTY_ADDRESS, addressErrors, addressToDraft, formatAddress, type AddressDraft } from "../checkout/AddressFields";
+import { checkoutTotals } from "../checkout/totals";
+
+type Step = 1 | 2 | 3 | 4 | 5;
+type FormStep = Exclude<Step, 5>;
+const TITLES: Record<Step, string> = {
+  1: "Contact",
+  2: "Shipping address",
+  3: "Delivery",
+  4: "Payment",
+  5: "Review & place order",
+};
+type ReadCustomer = { id?: string; firstName?: string; lastName?: string; contactEmail?: string };
 
 export function Checkout() {
   const { storage, client } = useEmporix();
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const [placed, setPlaced] = useState<PlacedOrder | null>(null);
   // Once the order is placed the cart is closed — stop bootstrapping, otherwise
   // `getCurrent` re-adopts the just-closed cart id and every later fetch 404s.
-  const { data: cart, isLoading } = useActiveCart({ create: orderId === null });
+  const { data: cart, isLoading } = useActiveCart({ create: placed === null });
   const { isAuthenticated, customer, saasToken } = useCustomerSession();
   const { placeOrder } = useCheckout();
-  const { notify } = useToast();
+  const site = useActiveSite();
+  const countries = site?.shipToCountries ?? [];
+  const firstCountry = countries[0];
+  // Idle (data undefined) for guests: no saved addresses.
+  const { data: savedData } = useCustomerAddresses();
+  const saved = savedData ?? [];
+  const { data: modesData, isLoading: modesLoading } = usePaymentModes();
+  const modes: PaymentMode[] = modesData ?? [];
 
   const cartId = (cart as { id?: string } | null)?.id;
   const lines = cartLines(cart);
-  const total = cartTotal(cart);
-  const names = useProductNames(lines.map((l) => l.productId));
+  const details = useProductDetails(lines.map((l) => l.productId));
+  const cust = customer as ReadCustomer | null;
 
-  // A logged-in checkout must identify the customer by id — Emporix returns
-  // "Cannot found customer" otherwise. Guest checkout omits it.
-  const cust = customer as { id?: string; firstName?: string; lastName?: string } | null;
-  const customerId = cust?.id;
+  const [step, setStep] = useState<Step>(1);
+  const [reached, setReached] = useState<Step>(1);
+  const [contact, setContact] = useState<ContactDraft>({ email: "", firstName: "", lastName: "" });
+  const [shipping, setShipping] = useState<AddressDraft>({ ...EMPTY_ADDRESS });
+  const [deliveryId, setDeliveryId] = useState<string | null>(null);
+  const [payment, setPayment] = useState<PaymentDraft>({ modeId: null, billingSame: true, billing: { ...EMPTY_ADDRESS } });
+  const [submitError, setSubmitError] = useState<SubmitError | null>(null);
 
-  // Logged-in customers can pick from saved addresses; the query is idle (data
-  // undefined) for guests, so the picker simply never appears.
-  const { data: savedAddresses } = useCustomerAddresses();
+  // Prefill from the profile once it loads; what the shopper typed wins.
+  useEffect(() => {
+    if (!cust) return;
+    setContact((c) => ({
+      email: c.email || cust.contactEmail || "",
+      firstName: c.firstName || cust.firstName || "",
+      lastName: c.lastName || cust.lastName || "",
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cust?.id]);
 
-  const [contact, setContact] = useState({
-    email: "",
-    firstName: cust?.firstName || "Guest",
-    lastName: cust?.lastName || "Shopper",
+  // The default saved address, else the site's first country.
+  const defaultSaved = saved.find((a) => a.isDefault) ?? saved[0];
+  useEffect(() => {
+    if (defaultSaved) setShipping((s) => (s.street ? s : addressToDraft(defaultSaved)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultSaved?.id]);
+  useEffect(() => {
+    if (firstCountry) setShipping((s) => (s.country ? s : { ...s, country: firstCountry }));
+  }, [firstCountry]);
+
+  // A site that says nothing about tax is taken as tax-inclusive, the B2C default.
+  const includesTax = site?.includesTax !== false;
+  const orderValue = checkoutTotals(cart, null, includesTax)?.orderValue;
+  const shipCountry = shipping.country || firstCountry || "";
+  const { options, isLoading: optionsLoading } = useDeliveryOptions(shipCountry, orderValue);
+  // The cheapest method (options come sorted) is preselected; the fallback only
+  // once nothing resolved.
+  const delivery =
+    options.find((o) => o.methodId === deliveryId) ?? options[0] ?? (optionsLoading ? null : fallbackDelivery(shipCountry));
+  const totals = checkoutTotals(cart, delivery, includesTax);
+  const modeId = payment.modeId ?? modes[0]?.id ?? null;
+  const mode = modes.find((m) => m.id === modeId);
+  const paymentLabel = mode ? modeLabel(mode) : "Custom (demo)";
+  const billingLabel = payment.billingSame ? "billing same as shipping" : `billing ${formatAddress(payment.billing)}`;
+
+  const valid: Record<FormStep, boolean> = {
+    1: Object.keys(contactErrors(contact)).length === 0 && (!isAuthenticated || Boolean(saasToken)),
+    2: Object.keys(addressErrors(shipping, countries)).length === 0,
+    3: delivery !== null,
+    4: !modesLoading && (payment.billingSame || Object.keys(addressErrors(payment.billing, countries)).length === 0),
+  };
+
+  // A returning customer with everything on file starts at the review — once,
+  // after the prefill effects above have applied.
+  const jumped = useRef(false);
+  const prefilled = (!cust || Boolean(contact.email)) && (!defaultSaved || Boolean(shipping.street));
+  const ready = !isLoading && !optionsLoading && !modesLoading && savedData !== undefined && prefilled;
+  useEffect(() => {
+    if (jumped.current || !isAuthenticated || !ready) return;
+    jumped.current = true;
+    if (valid[1] && valid[2] && valid[3] && valid[4]) {
+      setStep(5);
+      setReached(5);
+    }
   });
-  const [shipping, setShipping] = useState<AddressDraft>({
-    ...EMPTY_ADDRESS,
-    contactName: `${cust?.firstName || "Guest"} ${cust?.lastName || "Shopper"}`,
-    street: "Rämistrasse",
-    streetNumber: "71",
-    zipCode: "8006",
-    city: "Zürich",
-    country: "CH",
-  });
-  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
-  const [billing, setBilling] = useState<AddressDraft>({ ...EMPTY_ADDRESS });
-  const [selectedModeId, setSelectedModeId] = useState<string | null>(null);
-  const [selectedShipping, setSelectedShipping] = useState<SelectedShipping | null>(null);
 
-  const email = isAuthenticated
-    ? (customer as { contactEmail?: string } | null)?.contactEmail ?? contact.email
-    : contact.email;
-  const setContactField =
-    (k: keyof typeof contact) =>
-    (e: { target: { value: string } }) =>
-      setContact((c) => ({ ...c, [k]: e.target.value }));
+  function go(s: Step) {
+    setStep(s);
+    setReached((r) => (s > r ? s : r));
+    setSubmitError(null);
+  }
+  function continueFrom(s: FormStep) {
+    if (s === 1 && !shipping.contactName) {
+      setShipping((a) => ({ ...a, contactName: `${contact.firstName} ${contact.lastName}`.trim() }));
+    }
+    const later: Step[] = [2, 3, 4, 5];
+    go(later.find((n) => n > s && (n === 5 || n > reached || !valid[n as FormStep])) ?? 5);
+  }
+  const stateOf = (s: Step): StepState => (s === step ? "open" : s !== 5 && s <= reached && valid[s] ? "done" : "todo");
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!cartId || !total) return;
-    const billingAddr = billingSameAsShipping ? shipping : billing;
+  async function place() {
+    if (!cartId || !totals || !delivery) return;
+    setSubmitError(null);
+    const billing = payment.billingSame ? shipping : payment.billing;
     const toAddress = (a: AddressDraft, type: "SHIPPING" | "BILLING") => ({
-      contactName: a.contactName || `${contact.firstName} ${contact.lastName}`,
+      contactName: a.contactName,
       ...(a.companyName ? { companyName: a.companyName } : {}),
       street: a.street,
       ...(a.streetNumber ? { streetNumber: a.streetNumber } : {}),
@@ -91,165 +158,160 @@ export function Checkout() {
     const input = {
       cartId,
       customer: {
-        // Logged-in customer must be identified by id; guest must not.
-        ...(isAuthenticated && customerId ? { id: customerId } : {}),
-        email,
+        // A signed-in customer must be identified by id; a guest must not.
+        ...(isAuthenticated && cust?.id ? { id: cust.id } : {}),
+        email: contact.email,
         firstName: contact.firstName,
         lastName: contact.lastName,
         guest: !isAuthenticated,
       },
-      // Send the chosen delivery option; fall back to free shipping when none
-      // resolved (no configured method for the destination).
-      shipping: selectedShipping
-        ? {
-            methodId: selectedShipping.methodId,
-            zoneId: selectedShipping.zoneId,
-            methodName: selectedShipping.methodName,
-            amount: selectedShipping.amount,
-            ...(selectedShipping.shippingTaxCode ? { shippingTaxCode: selectedShipping.shippingTaxCode } : {}),
-          }
-        : { methodId: "free", zoneId: shipping.country, methodName: "Free Shipping", amount: 0 },
-      addresses: [toAddress(shipping, "SHIPPING"), toAddress(billingAddr, "BILLING")],
-      // Send the chosen configured mode; fall back to the demo "custom" provider
-      // when none is available.
-      paymentMethods: selectedModeId
-        ? [{ provider: "payment-gateway", customAttributes: { modeId: selectedModeId }, amount: total.amount }]
-        : [{ provider: "custom", amount: total.amount }],
+      shipping: {
+        methodId: delivery.methodId,
+        zoneId: delivery.zoneId,
+        methodName: delivery.methodName,
+        amount: delivery.amount,
+        ...(delivery.shippingTaxCode ? { shippingTaxCode: delivery.shippingTaxCode } : {}),
+      },
+      addresses: [toAddress(shipping, "SHIPPING"), toAddress(billing, "BILLING")],
+      // The payment amount is the total the shopper saw: items plus delivery, gross.
+      // `payment-gateway` also needs `method`, the mode's code (`invoice`): without
+      // it the checkout answers 400 «payments[0].method must not be null».
+      paymentMethods: modeId
+        ? [
+            {
+              provider: "payment-gateway",
+              ...(mode?.code ? { method: mode.code } : {}),
+              customAttributes: { modeId },
+              amount: totals.total,
+            },
+          ]
+        : [{ provider: "custom", amount: totals.total }],
     };
     try {
       const r = await placeOrder.mutateAsync({
         input,
-        // Customer checkout must carry the saasToken; guest doesn't need it.
+        // A customer checkout must carry the saasToken; a guest's does not.
         ...(isAuthenticated && saasToken ? { saasToken } : {}),
       });
-      setOrderId((r as { orderId?: string }).orderId ?? null);
-      // The cart is CLOSED on Emporix after a successful order — drop it
-      // locally so `useActiveCart` stops querying the now-closed cart.
+      setPlaced({
+        orderId: (r as { orderId?: string }).orderId ?? "",
+        email: contact.email,
+        lines,
+        details,
+        totals,
+        shipping,
+        deliveryName: delivery.methodName,
+        paymentLabel,
+        signedIn: isAuthenticated,
+      });
+      // The cart is CLOSED on Emporix after a successful order — drop it locally
+      // so `useActiveCart` stops querying the closed cart.
       storage.setCartId(null);
     } catch (err) {
-      notify(errorMessage(err), "error");
+      if (err instanceof EmporixNotFoundError) {
+        setSubmitError({ message: "This cart no longer exists. It may have been checked out in another tab.", toCart: true });
+      } else if (err instanceof EmporixError && err.status === 409) {
+        setSubmitError({ message: "An order already exists for this cart.", toCart: true });
+      } else {
+        setSubmitError({ message: errorMessage(err), toCart: false });
+      }
     }
   }
 
-  if (orderId !== null) {
+  if (placed) return <Confirmation order={placed} />;
+  if (isLoading) {
     return (
-      <div className="container" style={{ paddingBlock: "var(--s-8)" }}>
-        <div className="center-col" style={{ gap: "var(--s-3)" }}>
-          <p className="eyebrow">Order placed</p>
-          <h1 className="serif">Thank you.</h1>
-          <p className="muted">
-            Your order <strong className="serif">{orderId}</strong> is confirmed.
-          </p>
-          <div className="cluster" style={{ marginTop: "var(--s-4)" }}>
-            <Link to={`/account/orders/${encodeURIComponent(orderId)}`} className="btn btn--solid">View order</Link>
-            <Link to="/" className="btn btn--outline">Continue shopping</Link>
-          </div>
-        </div>
+      <div className="container">
+        <Loading label="Loading checkout" />
       </div>
     );
-  }
-
-  if (isLoading) {
-    return <div className="container"><Loading label="Loading checkout" /></div>;
   }
   if (lines.length === 0) {
     return (
       <div className="container">
-        <EmptyState title="Your bag is empty">
+        <EmptyState title="Your cart is empty">
           Add something before checking out — <Link to="/" className="u-underline">browse</Link>.
         </EmptyState>
       </div>
     );
   }
 
+  const currency = totals?.currency ?? "";
   return (
-    <div className="container" style={{ paddingBlock: "var(--s-6)" }}>
-      <h2 className="serif" style={{ marginBottom: "var(--s-5)" }}>Checkout</h2>
-
-      <div style={{ marginBottom: "var(--s-6)" }}>
-        <Alert tone="warning">
-          <strong>Live order.</strong> Placing this order creates a real order in tenant <strong>{client.tenant}</strong>.
-        </Alert>
+    <div className="container checkout">
+      <div className="checkout__head">
+        <h1 className="page-title">Checkout</h1>
+        <Link to="/cart" className="u-underline">
+          ← Back to cart
+        </Link>
       </div>
-
-      <form onSubmit={submit} className="cart">
-        <div className="stack" style={{ gap: "var(--s-5)" }}>
-          <div className="stack">
-            <p className="eyebrow">{isAuthenticated ? "Signed in" : "Guest"} contact</p>
-            {!isAuthenticated ? (
-              <Field label="Email" type="email" required value={contact.email} onChange={setContactField("email")} placeholder="you@example.com" />
-            ) : (
-              <p className="muted">{email}</p>
-            )}
-            <div className="cluster" style={{ gap: "var(--s-4)" }}>
-              <Field label="First name" value={contact.firstName} onChange={setContactField("firstName")} />
-              <Field label="Last name" value={contact.lastName} onChange={setContactField("lastName")} />
-            </div>
-          </div>
-
-          <AddressSection
-            title="Shipping address"
-            value={shipping}
-            onChange={(patch) => setShipping((s) => ({ ...s, ...patch }))}
-            savedAddresses={savedAddresses}
-            idPrefix="shipping"
-          />
-
-          <label className="cluster" style={{ gap: "var(--s-2)", alignItems: "center" }}>
-            <input
-              type="checkbox"
-              checked={billingSameAsShipping}
-              onChange={(e) => setBillingSameAsShipping(e.target.checked)}
+      <div className="co-layout">
+        <div className="co-steps">
+          <CheckoutStep
+            index={1}
+            title={TITLES[1]}
+            state={stateOf(1)}
+            summary={`${contact.email} · ${isAuthenticated ? "signed in" : "guest"}`}
+            onEdit={() => go(1)}
+          >
+            <ContactStep value={contact} onChange={(p) => setContact((c) => ({ ...c, ...p }))} onContinue={() => continueFrom(1)} />
+          </CheckoutStep>
+          <CheckoutStep index={2} title={TITLES[2]} state={stateOf(2)} summary={formatAddress(shipping)} onEdit={() => go(2)}>
+            <AddressStep
+              value={shipping}
+              onChange={(p) => setShipping((s) => ({ ...s, ...p }))}
+              saved={saved}
+              countries={countries}
+              onContinue={() => continueFrom(2)}
             />
-            <span>Billing address same as shipping</span>
-          </label>
-
-          {!billingSameAsShipping ? (
-            <AddressSection
-              title="Billing address"
-              value={billing}
-              onChange={(patch) => setBilling((b) => ({ ...b, ...patch }))}
-              savedAddresses={savedAddresses}
-              idPrefix="billing"
+          </CheckoutStep>
+          <CheckoutStep
+            index={3}
+            title={TITLES[3]}
+            state={stateOf(3)}
+            summary={delivery ? `${delivery.methodName} · ${delivery.amount === 0 ? "Free" : money(delivery.amount, currency)}` : undefined}
+            onEdit={() => go(3)}
+          >
+            <DeliveryStep
+              options={options}
+              isLoading={optionsLoading}
+              country={shipCountry}
+              currency={currency}
+              includesTax={includesTax}
+              value={delivery?.methodId ?? null}
+              onChange={setDeliveryId}
+              onContinue={() => continueFrom(3)}
             />
-          ) : null}
-
-          <ShippingSelector
-            country={shipping.country}
-            cartTotal={total?.amount}
-            value={selectedShipping}
-            onChange={setSelectedShipping}
-          />
-
-          <PaymentSelector value={selectedModeId} onChange={setSelectedModeId} />
+          </CheckoutStep>
+          <CheckoutStep index={4} title={TITLES[4]} state={stateOf(4)} summary={`${paymentLabel} · ${billingLabel}`} onEdit={() => go(4)}>
+            <PaymentStep
+              modes={modes}
+              isLoading={modesLoading}
+              value={{ ...payment, modeId }}
+              onChange={(p) => setPayment((x) => ({ ...x, ...p }))}
+              saved={saved}
+              countries={countries}
+              onContinue={() => continueFrom(4)}
+            />
+          </CheckoutStep>
+          <CheckoutStep index={5} title={TITLES[5]} state={stateOf(5)}>
+            <ReviewStep
+              rows={[
+                { step: 1, label: "Contact", value: `${contact.firstName} ${contact.lastName} · ${contact.email}`, onEdit: () => go(1) },
+                { step: 2, label: "Ship to", value: formatAddress(shipping), onEdit: () => go(2) },
+                { step: 3, label: "Delivery", value: delivery?.methodName ?? "—", onEdit: () => go(3) },
+                { step: 4, label: "Payment", value: `${paymentLabel} · ${billingLabel}`, onEdit: () => go(4) },
+              ]}
+              total={totals ? money(totals.total, totals.currency) : "—"}
+              tenant={client.tenant}
+              busy={placeOrder.isPending}
+              error={submitError}
+              onPlace={() => void place()}
+            />
+          </CheckoutStep>
         </div>
-
-        <aside className="cart__summary surface">
-          <h3 className="serif">Summary</h3>
-          <ul style={{ listStyle: "none", padding: 0, marginTop: "var(--s-3)" }}>
-            {lines.map((l) => (
-              <li key={l.id} className="cart__total" style={{ paddingBlock: "var(--s-1)", fontSize: "var(--step--1)" }}>
-                <span className="muted">{(names[l.productId] ?? l.name ?? l.productId)} × {l.quantity}</span>
-                <span className="price">{l.lineTotal ? money(l.lineTotal.amount, l.lineTotal.currency) : ""}</span>
-              </li>
-            ))}
-          </ul>
-          {selectedShipping && total ? (
-            <div className="cart__total" style={{ paddingBlock: "var(--s-1)", fontSize: "var(--step--1)" }}>
-              <span className="muted">Delivery · {selectedShipping.methodName}</span>
-              <span className="price">{money(selectedShipping.amount, total.currency)}</span>
-            </div>
-          ) : null}
-          <hr className="rule" style={{ marginBlock: "var(--s-4)" }} />
-          <div className="cart__total">
-            <span className="eyebrow">Total</span>
-            <span className="price" style={{ fontSize: "var(--step-2)" }}>{total ? money(total.amount, total.currency) : "—"}</span>
-          </div>
-          <Button type="submit" variant="accent" block disabled={placeOrder.isPending || !total} style={{ marginTop: "var(--s-4)" }}>
-            {placeOrder.isPending ? "Placing order…" : "Place order"}
-          </Button>
-        </aside>
-      </form>
+        <OrderSummary lines={lines} details={details} totals={totals} deliveryName={delivery?.methodName} />
+      </div>
     </div>
   );
 }

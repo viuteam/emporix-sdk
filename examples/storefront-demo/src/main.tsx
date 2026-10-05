@@ -5,6 +5,7 @@ import "./styles/tokens.css";
 import "./styles/global.css";
 import "./styles/shell.css";
 import "./styles/catalog.css";
+import "./styles/checkout.css";
 import { App } from "./App";
 
 const root = document.getElementById("root");
