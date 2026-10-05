@@ -1,21 +1,7 @@
 import { useState } from "react";
 import type { Address } from "@viu/emporix-sdk";
 import { SelectField } from "../components/ui/Field";
-import { AddressFields, type AddressDraft } from "./AddressFields";
-
-/** Maps a saved customer `Address` onto an editable `AddressDraft`. */
-function addressToDraft(a: Address): AddressDraft {
-  return {
-    contactName: a.contactName ?? "",
-    companyName: a.companyName ?? "",
-    street: a.street ?? "",
-    streetNumber: a.streetNumber ?? "",
-    zipCode: a.zipCode ?? "",
-    city: a.city ?? "",
-    country: a.country ?? "",
-    contactPhone: a.contactPhone ?? "",
-  };
-}
+import { AddressFields, addressToDraft, type AddressDraft } from "./AddressFields";
 
 /**
  * One titled address block. For logged-in customers with saved addresses it
