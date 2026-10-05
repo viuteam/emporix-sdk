@@ -1,5 +1,11 @@
 # @viu/emporix-sdk-react
 
+## 4.2.4
+
+### Patch Changes
+
+- [#381](https://github.com/viuteam/emporix-sdk/pull/381) [`f729058`](https://github.com/viuteam/emporix-sdk/commit/f729058b01a95f931bf0bcd7781c45b273ef8027) Thanks [@amnael1](https://github.com/amnael1)! - Export `useOrderTransitions` and `UseOrderTransitionsOptions` from the package root. Since 4.1.0 they were reachable only through `@viu/emporix-sdk-react/hooks`. The JSDoc examples of `useEmporixQuery` and `useEmporixInfinite` now call methods that exist (`brands.listBrands`, `fees.list`).
+
 ## 4.2.1
 
 ### Patch Changes

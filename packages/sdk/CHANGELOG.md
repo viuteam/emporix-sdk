@@ -1,5 +1,11 @@
 # @viu/emporix-sdk
 
+## 4.2.4
+
+### Patch Changes
+
+- [#381](https://github.com/viuteam/emporix-sdk/pull/381) [`f151f7c`](https://github.com/viuteam/emporix-sdk/commit/f151f7ca11c32d1aa68355a5efbf36286e7b78ac) Thanks [@amnael1](https://github.com/amnael1)! - Export from the package root every type a public method takes or returns. These were reachable only through a subpath or not at all, so a call like `imports.getLicense()` returned an `ImportLicense` that could not be named: `ImportStats`, `ImportStatsQuery`, `ImportJobGroup`, `ImportHealthThresholds`, `ImportLicense`, `LegalEntitySearchInput`, `QuoteReasonsResource`, `CustomerTokenValidation`, `CartItemBatchEntry`, `CartItemsBatchResponse`, `SegmentGroup`, `SegmentGroupInput`, `SessionContextData`, `SiteAddress`, `SiteHomeBase`, and the AI sub-resources `AgenticCrudResource`, `JobsResource`, `TemplatesResource`, `LogsResource` and `AnalyticsResource`. Type-only; no runtime change.
+
 ## 4.2.3
 
 ### Patch Changes
