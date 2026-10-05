@@ -1,5 +1,11 @@
 # @viu/emporix-sdk-next
 
+## 1.0.2
+
+### Patch Changes
+
+- [#381](https://github.com/viuteam/emporix-sdk/pull/381) [`21b0387`](https://github.com/viuteam/emporix-sdk/commit/21b0387acb056039c6bbecb781b056044f076354) Thanks [@amnael1](https://github.com/amnael1)! - Correct the deprecation notes on `sessionCookieJar` and `SessionCookieJar`: they promised removal in 0.6.0, but both stay exported throughout 1.x and go in the next major version. Documentation only.
+
 ## 1.0.1
 
 ### Patch Changes
