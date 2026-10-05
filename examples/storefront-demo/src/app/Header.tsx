@@ -17,36 +17,28 @@ export function Header() {
   }
 
   return (
-    <header
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 30,
-        borderBottom: "1px solid var(--line)",
-        background: "color-mix(in oklab, var(--bg) 86%, transparent)",
-        backdropFilter: "blur(10px)",
-      }}
-    >
-      <div
-        className="container"
-        style={{ display: "flex", alignItems: "center", gap: "var(--s-5)", paddingBlock: "var(--s-4)" }}
-      >
-        <Link to="/" className="serif" style={{ fontSize: "var(--step-1)", letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
-          Maison<span style={{ color: "var(--accent)" }}>—</span>Demo
+    <header className="site-header">
+      <div className="utility-bar">
+        <div className="container utility-bar__inner">
+          <SiteCurrencySwitcher />
+          <LanguageSwitcher />
+        </div>
+      </div>
+      <div className="container main-bar">
+        <Link to="/" className="wordmark">
+          Demo Store
         </Link>
-        <form onSubmit={search} style={{ flex: 1, maxWidth: "26rem" }}>
+        <form onSubmit={search} className="main-bar__search" role="search">
           <input
             className="input"
-            placeholder="Search the catalogue…"
+            type="search"
+            placeholder="Search products…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             aria-label="Search products"
           />
         </form>
-        <nav className="cluster" style={{ gap: "var(--s-4)", marginLeft: "auto", fontSize: "var(--step--1)" }}>
-          <LanguageSwitcher />
-          <SiteCurrencySwitcher />
-          <Link to="/" className="u-underline">Shop</Link>
+        <nav className="main-bar__nav" aria-label="Account and cart">
           <AccountMenu />
           <CartBadge />
         </nav>
