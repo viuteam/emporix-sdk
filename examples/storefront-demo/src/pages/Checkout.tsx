@@ -168,14 +168,14 @@ export function Checkout() {
       <div
         role="alert"
         style={{
-          border: "1px solid var(--oxblood)",
+          border: "1px solid var(--accent)",
           borderRadius: "var(--radius-lg)",
           padding: "var(--s-4)",
           marginBottom: "var(--s-6)",
-          background: "color-mix(in oklab, var(--oxblood) 7%, var(--paper))",
+          background: "color-mix(in oklab, var(--accent) 7%, var(--bg))",
         }}
       >
-        <strong className="serif" style={{ color: "var(--oxblood)" }}>Live order.</strong>{" "}
+        <strong className="serif" style={{ color: "var(--accent)" }}>Live order.</strong>{" "}
         <span className="muted">Placing this order creates a real order in tenant <strong>{client.tenant}</strong>.</span>
       </div>
 

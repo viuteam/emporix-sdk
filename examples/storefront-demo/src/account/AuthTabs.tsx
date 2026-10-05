@@ -56,8 +56,8 @@ export function AuthTabs() {
             onClick={() => setTab(t)}
             className="btn btn--ghost btn--sm"
             style={{
-              borderBottom: tab === t ? "2px solid var(--oxblood)" : "2px solid transparent",
-              color: tab === t ? "var(--ink)" : "var(--muted)",
+              borderBottom: tab === t ? "2px solid var(--accent)" : "2px solid transparent",
+              color: tab === t ? "var(--text)" : "var(--text-2)",
               borderRadius: 0,
             }}
           >

@@ -11,7 +11,7 @@ export function TelemetryHUD() {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="btn btn--outline btn--sm"
-        style={{ background: "var(--paper)" }}
+        style={{ background: "var(--bg)" }}
         aria-expanded={open}
       >
         ◴ telemetry {events.length ? `(${events.length})` : ""}
@@ -38,7 +38,7 @@ export function TelemetryHUD() {
             <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: "2px" }}>
               {events.map((e) => (
                 <li key={e.id} style={{ display: "flex", gap: "var(--s-3)", padding: "2px 0", borderBottom: "1px solid var(--line)" }}>
-                  <span style={{ color: "var(--oxblood)", minWidth: "9rem" }}>{e.type}</span>
+                  <span style={{ color: "var(--accent)", minWidth: "9rem" }}>{e.type}</span>
                   <span className="muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {e.detail}
                   </span>

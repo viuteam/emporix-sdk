@@ -23,7 +23,7 @@ export function Header() {
         top: 0,
         zIndex: 30,
         borderBottom: "1px solid var(--line)",
-        background: "color-mix(in oklab, var(--paper) 86%, transparent)",
+        background: "color-mix(in oklab, var(--bg) 86%, transparent)",
         backdropFilter: "blur(10px)",
       }}
     >
@@ -32,7 +32,7 @@ export function Header() {
         style={{ display: "flex", alignItems: "center", gap: "var(--s-5)", paddingBlock: "var(--s-4)" }}
       >
         <Link to="/" className="serif" style={{ fontSize: "var(--step-1)", letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
-          Maison<span style={{ color: "var(--oxblood)" }}>—</span>Demo
+          Maison<span style={{ color: "var(--accent)" }}>—</span>Demo
         </Link>
         <form onSubmit={search} style={{ flex: 1, maxWidth: "26rem" }}>
           <input

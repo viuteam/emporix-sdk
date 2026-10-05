@@ -49,9 +49,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             role={t.kind === "error" ? "alert" : "status"}
             className="reveal"
             style={{
-              background: "var(--ink)",
-              color: "var(--paper)",
-              borderLeft: `3px solid ${t.kind === "error" ? "var(--oxblood)" : t.kind === "success" ? "var(--good)" : "var(--muted)"}`,
+              background: "var(--text)",
+              color: "var(--bg)",
+              borderLeft: `3px solid ${t.kind === "error" ? "var(--danger)" : t.kind === "success" ? "var(--success)" : "var(--text-2)"}`,
               padding: "var(--s-3) var(--s-4)",
               borderRadius: "var(--radius)",
               boxShadow: "var(--shadow-2)",

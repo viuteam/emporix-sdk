@@ -29,7 +29,7 @@ export function SetupScreen({ onSubmit }: { onSubmit: (c: DemoConfig) => void })
     <main className="container" style={{ maxWidth: "44rem", paddingBlock: "var(--s-8)" }}>
       <p className="eyebrow reveal">Emporix · Storefront Demo</p>
       <h1 className="reveal" style={{ marginBlock: "var(--s-3) var(--s-4)", fontSize: "var(--step-3)" }}>
-        Connect your <span style={{ fontStyle: "italic", color: "var(--oxblood)" }}>tenant</span>
+        Connect your <span style={{ fontStyle: "italic", color: "var(--accent)" }}>tenant</span>
       </h1>
       <p className="muted reveal" style={{ maxWidth: "52ch", marginBottom: "var(--s-5)" }}>
         Enter a tenant and its <strong>storefront client id</strong> (public — no secret). Everything
@@ -40,14 +40,14 @@ export function SetupScreen({ onSubmit }: { onSubmit: (c: DemoConfig) => void })
         className="reveal"
         role="alert"
         style={{
-          border: "1px solid var(--oxblood)",
+          border: "1px solid var(--accent)",
           borderRadius: "var(--radius-lg)",
           padding: "var(--s-4)",
           marginBottom: "var(--s-6)",
-          background: "color-mix(in oklab, var(--oxblood) 7%, var(--paper))",
+          background: "color-mix(in oklab, var(--accent) 7%, var(--bg))",
         }}
       >
-        <strong className="serif" style={{ color: "var(--oxblood)" }}>Live tenant.</strong>{" "}
+        <strong className="serif" style={{ color: "var(--accent)" }}>Live tenant.</strong>{" "}
         <span className="muted">
           This demo talks to a real Emporix tenant and can place <strong>real orders</strong>. Use a
           test / sandbox tenant.
