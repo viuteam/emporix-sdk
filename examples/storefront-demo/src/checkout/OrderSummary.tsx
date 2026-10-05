@@ -57,8 +57,8 @@ export function OrderSummary({
 /**
  * Subtotal, discount, delivery, VAT and total. On a tax-exclusive site the parts
  * are net and the VAT is its own line; otherwise they are gross and the VAT shows
- * as «incl.». Without a chosen method the delivery is the cart's estimate. Shared
- * by the summary and the cart page.
+ * as «incl.». A VAT of zero is not shown. Without a chosen method the delivery is
+ * the cart's estimate. Shared by the summary and the cart page.
  */
 export function TotalsRows({ totals, deliveryName }: { totals: CheckoutTotals; deliveryName?: string | undefined }) {
   const m = (n: number) => money(n, totals.currency);
@@ -84,7 +84,7 @@ export function TotalsRows({ totals, deliveryName }: { totals: CheckoutTotals; d
         </span>
         <span>{delivery === 0 ? "Free" : m(delivery)}</span>
       </div>
-      {net && totals.tax !== undefined ? (
+      {net && totals.tax ? (
         <div className="co-totals__row">
           <span>VAT</span>
           <span>{m(totals.tax)}</span>
@@ -97,7 +97,7 @@ export function TotalsRows({ totals, deliveryName }: { totals: CheckoutTotals; d
         <span>Total</span>
         <span>{m(totals.total)}</span>
       </div>
-      {!net && totals.tax !== undefined ? (
+      {!net && totals.tax ? (
         <div className="co-totals__row muted">
           <span>incl. VAT</span>
           <span>{m(totals.tax)}</span>

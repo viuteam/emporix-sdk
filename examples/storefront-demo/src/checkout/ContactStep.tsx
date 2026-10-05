@@ -25,9 +25,10 @@ export function contactErrors(c: ContactDraft): Partial<Record<keyof ContactDraf
 
 /**
  * Step 1. A guest types email and name, or signs in instead. A signed-in customer
- * sees the profile's values; if the in-memory `saasToken` is gone (a reload
- * clears it), only signing in again unlocks the order, because Emporix requires
- * that token for a customer order.
+ * sees the profile's values. Emporix requires the `saasToken` for a customer
+ * order; the SDK persists it next to the customer token, but `setSaasToken` is
+ * optional on a storage adapter, so a session can come back without it — then
+ * only signing in again unlocks the order.
  */
 export function ContactStep({
   value,
@@ -78,8 +79,8 @@ export function ContactStep({
         {needsToken ? (
           <>
             <Alert tone="warning">
-              <strong>Sign in again to place the order.</strong> Your session survived the reload, but the token Emporix
-              needs for a customer order is kept in memory only.
+              <strong>Sign in again to place the order.</strong> You are signed in, but this session lacks the token
+              Emporix needs for a customer order.
             </Alert>
             <p>
               Signed in as <strong>{accountEmail}</strong>
