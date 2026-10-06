@@ -47,6 +47,10 @@ export function useInvokeCloudFunction<TRes = unknown, TReq = unknown>(): UseMut
  * Query a (read-style) cloud function with React-Query caching. Defaults to
  * GET. Disabled while `functionId` is `undefined`. Auth resolves like
  * {@link useInvokeCloudFunction}; pass `options.auth` to override.
+ *
+ * The key carries the kind of the context the call is made with, the override
+ * included — not the stored token's, which let an overridden read share the
+ * default read's entry and answer with its data.
  */
 export function useCloudFunction<TRes = unknown>(
   functionId: string | undefined,
@@ -61,7 +65,7 @@ export function useCloudFunction<TRes = unknown>(
     queryKey: emporixKey(
       "cloud-function",
       [functionId ?? null, invokeOptions.path ?? null, invokeOptions.query ?? null],
-      { tenant: client.tenant, authKind: token ? "customer" : "anonymous" },
+      { tenant: client.tenant, authKind: authCtx.kind },
     ),
     enabled: (queryOptions?.enabled ?? true) && functionId !== undefined,
     ...(queryOptions?.staleTime !== undefined ? { staleTime: queryOptions.staleTime } : {}),
