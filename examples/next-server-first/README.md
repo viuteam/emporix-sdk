@@ -299,9 +299,11 @@ pages probed.
   metadata resolves down the segment chain.
 
 **`generateMetadata` costs no extra Emporix call.** Measured with a
-`diagnostics_channel` probe on `undici:request:create`: a cold product page makes four
-upstream calls whether or not `generateMetadata` repeats the page's own
-`products.get`, and `GET /product/viu/products/<id>` appears exactly once. Next
+`diagnostics_channel` probe on `undici:request:create` (2026-08-06): a cold product
+page made four upstream calls whether or not `generateMetadata` repeats the page's
+own `products.get`, and `GET /product/viu/products/<id>` appeared exactly once. One
+of the four was the variant-children search, which since 2026-10-06 only a
+`PARENT_VARIANT` gets. Next
 memoizes identical fetches within a request. If that ever changes, the probe is how
 you find out — not a cache wrapper added on suspicion.
 
@@ -527,7 +529,10 @@ about it. Adding a Node-capable sanitizer would be a dependency for one demo lin
 **The variant nav never renders on this tenant.** Swept 300 products across five
 pages on 2026-08-03: every one is `productType: BASIC`, and
 `listVariantChildren` answered empty for all of them. Kept anyway, because the
-branch is what a tenant with variants needs — but it is unexercised here.
+branch is what a tenant with variants needs — but it is unexercised here. Since
+2026-10-06 the page asks for children only when the product is a
+`PARENT_VARIANT` (`isVariantParent` in `examples/shared`), so on this tenant the
+request is not made at all; until then it spent one on every product render.
 
 ## The cart, mutated through Server Actions
 

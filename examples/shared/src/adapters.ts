@@ -69,6 +69,7 @@ type ReadProduct = {
   name?: unknown;
   description?: unknown;
   media?: Media[];
+  productType?: string;
 };
 
 export interface ProductCardVM {
@@ -125,6 +126,17 @@ export function stripHtml(s: string): string {
 
 export function productImages(p: Product): Media[] {
   return (p as ReadProduct).media ?? [];
+}
+
+/**
+ * Whether asking for the product's variant children can find any.
+ * `listVariantChildren` searches `productType:VARIANT`, and a VARIANT only ever
+ * belongs to a PARENT_VARIANT; for every other type — a dynamic-variant root
+ * included, whose children are DYNAMIC_VARIANT themselves — the request can
+ * only answer `[]`.
+ */
+export function isVariantParent(p: Product): boolean {
+  return (p as ReadProduct).productType === "PARENT_VARIANT";
 }
 
 /** Build the `matchByContext` items payload for a set of products (quantity is required). */
