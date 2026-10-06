@@ -12,6 +12,7 @@ import {
 import { EMPORIX_CLIENT, EMPORIX_STORAGE } from "../tokens";
 import { injectEmporix } from "../provide";
 import { injectEmporixQuery } from "../inject-query";
+import { injectEmporixCompany } from "../company";
 import { requireCustomer, writeBundle } from "../write-bundle";
 
 type AddressList = Awaited<ReturnType<EmporixClient["customers"]["addresses"]["list"]>>;
@@ -28,15 +29,21 @@ const pass = (o: CustomerOpts): { injector?: Injector } =>
   o.injector !== undefined ? { injector: o.injector } : {};
 
 
-/** The signed-in customer's saved addresses. Idle for a guest. */
+/**
+ * The signed-in customer's saved addresses. Idle for a guest.
+ *
+ * Keyed on the active company, as in React: the switch does not invalidate
+ * this read, so without the company in the key it kept the previous one's.
+ */
 export function injectCustomerAddresses(
   opts: CustomerOpts = {},
 ): CreateQueryResult<AddressList> {
   const { client } = injectEmporix();
-  return injectEmporixQuery<AddressList, readonly []>(
+  const company = injectEmporixCompany();
+  return injectEmporixQuery<AddressList, readonly [string | null]>(
     () => ({
       resource: "customer-addresses",
-      args: [] as const,
+      args: [company.activeCompany()?.id ?? null] as const,
       site: "none",
       mode: "customer",
       ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),

@@ -12,6 +12,7 @@ import { EMPORIX_CLIENT, EMPORIX_STORAGE } from "../tokens";
 import { injectEmporix } from "../provide";
 import { injectEmporixQuery } from "../inject-query";
 import { injectEmporixSite } from "../site";
+import { injectEmporixCompany } from "../company";
 
 type PaymentModesResult = Awaited<ReturnType<EmporixClient["payments"]["listPaymentModes"]>>;
 type PaymentModeResult = Awaited<ReturnType<EmporixClient["payments"]["getMode"]>>;
@@ -36,15 +37,20 @@ const pass = (o: CheckoutOpts): { injector?: Injector } =>
  * bearer token but no customer scope, so guests see the configured modes too.
  * Gating this on a login would hide every payment option from guest checkout —
  * which is the mistake the mode names exist to prevent.
+ *
+ * Keyed on the active company, as in React: a legal entity can be offered other
+ * modes, and with a 10-minute stale time a switch would otherwise keep showing
+ * the previous company's.
  */
 export function injectPaymentModes(
   opts: CheckoutOpts = {},
 ): CreateQueryResult<PaymentModesResult> {
   const { client } = injectEmporix();
-  return injectEmporixQuery<PaymentModesResult, readonly []>(
+  const company = injectEmporixCompany();
+  return injectEmporixQuery<PaymentModesResult, readonly [string | null]>(
     () => ({
       resource: "payment-modes",
-      args: [] as const,
+      args: [company.activeCompany()?.id ?? null] as const,
       site: "none",
       mode: "read-auth",
       ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),

@@ -26,6 +26,7 @@ import { EMPORIX_CLIENT, EMPORIX_STORAGE } from "../tokens";
 import { injectEmporix } from "../provide";
 import { injectEmporixQuery } from "../inject-query";
 import { injectEmporixSite } from "../site";
+import { injectEmporixCompany } from "../company";
 import { cartIdSignal } from "../storage-signal";
 import { ctxFor, writeBundle } from "../write-bundle";
 
@@ -79,6 +80,9 @@ async function readCart(
  *
  * Silent on purpose: there is nothing left to show the shopper and nothing they
  * could do about it.
+ *
+ * Keyed on the active company as well, as in React: the same cart id read under
+ * another legal entity's token is another answer.
  */
 export function injectCart(
   cartId?: Signal<string | null>,
@@ -86,13 +90,14 @@ export function injectCart(
 ): CreateQueryResult<Cart> {
   const { client, storage } = injectEmporix();
   const qc = injectQueryClient();
+  const company = injectEmporixCompany();
   const stored = cartIdSignal(storage, pass(opts));
   const resolved = computed(() => cartId?.() ?? stored());
 
-  return injectEmporixQuery<Cart, readonly [string | null]>(
+  return injectEmporixQuery<Cart, readonly [string | null, string | null]>(
     () => ({
       resource: "cart",
-      args: [resolved()] as const,
+      args: [resolved(), company.activeCompany()?.id ?? null] as const,
       site: "full",
       mode: "read-auth",
       enabled: (opts.enabled ?? true) && resolved() !== null,
@@ -157,6 +162,11 @@ export function injectCartValidation(
  * A stored id the server answers 404 for is forgotten, as in `injectCart`, and
  * the forget re-keys this query. With `create: true` a cart closed by an order on
  * another device therefore turns into a fresh one, with no error state between.
+ *
+ * Keyed on the active company too. A switch drops the cart id, which puts this
+ * query back on its «no cart yet» key — and without the company in it, that
+ * entry still held the previous company's cart, fresh and not invalidated, so a
+ * switch between two companies kept showing the old basket.
  */
 export function injectActiveCart(
   opts: CartOpts & { create?: boolean; type?: string; legalEntityId?: string } = {},
@@ -164,12 +174,16 @@ export function injectActiveCart(
   const { client, storage } = injectEmporix();
   const qc = injectQueryClient();
   const site = injectEmporixSite();
+  const company = injectEmporixCompany();
   const stored = cartIdSignal(storage, pass(opts));
 
-  return injectEmporixQuery<Cart | null, readonly [string | null, string | null]>(
+  return injectEmporixQuery<
+    Cart | null,
+    readonly [string | null, string | null, string | null]
+  >(
     () => ({
       resource: "cart-bootstrap",
-      args: [stored(), site.siteCode()] as const,
+      args: [stored(), site.siteCode(), company.activeCompany()?.id ?? null] as const,
       site: "full",
       mode: "read-auth",
       // A cart is always site-bound; without a site there is nothing to create.

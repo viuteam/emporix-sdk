@@ -111,4 +111,27 @@ describe("useCloudFunction", () => {
     expect(result.current.data?.value).toBe(42);
     expect(hits).toBe(1);
   });
+
+  /**
+   * The key carried the stored token's kind rather than the context the call
+   * uses, so a read with an `auth` override shared the entry of the default read
+   * — and whichever answered last showed up under both.
+   */
+  it("keys on the auth context it calls with, so an override gets its own entry", async () => {
+    server.use(
+      http.get("https://api.emporix.io/cloud-functions/acme/functions/fn-1", ({ request }) =>
+        HttpResponse.json({ auth: request.headers.get("authorization") }),
+      ),
+    );
+    const { Wrapper } = wrap();
+    const plain = renderHook(() => useCloudFunction<{ auth: string }>(FID), { wrapper: Wrapper });
+    await waitFor(() => expect(plain.result.current.data?.auth).toBe("Bearer anon"));
+
+    const raw = renderHook(
+      () => useCloudFunction<{ auth: string }>(FID, { auth: auth.raw("raw-tok") }),
+      { wrapper: Wrapper },
+    );
+    await waitFor(() => expect(raw.result.current.data?.auth).toBe("Bearer raw-tok"));
+    expect(plain.result.current.data?.auth).toBe("Bearer anon");
+  });
 });
