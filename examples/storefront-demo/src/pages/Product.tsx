@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useProduct } from "@viu/emporix-sdk-react";
-import { productName, productDescription, productImages } from "../lib/adapters";
+import { productName, productDescription, productImages, isVariantParent } from "../lib/adapters";
 import { usePrices } from "../lib/usePrices";
 import { money } from "@viu/emporix-examples-shared";
 import { ProductGallery } from "../catalog/ProductGallery";
@@ -60,7 +60,9 @@ export function Product() {
             // `productDescription`) rather than stripping the markup.
             <div className="pdp__desc" dangerouslySetInnerHTML={{ __html: desc }} />
           ) : null}
-          <VariantPicker productId={id} />
+          {/* Only a PARENT_VARIANT has variant children; for any other type the
+              children request could only come back empty. */}
+          {isVariantParent(product) ? <VariantPicker productId={id} /> : null}
           <AddToCartBar productId={id} productName={name} price={price} />
         </div>
       </div>

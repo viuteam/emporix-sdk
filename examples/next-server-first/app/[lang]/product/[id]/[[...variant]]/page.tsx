@@ -5,6 +5,7 @@ import { getEmporixClient } from "@viu/emporix-sdk-next";
 import { EmporixNotFoundError, type Product } from "@viu/emporix-sdk";
 import {
   imageOf,
+  isVariantParent,
   money,
   pickText,
   productImages,
@@ -50,7 +51,8 @@ export function generateStaticParams(): { id: string }[] {
 /**
  * Free, measured. 2026-08-06 with a `diagnostics_channel` probe on
  * `undici:request:create`: a cold product page made four upstream calls with this
- * function present and four without it, and `GET /product/viu/products/<id>`
+ * function present and four without it (one of them the variant-children search,
+ * asked only for a PARENT_VARIANT since 2026-10-06), and `GET /product/viu/products/<id>`
  * appeared exactly **once** although both this function and the page body ask for
  * it. Next memoizes identical fetches within a request, so no memo layer is needed
  * here — and if that ever changes, the probe is how you find out.
@@ -126,14 +128,17 @@ export default async function ProductPage({
     if (e instanceof EmporixNotFoundError) notFound();
     throw e;
   }
-  // Empty unless the product is a PARENT_VARIANT — and on the `viu` tenant that is
+  // Only a PARENT_VARIANT has variant children — and on the `viu` tenant that is
   // never: 300 products swept on 2026-08-03, every one `productType: BASIC`. The
   // variant nav below is therefore unexercised here, kept for tenants that do use
   // variants.
   //
-  // Asked unconditionally: one wasted request on a plain product is cheaper than
-  // type-narrowing the five shapes of Emporix's Product union to find out first.
-  const children = await client.products.listVariantChildren(id, { pageSize: 50 }, undefined);
+  // Asked only for a parent. Until 2026-10-06 this asked unconditionally, which
+  // spent a request on every product render for an answer that could only be
+  // empty; the type is on the product just read, so knowing it first is free.
+  const children = isVariantParent(parent)
+    ? await client.products.listVariantChildren(id, { pageSize: 50 }, undefined)
+    : [];
 
   let selected = children[0] ?? parent;
   if (chosen !== undefined) {

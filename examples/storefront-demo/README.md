@@ -77,7 +77,8 @@ drops the stored guest session and cart. `VITE_DEMO_DEFAULT_TENANT` and
   category-tree sidebar on category and search pages, and grids that put priced
   products first and add to the cart from the card (`useProductsInCategory`,
   `useCategoryTree`, `useMatchPrices`, `useCartCommands`).
-- **Product detail** — gallery, article number, variant picker, add-to-cart with
+- **Product detail** — gallery, article number, variant picker (only for a
+  `PARENT_VARIANT`, the one type that has variant children), add-to-cart with
   the price row Emporix requires; without a price in the site's context the
   button is disabled and says why (`useProduct`, `useVariantChildren`,
   `useCartCommands`).
