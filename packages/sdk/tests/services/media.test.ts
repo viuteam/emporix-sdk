@@ -129,7 +129,12 @@ describe("MediaService CRUD", () => {
     const s = svc();
     expect((await s.get("asset-1")).id).toBe("asset-1");
     expect((await s.list()).items).toHaveLength(2);
-    const link = { type: "LINK" as const, access: "PUBLIC" as const, url: "https://emporix.io/doc.pdf" };
+    const link = {
+      type: "LINK" as const,
+      access: "PUBLIC" as const,
+      url: "https://emporix.io/doc.pdf",
+      metadata: { version: 2 },
+    };
     // The spec answers a PUT with 204 and no body, so there is no asset to resolve to.
     await expect(s.update("asset-1", { kind: "json", body: link })).resolves.toBeUndefined();
     expect(putContentType).toMatch(/application\/json/);
@@ -151,6 +156,29 @@ describe("MediaService CRUD", () => {
     void typesOnly;
     expectTypeOf(s.update).returns.resolves.toBeVoid();
     expectTypeOf(s.replaceFile).returns.resolves.toBeVoid();
+  });
+
+  /**
+   * The spec marks `metadata` optional, the live API does not: an update without
+   * it answers 400 «`metadata.version` is required for update» (measured
+   * 2026-10-06, BLOB and multipart alike). So the type requires it.
+   */
+  it("update() requires metadata.version in the body", () => {
+    const s = svc();
+    const typesOnly = (): void => {
+      void s.update("a", {
+        kind: "json",
+        // @ts-expect-error the live API rejects an update without a version
+        body: { type: "LINK", access: "PUBLIC", url: "https://emporix.io/doc.pdf" },
+      });
+      void s.update("a", {
+        kind: "blob",
+        file: new Blob(["x"]),
+        // @ts-expect-error the live API rejects an update without a version
+        body: { type: "BLOB", access: "PUBLIC" },
+      });
+    };
+    void typesOnly;
   });
 
   it("patch() PATCHes the JSON-Patch op-array with a service token and resolves on 204", async () => {
@@ -253,7 +281,12 @@ describe("MediaService CRUD", () => {
 
   it("replaceFile() builds an AssetUpdateBlob with details + version", async () => {
     let parsedBody: Record<string, unknown> | null = null;
+    let read = false;
     server.use(
+      http.get("https://api.emporix.io/media/acme/assets/asset-1", () => {
+        read = true;
+        return HttpResponse.json({ id: "asset-1", metadata: { version: 99 } });
+      }),
       http.put("https://api.emporix.io/media/acme/assets/asset-1", async ({ request }) => {
         const fd = await request.formData();
         const b = fd.get("body");
@@ -274,11 +307,20 @@ describe("MediaService CRUD", () => {
       details: { filename: "doc.pdf", mimeType: "application/pdf" },
       metadata: { version: 7 },
     });
+    // A given version is used as is — no read before the write.
+    expect(read).toBe(false);
   });
 
-  it("replaceFile() omits details + metadata when not supplied", async () => {
+  /**
+   * Without a version the live API answers 400, so replaceFile reads the current
+   * one first — last write wins, as the call never offered optimistic locking.
+   */
+  it("replaceFile() reads the current version when none is given", async () => {
     let parsedBody: Record<string, unknown> | null = null;
     server.use(
+      http.get("https://api.emporix.io/media/acme/assets/asset-1", () =>
+        HttpResponse.json({ id: "asset-1", type: "BLOB", access: "PUBLIC", metadata: { version: 5 } }),
+      ),
       http.put("https://api.emporix.io/media/acme/assets/asset-1", async ({ request }) => {
         const fd = await request.formData();
         const b = fd.get("body");
@@ -290,7 +332,7 @@ describe("MediaService CRUD", () => {
       file: new File(["x"], "f", { type: "image/png" }),
       access: "PUBLIC",
     });
-    expect(parsedBody).toEqual({ type: "BLOB", access: "PUBLIC" });
+    expect(parsedBody).toEqual({ type: "BLOB", access: "PUBLIC", metadata: { version: 5 } });
   });
 });
 
@@ -337,25 +379,27 @@ describe("MediaService convenience", () => {
   });
 
   /**
-   * A JSON PUT can only carry a LINK asset, and only with `access` and `url`; the
-   * helpers sent `{ type, refIds }`, which the spec rejects for either type. A
-   * JSON Patch touches just the references, for BLOB and LINK alike. The PUT
-   * handlers answer 400 the way the spec would, so a regression fails loudly.
+   * A one-asset media store: GET answers with the asset as stored, PATCH applies
+   * the ops the helpers send. `unknownProducts` mimics what Emporix did live
+   * (2026-10-06): a PATCH that references a product which does not exist answers
+   * 204 and drops the reference. PUT answers 400, as the spec would for the old
+   * `{ type, refIds }` body, so a regression fails loudly.
    */
-  it("attachToProduct appends the reference with a JSON Patch, idempotently", async () => {
+  function assetStore(initial: Record<string, unknown>, unknownProducts: string[] = []) {
+    type Ref = { type: string; id: string };
+    const asset = structuredClone(initial) as { refIds?: Ref[] | undefined };
     const patches: unknown[] = [];
     let putCalled = false;
     server.use(
-      http.get("https://api.emporix.io/media/acme/assets/a", () =>
-        HttpResponse.json({
-          id: "a",
-          type: "BLOB",
-          access: "PUBLIC",
-          refIds: [{ type: "PRODUCT", id: "p1" }],
-        }),
-      ),
+      http.get("https://api.emporix.io/media/acme/assets/a", () => HttpResponse.json(asset)),
       http.patch("https://api.emporix.io/media/acme/assets/a", async ({ request }) => {
-        patches.push(await request.json());
+        const ops = (await request.json()) as Array<{ op: string; path: string; value: unknown }>;
+        patches.push(ops);
+        for (const o of ops) {
+          if (o.path === "/refIds") asset.refIds = o.value as Ref[];
+          else if (o.path === "/refIds/-") (asset.refIds ??= []).push(o.value as Ref);
+        }
+        asset.refIds = asset.refIds?.filter((r) => !(r.type === "PRODUCT" && unknownProducts.includes(r.id)));
         return new HttpResponse(null, { status: 204 });
       }),
       http.put("https://api.emporix.io/media/acme/assets/a", () => {
@@ -363,69 +407,67 @@ describe("MediaService convenience", () => {
         return HttpResponse.json({ code: 400, status: "Bad Request", message: "x" }, { status: 400 });
       }),
     );
+    return { patches, putCalled: () => putCalled };
+  }
+
+  /**
+   * A JSON PUT can only carry a LINK asset, and only with `access` and `url`; the
+   * helpers sent `{ type, refIds }`, which the spec rejects for either type. A
+   * JSON Patch touches just the references, for BLOB and LINK alike.
+   */
+  it("attachToProduct appends the reference with a JSON Patch, idempotently", async () => {
+    const store = assetStore({ id: "a", type: "BLOB", access: "PUBLIC", refIds: [{ type: "PRODUCT", id: "p1" }] });
     const same = await svc().attachToProduct("a", "p1"); // already attached → nothing sent
-    expect(patches).toEqual([]);
+    expect(store.patches).toEqual([]);
     expect(same.refIds).toEqual([{ type: "PRODUCT", id: "p1" }]);
 
     const next = await svc().attachToProduct("a", "p2");
-    expect(patches).toEqual([
+    expect(store.patches).toEqual([
       [{ op: "add", path: "/refIds/-", value: { type: "PRODUCT", id: "p2" } }],
     ]);
     expect(next.refIds).toEqual([
       { type: "PRODUCT", id: "p1" },
       { type: "PRODUCT", id: "p2" },
     ]);
-    expect(putCalled).toBe(false);
+    expect(store.putCalled()).toBe(false);
   });
 
   /** `/refIds/-` appends to an existing array only (RFC 6902), so a first reference adds the array. */
   it("attachToProduct adds the array when the asset has no references yet", async () => {
-    const patches: unknown[] = [];
-    server.use(
-      http.get("https://api.emporix.io/media/acme/assets/a", () =>
-        HttpResponse.json({ id: "a", type: "BLOB", access: "PUBLIC" }),
-      ),
-      http.patch("https://api.emporix.io/media/acme/assets/a", async ({ request }) => {
-        patches.push(await request.json());
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
+    const store = assetStore({ id: "a", type: "BLOB", access: "PUBLIC" });
     const next = await svc().attachToProduct("a", "p1");
-    expect(patches).toEqual([[{ op: "add", path: "/refIds", value: [{ type: "PRODUCT", id: "p1" }] }]]);
+    expect(store.patches).toEqual([[{ op: "add", path: "/refIds", value: [{ type: "PRODUCT", id: "p1" }] }]]);
     expect(next.refIds).toEqual([{ type: "PRODUCT", id: "p1" }]);
   });
 
+  /**
+   * Emporix answers 204 to a reference to a product that does not exist and drops
+   * it, so a result computed locally would claim an attachment that never
+   * happened. The helper returns the asset as read back after the patch.
+   */
+  it("attachToProduct returns the asset as stored, without a dropped reference", async () => {
+    assetStore({ id: "a", type: "BLOB", access: "PUBLIC" }, ["ghost"]);
+    const next = await svc().attachToProduct("a", "ghost");
+    expect(next.refIds ?? []).toEqual([]);
+  });
+
   it("detachFromProduct replaces the references with a JSON Patch, a no-op when absent", async () => {
-    const patches: unknown[] = [];
-    let putCalled = false;
-    server.use(
-      http.get("https://api.emporix.io/media/acme/assets/a", () =>
-        HttpResponse.json({
-          id: "a",
-          type: "LINK",
-          access: "PUBLIC",
-          url: "https://emporix.io/doc.pdf",
-          refIds: [
-            { type: "PRODUCT", id: "p1" },
-            { type: "PRODUCT", id: "p2" },
-            { type: "CATEGORY", id: "c1" },
-          ],
-        }),
-      ),
-      http.patch("https://api.emporix.io/media/acme/assets/a", async ({ request }) => {
-        patches.push(await request.json());
-        return new HttpResponse(null, { status: 204 });
-      }),
-      http.put("https://api.emporix.io/media/acme/assets/a", () => {
-        putCalled = true;
-        return HttpResponse.json({ code: 400, status: "Bad Request", message: "x" }, { status: 400 });
-      }),
-    );
+    const store = assetStore({
+      id: "a",
+      type: "LINK",
+      access: "PUBLIC",
+      url: "https://emporix.io/doc.pdf",
+      refIds: [
+        { type: "PRODUCT", id: "p1" },
+        { type: "PRODUCT", id: "p2" },
+        { type: "CATEGORY", id: "c1" },
+      ],
+    });
     await svc().detachFromProduct("a", "absent");
-    expect(patches).toEqual([]);
+    expect(store.patches).toEqual([]);
 
     const next = await svc().detachFromProduct("a", "p1");
-    expect(patches).toEqual([
+    expect(store.patches).toEqual([
       [
         {
           op: "replace",
@@ -441,7 +483,7 @@ describe("MediaService convenience", () => {
       { type: "PRODUCT", id: "p2" },
       { type: "CATEGORY", id: "c1" },
     ]);
-    expect(putCalled).toBe(false);
+    expect(store.putCalled()).toBe(false);
   });
 
   it("listForProduct passes the refIds.id filter as a query param", async () => {
