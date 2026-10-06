@@ -171,9 +171,11 @@ customer's role lacks scope for surface as `EmporixInsufficientScopeError`
 `sdk.media` covers the full `/media/{tenant}/assets/*` surface: create
 (`uploadFile` / `link` / `create`, or `startUploadSession` for a direct upload
 to storage once Emporix Support enables it for the tenant), list (paginated,
-`PaginatedItems<Asset>`), get, update (JSON metadata or BLOB multipart
-file-replacement via the `replaceFile` sugar), `patch` (JSON Patch — the way to
-change a BLOB's metadata without re-uploading the file), remove,
+`PaginatedItems<Asset>`), get, update (a `PUT` that resolves to nothing: JSON
+for a LINK asset, multipart file replacement for a BLOB, also via the
+`replaceFile` sugar), `patch` (JSON Patch — the way to change a BLOB's metadata
+without re-uploading the file; `attachToProduct` / `detachFromProduct` use it),
+remove,
 `getDownloadUrl` (a storage URL with no size limit, which Emporix recommends for
 every download), and download (resolves to either a redirect URL for `PUBLIC`
 assets or an `ArrayBuffer` for `PRIVATE`; above the streaming limit, 30 MB by
