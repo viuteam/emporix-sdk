@@ -1,5 +1,11 @@
 # @viu/emporix-sdk-angular
 
+## 0.4.1
+
+### Patch Changes
+
+- [#385](https://github.com/viuteam/emporix-sdk/pull/385) [`1e22b55`](https://github.com/viuteam/emporix-sdk/commit/1e22b5503c3afe62f323324fa63edb9445137e11) Thanks [@amnael1](https://github.com/amnael1)! - Key the cart, the cart bootstrap, the payment modes and the customer addresses on the active company, as the React bindings do. A switch between two companies dropped the cart id, which put `injectActiveCart` back on its «no cart yet» cache entry — still fresh, not invalidated, and holding the previous company's cart. Payment modes (10-minute stale time) and addresses, which the switch does not invalidate, kept the previous company's answer too.
+
 ## 0.4.0
 
 ### Minor Changes
