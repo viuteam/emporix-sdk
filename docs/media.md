@@ -98,9 +98,21 @@ await client.media.detachFromProduct(assetId, productId); // no-op if absent
 
 Both read the asset, then send a JSON Patch that touches only `refIds` (`add
 /refIds/-` to attach, `replace /refIds` to detach), so they work for BLOB and
-LINK assets alike. They resolve to the asset as read, with the change applied.
+LINK assets alike. They resolve to the asset as read back after the patch.
 Earlier versions sent a JSON `PUT` of `{ type, refIds }` instead, which the spec
 rejects for either type.
+
+What the live API adds to the spec (measured on 2026-10-06):
+
+- **Only a `PUBLIC` asset takes a product reference.** A `PRIVATE` one answers
+  `400` «Cannot assign media of private access to other entity»; private assets
+  are documented for `AGENT` references.
+- **A reference to a product that does not exist is dropped without an error.**
+  Creating such an asset answers `404`, but the `PATCH` answers `204` and leaves
+  the reference out. That is why both helpers return the asset as read back:
+  check its `refIds` rather than trusting the call.
+- **An empty `refIds` array is not returned** — after the last reference is
+  detached, `refIds` is absent from the asset.
 
 ## List media for a product (admin/server)
 
@@ -186,7 +198,7 @@ await client.media.replaceFile(assetId, {
   access: "PUBLIC",                 // immutable on the server — must match
   filename: "hero-v2.jpg",
   mimeType: "image/jpeg",
-  version: asset.metadata?.version, // optional optimistic-locking
+  version: asset.metadata?.version, // optimistic locking; read for you when omitted
 });
 ```
 
@@ -194,6 +206,13 @@ await client.media.replaceFile(assetId, {
 that builds the `AssetUpdateBlob` body from the input. Use this instead of
 `remove` + `create` so the asset id (and all `refIds` pointing to it) stay
 stable. It resolves to nothing: the `PUT` answers `204`.
+
+**Every update needs `metadata.version`.** The spec marks `metadata` optional;
+the live API answers `400` «`metadata.version` is required for update» without
+it, for BLOB and LINK alike, and `409` for a stale one. `update()` therefore
+requires it in the body type. `replaceFile()` reads the current version when you
+pass none — the write then wins over any change in between; pass `version` when
+that matters.
 
 ## Replace a LINK asset (`PUT`)
 

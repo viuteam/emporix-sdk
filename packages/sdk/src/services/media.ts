@@ -10,17 +10,26 @@ import type {
   DownloadUrl,
   GetAsset,
   GetMediaRetrieveDownloadUrlData,
+  MetadataUpdate,
   PatchOperation,
   RefId,
   UploadSession,
   UploadSessionRequest,
 } from "../generated/media";
 
+/**
+ * The spec marks `metadata` optional on both update bodies; the live API rejects
+ * an update without it — «`metadata.version` is required for update» (measured
+ * 2026-10-06 on BLOB and LINK assets). Required here, so leaving it out is a
+ * compile error rather than a 400.
+ */
+type Versioned<T> = Omit<T, "metadata"> & { metadata: MetadataUpdate };
+
 /** Generated media types (caller sends the exact wire shape). */
 export type AssetCreateBlobInput = AssetCreateBlob;
 export type AssetCreateLinkInput = AssetCreateLink;
-export type AssetUpdateBlobInput = AssetUpdateBlob;
-export type AssetUpdateLinkInput = AssetUpdateLink;
+export type AssetUpdateBlobInput = Versioned<AssetUpdateBlob>;
+export type AssetUpdateLinkInput = Versioned<AssetUpdateLink>;
 /**
  * @deprecated `update()` takes {@link AssetUpdateLinkInput} as its JSON body and
  * {@link AssetUpdateBlobInput} next to a file; a BLOB is never sent as JSON.
@@ -421,8 +430,11 @@ export class MediaService {
    * {@link update} with `kind: "blob"`, and like it resolves to nothing — the
    * PUT answers 204. `access` is required because the field is immutable and
    * the server validates that the body matches.
-   * Pass `version` from `asset.metadata.version` if you want optimistic
-   * locking (recommended when concurrent writers are possible).
+   *
+   * Pass `version` from `asset.metadata.version` for optimistic locking
+   * (recommended when concurrent writers are possible) — a stale one gets a 409.
+   * Without it the current version is read first, because the live API rejects
+   * an update that carries none; the write then wins over any in between.
    */
   async replaceFile(
     assetId: string,
@@ -435,6 +447,8 @@ export class MediaService {
     },
     auth: AuthContext = SERVICE,
   ): Promise<void> {
+    const version =
+      input.version ?? (await this.get(assetId, auth)).metadata?.version ?? 1;
     const body: AssetUpdateBlobInput = {
       type: "BLOB",
       access: input.access,
@@ -446,9 +460,7 @@ export class MediaService {
             },
           }
         : {}),
-      ...(input.version !== undefined
-        ? { metadata: { version: input.version } }
-        : {}),
+      metadata: { version },
     };
     return this.update(assetId, { kind: "blob", file: input.file, body }, auth);
   }
@@ -472,8 +484,12 @@ export class MediaService {
   /**
    * Idempotently add a PRODUCT refId to an asset, through a JSON Patch that
    * appends the one reference, so it works for BLOB and LINK alike and leaves
-   * the rest of the asset alone. Resolves to the asset as read, with the
-   * reference added.
+   * the rest of the asset alone.
+   *
+   * Resolves to the asset as read back after the patch, because Emporix answers
+   * 204 to a reference to a product that does not exist and drops it — check
+   * `refIds` rather than trusting the call. Only a PUBLIC asset takes a product
+   * reference; a PRIVATE one answers 400.
    *
    * Earlier versions sent a JSON PUT of `{ type, refIds }`, which the spec
    * rejects for both types: a BLOB takes no JSON PUT, and a LINK's requires
@@ -494,14 +510,14 @@ export class MediaService {
         ? { op: "add" as const, path: "/refIds", value: [ref] }
         : { op: "add" as const, path: "/refIds/-", value: ref };
     await this.patch(assetId, [op], auth);
-    return { ...a, refIds: [...refIds, ref] };
+    return this.get(assetId, auth);
   }
 
   /**
    * Remove a PRODUCT refId from an asset (no-op if absent), through a JSON Patch
    * that replaces the references and nothing else. Resolves to the asset as
-   * read, without the reference. Earlier versions sent a spec-invalid JSON PUT,
-   * as {@link attachToProduct} did.
+   * read back after the patch, like {@link attachToProduct}. Earlier versions
+   * sent a spec-invalid JSON PUT, as that one did.
    */
   async detachFromProduct(
     assetId: string,
@@ -513,7 +529,7 @@ export class MediaService {
     const next = refIds.filter((r) => !isProductRef(r, productId));
     if (next.length === refIds.length) return a;
     await this.patch(assetId, [{ op: "replace", path: "/refIds", value: next }], auth);
-    return { ...a, refIds: next };
+    return this.get(assetId, auth);
   }
 
   /** Convenience: list assets attached to a product (server-side filter). */
