@@ -21,6 +21,10 @@ export type AssetCreateBlobInput = AssetCreateBlob;
 export type AssetCreateLinkInput = AssetCreateLink;
 export type AssetUpdateBlobInput = AssetUpdateBlob;
 export type AssetUpdateLinkInput = AssetUpdateLink;
+/**
+ * @deprecated `update()` takes {@link AssetUpdateLinkInput} as its JSON body and
+ * {@link AssetUpdateBlobInput} next to a file; a BLOB is never sent as JSON.
+ */
 export type AssetUpdateInput = AssetUpdateBlob | AssetUpdateLink;
 export type Asset = GetAsset;
 export type AssetRefId = RefId;
@@ -162,43 +166,37 @@ export class MediaService {
   }
 
   /**
-   * Update an asset. The input is a discriminated union mirroring
-   * {@link create}:
-   * - `{ kind: "json", body }` — metadata-only patch (BLOB or LINK).
-   *   Sends `application/json`. Used for `refIds`, `details`, `metadata`,
-   *   or `url` changes.
-   * - `{ kind: "blob", file, body }` — replaces the BLOB file content
-   *   (max 30 MB) AND patches metadata in the same request. Sends
-   *   `multipart/form-data`.
+   * Replace an asset (`PUT`, HTTP 204 — nothing is returned). The spec takes one
+   * body per asset type, mirrored by the discriminated input:
+   * - `{ kind: "json", body }` — a LINK asset, sent as `application/json`. The
+   *   body is the whole asset: `type: "LINK"`, `access` and `url` are required.
+   * - `{ kind: "blob", file, body }` — a BLOB asset, sent as
+   *   `multipart/form-data`: the file (max 30 MB) and the asset body, both
+   *   required, so this always replaces the bytes.
    *
-   * `type` and `access` are immutable per Emporix — they must match the
-   * existing asset's values. Optimistic-locking is via `body.metadata.version`;
-   * the server returns 409 Conflict on a stale version.
+   * A BLOB's metadata alone — `refIds`, `details`, mixins — goes through
+   * {@link patch}. Earlier versions also took a BLOB as the JSON body and
+   * promised the updated asset in return; the spec allows neither.
+   *
+   * `type` and `access` are immutable. Optimistic locking is via
+   * `body.metadata.version`; a stale one gets a 409.
    */
   async update(
     assetId: string,
     input:
-      | { kind: "json"; body: AssetUpdateInput }
+      | { kind: "json"; body: AssetUpdateLinkInput }
       | { kind: "blob"; file: Blob; body: AssetUpdateBlobInput },
     auth: AuthContext = SERVICE,
-  ): Promise<Asset> {
+  ): Promise<void> {
+    const path = `${this.base()}/${encodeURIComponent(assetId)}`;
     if (input.kind === "blob") {
       const fd = new FormData();
       fd.set("file", input.file);
       fd.set("body", JSON.stringify(input.body));
-      return this.ctx.http.request<Asset>({
-        method: "PUT",
-        path: `${this.base()}/${assetId}`,
-        auth,
-        body: fd,
-      });
+      await this.ctx.http.request<void>({ method: "PUT", path, auth, body: fd });
+      return;
     }
-    return this.ctx.http.request<Asset>({
-      method: "PUT",
-      path: `${this.base()}/${assetId}`,
-      auth,
-      body: input.body,
-    });
+    await this.ctx.http.request<void>({ method: "PUT", path, auth, body: input.body });
   }
 
   /**
@@ -420,8 +418,9 @@ export class MediaService {
 
   /**
    * Replace the file content of an existing BLOB asset. Sugar over
-   * {@link update} with `kind: "blob"`. `access` is required because the
-   * field is immutable and the server validates that the patch matches.
+   * {@link update} with `kind: "blob"`, and like it resolves to nothing — the
+   * PUT answers 204. `access` is required because the field is immutable and
+   * the server validates that the body matches.
    * Pass `version` from `asset.metadata.version` if you want optimistic
    * locking (recommended when concurrent writers are possible).
    */
@@ -435,7 +434,7 @@ export class MediaService {
       version?: number;
     },
     auth: AuthContext = SERVICE,
-  ): Promise<Asset> {
+  ): Promise<void> {
     const body: AssetUpdateBlobInput = {
       type: "BLOB",
       access: input.access,
@@ -470,7 +469,16 @@ export class MediaService {
     return this.create({ kind: "link", body }, auth);
   }
 
-  /** Idempotently add a PRODUCT refId to an asset. */
+  /**
+   * Idempotently add a PRODUCT refId to an asset, through a JSON Patch that
+   * appends the one reference, so it works for BLOB and LINK alike and leaves
+   * the rest of the asset alone. Resolves to the asset as read, with the
+   * reference added.
+   *
+   * Earlier versions sent a JSON PUT of `{ type, refIds }`, which the spec
+   * rejects for both types: a BLOB takes no JSON PUT, and a LINK's requires
+   * `access` and `url`.
+   */
   async attachToProduct(
     assetId: string,
     productId: string,
@@ -479,14 +487,22 @@ export class MediaService {
     const a = await this.get(assetId, auth);
     const refIds: AssetRefId[] = a.refIds ?? [];
     if (refIds.some((r) => isProductRef(r, productId))) return a;
-    const next: AssetRefId[] = [...refIds, { type: "PRODUCT", id: productId }];
-    // Preserve the asset's type discriminator so the update body satisfies
-    // the AssetUpdateBlob | AssetUpdateLink union.
-    const patch = { type: a.type, refIds: next } as unknown as AssetUpdateInput;
-    return this.update(assetId, { kind: "json", body: patch }, auth);
+    const ref: AssetRefId = { type: "PRODUCT", id: productId };
+    // `/refIds/-` appends to an existing array only (RFC 6902).
+    const op =
+      a.refIds === undefined
+        ? { op: "add" as const, path: "/refIds", value: [ref] }
+        : { op: "add" as const, path: "/refIds/-", value: ref };
+    await this.patch(assetId, [op], auth);
+    return { ...a, refIds: [...refIds, ref] };
   }
 
-  /** Remove a PRODUCT refId from an asset (no-op if absent). */
+  /**
+   * Remove a PRODUCT refId from an asset (no-op if absent), through a JSON Patch
+   * that replaces the references and nothing else. Resolves to the asset as
+   * read, without the reference. Earlier versions sent a spec-invalid JSON PUT,
+   * as {@link attachToProduct} did.
+   */
   async detachFromProduct(
     assetId: string,
     productId: string,
@@ -496,8 +512,8 @@ export class MediaService {
     const refIds: AssetRefId[] = a.refIds ?? [];
     const next = refIds.filter((r) => !isProductRef(r, productId));
     if (next.length === refIds.length) return a;
-    const patch = { type: a.type, refIds: next } as unknown as AssetUpdateInput;
-    return this.update(assetId, { kind: "json", body: patch }, auth);
+    await this.patch(assetId, [{ op: "replace", path: "/refIds", value: next }], auth);
+    return { ...a, refIds: next };
   }
 
   /** Convenience: list assets attached to a product (server-side filter). */

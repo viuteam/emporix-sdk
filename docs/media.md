@@ -96,6 +96,12 @@ await client.media.attachToProduct(assetId, productId);   // idempotent
 await client.media.detachFromProduct(assetId, productId); // no-op if absent
 ```
 
+Both read the asset, then send a JSON Patch that touches only `refIds` (`add
+/refIds/-` to attach, `replace /refIds` to detach), so they work for BLOB and
+LINK assets alike. They resolve to the asset as read, with the change applied.
+Earlier versions sent a JSON `PUT` of `{ type, refIds }` instead, which the spec
+rejects for either type.
+
 ## List media for a product (admin/server)
 
 ```ts
@@ -187,24 +193,31 @@ await client.media.replaceFile(assetId, {
 `replaceFile()` is sugar over `update(assetId, { kind: "blob", file, body })`
 that builds the `AssetUpdateBlob` body from the input. Use this instead of
 `remove` + `create` so the asset id (and all `refIds` pointing to it) stay
-stable.
+stable. It resolves to nothing: the `PUT` answers `204`.
 
-## Update an asset (metadata-only)
+## Replace a LINK asset (`PUT`)
+
+The spec takes one `PUT` body per asset type. A LINK asset is replaced with
+JSON, and the body is the whole asset — `type`, `access` and `url` are required:
 
 ```ts
 await client.media.update(assetId, {
   kind: "json",
   body: {
-    type: "BLOB",                   // immutable — must match the existing asset
+    type: "LINK",                   // immutable — must match the existing asset
     access: "PUBLIC",               // immutable — must match
-    details: { filename: "renamed.jpg" },
+    url: "https://example.com/spec-sheet-v2.pdf",
     metadata: { version: asset.metadata?.version ?? 1 },
   },
 });
 ```
 
-For BLOB file-replacement use `{ kind: "blob", file, body }` (or the
-`replaceFile()` sugar above). The discriminated input mirrors `create()`.
+A BLOB asset is replaced with `{ kind: "blob", file, body }` (or the
+`replaceFile()` sugar above): file and body are both required, so the bytes are
+always replaced. A BLOB's metadata alone goes through `patch()` below. `update()`
+resolves to nothing — the `PUT` answers `204`. Earlier versions also took a BLOB
+as the JSON body and promised the updated asset in return; the spec allows
+neither.
 
 ## Patch a single field (`PATCH`, RFC-6902)
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect, expectTypeOf, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { MediaService } from "../../src/services/media";
@@ -107,6 +107,8 @@ describe("MediaService.create", () => {
 
 describe("MediaService CRUD", () => {
   it("get/list/update/remove use the assets resource", async () => {
+    let putContentType: string | null = null;
+    let putBody: unknown = null;
     server.use(
       http.get("https://api.emporix.io/media/acme/assets/asset-1", () =>
         HttpResponse.json({ id: "asset-1", type: "BLOB", access: "PUBLIC" }),
@@ -115,8 +117,9 @@ describe("MediaService CRUD", () => {
         HttpResponse.json([{ id: "asset-1" }, { id: "asset-2" }]),
       ),
       http.put("https://api.emporix.io/media/acme/assets/asset-1", async ({ request }) => {
-        const body = (await request.json()) as { access?: string };
-        return HttpResponse.json({ id: "asset-1", access: body.access ?? "PUBLIC" });
+        putContentType = request.headers.get("content-type");
+        putBody = await request.json();
+        return new HttpResponse(null, { status: 204 });
       }),
       http.delete(
         "https://api.emporix.io/media/acme/assets/asset-1",
@@ -126,15 +129,28 @@ describe("MediaService CRUD", () => {
     const s = svc();
     expect((await s.get("asset-1")).id).toBe("asset-1");
     expect((await s.list()).items).toHaveLength(2);
-    expect(
-      (
-        await s.update("asset-1", {
-          kind: "json",
-          body: { type: "BLOB", access: "PRIVATE" },
-        })
-      ).access,
-    ).toBe("PRIVATE");
+    const link = { type: "LINK" as const, access: "PUBLIC" as const, url: "https://emporix.io/doc.pdf" };
+    // The spec answers a PUT with 204 and no body, so there is no asset to resolve to.
+    await expect(s.update("asset-1", { kind: "json", body: link })).resolves.toBeUndefined();
+    expect(putContentType).toMatch(/application\/json/);
+    expect(putBody).toEqual(link);
     await expect(s.remove("asset-1")).resolves.toBeUndefined();
+  });
+
+  /**
+   * The spec's JSON body for a PUT is `AssetUpdateLink` — `type: LINK`, `url` and
+   * `access` required. A BLOB is updated with multipart (file and body both
+   * required), and its metadata alone through `patch`.
+   */
+  it("update() takes JSON only for a LINK asset and resolves to nothing", () => {
+    const s = svc();
+    const typesOnly = (): void => {
+      // @ts-expect-error a BLOB asset is updated with multipart, or patched
+      void s.update("a", { kind: "json", body: { type: "BLOB", access: "PUBLIC" } });
+    };
+    void typesOnly;
+    expectTypeOf(s.update).returns.resolves.toBeVoid();
+    expectTypeOf(s.replaceFile).returns.resolves.toBeVoid();
   });
 
   it("patch() PATCHes the JSON-Patch op-array with a service token and resolves on 204", async () => {
@@ -211,12 +227,7 @@ describe("MediaService CRUD", () => {
         if (f instanceof File) receivedFile = f;
         const b = fd.get("body");
         if (typeof b === "string") receivedBody = b;
-        return HttpResponse.json({
-          id: "asset-1",
-          type: "BLOB",
-          access: "PUBLIC",
-          details: { filename: "new.jpg", mimeType: "image/jpeg" },
-        });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
     const result = await svc().update("asset-1", {
@@ -237,7 +248,7 @@ describe("MediaService CRUD", () => {
       access: "PUBLIC",
       metadata: { version: 3 },
     });
-    expect(result.id).toBe("asset-1");
+    expect(result).toBeUndefined();
   });
 
   it("replaceFile() builds an AssetUpdateBlob with details + version", async () => {
@@ -247,7 +258,7 @@ describe("MediaService CRUD", () => {
         const fd = await request.formData();
         const b = fd.get("body");
         if (typeof b === "string") parsedBody = JSON.parse(b) as Record<string, unknown>;
-        return HttpResponse.json({ id: "asset-1", type: "BLOB", access: "PRIVATE" });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
     await svc().replaceFile("asset-1", {
@@ -272,7 +283,7 @@ describe("MediaService CRUD", () => {
         const fd = await request.formData();
         const b = fd.get("body");
         if (typeof b === "string") parsedBody = JSON.parse(b) as Record<string, unknown>;
-        return HttpResponse.json({ id: "asset-1", type: "BLOB", access: "PUBLIC" });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
     await svc().replaceFile("asset-1", {
@@ -325,34 +336,75 @@ describe("MediaService convenience", () => {
     });
   });
 
-  it("attachToProduct is idempotent (no duplicate PRODUCT refId)", async () => {
-    let putBody: { refIds?: Array<{ type?: string; id?: string }> } | null = null;
-    server.use(
-      http.get("https://api.emporix.io/media/acme/assets/a", () =>
-        HttpResponse.json({ id: "a", refIds: [{ type: "PRODUCT", id: "p1" }] }),
-      ),
-      http.put("https://api.emporix.io/media/acme/assets/a", async ({ request }) => {
-        putBody = (await request.json()) as typeof putBody;
-        return HttpResponse.json({ id: "a", refIds: putBody?.refIds ?? [] });
-      }),
-    );
-    await svc().attachToProduct("a", "p1"); // already attached → no PUT
-    expect(putBody).toBeNull();
-    await svc().attachToProduct("a", "p2"); // new product → PUT with both
-    expect(
-      (putBody as { refIds?: Array<{ type?: string; id?: string }> } | null)?.refIds,
-    ).toEqual([
-      { type: "PRODUCT", id: "p1" },
-      { type: "PRODUCT", id: "p2" },
-    ]);
-  });
-
-  it("detachFromProduct removes the matching PRODUCT refId", async () => {
-    let putBody: { refIds?: Array<{ type?: string; id?: string }> } | null = null;
+  /**
+   * A JSON PUT can only carry a LINK asset, and only with `access` and `url`; the
+   * helpers sent `{ type, refIds }`, which the spec rejects for either type. A
+   * JSON Patch touches just the references, for BLOB and LINK alike. The PUT
+   * handlers answer 400 the way the spec would, so a regression fails loudly.
+   */
+  it("attachToProduct appends the reference with a JSON Patch, idempotently", async () => {
+    const patches: unknown[] = [];
+    let putCalled = false;
     server.use(
       http.get("https://api.emporix.io/media/acme/assets/a", () =>
         HttpResponse.json({
           id: "a",
+          type: "BLOB",
+          access: "PUBLIC",
+          refIds: [{ type: "PRODUCT", id: "p1" }],
+        }),
+      ),
+      http.patch("https://api.emporix.io/media/acme/assets/a", async ({ request }) => {
+        patches.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.put("https://api.emporix.io/media/acme/assets/a", () => {
+        putCalled = true;
+        return HttpResponse.json({ code: 400, status: "Bad Request", message: "x" }, { status: 400 });
+      }),
+    );
+    const same = await svc().attachToProduct("a", "p1"); // already attached → nothing sent
+    expect(patches).toEqual([]);
+    expect(same.refIds).toEqual([{ type: "PRODUCT", id: "p1" }]);
+
+    const next = await svc().attachToProduct("a", "p2");
+    expect(patches).toEqual([
+      [{ op: "add", path: "/refIds/-", value: { type: "PRODUCT", id: "p2" } }],
+    ]);
+    expect(next.refIds).toEqual([
+      { type: "PRODUCT", id: "p1" },
+      { type: "PRODUCT", id: "p2" },
+    ]);
+    expect(putCalled).toBe(false);
+  });
+
+  /** `/refIds/-` appends to an existing array only (RFC 6902), so a first reference adds the array. */
+  it("attachToProduct adds the array when the asset has no references yet", async () => {
+    const patches: unknown[] = [];
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets/a", () =>
+        HttpResponse.json({ id: "a", type: "BLOB", access: "PUBLIC" }),
+      ),
+      http.patch("https://api.emporix.io/media/acme/assets/a", async ({ request }) => {
+        patches.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const next = await svc().attachToProduct("a", "p1");
+    expect(patches).toEqual([[{ op: "add", path: "/refIds", value: [{ type: "PRODUCT", id: "p1" }] }]]);
+    expect(next.refIds).toEqual([{ type: "PRODUCT", id: "p1" }]);
+  });
+
+  it("detachFromProduct replaces the references with a JSON Patch, a no-op when absent", async () => {
+    const patches: unknown[] = [];
+    let putCalled = false;
+    server.use(
+      http.get("https://api.emporix.io/media/acme/assets/a", () =>
+        HttpResponse.json({
+          id: "a",
+          type: "LINK",
+          access: "PUBLIC",
+          url: "https://emporix.io/doc.pdf",
           refIds: [
             { type: "PRODUCT", id: "p1" },
             { type: "PRODUCT", id: "p2" },
@@ -360,18 +412,36 @@ describe("MediaService convenience", () => {
           ],
         }),
       ),
-      http.put("https://api.emporix.io/media/acme/assets/a", async ({ request }) => {
-        putBody = (await request.json()) as typeof putBody;
-        return HttpResponse.json({ id: "a", refIds: putBody?.refIds ?? [] });
+      http.patch("https://api.emporix.io/media/acme/assets/a", async ({ request }) => {
+        patches.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.put("https://api.emporix.io/media/acme/assets/a", () => {
+        putCalled = true;
+        return HttpResponse.json({ code: 400, status: "Bad Request", message: "x" }, { status: 400 });
       }),
     );
-    await svc().detachFromProduct("a", "p1");
-    expect(
-      (putBody as { refIds?: Array<{ type?: string; id?: string }> } | null)?.refIds,
-    ).toEqual([
+    await svc().detachFromProduct("a", "absent");
+    expect(patches).toEqual([]);
+
+    const next = await svc().detachFromProduct("a", "p1");
+    expect(patches).toEqual([
+      [
+        {
+          op: "replace",
+          path: "/refIds",
+          value: [
+            { type: "PRODUCT", id: "p2" },
+            { type: "CATEGORY", id: "c1" },
+          ],
+        },
+      ],
+    ]);
+    expect(next.refIds).toEqual([
       { type: "PRODUCT", id: "p2" },
       { type: "CATEGORY", id: "c1" },
     ]);
+    expect(putCalled).toBe(false);
   });
 
   it("listForProduct passes the refIds.id filter as a query param", async () => {
