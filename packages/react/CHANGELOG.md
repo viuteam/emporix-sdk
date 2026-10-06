@@ -1,5 +1,11 @@
 # @viu/emporix-sdk-react
 
+## 4.3.0
+
+### Patch Changes
+
+- [#385](https://github.com/viuteam/emporix-sdk/pull/385) [`d6b3738`](https://github.com/viuteam/emporix-sdk/commit/d6b37382700578a86cb8802ee30c1ebb6f3d950d) Thanks [@amnael1](https://github.com/amnael1)! - `useCloudFunction` keys on the kind of the auth context it calls with. It used the stored token's kind, so a read with an `auth` override shared the default read's cache entry and could answer with the other context's data.
+
 ## 4.2.4
 
 ### Patch Changes
