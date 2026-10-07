@@ -25,3 +25,8 @@ await client.catalogs.deleteCatalog("catalog-id");
 
 All methods take an optional trailing `auth` argument (default: the `"backend"`
 service credential set).
+
+`name` and `description` are always maps of translations, whatever
+`Content-Language` says; the header, set through the client's `contentLanguage`,
+only narrows the languages a payload may contain. See
+[Localized writes](products.md#localized-writes).

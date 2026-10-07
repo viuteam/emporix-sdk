@@ -62,6 +62,19 @@ export type CategoryAssignmentBulkResult = BulkAssignmentResponse;
 /** Id envelope returned when an assignment is created. */
 export type CategoryAssignmentCreated = AssignmentIdResponse;
 
+/** Options shared by the category write endpoints (create, update, patch). */
+export interface CategoryWriteOptions {
+  /** Sets the `publish` query flag (needs the `category.category_publish` scope). */
+  publish?: boolean;
+  /**
+   * `Content-Language` for this call, overriding `EmporixConfig.contentLanguage`.
+   * Category localized fields are maps whatever it says; the header limits the
+   * languages they may contain (`"de"`, `"en,de"`), and without one the
+   * service allows every tenant language.
+   */
+  contentLanguage?: string;
+}
+
 /** Category reads. Default auth: anonymous. */
 export class CategoryService {
   static readonly channel = "category" as const;
@@ -315,13 +328,16 @@ export class CategoryService {
    */
   async create(
     input: CategoryCreateInput,
-    options: { publish?: boolean } = {},
+    options: CategoryWriteOptions = {},
     auth: AuthContext = SERVICE,
   ): Promise<CategoryCreated> {
     return this.ctx.http.request<CategoryCreated>({
       method: "POST",
       path: `/category/${this.ctx.tenant}/categories`,
       ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
       body: input,
       auth,
     });
@@ -335,13 +351,16 @@ export class CategoryService {
   async update(
     categoryId: string,
     input: CategoryUpdateInput,
-    options: { publish?: boolean } = {},
+    options: CategoryWriteOptions = {},
     auth: AuthContext = SERVICE,
   ): Promise<CategoryCreated | void> {
     return this.ctx.http.request<CategoryCreated | void>({
       method: "PUT",
       path: `/category/${this.ctx.tenant}/categories/${categoryId}`,
       ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
       body: input,
       auth,
     });
@@ -354,13 +373,16 @@ export class CategoryService {
   async patch(
     categoryId: string,
     input: CategoryPatchInput,
-    options: { publish?: boolean } = {},
+    options: CategoryWriteOptions = {},
     auth: AuthContext = SERVICE,
   ): Promise<void> {
     await this.ctx.http.request<void>({
       method: "PATCH",
       path: `/category/${this.ctx.tenant}/categories/${categoryId}`,
       ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
       body: input,
       auth,
     });

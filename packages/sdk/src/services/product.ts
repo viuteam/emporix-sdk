@@ -78,11 +78,17 @@ export type ProductTemplateUpdateInput = ProductTemplateUpdate;
 /** Id envelope returned when a product template is created. */
 export type ProductTemplateCreated = { id?: string };
 
-/** Query flags shared by the product write endpoints. */
+/** Options shared by the product write endpoints. */
 export interface ProductWriteOptions {
   skipVariantGeneration?: boolean;
   doIndex?: boolean;
   skipRelatedItemsValidation?: boolean;
+  /**
+   * `Content-Language` for this call, overriding `EmporixConfig.contentLanguage`:
+   * `"*"` when `name`, `description` and the other localized fields are maps of
+   * translations, a language code such as `"de"` when they are plain strings.
+   */
+  contentLanguage?: string;
 }
 
 /** Catalog reads. Default auth: anonymous; pass customer for personalized pricing. */
@@ -349,6 +355,9 @@ export class ProductService {
       method: "POST",
       path: `/product/${this.ctx.tenant}/products`,
       ...(Object.keys(query).length > 0 ? { query } : {}),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
       body: input,
       auth,
     });
@@ -387,6 +396,9 @@ export class ProductService {
       method: "PATCH",
       path: `/product/${this.ctx.tenant}/products/${productId}`,
       ...(Object.keys(query).length > 0 ? { query } : {}),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
       body: input,
       auth,
     });
@@ -419,6 +431,9 @@ export class ProductService {
       method: "PUT",
       path: `/product/${this.ctx.tenant}/products/${productId}`,
       ...(Object.keys(query).length > 0 ? { query } : {}),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
       body: input,
       auth,
     });
@@ -463,6 +478,9 @@ export class ProductService {
       method: "POST",
       path: `/product/${this.ctx.tenant}/products/bulk`,
       ...(Object.keys(query).length > 0 ? { query } : {}),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
       body: input,
       auth,
     });
@@ -486,6 +504,9 @@ export class ProductService {
       method: "PUT",
       path: `/product/${this.ctx.tenant}/products/bulk`,
       ...(Object.keys(query).length > 0 ? { query } : {}),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
       body: input,
       auth,
     });

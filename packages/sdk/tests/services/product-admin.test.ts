@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { ProductService } from "../../src/services/product";
+import { ProductService, type ProductWriteOptions } from "../../src/services/product";
 
 function ctxWith(request: ReturnType<typeof vi.fn>): ConstructorParameters<typeof ProductService>[0] {
   return {
@@ -59,6 +59,32 @@ describe("ProductService write CRUD", () => {
     const c = vi.fn().mockResolvedValue({ id: "p1" });
     await svc(c).create({} as never, {}, { kind: "raw", token: "X" });
     expect(c).toHaveBeenCalledWith(expect.objectContaining({ auth: { kind: "raw", token: "X" } }));
+  });
+});
+
+describe("ProductService write options: contentLanguage", () => {
+  const writes: [string, (s: ProductService, o: ProductWriteOptions) => Promise<unknown>][] = [
+    ["create", (s, o) => s.create({} as never, o)],
+    ["update", (s, o) => s.update("p1", {} as never, o)],
+    ["replace", (s, o) => s.replace("p1", {} as never, o)],
+    ["bulkCreate", (s, o) => s.bulkCreate([] as never, o)],
+    ["bulkUpdate", (s, o) => s.bulkUpdate([] as never, o)],
+  ];
+
+  it.each(writes)("%s sends it as the Content-Language header", async (_, call) => {
+    const r = vi.fn().mockResolvedValue(undefined);
+    await call(svc(r), { contentLanguage: "de" });
+    expect(r).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: { "Content-Language": "de" } }),
+    );
+  });
+
+  // An unset option must not reach the request as `Content-Language: undefined`:
+  // per-request headers win over the client default, so it would erase it.
+  it.each(writes)("%s sends no headers when it is unset", async (_, call) => {
+    const r = vi.fn().mockResolvedValue(undefined);
+    await call(svc(r), {});
+    expect(r.mock.calls[0]?.[0]).not.toHaveProperty("headers");
   });
 });
 

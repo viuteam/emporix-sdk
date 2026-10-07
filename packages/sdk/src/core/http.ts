@@ -75,6 +75,11 @@ export interface HttpClientOptions {
    */
   requestContext?: { language?: string | undefined };
   /**
+   * Sent as `Content-Language` on every request that carries a body — see
+   * `EmporixConfig.contentLanguage`. Reads and bodiless requests never get it.
+   */
+  contentLanguage?: string;
+  /**
    * Replaces the global `fetch` for API requests. Not used by token requests
    * (`core/auth.ts`) or by {@link HttpClient.stream} — see `EmporixConfig.fetch`.
    */
@@ -109,11 +114,14 @@ export class HttpClient {
   ): Record<string, string> {
     return {
       // Before `o.headers` on purpose: a caller may override the tenant for a
-      // single request, the way `Accept-Language` can be overridden. Only
-      // `Authorization` is non-negotiable.
+      // single request, the way `Accept-Language` and `Content-Language` can be
+      // overridden. Only `Authorization` is non-negotiable.
       ...(this.opts.tenant !== undefined ? { "Emporix-Tenant": this.opts.tenant } : {}),
       ...(this.opts.requestContext?.language
         ? { "Accept-Language": this.opts.requestContext.language }
+        : {}),
+      ...(this.opts.contentLanguage && o.body !== undefined
+        ? { "Content-Language": this.opts.contentLanguage }
         : {}),
       ...(o.headers ?? {}),
       Authorization: `Bearer ${token}`,
