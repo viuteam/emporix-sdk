@@ -107,6 +107,7 @@ See [`../../docs/mixin-search.md`](../../docs/mixin-search.md) for the capabilit
 | `logger` | console @ `warn` | `false`, a `Logger`, or `{ level, services, pretty, redact }` |
 | `tokenProvider` | built-in | inject for SSO/token-exchange |
 | `fetch` | global `fetch` | replaces `fetch` for API requests; token requests and SSE streams keep the global one |
+| `contentLanguage` | — (no header) | `Content-Language` on every request with a body: `"*"` when localized fields are maps of translations, a language code when they are plain strings. Product and category writes override it per call — see [`../../docs/products.md`](../../docs/products.md#localized-writes) |
 
 `credentials: {}` is legal: a client that never mints its own token, for when the
 token comes from outside. The Managed Dashboard module in

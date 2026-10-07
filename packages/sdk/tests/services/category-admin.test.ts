@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, type Mock } from "vitest";
-import { CategoryService } from "../../src/services/category";
+import { CategoryService, type CategoryWriteOptions } from "../../src/services/category";
 
 // `Mock`, not `ReturnType<typeof vi.fn>`: since vitest 4 that resolves to the
 // constraint `Mock<Procedure | Constructable>`, which is not callable.
@@ -57,6 +57,31 @@ describe("CategoryService admin core CRUD", () => {
     const r = vi.fn().mockResolvedValue({ id: "c1" });
     await svc(r).create({} as never, {}, { kind: "raw", token: "T" });
     expect(r).toHaveBeenCalledWith(expect.objectContaining({ auth: { kind: "raw", token: "T" } }));
+  });
+
+  const writes: [string, (s: CategoryService, o: CategoryWriteOptions) => Promise<unknown>][] = [
+    ["create", (s, o) => s.create({} as never, o)],
+    ["update", (s, o) => s.update("c1", {} as never, o)],
+    ["patch", (s, o) => s.patch("c1", {} as never, o)],
+  ];
+
+  it.each(writes)("%s sends contentLanguage as the Content-Language header", async (_, call) => {
+    const r = vi.fn().mockResolvedValue(undefined);
+    await call(svc(r), { contentLanguage: "de", publish: true });
+    expect(r).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: { "Content-Language": "de" },
+        query: { publish: "true" },
+      }),
+    );
+  });
+
+  // Per-request headers win over the client default, so an unset option must
+  // not reach the request as `Content-Language: undefined`.
+  it.each(writes)("%s sends no headers when contentLanguage is unset", async (_, call) => {
+    const r = vi.fn().mockResolvedValue(undefined);
+    await call(svc(r), {});
+    expect(r.mock.calls[0]?.[0]).not.toHaveProperty("headers");
   });
 });
 
