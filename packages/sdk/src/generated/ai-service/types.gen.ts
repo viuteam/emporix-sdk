@@ -103,9 +103,6 @@ export type ExpandableTokenResponse = IdResponse | ExpandedTokenResponse;
  * * `rag_custom`
  * * `rag_emporix`
  * * `teams`
- *
- * **The `teams` value is in preview mode** - some of the features may not be fully operational yet.
- * Slack fields `defaultInboundAgentId` and `allowedOperations` are in preview.
  */
 export type NativeToolType = 'slack' | 'rag_custom' | 'rag_emporix' | 'teams';
 
@@ -293,24 +290,12 @@ export type RagEmporixNativeToolConfigResponse = RagEmporixNativeToolConfig & {
 };
 
 /**
- * ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
- *
- * {% hint style="danger" %}
- * This functionality is in preview mode - some of the features may not be fully operational yet.
- * {% endhint %}
- *
  * Slack native tool operation identifier.
  */
 export type SlackAllowedOperations = 'sendMessage' | 'createChannel' | 'inviteParticipants' | 'collaborateOnChannel';
 
 /**
- * ![Preview](https://res.cloudinary.com/saas-ag/image/upload/v1752824268/emporix/icons/preview_api1.png)
- *
- * {% hint style="danger" %}
- * This functionality is in preview mode - some of the features may not be fully operational yet.
- * {% endhint %}
- *
- * Configuration of a Slack native tool instance. Fields `defaultInboundAgentId` and `allowedOperations` are in preview.
+ * Configuration of a Slack native tool instance.
  */
 export type SlackNativeToolConfigResponse = {
     /**
@@ -318,11 +303,11 @@ export type SlackNativeToolConfigResponse = {
      */
     teamId: string;
     /**
-     * Agent ID that handles inbound Slack replies when no conversation-specific routing context exists yet. This field is in preview.
+     * Agent ID that handles inbound Slack replies when no conversation-specific routing context exists yet.
      */
     defaultInboundAgentId?: string;
     /**
-     * Operations the tool instance exposes to assigned agents. At least one value is required when the tool is enabled. This field is in preview.
+     * Operations the tool instance exposes to assigned agents. At least one value is required when the tool is enabled.
      */
     allowedOperations?: Array<SlackAllowedOperations>;
 };
@@ -363,8 +348,6 @@ export type TeamsAllowedOperations = 'sendMessage' | 'createChat' | 'createChann
 
 /**
  * Configuration of an MS Teams native tool instance.
- *
- * **The MS Teams native tool configuration is in preview mode** - some of the features may not be fully operational yet.
  */
 export type TeamsNativeToolConfigResponse = {
     /**
@@ -984,9 +967,7 @@ export type NativeToolReferenceRequest = {
      */
     id: string;
     /**
-     * Optional per-agent override of allowed native tool operations. When omitted, the tool instance defaults apply. Supported for MS Teams and Slack (preview).
-     *
-     * **The `allowedOperations` field is in preview mode** - some of the features may not be fully operational yet.
+     * Optional per-agent override of allowed native tool operations. When omitted, the tool instance defaults apply. Supported for MS Teams and Slack.
      */
     allowedOperations?: Array<TeamsAllowedOperations | SlackAllowedOperations>;
 };
