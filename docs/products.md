@@ -44,6 +44,69 @@ A parent with no children resolves to `[]` (it never throws). Internally this
 runs `search("productType:VARIANT parentVariantId:<id>")` — space-separated
 fields are combined with implicit AND, per Emporix's query-parameter syntax.
 
+## Localized writes
+
+A localized field such as `name` or `description` is sent either as a plain
+string or as a map of translations. The `Content-Language` request header tells
+Emporix which of the two the body contains:
+
+| `Content-Language` | Localized fields are | Example |
+| --- | --- | --- |
+| not sent (the SDK default) | strings in the tenant's default language | `name: "Chair"` |
+| a language code, e.g. `"de"` | strings in that language | `name: "Stuhl"` |
+| `"*"` | maps of translations | `name: { de: "Stuhl", en: "Chair" }` |
+
+A map sent without the header fails with a `400`: «localized values must be of
+String type when the Content-Language header is not set to all languages».
+
+Set a default on the client, and every request with a body carries it:
+
+```ts
+const admin = new EmporixClient({
+  tenant: "mytenant",
+  credentials: { backend: { clientId, secret } },
+  contentLanguage: "*",
+});
+
+await admin.products.create(product); // `name: { de: "Stuhl", en: "Chair" }` and friends
+```
+
+The product writes (`create`, `update`, `replace`, `bulkCreate`, `bulkUpdate`)
+and the category writes (`create`, `update`, `patch`) override it per call:
+
+```ts
+// One plain German string, on a client whose default is "*"
+await admin.products.update("p-1", { name: "Stuhl" }, { contentLanguage: "de" });
+```
+
+The other writes with localized fields — product templates, price models,
+prices and price lists, catalogs, brands, currencies, segments, fees, schemas,
+shipping, tax and units, among others — take no options argument and use the
+client default. The template and price-model input types only allow maps, so
+those writes need `contentLanguage: "*"`. When a single call needs a different
+value, build a second client from the same config and hand it the first one's
+token provider, which saves it from fetching a token of its own:
+
+```ts
+const german = new EmporixClient({
+  ...config,
+  contentLanguage: "de",
+  tokenProvider: admin.tokenProvider,
+});
+// `name` is the German translation alone, as a plain string
+await german.currencies.updateCurrency("CHF", { name: "Schweizer Franken", metadata: { version: 3 } });
+```
+
+- The header goes on every request with a body, `POST` searches and cart writes
+  included, and never on a `GET`. Set it on the client that does back-office
+  writes, not on a storefront client.
+- Categories and catalogs always take maps. There the header only narrows the
+  languages a payload may contain; without it, every tenant language is allowed.
+- Reads are the other half. To get the maps back, read with `Accept-Language: *`
+  (`client.setStorefrontContext({ language: "*" })`). A read in one language
+  returns plain strings, so an editor built on it never sees the other
+  translations.
+
 ## React
 
 ```tsx
