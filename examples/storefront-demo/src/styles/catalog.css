@@ -288,6 +288,35 @@
 .variants__list {
   margin-top: var(--s-2);
 }
+.variant-axis {
+  border: 0;
+  margin: 0 0 var(--s-4);
+  padding: 0;
+}
+/* Chips that are radio buttons: the input stays in the tab order, only invisible. */
+.variant-option {
+  position: relative;
+  cursor: pointer;
+}
+.variant-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.variant-option:has(input:checked) {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+.variant-option:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.variant-option:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.45;
+  text-decoration: line-through;
+}
 .buy-bar {
   margin-top: var(--s-5);
 }
