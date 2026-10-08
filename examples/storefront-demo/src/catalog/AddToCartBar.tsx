@@ -8,17 +8,20 @@ export function AddToCartBar({
   productId,
   productName,
   price,
+  blockedHint,
 }: {
   productId: string;
   productName: string;
   price?: PriceVM | undefined;
+  /** Set when this product cannot go into the cart as it is, e.g. a variant still has to be chosen. */
+  blockedHint?: string | undefined;
 }) {
   const { add, isPending } = useAddToCart();
   const nav = useNavigate();
   const [qty, setQty] = useState(1);
   // Emporix requires a priceId on internal-type cart items — only priced products
   // are purchasable. Say so instead of letting the API answer 400.
-  const purchasable = Boolean(price?.priceId);
+  const purchasable = Boolean(price?.priceId) && !blockedHint;
 
   return (
     <div className="buy-bar">
@@ -45,7 +48,9 @@ export function AddToCartBar({
           View cart →
         </Button>
       </div>
-      {!purchasable ? (
+      {blockedHint ? (
+        <p className="muted buy-bar__hint">{blockedHint}</p>
+      ) : !purchasable ? (
         <p className="muted buy-bar__hint">
           No price for this product on the selected site. Prices depend on the site chosen in the setup.
         </p>
