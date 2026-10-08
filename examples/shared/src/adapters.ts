@@ -153,6 +153,7 @@ export function isVariantParent(p: Product): boolean {
 type ReadVariantAttribute = { name?: unknown; value?: { qualifier?: unknown; name?: unknown } };
 type ReadDynamicProduct = ReadProduct & {
   sellable?: boolean;
+  parentVariantId?: string;
   parentVariantPath?: string[];
   variants?: Record<string, { code?: string; sellable?: boolean }>;
   inheritedVariantAttributes?: Record<string, ReadVariantAttribute>;
@@ -182,6 +183,17 @@ export function dynamicVariantRootId(p: Product): string | undefined {
 export function needsVariantChoice(p: Product): boolean {
   const r = p as ReadDynamicProduct;
   return r.productType === "DYNAMIC_VARIANT" && r.sellable !== true;
+}
+
+/**
+ * Whether the product hangs below another one in a variant tree: a template
+ * VARIANT, or a DYNAMIC_VARIANT that is not the root. Listings should show the
+ * root only — Emporix copies a root's category assignment to all of its variants
+ * (measured on the viu tenant 2026-10-08), so a category otherwise lists every size.
+ */
+export function hasVariantParent(p: Product): boolean {
+  const r = p as ReadDynamicProduct;
+  return r.productType === "VARIANT" || (r.productType === "DYNAMIC_VARIANT" && Boolean(r.parentVariantId));
 }
 
 /** Codes of the root's sellable variants — read them with one `searchByCodes`. */
