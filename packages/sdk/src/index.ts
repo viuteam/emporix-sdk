@@ -315,6 +315,7 @@ export * from "./currency";
 export * from "./shipping";
 export * from "./returns";
 export * from "./indexing";
+export * from "./search";
 export * from "./imports";
 export * from "./audit-log";
 export * from "./unit-handling";

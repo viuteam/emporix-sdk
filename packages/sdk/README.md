@@ -65,7 +65,7 @@ property on the `EmporixClient` instance:
 | Cart & checkout | `carts`, `checkout`, `payments`, `coupons`, `taxes`, `shipping`, `fees` |
 | Orders & fulfilment | `orders`, `salesOrders`, `quotes`, `invoices`, `returns`, `availability`, `indexing` |
 | Customers & B2B | `customers`, `customerAdmin`, `companies`, `contacts`, `locations`, `customerGroups`, `approvals`, `rewardPoints`, `segments`, `iam` |
-| Platform & config | `sites`, `sessionContext`, `tenantConfig`, `clientConfig`, `media`, `schemas`, `webhooks`, `sequentialIds`, `units`, `countries`, `currencies`, `vendors`, `shoppingLists`, `cloudFunctions`, `ai`, `ragIndexer`, `imports`, `auditLogs` |
+| Platform & config | `sites`, `sessionContext`, `tenantConfig`, `clientConfig`, `media`, `schemas`, `search`, `webhooks`, `sequentialIds`, `units`, `countries`, `currencies`, `vendors`, `shoppingLists`, `cloudFunctions`, `ai`, `ragIndexer`, `imports`, `auditLogs` |
 
 The sections below highlight the most-used services; per-service guides live in
 [`../../docs/`](../../docs).

@@ -5,6 +5,42 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-10-08 — search-service: new service (preview)
+
+[Changelog entry](https://developer.emporix.io/changelog) "Search Service - search,
+indexes, and saved searches"; the spec reached `emporix/api-references` `main`
+with [emporix/api-references#556](https://github.com/emporix/api-references/pull/556)
+on 2026-10-08. A new spec, so the daily sync could not pick it up: `search-service`
+was added to `SPECS` in `scripts/fetch-specs.ts`, and `fetch:specs` reported
+`changed since last vendored: search-service` and nothing else. Measured by path
+literal (`coverage.mjs --spec search-service`): **13 new endpoints, 0 removed,
+0 deprecated.** The new `client.search` (`SearchService`) covers all 13.
+
+### Endpoints
+
+| Operation | Scope | SDK |
+|---|---|---|
+| `POST /search/{tenant}/search/{type}` | `search.search_read` + read access to the documents | `search` |
+| `GET /search/{tenant}/search/queries`, `GET …/search/{type}/queries` | `search.search_read` | `listSavedSearches` (`type` optional) |
+| `GET`, `PUT`, `DELETE /search/{tenant}/search/{type}/queries/{id}` | read / `search.search_manage` | `getSavedSearch`, `upsertSavedSearch`, `deleteSavedSearch` |
+| `GET /search/{tenant}/search/indexes`, `GET …/search/{type}/indexes` | `search.search_read` | `listIndexes` (`type` optional) |
+| `GET`, `PUT`, `DELETE /search/{tenant}/search/{type}/indexes/{id}` | read / `search.search_manage` | `getIndex`, `upsertIndex`, `deleteIndex` |
+| `GET /search/{tenant}/jobs`, `GET /search/{tenant}/jobs/{id}` | `search.search_read` | `listJobs`, `getJob` |
+
+The two tenant-wide lists (`/search/queries`, `/search/indexes`) are the "2 new
+endpoints" of the last upstream commit; each item carries `type`. See
+[search.md](./search.md).
+
+### Behaviour
+
+- Preview, custom schema types only.
+- `PUT` is an upsert with two success shapes: a saved search answers `201 { id }`
+  or `204`, an index `202 { id }` (a build job) or `204` (ready and unchanged).
+  An update needs `metadata.version` (`400` without, `409` when stale).
+- Filter and sort fields must be indexed (`exact`), or the search answers `400`.
+- Paging, `sort` and `fields` of the `POST` search are query parameters; the
+  facade sends them there.
+
 ## 2026-10-02 — release notes: Import Tool, cloud function hosting (no API change)
 
 Two [product releases](https://developer.emporix.io/release-notes) with no API
