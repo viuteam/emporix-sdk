@@ -2,7 +2,14 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { Product } from "@viu/emporix-sdk";
 import { useVariantChildren } from "@viu/emporix-sdk-react";
-import { catId, matchingVariants, productName, variantAxes, variantSelection } from "../lib/adapters";
+import {
+  catId,
+  dynamicVariantRootId,
+  matchingVariants,
+  productName,
+  variantAxes,
+  variantSelection,
+} from "../lib/adapters";
 
 /** Template variants (PARENT_VARIANT → VARIANT): one link per child. */
 export function VariantPicker({ productId }: { productId: string }) {
@@ -47,7 +54,9 @@ export function DynamicVariantPicker({ variants, current }: { variants: Product[
     }
     // No exact match (a gap in the matrix): take a variant with the value just chosen.
     const target = matchingVariants(variants, next)[0] ?? matchingVariants(variants, { [axis]: value })[0];
-    if (target) navigate(`/product/${encodeURIComponent(target)}`, { replace: true });
+    // The root id lets the product page render the target from `variants` right away.
+    const state = { variantRootId: dynamicVariantRootId(current) };
+    if (target) navigate(`/product/${encodeURIComponent(target)}`, { replace: true, state });
   }
 
   return (

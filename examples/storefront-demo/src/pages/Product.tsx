@@ -1,6 +1,7 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useProduct, useProductsByCodes } from "@viu/emporix-sdk-react";
 import {
+  catId,
   productName,
   productDescription,
   productImages,
@@ -20,16 +21,23 @@ import { EmptyState } from "../components/ui/EmptyState";
 export function Product() {
   const { idOrCode } = useParams();
   const id = idOrCode ?? "";
-  const { data: product, isLoading, isError } = useProduct(id);
-  const rootId = product ? dynamicVariantRootId(product) : undefined;
+  // Set by DynamicVariantPicker when it switches variants: the tree stays the same.
+  const pickerRootId = (useLocation().state as { variantRootId?: string } | null)?.variantRootId;
+  const { data: loaded, isLoading, isError } = useProduct(id);
+  const rootId = loaded ? dynamicVariantRootId(loaded) : pickerRootId;
   // The root of a dynamic-variant tree holds the selectors. Without one this is the
   // query above again (same key), so it costs no extra request.
   const { data: root } = useProduct(rootId ?? id);
   // The root's map only names its variants (see sellableVariantCodes); their attributes come with them.
   const { data: variants } = useProductsByCodes(rootId && root ? sellableVariantCodes(root) : []);
+  // A variant the picker switched to renders from that list at once; its own request
+  // replaces it when it answers. Without this the whole page swaps to a spinner.
+  const product = loaded ?? variants?.find((v) => catId(v) === id);
   const priceOf = usePrices(product ? [product] : []);
+  // One match for all variants, so a switch finds its price without waiting.
+  const variantPriceOf = usePrices(variants ?? []);
 
-  if (isLoading) {
+  if (!product && isLoading) {
     return (
       <div className="container">
         <Loading label="Loading product" />
@@ -48,7 +56,7 @@ export function Product() {
 
   const name = productName(product);
   const desc = productDescription(product);
-  const price = priceOf(id);
+  const price = priceOf(id) ?? variantPriceOf(id);
   // On a dynamic variant the selectors say which colour and size this is, so the
   // title is the root's; the variant's own name still goes to the cart.
   const title = rootId && root ? productName(root) : name;
