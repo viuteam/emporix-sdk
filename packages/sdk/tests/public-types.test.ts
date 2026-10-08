@@ -4,6 +4,7 @@ import type {
   AnalyticsResource,
   CartItemBatchEntry,
   CartItemsBatchResponse,
+  CategoryWriteOptions,
   CustomerTokenValidation,
   ImportHealthThresholds,
   ImportJobGroup,
@@ -33,6 +34,7 @@ type Named = {
   analytics: AnalyticsResource;
   cartItemBatchEntry: CartItemBatchEntry;
   cartItemsBatchResponse: CartItemsBatchResponse;
+  categoryWriteOptions: CategoryWriteOptions;
   customerTokenValidation: CustomerTokenValidation;
   importHealthThresholds: ImportHealthThresholds;
   importJobGroup: ImportJobGroup;

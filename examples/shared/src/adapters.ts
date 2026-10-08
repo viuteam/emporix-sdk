@@ -139,6 +139,121 @@ export function isVariantParent(p: Product): boolean {
   return (p as ReadProduct).productType === "PARENT_VARIANT";
 }
 
+// --- Dynamic variants ---
+//
+// A DYNAMIC_VARIANT tree (e.g. root → colour → size). The root's `variants` map
+// lists every descendant; each product carries its attributes as
+// `inheritedVariantAttributes` (from its ancestors) plus `ownVariantAttributes`.
+//
+// The map is documented to carry the accumulated attributes as well, but Emporix
+// leaves `variantAttributes` out of it for storefront (anonymous) tokens — measured
+// on the viu tenant 2026-10-08, a service token gets them. So the picker takes only
+// the sellable codes from the map and reads those variants in one request.
+
+type ReadVariantAttribute = { name?: unknown; value?: { qualifier?: unknown; name?: unknown } };
+type ReadDynamicProduct = ReadProduct & {
+  sellable?: boolean;
+  parentVariantId?: string;
+  parentVariantPath?: string[];
+  variants?: Record<string, { code?: string; sellable?: boolean }>;
+  inheritedVariantAttributes?: Record<string, ReadVariantAttribute>;
+  ownVariantAttributes?: Record<string, ReadVariantAttribute>;
+};
+
+export interface VariantAxis {
+  /** Attribute key, e.g. `color`. */
+  key: string;
+  /** Localized attribute name, e.g. «Farbe». */
+  label: string;
+  values: Array<{ key: string; label: string }>;
+}
+
+/**
+ * The root of the product's dynamic-variant tree: the product itself when it has
+ * no parent, otherwise the last entry of `parentVariantPath` (ordered from the
+ * direct parent up to the root). `undefined` when it is not a dynamic variant.
+ */
+export function dynamicVariantRootId(p: Product): string | undefined {
+  const r = p as ReadDynamicProduct;
+  if (r.productType !== "DYNAMIC_VARIANT") return undefined;
+  return r.parentVariantPath?.at(-1) ?? r.id;
+}
+
+/** A dynamic-variant root or intermediate node: shows the picker, but cannot go into the cart. */
+export function needsVariantChoice(p: Product): boolean {
+  const r = p as ReadDynamicProduct;
+  return r.productType === "DYNAMIC_VARIANT" && r.sellable !== true;
+}
+
+/**
+ * Whether the product hangs below another one in a variant tree: a template
+ * VARIANT, or a DYNAMIC_VARIANT that is not the root. Listings should show the
+ * root only — Emporix copies a root's category assignment to all of its variants
+ * (measured on the viu tenant 2026-10-08), so a category otherwise lists every size.
+ */
+export function hasVariantParent(p: Product): boolean {
+  const r = p as ReadDynamicProduct;
+  return r.productType === "VARIANT" || (r.productType === "DYNAMIC_VARIANT" && Boolean(r.parentVariantId));
+}
+
+/** Codes of the root's sellable variants — read them with one `searchByCodes`. */
+export function sellableVariantCodes(root: Product): string[] {
+  return Object.entries((root as ReadDynamicProduct).variants ?? {})
+    .filter(([, entry]) => entry.sellable === true)
+    .map(([id, entry]) => entry.code ?? id);
+}
+
+/** Inherited attributes first, then the product's own: colour before size. */
+function attributesOf(p: Product): Record<string, ReadVariantAttribute> {
+  const r = p as ReadDynamicProduct;
+  return { ...r.inheritedVariantAttributes, ...r.ownVariantAttributes };
+}
+
+/** Apparel sizes in wearing order. Values that are not sizes sort by label. */
+const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "2XL", "3XL", "4XL"];
+
+/**
+ * One selector per attribute, offering the values the given sellable variants
+ * have. Axes follow the tree, since inherited attributes come first; values sort
+ * by {@link SIZE_ORDER}, then label, because the variants arrive unordered.
+ */
+export function variantAxes(variants: Product[]): VariantAxis[] {
+  const axes = new Map<string, VariantAxis>();
+  for (const variant of variants) {
+    for (const [key, attr] of Object.entries(attributesOf(variant))) {
+      const axis = axes.get(key) ?? { key, label: pickText(attr.name, key), values: [] };
+      axes.set(key, axis);
+      const value = String(attr.value?.qualifier ?? "");
+      if (value && !axis.values.some((v) => v.key === value)) {
+        axis.values.push({ key: value, label: pickText(attr.value?.name, value) });
+      }
+    }
+  }
+  const rank = (key: string): number => {
+    const i = SIZE_ORDER.indexOf(key.toUpperCase());
+    return i === -1 ? SIZE_ORDER.length : i;
+  };
+  for (const axis of axes.values()) {
+    axis.values.sort((a, b) => rank(a.key) - rank(b.key) || a.label.localeCompare(b.label));
+  }
+  return [...axes.values()];
+}
+
+/** The attribute values a product fixes: every axis for a sellable variant, fewer for a node, none for the root. */
+export function variantSelection(p: Product): Record<string, string> {
+  return Object.fromEntries(Object.entries(attributesOf(p)).map(([key, attr]) => [key, String(attr.value?.qualifier ?? "")]));
+}
+
+/** Ids of the variants whose attributes match every entry of `selection`. */
+export function matchingVariants(variants: Product[], selection: Record<string, string>): string[] {
+  return variants
+    .filter((v) => {
+      const fixed = variantSelection(v);
+      return Object.entries(selection).every(([key, value]) => fixed[key] === value);
+    })
+    .map((v) => (v as ReadDynamicProduct).id ?? "");
+}
+
 /** Build the `matchByContext` items payload for a set of products (quantity is required). */
 export function priceMatchItems(
   products: Product[],

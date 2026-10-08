@@ -124,6 +124,7 @@ export type {
   CategoryAssignmentRefBulkInput,
   CategoryAssignmentBulkResult,
   CategoryAssignmentCreated,
+  CategoryWriteOptions,
 } from "./services/category";
 export { CartService } from "./services/cart";
 export type {

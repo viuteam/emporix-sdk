@@ -80,6 +80,7 @@ export function createCore(config: EmporixConfig): EmporixCore {
       // exactOptionalPropertyTypes: `{ fetch: undefined }` is a type error
       // against `fetch?: typeof globalThis.fetch`, so spread conditionally.
       ...(cfg.fetch !== undefined ? { fetch: cfg.fetch } : {}),
+      ...(cfg.contentLanguage !== undefined ? { contentLanguage: cfg.contentLanguage } : {}),
     }),
   });
 

@@ -58,6 +58,23 @@ export interface EmporixConfig {
    * convention.
    */
   fetch?: typeof globalThis.fetch;
+  /**
+   * Sent as `Content-Language` on every request that carries a body: the
+   * language of the localized fields in it. Unset (the default) sends no header.
+   *
+   * - `"*"` — localized fields are maps of translations, `{ de: "…", en: "…" }`;
+   * - a language code such as `"de"` — they are plain strings in that language.
+   *
+   * Without the header, most services read localized fields as plain strings in
+   * the tenant's default language and answer a map with a 400 («localized values
+   * must be of String type when the Content-Language header is not set to all
+   * languages»). Categories and catalogs are the exception: they always take maps.
+   *
+   * It applies to every write the client makes, so set it on the client that does
+   * back-office writes, not on a storefront client. Product and category writes
+   * can override it per call with `contentLanguage` in their write options.
+   */
+  contentLanguage?: string;
 }
 
 /** Fully-resolved configuration with defaults applied. */
@@ -71,6 +88,7 @@ export interface ResolvedConfig {
   cache: { expirationBufferSeconds: number; maxLifetimeSeconds: number };
   logger: LoggerConfig | undefined;
   fetch: typeof globalThis.fetch | undefined;
+  contentLanguage: string | undefined;
 }
 
 /**
@@ -134,5 +152,6 @@ export function validateConfig(input: EmporixConfig): ResolvedConfig {
     },
     logger: input.logger,
     fetch: input.fetch,
+    contentLanguage: input.contentLanguage,
   };
 }

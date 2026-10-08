@@ -31,6 +31,14 @@ Pass `throwOnAnyChunkError: true` to reject on the first failed chunk instead.
 **Result order is not guaranteed** across chunks — match entries back to your
 items by `priceId` / `itemRef.id`, never by position.
 
+## Price models
+
+A price model's `name` and `description` are maps of translations, which the
+Price service accepts only with `Content-Language: *`. `prices.models.create`
+and `prices.models.upsert` take no options argument, so set
+`contentLanguage: "*"` on the client — see
+[Localized writes](products.md#localized-writes).
+
 ## React
 
 ```tsx
