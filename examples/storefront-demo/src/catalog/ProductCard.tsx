@@ -5,7 +5,8 @@ import { money } from "@viu/emporix-examples-shared";
 /**
  * One product in a grid. Image and name link to the product page; «Add to cart»
  * sits outside the links (a button inside a link is invalid HTML) and only
- * appears when the site's context resolves a price.
+ * appears when the site's context resolves a price. A product that needs a
+ * variant choice gets «Choose options» instead, a link to its picker.
  */
 export function ProductCard({
   vm,
@@ -13,6 +14,7 @@ export function ProductCard({
   price,
   onAdd,
   adding = false,
+  chooseOptions = false,
 }: {
   vm: ProductCardVM;
   /** The product's own `code`. `vm.code` falls back to the id, so it cannot tell. */
@@ -20,6 +22,8 @@ export function ProductCard({
   price?: PriceVM | undefined;
   onAdd?: (() => void) | undefined;
   adding?: boolean;
+  /** A variant root or parent: it cannot go into the cart itself. */
+  chooseOptions?: boolean;
 }) {
   const href = `/product/${encodeURIComponent(vm.id)}`;
   return (
@@ -38,7 +42,11 @@ export function ProductCard({
         ) : (
           <span className="pc__noprice">No price in this context</span>
         )}
-        {price && onAdd ? (
+        {chooseOptions ? (
+          <Link to={href} className="btn btn--outline btn--sm pc__add" aria-label={`Choose options for ${vm.name}`}>
+            Choose options
+          </Link>
+        ) : price && onAdd ? (
           <button type="button" className="btn btn--accent btn--sm pc__add" onClick={onAdd} disabled={adding}>
             Add to cart
           </button>
