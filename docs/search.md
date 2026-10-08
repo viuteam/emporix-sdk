@@ -117,8 +117,14 @@ Saving or deleting a saved search never starts an index build.
 
 The read methods use the client-wide `Accept-Language`
 (`client.setStorefrontContext({ language })`); localized `name` and
-`description` come back in that language. The SDK sends no `Content-Language`
-on writes.
+`description` come back in that language.
+
+`upsertIndex` and `upsertSavedSearch` send `Content-Language` when the client
+sets `contentLanguage` (`EmporixConfig.contentLanguage`), and no header when it
+does not. These methods take no per-call override. The spec reads the header as
+the language of `name` and `description`, and every language key in those maps
+must be configured for the tenant. Which value the preview service expects for a
+map of translations has not been verified against a live tenant.
 
 All methods take an optional trailing `auth` argument (default: the service
 token).
