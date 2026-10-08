@@ -8,7 +8,7 @@ import {
 import { ProductGrid } from "../catalog/ProductGrid";
 import { CategorySidebar, findCategory } from "../catalog/CategorySidebar";
 import { usePrices } from "../lib/usePrices";
-import { catId, catLabel } from "../lib/adapters";
+import { catId, catLabel, hasVariantParent } from "../lib/adapters";
 import { Button } from "../components/ui/Button";
 import { Loading } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -20,7 +20,9 @@ export function Category() {
   const { data: subs } = useSubcategories(categoryId, { pageSize: 50 });
   const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useProductsInCategoryInfinite(categoryId, { pageSize: 24 });
-  const products = data?.pages.flatMap((pg) => pg.items) ?? [];
+  // Variants carry their root's category too; list the root only. Filtered after
+  // paging, so a page can hold fewer than 24 cards.
+  const products = (data?.pages.flatMap((pg) => pg.items) ?? []).filter((p) => !hasVariantParent(p));
   // The subcategories endpoint can come back empty for a category whose children
   // the tree does list (seen on a parent whose products all sit one level down);
   // the tree is what the sidebar shows, so fall back to it.
@@ -48,7 +50,7 @@ export function Category() {
           <Loading />
         ) : isError ? (
           <EmptyState title="Couldn't load this category" />
-        ) : products.length === 0 ? (
+        ) : products.length === 0 && !hasNextPage ? (
           // Pure parent category (only subcategories) → the chips above are enough.
           subcats.length > 0 ? null : <EmptyState title="No products in this category" />
         ) : (
