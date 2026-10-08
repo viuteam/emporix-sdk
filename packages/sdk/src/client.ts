@@ -42,6 +42,7 @@ import { InvoiceService } from "./services/invoice";
 import { QuoteService } from "./services/quote";
 import { ReturnsService } from "./services/returns";
 import { IndexingService } from "./services/indexing";
+import { SearchService } from "./services/search";
 import { ImportService } from "./services/imports";
 import { AuditLogService } from "./services/audit-log";
 import { UnitHandlingService } from "./services/unit-handling";
@@ -93,6 +94,7 @@ export class EmporixClient {
   readonly quotes: QuoteService;
   readonly returns: ReturnsService;
   readonly indexing: IndexingService;
+  readonly search: SearchService;
   readonly imports: ImportService;
   readonly auditLogs: AuditLogService;
   readonly units: UnitHandlingService;
@@ -169,6 +171,7 @@ export class EmporixClient {
     this.quotes = new QuoteService(mk(QuoteService.channel));
     this.returns = new ReturnsService(mk(ReturnsService.channel));
     this.indexing = new IndexingService(mk(IndexingService.channel));
+    this.search = new SearchService(mk(SearchService.channel));
     this.imports = new ImportService(mk(ImportService.channel));
     this.auditLogs = new AuditLogService(mk(AuditLogService.channel));
     this.units = new UnitHandlingService(mk(UnitHandlingService.channel));

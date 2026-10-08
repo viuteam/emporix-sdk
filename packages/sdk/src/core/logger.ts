@@ -42,6 +42,7 @@ export type ServiceName =
   | "shipping"
   | "returns"
   | "indexing"
+  | "search"
   | "import"
   | "audit-log"
   | "unit-handling"
