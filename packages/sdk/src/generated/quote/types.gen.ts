@@ -285,7 +285,13 @@ export type QuoteResponse = {
      */
     cartId?: string;
     /**
-     * The company for which the quote was created.
+     * Identifier of the legal entity linked to the quote.
+     */
+    legalEntityId?: string;
+    /**
+     * **This field is deprecated**. Use `legalEntityId` to identify the company. The object remains populated for compatibility and contains the company name stored on the quote.
+     *
+     * @deprecated
      */
     company?: {
         /**
@@ -665,9 +671,15 @@ export type QuoteCreateRequest = {
      */
     employeeId?: string;
     /**
-     * The name of the merchant company.
+     * **This field is deprecated**. Use `legalEntityId` instead. When `legalEntityId` is omitted and exactly one legal entity assigned to the billing address has this name, the quote is linked to that legal entity. When several legal entities share the name, the quote stores the name only.
+     *
+     * @deprecated
      */
     companyName?: string;
+    /**
+     * Identifier of the legal entity assigned to `billingAddressId`. When present, this value is used instead of `companyName`.
+     */
+    legalEntityId?: string;
     /**
      * The site code for which the quote is created.
      */
@@ -880,7 +892,10 @@ export type QuoteItemIds = Array<{
  */
 export type QuoteUpdateRequest = Array<{
     op: 'ADD' | 'REMOVE' | 'REPLACE';
-    path: '/status' | '/validTo' | '/comment' | '/billingAddressId' | '/shippingAddressId' | '/companyName' | '/customerId' | '/shipping' | '/restriction' | '/items' | '/items/{itemId}' | '/items/{itemId}/price' | '/items/{itemId}/mixins/{mixinsPath}' | '/items/{itemId}/metadata/mixins/{mixinsPath}' | '/items/{itemId}/product/mixins/{mixinsPath}' | '/items/{itemId}/product/metadata/mixins/{mixinsPath}' | '/mixins/{mixinsPath}' | '/metadata/{mixinsPath}';
+    /**
+     * JSON Pointer path of the quote field to update. The `/companyName` value is deprecated; use `/legalEntityId` instead.
+     */
+    path: '/status' | '/validTo' | '/comment' | '/billingAddressId' | '/shippingAddressId' | '/companyName' | '/legalEntityId' | '/customerId' | '/shipping' | '/restriction' | '/items' | '/items/{itemId}' | '/items/{itemId}/price' | '/items/{itemId}/mixins/{mixinsPath}' | '/items/{itemId}/metadata/mixins/{mixinsPath}' | '/items/{itemId}/product/mixins/{mixinsPath}' | '/items/{itemId}/product/metadata/mixins/{mixinsPath}' | '/mixins/{mixinsPath}' | '/metadata/{mixinsPath}';
     value?: QuoteUpdateValues;
 }>;
 
@@ -903,7 +918,7 @@ export type QuoteHistory = Array<{
     /**
      * Path that indicates on which element the update has been executed.
      */
-    path?: '/quote' | '/status' | '/validTo' | '/comment' | '/billingAddressId' | '/shippingAddressId' | '/companyName' | '/customerId' | '/shipping' | '/restriction' | '/items' | '/items/{itemId}' | '/items/{itemId}/price' | '/items/{itemId}/mixins/{mixinsPath}' | '/items/{itemId}/metadata/mixins/{mixinsPath}' | '/items/{itemId}/product/mixins/{mixinsPath}' | '/items/{itemId}/product/metadata/mixins/{mixinsPath}' | '/mixins/{mixinsPath}' | '/metadata/{mixinsPath}';
+    path?: '/quote' | '/status' | '/validTo' | '/comment' | '/billingAddressId' | '/shippingAddressId' | '/companyName' | '/legalEntityId' | '/customerId' | '/shipping' | '/restriction' | '/items' | '/items/{itemId}' | '/items/{itemId}/price' | '/items/{itemId}/mixins/{mixinsPath}' | '/items/{itemId}/metadata/mixins/{mixinsPath}' | '/items/{itemId}/product/mixins/{mixinsPath}' | '/items/{itemId}/product/metadata/mixins/{mixinsPath}' | '/mixins/{mixinsPath}' | '/metadata/{mixinsPath}';
     newValue?: QuoteUpdateValues & {
         [key: string]: unknown;
     };
@@ -1350,6 +1365,10 @@ export type GetQuoteRetrieveQuoteHistoryErrors = {
      * Permission denied due to insufficient rights. This may happen when request does not contain sufficient scopes for given query values.
      */
     403: ErrorResponse;
+    /**
+     * Given resource cannot be found.
+     */
+    404: ErrorResponse;
 };
 
 export type GetQuoteRetrieveQuoteHistoryError = GetQuoteRetrieveQuoteHistoryErrors[keyof GetQuoteRetrieveQuoteHistoryErrors];
