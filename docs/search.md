@@ -45,6 +45,9 @@ for an index whose status is `building` or `failed`. An index that is `ready`
 with unchanged fields answers `204` and starts nothing; `name` and `description`
 still change. `deleteIndex` also answers with a job id.
 
+`metadata` can be left out on an update as well. When `metadata.version` is
+sent, it is an optimistic lock, and a stale one answers `409`.
+
 ```ts
 const indexes = await client.search.listIndexes({ type: "vehicle" });
 const everyType = await client.search.listIndexes(); // each item carries `type`
@@ -52,6 +55,31 @@ const one = await client.search.getIndex("vehicle", "vehicles", { fields: "id,st
 const jobs = await client.search.listJobs({ sort: "metadata.createdAt:DESC" });
 await client.search.deleteIndex("vehicle", "vehicles");
 ```
+
+### Copying indexes to another tenant
+
+`exportIndexes` packs the configuration of the selected indexes; `importIndexes`
+creates or updates each of them, typically on another tenant:
+
+```ts
+const pkg = await source.search.exportIndexes([
+  { type: "vehicle", id: "vehicles" },
+  { type: "bike", id: "bikes" },
+]);
+const results = await target.search.importIndexes(pkg);
+// one result per index, in package order: { id, type, jobId?, jobType? }
+```
+
+- `pkg.data` is a base64-encoded JSON array of `{ id, type, fields, name?,
+  description? }`. Pass the package on unchanged; it carries no `status` and no
+  `metadata`.
+- Export answers `404` when a selected index does not exist and `400` for an
+  empty selection.
+- Import runs the same checks as `upsertIndex`, so the type must exist on the
+  target tenant with the indexed fields.
+- **Import is not atomic.** When an index fails, the ones before it in the
+  package stay created or updated, and the call throws only that index's error.
+  Use `listIndexes` on the target to see what arrived.
 
 ## Searching
 
@@ -110,8 +138,11 @@ Saving or deleting a saved search never starts an index build.
 | `search` | `400` | a filter or sort field is not indexed — or `index` is missing, or the body has neither `queries` nor `filters` |
 | `search` | `404` | only with `searchQueryId`: no saved search with that id for this type |
 | `search` | `502` | the Schema Service could not confirm that the type is a custom entity |
-| `upsertSavedSearch`, `upsertIndex` | `400` | an update without `metadata.version`; an `id` in the body that differs from the path |
-| `upsertSavedSearch`, `upsertIndex` | `409` | a stale `metadata.version`; for an index also a job already running |
+| `upsertSavedSearch` | `400` | an update without `metadata.version`; an `id` in the body that differs from the path |
+| `upsertIndex` | `400` | an `id` in the body that differs from the path; `metadata.version` below 1 |
+| `upsertSavedSearch`, `upsertIndex`, `importIndexes` | `409` | a stale `metadata.version`; for an index also a job already running |
+| `exportIndexes` | `404` | one of the selected indexes does not exist |
+| `importIndexes` | `400` | an unreadable package, or an index that fails validation; the indexes before it are already written |
 | `upsertSavedSearch` | `404` | `index` does not exist for this type |
 | `deleteIndex` | `409` | a job is already running for this index |
 

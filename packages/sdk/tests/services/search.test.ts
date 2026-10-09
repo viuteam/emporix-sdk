@@ -139,6 +139,31 @@ describe("SearchService", () => {
     await expect(sdk().search.deleteIndex("vehicle", "vehicles")).resolves.toEqual({ id: "job2" });
   });
 
+  it("exportIndexes POSTs the selection; importIndexes POSTs the package unchanged", async () => {
+    const seen: { path: string; body: unknown }[] = [];
+    const pkg = { exportedAt: "2026-03-12T10:00:00.000Z", data: "W10=" };
+    server.use(
+      http.post(`${BASE}/search/indexes/export`, async ({ request }) => {
+        seen.push({ path: new URL(request.url).pathname, body: await request.json() });
+        return HttpResponse.json(pkg);
+      }),
+      http.post(`${BASE}/search/indexes/import`, async ({ request }) => {
+        seen.push({ path: new URL(request.url).pathname, body: await request.json() });
+        return HttpResponse.json([{ id: "vehicles", type: "vehicle", jobId: "job1", jobType: "create_index" }]);
+      }),
+    );
+    const s = sdk().search;
+    const exported = await s.exportIndexes([{ type: "vehicle", id: "vehicles" }]);
+    expect(exported).toEqual(pkg);
+    await expect(s.importIndexes(exported)).resolves.toEqual([
+      { id: "vehicles", type: "vehicle", jobId: "job1", jobType: "create_index" },
+    ]);
+    expect(seen).toEqual([
+      { path: "/search/acme/search/indexes/export", body: [{ type: "vehicle", id: "vehicles" }] },
+      { path: "/search/acme/search/indexes/import", body: pkg },
+    ]);
+  });
+
   it("deleteSavedSearch DELETEs and resolves to undefined", async () => {
     let hit = false;
     server.use(

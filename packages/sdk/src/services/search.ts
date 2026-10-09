@@ -3,9 +3,12 @@ import { requestPage, type PageParams } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import type {
   FilterNode,
+  IndexExportPackage,
   IndexField,
+  IndexImportResult,
   IndexJob,
   IndexRequest,
+  IndexSelection,
   JobId,
   QueryNode,
   SavedQuery,
@@ -43,6 +46,15 @@ export type SearchIndexField = IndexField;
 export type SearchIndexJob = IndexJob;
 /** The id of the job an index write started. */
 export type SearchIndexJobRef = JobId;
+/** One index to export: `{ type, id }`. */
+export type SearchIndexSelection = IndexSelection;
+/**
+ * Exported index configuration: `exportedAt` plus `data`, a base64-encoded JSON
+ * array. {@link SearchService.importIndexes} takes it back unchanged.
+ */
+export type SearchIndexExport = IndexExportPackage;
+/** Result for one imported index. `jobId` and `jobType` are present when a build job started. */
+export type SearchIndexImportResult = IndexImportResult;
 
 /** Paging, sort, filter and projection for the list reads. */
 export interface SearchListOptions {
@@ -250,8 +262,9 @@ export class SearchService {
    * index is `ready` and its fields are unchanged; `name` and `description`
    * still change then. Track the job with {@link getJob}.
    *
-   * An update needs the stored `metadata.version` (`400` without it). `409`
-   * means a job for this index is already running, or the version is stale.
+   * `metadata.version` is optional on an update too. When sent, it is an
+   * optimistic lock: a stale one answers `409`, as does a job that is already
+   * running for this index.
    */
   async upsertIndex(
     type: string,
@@ -276,6 +289,42 @@ export class SearchService {
       method: "DELETE",
       path: `${this.base()}/search/${encodeURIComponent(type)}/indexes/${encodeURIComponent(id)}`,
       auth,
+    });
+  }
+
+  /**
+   * Export the configuration of the selected indexes as one package, to be
+   * imported on another tenant with {@link importIndexes}. The decoded `data`
+   * holds `id`, `type`, `fields` and the optional `name` and `description` of
+   * each index, not its `status` or `metadata`. `404` when a selected index does
+   * not exist, `400` for an empty selection.
+   */
+  async exportIndexes(selections: SearchIndexSelection[], auth: AuthContext = SERVICE): Promise<SearchIndexExport> {
+    return this.ctx.http.request<SearchIndexExport>({
+      method: "POST",
+      path: `${this.base()}/search/indexes/export`,
+      auth,
+      body: selections,
+      idempotent: true, // pure read over POST — safe to replay on 5xx/429
+    });
+  }
+
+  /**
+   * Create or update every index in a package from {@link exportIndexes}, with
+   * the same checks as {@link upsertIndex}. Resolves to one result per index,
+   * in package order; `jobId` and `jobType` are absent for a ready index whose
+   * fields did not change.
+   *
+   * Not atomic: when an index fails, the ones before it stay created or updated
+   * and the call throws that index's error — `400` for an unreadable package or
+   * an invalid field, `409` for a running job or a stale `metadata.version`.
+   */
+  async importIndexes(pkg: SearchIndexExport, auth: AuthContext = SERVICE): Promise<SearchIndexImportResult[]> {
+    return this.ctx.http.request<SearchIndexImportResult[]>({
+      method: "POST",
+      path: `${this.base()}/search/indexes/import`,
+      auth,
+      body: pkg,
     });
   }
 

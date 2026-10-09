@@ -5,6 +5,36 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-10-09 — search-service: index export and import
+
+[Changelog entry](https://developer.emporix.io/changelog) "Search Service - index
+configuration export and import", from
+[emporix/api-references#565](https://github.com/emporix/api-references/pull/565).
+`fetch:specs` reported `changed since last vendored: search-service` and nothing
+else. Measured by path literal (`coverage.mjs --spec search-service`): 13 →
+**15** live operations. **2 new endpoints, 0 removed, 0 deprecated.** The facade
+covers all 15.
+
+### Endpoints
+
+- **search-service** — `POST /search/{tenant}/search/indexes/export`
+  (`search.search_manage`) → `client.search.exportIndexes`: one package of the
+  selected indexes' configuration, `{ exportedAt, data }`, with `data` a
+  base64-encoded JSON array (no `status`, no `metadata`).
+  `POST /search/{tenant}/search/indexes/import` (`search.search_manage`) →
+  `client.search.importIndexes`: creates or updates each index in the package and
+  answers one `{ id, type, jobId?, jobType? }` per index. See
+  [search.md](./search.md#copying-indexes-to-another-tenant).
+
+### Behaviour
+
+- **`PUT …/{type}/indexes/{id}` no longer needs `metadata.version` on an
+  update.** Sent, it is an optimistic lock (`409` when stale); the `400`
+  «metadata.version is required to update an index» is gone. Saved searches
+  still require it.
+- Import is not atomic: indexes before a failing one stay written, and the
+  response is only the failing index's error.
+
 ## 2026-10-08 — search-service: new service (preview)
 
 [Changelog entry](https://developer.emporix.io/changelog) "Search Service - search,
