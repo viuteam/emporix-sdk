@@ -57,13 +57,69 @@ export type IndexField = {
 };
 
 /**
- * Optimistic lock for an index update. Required when the index already exists.
+ * Optimistic lock for an index update. The object can be omitted on create and on update. A missing object still updates an existing index.
+ *
+ * When the object is sent, `version` is required. A value that does not match the stored index returns `409 Conflict`.
  */
 export type IndexMetadataRequest = {
     /**
      * Current version of the index. The first stored version is 1.
      */
     version: number;
+};
+
+/**
+ * One index to export. Unknown properties are ignored.
+ */
+export type IndexSelection = {
+    /**
+     * Custom schema type this index belongs to.
+     */
+    type: string;
+    /**
+     * Index id. Use 1 to 66 characters. Allowed characters are letters, digits, underscore, and hyphen.
+     */
+    id: string;
+};
+
+/**
+ * Package of search index configuration. `data` is the base64 encoding of a JSON array.
+ *
+ * Each decoded item has `id`, `type`, and `fields`. `name` and `description` are optional localized maps. Export omits `status` and `metadata`. Import accepts `metadata.version` when the caller sends it.
+ */
+export type IndexExportPackage = {
+    /**
+     * Date and time when the package was exported.
+     */
+    exportedAt: string;
+    /**
+     * Base64-encoded JSON array of index configurations.
+     */
+    data: string;
+};
+
+/**
+ * Result of importing one index. `jobId` and `jobType` are omitted when the ready index is unchanged.
+ */
+export type IndexImportResult = {
+    /**
+     * Index id.
+     */
+    id: string;
+    /**
+     * Custom schema type this index belongs to.
+     */
+    type: string;
+    /**
+     * Identifier of the job that builds the index. Present when a job starts.
+     */
+    jobId?: string;
+    /**
+     * Kind of index change. Present when a job starts.
+     * * `create_index` – the index was created.
+     * * `update_index` – an existing index's field definition changed.
+     */
+    jobType?: 'create_index' | 'update_index';
 };
 
 /**
@@ -1129,6 +1185,108 @@ export type GetSearchTenantIndexesResponses = {
 
 export type GetSearchTenantIndexesResponse = GetSearchTenantIndexesResponses[keyof GetSearchTenantIndexesResponses];
 
+export type PostSearchTenantIndexesExportData = {
+    body: Array<IndexSelection>;
+    path: {
+        /**
+         * Your Emporix tenant's name.
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/search/{tenant}/search/indexes/export';
+};
+
+export type PostSearchTenantIndexesExportErrors = {
+    /**
+     * The selection is empty, an item is null, or an item is missing `type` or `id`.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * The access token does not include `search.search_manage`.
+     */
+    403: ErrorMessage;
+    /**
+     * No index exists for one of the selected type and id pairs.
+     */
+    404: ErrorMessage;
+    /**
+     * A server-side error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PostSearchTenantIndexesExportError = PostSearchTenantIndexesExportErrors[keyof PostSearchTenantIndexesExportErrors];
+
+export type PostSearchTenantIndexesExportResponses = {
+    /**
+     * The request succeeded. The body is the export package.
+     */
+    200: IndexExportPackage;
+};
+
+export type PostSearchTenantIndexesExportResponse = PostSearchTenantIndexesExportResponses[keyof PostSearchTenantIndexesExportResponses];
+
+export type PostSearchTenantIndexesImportData = {
+    body: IndexExportPackage;
+    headers?: {
+        /**
+         * Language of the localized `name` and `description` in the request body. Each language key in those maps must be configured for the tenant.
+         */
+        'Content-Language'?: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant's name.
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/search/{tenant}/search/indexes/import';
+};
+
+export type PostSearchTenantIndexesImportErrors = {
+    /**
+     * The package cannot be read, or an index in the package fails validation or field checks.
+     */
+    400: ErrorMessage;
+    /**
+     * The authorization token is invalid or has expired.
+     */
+    401: ErrorMessageFault;
+    /**
+     * The access token does not include `search.search_manage`.
+     */
+    403: ErrorMessage;
+    /**
+     * An index job is already in progress, or `metadata.version` does not match the stored index.
+     */
+    409: ErrorMessage;
+    /**
+     * A server-side error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PostSearchTenantIndexesImportError = PostSearchTenantIndexesImportErrors[keyof PostSearchTenantIndexesImportErrors];
+
+export type PostSearchTenantIndexesImportResponses = {
+    /**
+     * The request succeeded. The body lists one result for each index in the package.
+     */
+    200: Array<IndexImportResult>;
+};
+
+export type PostSearchTenantIndexesImportResponse = PostSearchTenantIndexesImportResponses[keyof PostSearchTenantIndexesImportResponses];
+
 export type GetSearchTenantTypeIndexesData = {
     body?: never;
     headers?: {
@@ -1388,7 +1546,7 @@ export type PutSearchTenantTypeIndexesIdData = {
 
 export type PutSearchTenantTypeIndexesIdErrors = {
     /**
-     * The index id, field list, or metadata version is invalid.
+     * The index id or field list is invalid, or `metadata.version` is below 1.
      */
     400: ErrorMessage;
     /**
