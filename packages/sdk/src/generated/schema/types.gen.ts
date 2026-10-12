@@ -679,6 +679,7 @@ export type TraitExpandReferences = string;
  *
  * * Searching for items by string-based properties:
  * * By a field value: `q=siteCode:main`, where `siteCode` is the field name, and `main` is its desired value.
+ * * By a value that is not equal to the specified value: `q=id:!=64d35aa7fa54121ca47db657`, where `id` is the field name, and `64d35aa7fa54121ca47db657` is the excluded schema ID.
  * * By a localized field value: `q=items.product.name.en:apple_lobo`, where `name` is the field name of product, `en` is the language code, and `apple_lobo` is the field value expressed in the specified language. **Note**: This query works only for localized fields, which are stored in a map format, where `key` is the language code and `value` is the translation to particular language.
  * * Searching for items by a number-based property:
  * * With a specific value: `q=items.quantity.quantity:20`
@@ -696,6 +697,8 @@ export type TraitExpandReferences = string;
  * * Searching for items by multiple fields: `q=id:5c3325baa9812100098ff48f siteCode:main` where `id` and `siteCode` are field names. All objects that contain the specified values are returned. Multiple fields (separated by space) can be specified. Multiple values for each field can also be specified in the format presented earlier.
  * * Searching for items with string-based properties conforming to a regex: `q=siteCode:~ain` or `q=code:(~U PL)` - in case of searching for strings with space, where `siteCode` is the name of the field, and `ain` or `U PL` is its querying regex.
  * * Searching for items with a localized string-based property conforming to a regex: `items.product.name.en:~(Yoghurt im)` - where `name` is the product field name, `en` is the desired language, and `Joghurt im` is the search term.
+ *
+ * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
  *
  */
 export type TraitQParam = string;
@@ -778,6 +781,7 @@ export type GetSchemaRetrieveSchemasData = {
          *
          * * Searching for items by string-based properties:
          * * By a field value: `q=siteCode:main`, where `siteCode` is the field name, and `main` is its desired value.
+         * * By a value that is not equal to the specified value: `q=id:!=64d35aa7fa54121ca47db657`, where `id` is the field name, and `64d35aa7fa54121ca47db657` is the excluded schema ID.
          * * By a localized field value: `q=items.product.name.en:apple_lobo`, where `name` is the field name of product, `en` is the language code, and `apple_lobo` is the field value expressed in the specified language. **Note**: This query works only for localized fields, which are stored in a map format, where `key` is the language code and `value` is the translation to particular language.
          * * Searching for items by a number-based property:
          * * With a specific value: `q=items.quantity.quantity:20`
@@ -795,6 +799,8 @@ export type GetSchemaRetrieveSchemasData = {
          * * Searching for items by multiple fields: `q=id:5c3325baa9812100098ff48f siteCode:main` where `id` and `siteCode` are field names. All objects that contain the specified values are returned. Multiple fields (separated by space) can be specified. Multiple values for each field can also be specified in the format presented earlier.
          * * Searching for items with string-based properties conforming to a regex: `q=siteCode:~ain` or `q=code:(~U PL)` - in case of searching for strings with space, where `siteCode` is the name of the field, and `ain` or `U PL` is its querying regex.
          * * Searching for items with a localized string-based property conforming to a regex: `items.product.name.en:~(Yoghurt im)` - where `name` is the product field name, `en` is the desired language, and `Joghurt im` is the search term.
+         *
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -1365,6 +1371,7 @@ export type GetSchemaRetrieveReferencesData = {
          *
          * * Searching for items by string-based properties:
          * * By a field value: `q=siteCode:main`, where `siteCode` is the field name, and `main` is its desired value.
+         * * By a value that is not equal to the specified value: `q=id:!=64d35aa7fa54121ca47db657`, where `id` is the field name, and `64d35aa7fa54121ca47db657` is the excluded schema ID.
          * * By a localized field value: `q=items.product.name.en:apple_lobo`, where `name` is the field name of product, `en` is the language code, and `apple_lobo` is the field value expressed in the specified language. **Note**: This query works only for localized fields, which are stored in a map format, where `key` is the language code and `value` is the translation to particular language.
          * * Searching for items by a number-based property:
          * * With a specific value: `q=items.quantity.quantity:20`
@@ -1382,6 +1389,8 @@ export type GetSchemaRetrieveReferencesData = {
          * * Searching for items by multiple fields: `q=id:5c3325baa9812100098ff48f siteCode:main` where `id` and `siteCode` are field names. All objects that contain the specified values are returned. Multiple fields (separated by space) can be specified. Multiple values for each field can also be specified in the format presented earlier.
          * * Searching for items with string-based properties conforming to a regex: `q=siteCode:~ain` or `q=code:(~U PL)` - in case of searching for strings with space, where `siteCode` is the name of the field, and `ain` or `U PL` is its querying regex.
          * * Searching for items with a localized string-based property conforming to a regex: `items.product.name.en:~(Yoghurt im)` - where `name` is the product field name, `en` is the desired language, and `Joghurt im` is the search term.
+         *
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -1781,6 +1790,7 @@ export type GetSchemaRetrieveCustomSchemaTypesData = {
          *
          * * Searching for items by string-based properties:
          * * By a field value: `q=siteCode:main`, where `siteCode` is the field name, and `main` is its desired value.
+         * * By a value that is not equal to the specified value: `q=id:!=64d35aa7fa54121ca47db657`, where `id` is the field name, and `64d35aa7fa54121ca47db657` is the excluded schema ID.
          * * By a localized field value: `q=items.product.name.en:apple_lobo`, where `name` is the field name of product, `en` is the language code, and `apple_lobo` is the field value expressed in the specified language. **Note**: This query works only for localized fields, which are stored in a map format, where `key` is the language code and `value` is the translation to particular language.
          * * Searching for items by a number-based property:
          * * With a specific value: `q=items.quantity.quantity:20`
@@ -1798,6 +1808,8 @@ export type GetSchemaRetrieveCustomSchemaTypesData = {
          * * Searching for items by multiple fields: `q=id:5c3325baa9812100098ff48f siteCode:main` where `id` and `siteCode` are field names. All objects that contain the specified values are returned. Multiple fields (separated by space) can be specified. Multiple values for each field can also be specified in the format presented earlier.
          * * Searching for items with string-based properties conforming to a regex: `q=siteCode:~ain` or `q=code:(~U PL)` - in case of searching for strings with space, where `siteCode` is the name of the field, and `ain` or `U PL` is its querying regex.
          * * Searching for items with a localized string-based property conforming to a regex: `items.product.name.en:~(Yoghurt im)` - where `name` is the product field name, `en` is the desired language, and `Joghurt im` is the search term.
+         *
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
@@ -2167,6 +2179,7 @@ export type GetSchemaRetrieveCustomInstancesData = {
          *
          * * Searching for items by string-based properties:
          * * By a field value: `q=siteCode:main`, where `siteCode` is the field name, and `main` is its desired value.
+         * * By a value that is not equal to the specified value: `q=id:!=64d35aa7fa54121ca47db657`, where `id` is the field name, and `64d35aa7fa54121ca47db657` is the excluded schema ID.
          * * By a localized field value: `q=items.product.name.en:apple_lobo`, where `name` is the field name of product, `en` is the language code, and `apple_lobo` is the field value expressed in the specified language. **Note**: This query works only for localized fields, which are stored in a map format, where `key` is the language code and `value` is the translation to particular language.
          * * Searching for items by a number-based property:
          * * With a specific value: `q=items.quantity.quantity:20`
@@ -2184,6 +2197,8 @@ export type GetSchemaRetrieveCustomInstancesData = {
          * * Searching for items by multiple fields: `q=id:5c3325baa9812100098ff48f siteCode:main` where `id` and `siteCode` are field names. All objects that contain the specified values are returned. Multiple fields (separated by space) can be specified. Multiple values for each field can also be specified in the format presented earlier.
          * * Searching for items with string-based properties conforming to a regex: `q=siteCode:~ain` or `q=code:(~U PL)` - in case of searching for strings with space, where `siteCode` is the name of the field, and `ain` or `U PL` is its querying regex.
          * * Searching for items with a localized string-based property conforming to a regex: `items.product.name.en:~(Yoghurt im)` - where `name` is the product field name, `en` is the desired language, and `Joghurt im` is the search term.
+         *
+         * See: [Standard Practices - Query parameter](https://developer.emporix.io/api-documentation/standard-practices/q-param)
          *
          */
         q?: string;
