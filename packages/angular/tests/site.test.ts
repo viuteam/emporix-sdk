@@ -103,6 +103,30 @@ describe("mount-time derivation from the site DTO", () => {
     expect(site.language()).toBe("de");
   });
 
+  it("replaces a stored language the active site does not offer, in storage too", async () => {
+    const storage = createMemoryStorage();
+    storage.setLanguage("it");
+    TestBed.configureTestingModule({
+      providers: [provideEmporix({ client: clientWith({ siteCode: "main" }), storage })],
+    });
+    const site = TestBed.runInInjectionContext(() => injectEmporixSite());
+    await derived();
+    expect(site.language()).toBe("de");
+    expect(storage.getLanguage()).toBe("de");
+  });
+
+  it("keeps a stored language the active site offers", async () => {
+    const storage = createMemoryStorage();
+    storage.setLanguage("fr");
+    TestBed.configureTestingModule({
+      providers: [provideEmporix({ client: clientWith({ siteCode: "main" }), storage })],
+    });
+    const site = TestBed.runInInjectionContext(() => injectEmporixSite());
+    await derived();
+    expect(site.language()).toBe("fr");
+    expect(storage.getLanguage()).toBe("fr");
+  });
+
   it("does not override a currency already seeded from the client config", async () => {
     // The persisted or configured choice wins; derivation only fills nulls.
     TestBed.configureTestingModule({

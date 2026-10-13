@@ -68,6 +68,7 @@ export function injectEmporixSiteSwitch(): EmporixSiteSwitch {
           !site.languages.includes(w.language() ?? "") &&
           site.defaultLanguage
         ) {
+          storage.setLanguage(site.defaultLanguage);
           w.language.set(site.defaultLanguage);
           client.setStorefrontContext({ language: site.defaultLanguage });
         }

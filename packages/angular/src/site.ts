@@ -33,7 +33,8 @@ export type EmporixSiteInternal = EmporixSiteState & { internal: SiteStateWritab
  * Then one best-effort fetch of the site DTO to fill in `currency`,
  * `targetLocation` and a default `language`. Only fields still `null` are
  * filled: a currency seeded from config or storage is the user's choice and
- * outranks the site default. A failed fetch is silent — `switchError` is
+ * outranks the site default. The one exception is a language the site does not
+ * offer, which is replaced by the site default. A failed fetch is silent — `switchError` is
  * reserved for switches the user initiated and can retry, and a mount-time 502
  * has no action attached to it.
  */
@@ -76,9 +77,14 @@ export function createSiteState(
         if (siteCode() !== code) return;
         if (currency() === null) currency.set(site.currency ?? null);
         targetLocation.set(site.homeBase?.address?.country ?? null);
-        if (language() === null && site.defaultLanguage) {
+        // Fill a missing language; replace one the site does not offer, in storage
+        // too, or the next reload restores it.
+        const current = language();
+        const unsupported = current !== null && site.languages && !site.languages.includes(current);
+        if ((current === null || unsupported) && site.defaultLanguage) {
           language.set(site.defaultLanguage);
           client.setStorefrontContext({ language: site.defaultLanguage });
+          if (unsupported) storage.setLanguage(site.defaultLanguage);
         }
       })
       .catch(() => {

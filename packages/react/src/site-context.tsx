@@ -74,7 +74,8 @@ export function SiteContextProvider({
   // Mount-time derivation: if a siteCode is already resolved, fetch its DTO
   // once so currency + targetLocation populate without a user-driven switch.
   // A currency seeded from the client config is NOT overridden (the user's /
-  // persisted choice wins); only fields still `null` are filled in.
+  // persisted choice wins); only fields still `null` are filled in, except a
+  // language the site does not offer, which is replaced.
   useEffect(() => {
     if (!siteCode || (currency !== null && targetLocation !== null && language !== null)) return;
     let cancelled = false;
@@ -94,9 +95,13 @@ export function SiteContextProvider({
         if (cancelled) return;
         if (currency === null) setCurrencyState(site.currency);
         setTargetLocation(site.homeBase?.address?.country ?? null);
-        if (language === null && site.defaultLanguage) {
+        // Fill a missing language; replace one the site does not offer, in storage
+        // too, or the next reload restores it.
+        const unsupported = language !== null && site.languages && !site.languages.includes(language);
+        if ((language === null || unsupported) && site.defaultLanguage) {
           setLanguageState(site.defaultLanguage);
           client.setStorefrontContext({ language: site.defaultLanguage });
+          if (unsupported) storage.setLanguage(site.defaultLanguage);
         }
       })
       .catch(() => {
@@ -152,6 +157,7 @@ export function SiteContextProvider({
           setTargetLocation(nextTarget);
           // Reset the language if the new site doesn't support the active one.
           if (site.languages && !site.languages.includes(language ?? "") && site.defaultLanguage) {
+            storage.setLanguage(site.defaultLanguage);
             setLanguageState(site.defaultLanguage);
             client.setStorefrontContext({ language: site.defaultLanguage });
           }
