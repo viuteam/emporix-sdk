@@ -1,5 +1,13 @@
 # @viu/emporix-sdk-angular
 
+## 0.4.2
+
+### Patch Changes
+
+- [#410](https://github.com/viuteam/emporix-sdk/pull/410) [`22b3bb1`](https://github.com/viuteam/emporix-sdk/commit/22b3bb1af438a35574cc8ba4ae569edb6038a4bb) Thanks [@amnael1](https://github.com/amnael1)! - fix(react): replace a language the active site does not offer, and persist the reset
+  
+  On mount, a language restored from storage (or passed in or configured) that is not in the active site's `languages` now gives way to the site's `defaultLanguage`. Before, only a missing language was filled, so a language switcher showed a value its options did not contain. Switching to a site that does not offer the active language already reset it, but only in memory: the next reload restored the unsupported language from storage. Both resets are now written to storage. Same fix in `EmporixProvider` and `provideEmporix`.
+
 ## 0.4.1
 
 ### Patch Changes
