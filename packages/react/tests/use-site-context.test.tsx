@@ -535,6 +535,40 @@ describe("useSiteContext — language mount-derive", () => {
     });
     await waitFor(() => expect(result.current.language).toBe("de"));
   });
+
+  const mainSite = () =>
+    http.get("https://api.emporix.io/site/acme/sites/main", () =>
+      HttpResponse.json({
+        code: "main", name: "Main", active: true, default: true,
+        defaultLanguage: "de", languages: ["de", "en"],
+        currency: "CHF",
+        homeBase: { address: { country: "CH", zipCode: "8000" } },
+        shipToCountries: ["CH"],
+      }),
+    );
+
+  it("replaces a stored language the active site does not offer, in storage too", async () => {
+    server.use(mainSite());
+    const storage = createMemoryStorage();
+    storage.setLanguage("fr");
+    const { result } = renderHook(() => useSiteContext(), {
+      wrapper: wrap({ storage, initialSiteCode: "main" }),
+    });
+    await waitFor(() => expect(result.current.language).toBe("de"));
+    expect(storage.getLanguage()).toBe("de");
+  });
+
+  it("keeps a stored language the active site offers", async () => {
+    server.use(mainSite());
+    const storage = createMemoryStorage();
+    storage.setLanguage("en");
+    const { result } = renderHook(() => useSiteContext(), {
+      wrapper: wrap({ storage, initialSiteCode: "main" }),
+    });
+    await waitFor(() => expect(result.current.targetLocation).toBe("CH"));
+    expect(result.current.language).toBe("en");
+    expect(storage.getLanguage()).toBe("en");
+  });
 });
 
 describe("useSiteContext — language reset on site switch", () => {
@@ -554,12 +588,15 @@ describe("useSiteContext — language reset on site switch", () => {
         () => new HttpResponse(null, { status: 404 }),
       ),
     );
+    const storage = createMemoryStorage();
     const { result } = renderHook(() => useSiteContext(), {
-      wrapper: wrap({ initialLanguage: "de", initialSiteCode: "old" }),
+      wrapper: wrap({ storage, initialLanguage: "de", initialSiteCode: "old" }),
     });
     await act(async () => {
       await result.current.setSite("fr-site");
     });
     expect(result.current.language).toBe("fr");
+    // Persisted too — otherwise the next reload restores the unsupported language.
+    expect(storage.getLanguage()).toBe("fr");
   });
 });

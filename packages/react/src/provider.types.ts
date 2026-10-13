@@ -78,7 +78,9 @@ export interface EmporixProviderProps {
   /**
    * Initial active language. Resolution order: this prop → `storage.getLanguage()`
    * → `client.config.credentials.storefront.context.language` → `null` (then
-   * seeded from the active site's `defaultLanguage` on mount).
+   * seeded from the active site's `defaultLanguage` on mount). A language the
+   * active site does not list in `languages` is replaced by its `defaultLanguage`
+   * on mount, and in storage too.
    */
   initialLanguage?: string;
   /**
