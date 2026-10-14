@@ -288,6 +288,12 @@ export class ImportService {
    * Trigger a run. `mode` defaults to `DELTA` server-side; `dryRun: true` maps
    * and validates without writing to the target.
    *
+   * **The run comes back `QUEUED`, not `RUNNING`.** It starts when a worker is
+   * free, usually within moments, or after one of the tenant's runs finishes when
+   * `maxConcurrentImports` are already executing — no `429` any more. A
+   * configuration holds at most one executing and one queued run: while it has a
+   * run `QUEUED`, `RUNNING` or `RESUMABLE`, this call answers `409`.
+   *
    * A dry run can also hand back what it *would* have written: pass
    * `sampleSize` (1–100, default 25) and read the run's `dryRunSample`. Set
    * `origin` to name what asked for the run — `trigger` only distinguishes
@@ -395,6 +401,9 @@ export class ImportService {
    * with `accepted: false` when the run is unknown or already finished — that is
    * a result, not an error. A state conflict may instead come back as a `409`,
    * which does throw.
+   *
+   * A `QUEUED` run is cancelled at once, with or without `force`. A `RESUMABLE`
+   * run stops only with `force: true`; without it the call answers `409`.
    */
   async cancelRun(
     runId: string,
@@ -593,7 +602,9 @@ export class ImportService {
   }
 
   /**
-   * The tenant's import limits and current consumption.
+   * The tenant's import limits and current consumption. `maxConcurrentImports`
+   * caps executing runs only: a run beyond it waits `QUEUED` instead of being
+   * rejected.
    *
    * **Preview upstream**: the contract may change without a major bump.
    */
@@ -610,8 +621,10 @@ export class ImportService {
    *
    * Returns a **new** run — the retry is its own run with `retry: true`, not a
    * mutation of the original. Poll it with {@link getRun} or follow it with
-   * {@link streamRun} exactly as you would a triggered run. Like one, it runs the
-   * published mappings and can finish `ABORTED`.
+   * {@link streamRun} exactly as you would a triggered run. Like one, it comes
+   * back `QUEUED`, answers `409` while the configuration has a run `QUEUED`,
+   * `RUNNING` or `RESUMABLE`, runs the published mappings and can finish
+   * `ABORTED`.
    *
    * Not retried on a 5xx, for the same reason {@link triggerRun} is not: a POST
    * that timed out may already have queued the retry.

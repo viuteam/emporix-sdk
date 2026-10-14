@@ -50,9 +50,19 @@ export type ImportSchedule = Schedule;
  * normal one. `origin` echoes what asked for the run, and is absent on runs
  * recorded before that field existed.
  *
+ * **Runs queue first** (since 2026-10-14). A requested run is `QUEUED` until a
+ * worker is free, then `RUNNING`; `RESUMABLE` means it was interrupted and
+ * resumes by itself — not a final status. `startedAt` is when the run was
+ * requested, `executionStartedAt` when it began executing (`null` while queued).
+ * A queued run carries `queueWaitingFor` (`WORKER`, `PREVIOUS_RUN` or
+ * `TENANT_LIMIT`) and, while it waits for a worker, an approximate
+ * `queuePosition`. `supersededRequests` counts later scheduled requests folded
+ * into it, `lastRequestedAt` the latest of them.
+ *
  * `mappingVersions` lists the published mapping version each stream runs with,
- * fixed when the run starts — version `0` means the stream has no published
- * mappings. It is absent on a dry run of the draft mappings and on runs recorded
+ * fixed when the run starts executing — version `0` means the stream has no
+ * published mappings. It is absent while the run is `QUEUED` (so on the run
+ * `triggerRun` returns), on a dry run of the draft mappings and on runs recorded
  * before 2026-09-28. `dryRunPublished` says which mappings a dry run used.
  */
 export type ImportRun = GenImportRun;

@@ -273,21 +273,61 @@ export type ImportRun = {
      */
     origin?: string;
     /**
-     * The run status. `ABORTED` means the service refused to start the run because of the import configuration, for example mappings that have never been published or a changed target schema. Nothing was read or written.
+     * The run status. Possible values:
+     *
+     * * `QUEUED` – the run waits to start. Nothing has been read yet, and the run has no per-stream
+     * progress. `queueWaitingFor` says what the run waits for.
+     * * `RUNNING` – the run is executing.
+     * * `RESUMABLE` – the run was interrupted, for example by a service restart, and resumes automatically
+     * from its last checkpoint. It is not a final status.
+     * * `SUCCEEDED` – the run finished, and every record was processed.
+     * * `PARTIAL` – the run finished, but not completely: some records failed, a limit skipped records,
+     * or a stream was not run. The `message` field and the per-stream progress give the details.
+     * * `FAILED` – the run stopped because of an error.
+     * * `CANCELLED` – the run was cancelled.
+     * * `ABORTED` – the service refused to start the run because of the import configuration, for example
+     * mappings that have never been published or a changed target schema. Nothing was read or written.
      */
-    status?: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'CANCELLED' | 'ABORTED';
+    status?: 'QUEUED' | 'RUNNING' | 'RESUMABLE' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'CANCELLED' | 'ABORTED';
     /**
      * The run mode.
      */
     mode?: 'FULL' | 'DELTA';
     /**
-     * When the run started.
+     * When the run was requested. If the run was queued first, it began executing later, at `executionStartedAt`.
      */
     startedAt?: string;
+    /**
+     * When the run began executing. Equal to `startedAt`, or later by the time the run spent in the queue. `null` while the run is `QUEUED`, and on runs recorded before the field existed.
+     */
+    executionStartedAt?: string | null;
     /**
      * When the run finished.
      */
     finishedAt?: string;
+    /**
+     * `QUEUED` runs only. The run's position among the queued runs that can start, where `1` starts next. Runs of all tenants share the queue, and a tenant with fewer runs executing goes first. The value is approximate, because the queue changes while you read it. The field is absent when the run is not queued, when it waits for something other than a worker, or when the service has not yet calculated it.
+     */
+    queuePosition?: number;
+    /**
+     * `QUEUED` runs only. What the run waits for. Possible values:
+     *
+     * * `WORKER` – the run waits for a free worker. `queuePosition` gives its place in the queue.
+     * * `PREVIOUS_RUN` – the run waits for the configuration's current run to finish.
+     * * `TENANT_LIMIT` – the run waits for one of the tenant's runs to finish, because
+     * `maxConcurrentImports` runs are already executing.
+     *
+     * The field is absent when the run is not queued, or when the service has not yet calculated it.
+     */
+    queueWaitingFor?: 'WORKER' | 'PREVIOUS_RUN' | 'TENANT_LIMIT';
+    /**
+     * The number of later scheduled run requests that were added to this run while it was queued. A configuration has at most one queued run, so a scheduled request that arrives while a real run of the whole configuration is queued does not queue a second run.
+     */
+    supersededRequests?: number;
+    /**
+     * When the latest scheduled run request counted in `supersededRequests` was made. Absent when `supersededRequests` is `0`.
+     */
+    lastRequestedAt?: string;
     /**
      * Records read (created + updated + skipped + deleted + failed).
      */
@@ -349,7 +389,7 @@ export type ImportRun = {
      */
     dryRunPublished?: boolean;
     /**
-     * The published mapping version each stream uses in this run, fixed when the run starts. Version `0` means that the stream has no published mappings. The field is absent on a dry run of the draft mappings and on runs recorded before it existed.
+     * The published mapping version each stream uses in this run, fixed when the run starts executing. Version `0` means that the stream has no published mappings. The field is absent while the run is `QUEUED`, on a dry run of the draft mappings, and on runs recorded before it existed.
      */
     mappingVersions?: Array<{
         /**
@@ -761,7 +801,7 @@ export type ImportLicense = {
      */
     maxRecordsPerEntity?: number;
     /**
-     * The maximum number of runs that may be active at once for the tenant. A run requested beyond this limit is rejected with `429`.
+     * The maximum number of runs that can execute at once for the tenant. A run requested beyond this limit is not rejected. It waits in the `QUEUED` status until one of the tenant's runs finishes.
      */
     maxConcurrentImports?: number;
     /**
@@ -841,7 +881,7 @@ export type ImportStatsSummary = {
      */
     skipRate?: number;
     /**
-     * The mean duration of a finished run, in seconds.
+     * The mean duration of a finished run, in seconds, measured from when the run began executing (`executionStartedAt`). Time spent in the queue is not counted.
      */
     avgRunDurationSec?: number;
     /**
@@ -857,7 +897,7 @@ export type ImportStatsSummary = {
      */
     distinctEntities?: number;
     /**
-     * The number of runs currently in progress.
+     * The number of runs currently in the `QUEUED`, `RUNNING`, or `RESUMABLE` status. When you filter by `streamId`, queued runs are not counted, because they have not started any stream yet.
      */
     activeRuns?: number;
 };
@@ -1662,7 +1702,7 @@ export type PostImporttoolTriggerRunError = PostImporttoolTriggerRunErrors[keyof
 
 export type PostImporttoolTriggerRunResponses = {
     /**
-     * The request was successful. The run has been started.
+     * The request was successful. The run has been queued.
      */
     200: ImportRun;
 };
@@ -2465,7 +2505,7 @@ export type PostImporttoolRetryRunError = PostImporttoolRetryRunErrors[keyof Pos
 
 export type PostImporttoolRetryRunResponses = {
     /**
-     * The retry run was started.
+     * The request was successful. The retry run has been queued.
      */
     200: ImportRun;
 };
