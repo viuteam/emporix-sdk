@@ -60,6 +60,7 @@ export type BaseCoupon = {
     discountCalculationType?: 'TOTAL' | 'SUBTOTAL';
     categoryRestricted?: CategoryRestricted;
     segmentRestricted?: SegmentRestricted;
+    vendorRestricted?: VendorRestricted;
     restrictions?: Restrictions;
     /**
      * The Id of the customer who originally received the coupon (seller-only).
@@ -152,6 +153,7 @@ export type CouponCreation = {
     discountCalculationType?: 'TOTAL' | 'SUBTOTAL';
     categoryRestricted?: CategoryRestricted;
     segmentRestricted?: SegmentRestricted;
+    vendorRestricted?: VendorRestricted;
     restrictions?: Restrictions;
     /**
      * The Id of the customer who originally received the coupon (seller-only).
@@ -192,6 +194,13 @@ export type SegmentRestricted = boolean;
  *
  */
 export type CategoryRestricted = boolean;
+
+/**
+ * Defines if the coupon applies only to products from specific vendors. If the value is `true`, `restrictions.vendors` must be provided.
+ * A vendor restriction can be combined with other restriction types.
+ *
+ */
+export type VendorRestricted = boolean;
 
 /**
  * Money amount
@@ -265,7 +274,7 @@ export type Restrictions = {
      * Must be provided in ISO 8601 format (http://www.iso.org/iso/home/standards/iso8601.htm), e.g. '2015-01-31T23:59:59.999Z'.
      */
     validUntil?: string;
-    minOrderValue?: CurrencyAmount;
+    minOrderValue?: CurrencyAmount & unknown;
     /**
      * The list of product's categories to which this coupon applies to. Must be defined only if the `categoryRestricted` flag is set to true. Must be disjoint with excludedCategories list.
      */
@@ -278,6 +287,10 @@ export type Restrictions = {
      * The list of segments to which this coupon applies to. Can be defined only if the `segmentRestricted` flag is set to true.
      */
     segments?: Array<string>;
+    /**
+     * The list of vendor identifiers to which this coupon applies. Must be provided when `vendorRestricted` is `true`, and must be empty when `vendorRestricted` is `false`.
+     */
+    vendors?: Array<string>;
 };
 
 export type ResourceLocation = {
