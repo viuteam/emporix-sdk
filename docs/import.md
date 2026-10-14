@@ -99,9 +99,39 @@ await client.imports.cancelRun(run.id!);                 // cooperative
 await client.imports.cancelRun(run.id!, { force: true }); // hard stop
 ```
 
+### Runs queue first
+
+Since 2026-10-14 `triggerRun` and `retryRun` return the run **`QUEUED`**, not
+`RUNNING`. Code that waits for `RUNNING` after a trigger has to accept `QUEUED`
+too.
+
+| Status | Meaning |
+|---|---|
+| `QUEUED` | waiting; nothing read yet, no per-stream progress, no `mappingVersions` |
+| `RUNNING` | executing |
+| `RESUMABLE` | interrupted (e.g. a service restart), resumes from its last checkpoint by itself — **not final** |
+
+- A queued run says what it waits for in `queueWaitingFor`: `WORKER` (with an
+  approximate `queuePosition`, `1` starts next), `PREVIOUS_RUN` (the
+  configuration's current run) or `TENANT_LIMIT` (`maxConcurrentImports` runs
+  are already executing — they now wait instead of the old `429`).
+- A configuration holds at most one executing and one queued run. While it has
+  a run `QUEUED`, `RUNNING` or `RESUMABLE`, `triggerRun` and `retryRun` answer
+  `409`.
+- A scheduled run is never rejected. It queues behind the current run, and while
+  a real run of the whole configuration is already queued, later scheduled
+  requests fold into it: `supersededRequests` counts them, `lastRequestedAt`
+  dates the latest.
+- `startedAt` is when the run was **requested**; `executionStartedAt` is when it
+  began executing (`null` while queued). `stats().avgRunDurationSec` measures
+  from `executionStartedAt`, and `activeRuns` counts `QUEUED`, `RUNNING` and
+  `RESUMABLE` — without the queued ones when filtered by `streamId`.
+
 `cancelRun` resolves with `accepted: false` when the run is unknown or already
 finished — that is a `202`, not an error. A state conflict can instead come back
-as a `409`, which throws like any other error status.
+as a `409`, which throws like any other error status. A `QUEUED` run is cancelled
+at once, with or without `force`; a `RESUMABLE` one only with `force: true` and
+otherwise answers `409`.
 
 `triggerRun` is a POST and is **not** retried on a 5xx: a request that timed out
 may already have queued a run.
@@ -129,9 +159,11 @@ const check = await client.imports.triggerRun("cfg1", {
 ```
 
 A real run ignores `mappings`. It fixes each stream's published mapping version
-when it starts and reports it in `mappingVersions` (`{ streamId, version }`;
-version `0` means no published mappings), so a version published mid-run applies
-from the next run. `dryRunPublished` tells you which mappings a dry run used;
+when it starts executing and reports it in `mappingVersions` (`{ streamId,
+version }`; version `0` means no published mappings), so a version published
+while the run is queued still applies, and one published mid-run applies from the
+next run. The run `triggerRun` returns is `QUEUED` and has no `mappingVersions`
+yet; read them with `getRun` once it runs. `dryRunPublished` tells you which mappings a dry run used;
 a dry run of the drafts carries no `mappingVersions`.
 
 **A run refused for unpublished mappings still resolves.**

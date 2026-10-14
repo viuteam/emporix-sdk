@@ -5,6 +5,44 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-10-14 — import-service: queued import runs
+
+[Changelog entry](https://developer.emporix.io/changelog) "Import Service - queued
+import runs" (a major change upstream), from
+[emporix/api-references#574](https://github.com/emporix/api-references/pull/574).
+`fetch:specs` reported `changed since last vendored: import-service` and nothing
+else. Measured by path literal (`coverage.mjs --spec import-service`): 24 live
+operations before and after. **0 new endpoints, 0 removed, 0 deprecated, no new
+parameters.** The facade covers all 24; the change is behaviour and fields.
+
+### Fields
+
+Nothing to build — they arrive through the `ImportRun` alias:
+
+| Where | Field | Note |
+|---|---|---|
+| run | `status` | new `RESUMABLE` (interrupted, resumes by itself, not final); `QUEUED` is now what trigger and retry return |
+| run | `executionStartedAt` | when it began executing; `null` while queued. `startedAt` now means *requested* |
+| run | `queueWaitingFor`, `queuePosition` | queued runs only: `WORKER` / `PREVIOUS_RUN` / `TENANT_LIMIT`, approximate position |
+| run | `supersededRequests`, `lastRequestedAt` | scheduled requests folded into a queued run |
+| run | `mappingVersions` | fixed when execution starts, absent while `QUEUED` — so absent on the trigger response |
+
+### Behaviour
+
+- `triggerRun` and `retryRun` return the run `QUEUED`; `409` while the
+  configuration has a run `QUEUED`, `RUNNING` or `RESUMABLE`. The `429` for
+  `maxConcurrentImports` is gone: excess runs wait (`TENANT_LIMIT`).
+- Scheduled runs are no longer skipped when the configuration is busy; they queue,
+  or fold into an already queued full run.
+- `cancelRun`: a queued run is cancelled at once; a `RESUMABLE` run needs
+  `force: true`, else `409`.
+- `stats`: `activeRuns` counts `QUEUED`, `RUNNING` and `RESUMABLE`;
+  `avgRunDurationSec` excludes queue time.
+
+Updated: the `triggerRun`, `retryRun`, `cancelRun` and `getLicense` JSDoc, the
+`ImportRun` JSDoc and [import.md](./import.md#runs-queue-first). Nothing in the
+repo compared a run's status with `RUNNING`.
+
 ## 2026-10-09 — search-service: index export and import
 
 [Changelog entry](https://developer.emporix.io/changelog) "Search Service - index
