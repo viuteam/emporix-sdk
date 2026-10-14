@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 4.6.4
+
+### Patch Changes
+
+- [#411](https://github.com/viuteam/emporix-sdk/pull/411) [`bb55ec1`](https://github.com/viuteam/emporix-sdk/commit/bb55ec13a8cf45574d217cf1dffe34dcca7b0353) Thanks [@amnael1](https://github.com/amnael1)! - docs(sdk): sync the import service spec for queued import runs
+  
+  Emporix now queues import runs. `client.imports.triggerRun` and `retryRun` return the run `QUEUED` instead of `RUNNING`, answer `409` while the configuration already has a run `QUEUED`, `RUNNING` or `RESUMABLE`, and no longer answer `429` when `maxConcurrentImports` is reached — the run waits instead. `ImportRun` gains the `RESUMABLE` status, `executionStartedAt`, `queueWaitingFor`, `queuePosition`, `supersededRequests` and `lastRequestedAt`; `startedAt` now means when the run was requested, and `mappingVersions` is absent while a run is queued. `cancelRun` stops a `RESUMABLE` run only with `force: true`. Code that waits for `RUNNING` after triggering a run must accept `QUEUED` too.
+
 ## 4.6.3
 
 ### Patch Changes
