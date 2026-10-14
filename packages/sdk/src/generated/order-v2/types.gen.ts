@@ -324,6 +324,10 @@ export type Discount = {
      * This flag indicates if discount is category restricted.
      */
     categoryRestricted?: boolean;
+    /**
+     * Indicates whether the discount is limited to the vendors in `restrictions.vendors`.
+     */
+    vendorRestricted?: boolean;
     restrictions?: DiscountRestrictions & {
         [key: string]: unknown;
     };
@@ -352,6 +356,10 @@ export type DiscountRestrictions = {
      * List of excluded categories.
      */
     excludedCategories?: Array<string>;
+    /**
+     * Vendor identifiers to which the discount applies.
+     */
+    vendors?: Array<string>;
 };
 
 /**

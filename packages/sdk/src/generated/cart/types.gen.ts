@@ -890,9 +890,45 @@ export type DiscountResponse = {
     links?: Array<Link>;
     discountValidationDetails?: DiscountValidationDetails;
     /**
+     * Indicates whether the discount is limited to the vendors in `restrictions.vendors`.
+     */
+    vendorRestricted?: boolean;
+    restrictions?: DiscountRestrictions;
+    /**
      * The index of the discount. It represents the discount position in the cart discounts array.
      */
     discountIndex?: number;
+};
+
+/**
+ * Restrictions copied from the coupon.
+ */
+export type DiscountRestrictions = {
+    /**
+     * Start of the discount validity period.
+     */
+    validFrom?: string;
+    /**
+     * End of the discount validity period.
+     */
+    validUntil?: string;
+    minOrderValue?: Price & unknown;
+    /**
+     * Categories to which the discount applies.
+     */
+    includedCategories?: Array<string>;
+    /**
+     * Categories to which the discount does not apply.
+     */
+    excludedCategories?: Array<string>;
+    /**
+     * Customer segments to which the discount applies.
+     */
+    segments?: Array<string>;
+    /**
+     * Vendor identifiers to which the discount applies.
+     */
+    vendors?: Array<string>;
 };
 
 export type DiscountValidationDetails = {
