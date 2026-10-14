@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 4.6.5
+
+### Patch Changes
+
+- [#413](https://github.com/viuteam/emporix-sdk/pull/413) [`db008c3`](https://github.com/viuteam/emporix-sdk/commit/db008c3e393c032aa56312e045fde456979a220a) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: cart,coupon,order-v2
+
 ## 4.6.4
 
 ### Patch Changes
