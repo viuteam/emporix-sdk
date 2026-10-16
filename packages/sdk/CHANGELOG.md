@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 4.6.6
+
+### Patch Changes
+
+- [#417](https://github.com/viuteam/emporix-sdk/pull/417) [`82a17b9`](https://github.com/viuteam/emporix-sdk/commit/82a17b948e19abe97e9742bb2b0621a16f62da23) Thanks [@amnael1](https://github.com/amnael1)! - docs(sdk): sync the search service spec for the CONTAINS filter
+  
+  Search filters gain the `CONTAINS` operator: a case- and diacritic-insensitive substring match on a field indexed with `text: true`. It is available on `client.search.search` through `SearchFilterNode` without an SDK change. The search docs now list it, and their examples write the custom schema type in upper case (`VEHICLE`), as upstream does.
+
 ## 4.6.5
 
 ### Patch Changes
