@@ -151,14 +151,15 @@ async function buildHandle(
 
   const cookieGet = (name: string): string | null =>
     readCookie(name, (wire) => jar.get(wire)?.value);
+  // One attribute set for writing and deleting. A browser accepts a `__Host-`
+  // Set-Cookie only with `Secure` and `Path=/`, the deleting one included, and
+  // `jar.delete(name)` sends no `Secure` — so the cookie survived its deletion.
+  const attrs = { httpOnly: true, sameSite: "lax", secure, path: "/" } as const;
   const cookieSet = (name: string, value: string, maxAgeSeconds: number): void => {
-    jar.set(cookieName(name, secure), sealCookie(name, value), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure,
-      path: "/",
-      maxAge: maxAgeSeconds,
-    });
+    jar.set(cookieName(name, secure), sealCookie(name, value), { ...attrs, maxAge: maxAgeSeconds });
+  };
+  const cookieDelete = (name: string): void => {
+    jar.delete({ name: cookieName(name, secure), ...attrs });
   };
 
   if (store === undefined) {
@@ -170,7 +171,7 @@ async function buildHandle(
       },
       delete: (name) => {
         if (readOnly) return;
-        jar.delete(cookieName(name, secure));
+        cookieDelete(name);
       },
       flush: async () => {},
       destroy: async () => {},
@@ -214,7 +215,7 @@ async function buildHandle(
     delete: (name) => {
       if (readOnly) return;
       if (isPublicSessionKey(name)) {
-        jar.delete(cookieName(name, secure));
+        cookieDelete(name);
         return;
       }
       if (record[name] !== undefined) {
@@ -233,7 +234,7 @@ async function buildHandle(
     destroy: async () => {
       if (readOnly) return;
       if (sid !== null) await store.destroy(sid);
-      jar.delete(cookieName(SESSION_SID, secure));
+      cookieDelete(SESSION_SID);
       record = {};
       dirty = false;
     },

@@ -15,15 +15,16 @@ const bag = new Map<string, { name: string; value: string; opts?: Record<string,
 function makeJar(): {
   get: (name: string) => { name: string; value: string } | undefined;
   set: (name: string, value: string, opts?: Record<string, unknown>) => void;
-  delete: (name: string) => void;
+  delete: (arg: string | { name: string }) => void;
 } {
   return {
     get: (name: string) => bag.get(name),
     set: (name: string, value: string, opts?: Record<string, unknown>) => {
       bag.set(name, { name, value, ...(opts ? { opts } : {}) });
     },
-    delete: (name: string) => {
-      bag.delete(name);
+    // Both of Next's forms: the handle deletes with `{ name, ...attributes }`.
+    delete: (arg: string | { name: string }) => {
+      bag.delete(typeof arg === "string" ? arg : arg.name);
     },
   };
 }

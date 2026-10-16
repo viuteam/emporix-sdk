@@ -13,8 +13,9 @@ const cookieJar = {
   set: (name: string, value: string, opts?: Record<string, unknown>): void => {
     bag.set(name, { name, value, ...(opts ? { opts } : {}) });
   },
-  delete: (name: string): void => {
-    bag.delete(name);
+  // Both of Next's forms: deletions pass `{ name, ...attributes }`.
+  delete: (arg: string | { name: string }): void => {
+    bag.delete(typeof arg === "string" ? arg : arg.name);
   },
 };
 
