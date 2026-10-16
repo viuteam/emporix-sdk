@@ -33,7 +33,7 @@ function setCookie(name: string): string | undefined {
 function expectHostDeletion(name: string): void {
   const line = setCookie(name);
   expect(line).toBeDefined();
-  expect(line).toMatch(new RegExp(`^${name.replace(/[.]/g, "\\.")}=;`));
+  expect(line?.startsWith(`${name}=;`)).toBe(true); // an empty value
   expect(line).toContain("Expires=Thu, 01 Jan 1970 00:00:00 GMT");
   expect(line).toContain("Path=/");
   expect(line).toContain("Secure");
