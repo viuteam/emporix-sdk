@@ -5,6 +5,33 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-10-16 — search-service: CONTAINS filter, Search Cockpit release
+
+[Release note](https://developer.emporix.io/release-notes) "Search for Custom
+Instances" — the Search Service plus the new Search Cockpit in the Management
+Dashboard, both preview. The spec change came with
+[emporix/api-references#576](https://github.com/emporix/api-references/pull/576),
+merged ten minutes after the daily sync ran, so it was vendored by hand.
+`fetch:specs` reported `changed since last vendored: search-service` and nothing
+else. Measured by path literal (`coverage.mjs --spec search-service`): 15 live
+operations before and after. **0 new endpoints, 0 removed, 0 deprecated, no new
+parameters.** The facade covers all 15.
+
+### Fields
+
+| Where | Field | Note |
+|---|---|---|
+| filter node | `operator: "CONTAINS"` | case- and diacritic-insensitive substring match; non-blank value; the field needs `text: true` in the index; the service adds the `*` wildcards and escapes `\`, `*`, `?` |
+
+Nothing to build — `SearchFilterNode` aliases the generated `FilterNode`.
+
+### Behaviour
+
+- Every upstream example now writes the custom schema type in upper case
+  (`VEHICLE`, `BIKE`) — the type as the Schema Service stores it. The examples in
+  [search.md](./search.md) and the `search()` JSDoc follow. Whether the service
+  matches the type case-insensitively is not verified.
+
 ## 2026-10-14 — import-service: queued import runs
 
 [Changelog entry](https://developer.emporix.io/changelog) "Import Service - queued

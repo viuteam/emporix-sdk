@@ -123,13 +123,13 @@ export class SearchService {
    * Search the documents of one custom schema type. Paging, `sort` and
    * `fields` travel as query parameters, not in the body.
    *
-   * Filter and sort fields must be indexed on the index the search uses, or the
-   * call answers `400`. A saved-search call (`{ searchQueryId, query }`) answers
+   * Filter and sort fields must be indexed on the index the search uses —
+   * `exact`, or `text: true` for a `CONTAINS` filter — or the call answers `400`. A saved-search call (`{ searchQueryId, query }`) answers
    * `404` when no saved search has that id for `type`, and `502` means the
    * Schema Service could not confirm that `type` is a custom entity.
    *
    * @example
-   * const hits = await client.search.search("vehicle", {
+   * const hits = await client.search.search("VEHICLE", {
    *   index: "vehicles",
    *   queries: [{ type: "TEXT", query: "diesel", field: "name.en" }],
    *   filters: { field: "status", operator: "EQ", value: "ACTIVE" },
