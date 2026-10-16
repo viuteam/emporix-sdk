@@ -118,9 +118,10 @@ export async function emporixSessionMutable(
   const io: ServerCookieJar = {
     get: (name) => readCookie(name, (wire) => jar.get(wire)?.value),
     // Writes need the single right name; `attrs.secure` is what this variant
-    // actually puts on the cookie, so the name must follow it.
+    // actually puts on the cookie, so the name must follow it. The deletion
+    // carries `attrs` too: a browser drops a `__Host-` Set-Cookie without `Secure`.
     set: (name, value) => {
-      if (value === null) jar.delete(cookieName(name, attrs.secure));
+      if (value === null) jar.delete({ name: cookieName(name, attrs.secure), ...attrs });
       else jar.set(cookieName(name, attrs.secure), sealCookie(name, value), attrs);
     },
   };

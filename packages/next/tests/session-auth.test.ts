@@ -6,8 +6,9 @@ const cookieJar = {
   set: (name: string, value: string, opts?: Record<string, unknown>) => {
     bag.set(name, { name, value, ...(opts ? { opts } : {}) });
   },
-  delete: (name: string) => {
-    bag.delete(name);
+  // Both of Next's forms: the handle deletes with `{ name, ...attributes }`.
+  delete: (arg: string | { name: string }) => {
+    bag.delete(typeof arg === "string" ? arg : arg.name);
   },
 };
 const headerBag = new Map<string, string>();

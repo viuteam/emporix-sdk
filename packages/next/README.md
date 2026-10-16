@@ -239,6 +239,12 @@ for the full inventory and the reasoning per site. A working adapter is in
 | `__Host-` prefix | on over https | derived from the same signal as `secure` |
 | Encryption | off | `EMPORIX_COOKIE_SECRET` |
 
+A browser accepts a `__Host-` `Set-Cookie` only with `Secure` and `Path=/`, and
+that includes the one that deletes it. The package deletes with the same
+attributes it writes with. If you delete one of these cookies yourself, do the
+same — `cookies().delete({ name, path: "/", secure: true })` — because
+`cookies().delete(name)` sends no `Secure`, and the cookie survives.
+
 The idle window slides — every refresh rewrites the cookie — so on its own it
 never expires an active session. The ceiling is stamped at login and never
 rewritten, which is what actually bounds a session. Reaching it clears the
