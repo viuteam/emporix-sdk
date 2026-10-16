@@ -404,14 +404,17 @@ export type FilterNode = {
      * * `BETWEEN` requires an array of two values. The range is inclusive.
      * * `IN` and `NOT_IN` require a non-empty array.
      * * `EXISTS` requires a boolean. `true` matches documents where the field is present. `false` matches documents where the field is absent.
+     * * `CONTAINS` requires a non-blank string. The field must have `text: true` in the index.
      */
     value?: unknown;
 };
 
 /**
  * Comparison applied to `field` and `value`.
+ *
+ * `CONTAINS` performs a case- and diacritic-insensitive substring match. The service wraps the value in `*` and escapes `\`, `*`, and `?` within it. Spaces remain part of the value.
  */
-export type FilterOperator = 'EQ' | 'NEQ' | 'GT' | 'GTE' | 'LT' | 'LTE' | 'BETWEEN' | 'IN' | 'NOT_IN' | 'EXISTS';
+export type FilterOperator = 'EQ' | 'NEQ' | 'GT' | 'GTE' | 'LT' | 'LTE' | 'BETWEEN' | 'IN' | 'NOT_IN' | 'EXISTS' | 'CONTAINS';
 
 /**
  * A matching document. Stored fields are returned with their API names. The identifier is `id`.

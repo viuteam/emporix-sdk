@@ -20,7 +20,7 @@ A search names an index, so build one per type before you search. An index lists
 the fields it makes searchable:
 
 ```ts
-const job = await client.search.upsertIndex("vehicle", "vehicles", {
+const job = await client.search.upsertIndex("VEHICLE", "vehicles", {
   name: { en: "Vehicles" },
   fields: [
     { path: "name.en", text: true, autocomplete: "PREFIX" },
@@ -37,8 +37,10 @@ if (job) await client.search.getJob(job.id);
 - A string field needs `text`, `autocomplete` or `exact`. Number, boolean and
   date fields take only `exact: true`. `time`, `list`, `object` and
   `dictionary` fields cannot be indexed.
-- **Filter and sort fields must be indexed with `exact`**, or the search answers
-  `400`.
+- **Filter and sort fields must be indexed with `exact`** — except for the
+  `CONTAINS` filter, which needs `text: true` — or the search answers `400`.
+- The `type` argument is the custom schema type as the Schema Service stores
+  it. Upstream's examples write it in upper case (`VEHICLE`).
 
 `upsertIndex` starts a job (`202`) for a new index, for a changed field list, and
 for an index whose status is `building` or `failed`. An index that is `ready`
@@ -49,11 +51,11 @@ still change. `deleteIndex` also answers with a job id.
 sent, it is an optimistic lock, and a stale one answers `409`.
 
 ```ts
-const indexes = await client.search.listIndexes({ type: "vehicle" });
+const indexes = await client.search.listIndexes({ type: "VEHICLE" });
 const everyType = await client.search.listIndexes(); // each item carries `type`
-const one = await client.search.getIndex("vehicle", "vehicles", { fields: "id,status" });
+const one = await client.search.getIndex("VEHICLE", "vehicles", { fields: "id,status" });
 const jobs = await client.search.listJobs({ sort: "metadata.createdAt:DESC" });
-await client.search.deleteIndex("vehicle", "vehicles");
+await client.search.deleteIndex("VEHICLE", "vehicles");
 ```
 
 ### Copying indexes to another tenant
@@ -63,8 +65,8 @@ creates or updates each of them, typically on another tenant:
 
 ```ts
 const pkg = await source.search.exportIndexes([
-  { type: "vehicle", id: "vehicles" },
-  { type: "bike", id: "bikes" },
+  { type: "VEHICLE", id: "vehicles" },
+  { type: "BIKE", id: "bikes" },
 ]);
 const results = await target.search.importIndexes(pkg);
 // one result per index, in package order: { id, type, jobId?, jobType? }
@@ -85,7 +87,7 @@ const results = await target.search.importIndexes(pkg);
 
 ```ts
 const page = await client.search.search(
-  "vehicle",
+  "VEHICLE",
   {
     index: "vehicles",
     queries: [{ type: "TEXT", query: "diesel", field: "name.en", fuzzy: { enabled: true, maxEdits: 1 } }],
@@ -101,7 +103,12 @@ const page = await client.search.search(
   `WILDCARD` (`*` and `?`; no fuzzy matching).
 - `filters` narrow the matches without changing the score. Operators: `EQ`,
   `NEQ`, `GT`, `GTE`, `LT`, `LTE`, `BETWEEN` (two values, inclusive), `IN`,
-  `NOT_IN` (non-empty array), `EXISTS` (boolean).
+  `NOT_IN` (non-empty array), `EXISTS` (boolean), `CONTAINS` (see below).
+- `CONTAINS` matches a substring, ignoring case and diacritics:
+  `{ field: "name.en", operator: "CONTAINS", value: "hybrid-9" }`. The value
+  must not be blank, and the field needs `text: true` in the index. The service
+  wraps the value in `*` and escapes `\`, `*` and `?` in it, so pass the plain
+  text; spaces stay part of the value.
 - Paging, `sort` and `fields` go in the query string, not the body; the SDK
   places them. Without `sort`, hits come ordered by relevance.
 
@@ -111,22 +118,22 @@ A saved search stores an index, queries and filters under an id. Running it
 replaces the text of every stored query:
 
 ```ts
-const created = await client.search.upsertSavedSearch("vehicle", "red-cars", {
+const created = await client.search.upsertSavedSearch("VEHICLE", "red-cars", {
   name: { en: "Red cars" },
   index: "vehicles",
   queries: { type: "TEXT", query: "red", field: "name.en" },
 });
 // `{ id }` when created (201), undefined when it replaced one (204)
 
-const hits = await client.search.search("vehicle", { searchQueryId: "red-cars", query: "diesel" });
+const hits = await client.search.search("VEHICLE", { searchQueryId: "red-cars", query: "diesel" });
 
-const stored = await client.search.getSavedSearch("vehicle", "red-cars");
-await client.search.upsertSavedSearch("vehicle", "red-cars", {
+const stored = await client.search.getSavedSearch("VEHICLE", "red-cars");
+await client.search.upsertSavedSearch("VEHICLE", "red-cars", {
   index: "vehicles",
   queries: { type: "TEXT", query: "red", field: "name.en", boost: 2 },
   metadata: { version: stored.metadata?.version ?? 1 },
 });
-await client.search.deleteSavedSearch("vehicle", "red-cars");
+await client.search.deleteSavedSearch("VEHICLE", "red-cars");
 ```
 
 Saving or deleting a saved search never starts an index build.
