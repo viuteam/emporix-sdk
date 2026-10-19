@@ -774,6 +774,13 @@ export type BaseLlm = {
      * The limit of tokens which agent can burn during one request session.
      */
     maxTokens?: number;
+    /**
+     * Optional JSON object of extra model parameters. Use it to pass provider-specific options, for example reasoning settings.
+     *
+     */
+    additionalParams?: {
+        [key: string]: unknown;
+    };
 };
 
 export type EmporixLlm = BaseLlm & {
