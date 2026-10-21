@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect, expectTypeOf, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { SchemaService } from "../../src/services/schema";
 import { HttpClient } from "../../src/core/http";
 import { DefaultTokenProvider } from "../../src/core/auth";
 import { LevelResolver } from "../../src/core/logger";
-import { EmporixNotFoundError } from "../../src/core/errors";
+import { EmporixConflictError, EmporixNotFoundError } from "../../src/core/errors";
+import type { CustomEntityCreated, CustomInstanceCreated, SchemaCreated } from "../../src/services/schema-types";
 import { MemoryLogger } from "../helpers/memory-logger";
 
 const server = setupServer(
@@ -93,28 +94,31 @@ describe("SchemaService — schemas (group A)", () => {
     await expect(svc().getSchema("missing")).rejects.toBeInstanceOf(EmporixNotFoundError);
   });
 
-  it("createSchema POSTs the draft and returns the created schema", async () => {
+  it("createSchema POSTs the draft — mixin key and custom entity types included — and resolves to the 201 id", async () => {
     let body: unknown = null;
     server.use(
       http.post(SCHEMAS, async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json(
-          { id: "s2", name: { en: "Extras" }, types: ["PRODUCT"], attributes: [], metadata: { version: 1 } },
-          { status: 201 },
-        );
+        return HttpResponse.json({ id: "extras" }, { status: 201 });
       }),
     );
-    const created = await svc().createSchema({ name: { en: "Extras" }, types: ["PRODUCT"], attributes: [] });
-    expect(body).toEqual({ name: { en: "Extras" }, types: ["PRODUCT"], attributes: [] });
-    expect(created.id).toBe("s2");
+    const created = await svc().createSchema({
+      id: "extras",
+      name: { en: "Extras" },
+      types: ["PRODUCT", "MERCH_PRINT_ROUND"],
+      attributes: [],
+    });
+    expect(body).toEqual({ id: "extras", name: { en: "Extras" }, types: ["PRODUCT", "MERCH_PRINT_ROUND"], attributes: [] });
+    expect(created).toEqual({ id: "extras" });
+    expectTypeOf(created).toEqualTypeOf<SchemaCreated>();
   });
 
-  it("updateSchema PUTs the draft including metadata.version", async () => {
+  it("updateSchema PUTs the draft including metadata.version and resolves on the 204", async () => {
     let body: unknown = null;
     server.use(
       http.put(`${SCHEMAS}/s1`, async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ id: "s1", name: { en: "n" }, types: ["PRODUCT"], attributes: [], metadata: { version: 4 } });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
     const updated = await svc().updateSchema("s1", {
@@ -124,7 +128,8 @@ describe("SchemaService — schemas (group A)", () => {
       metadata: { version: 3 },
     });
     expect(body).toEqual({ name: { en: "n" }, types: ["PRODUCT"], attributes: [], metadata: { version: 3 } });
-    expect(updated.metadata?.version).toBe(4);
+    expect(updated).toBeUndefined();
+    expectTypeOf(updated).toBeVoid();
   });
 
   it("deleteSchema DELETEs and resolves to void", async () => {
@@ -172,12 +177,13 @@ describe("SchemaService — types (group B)", () => {
     server.use(
       http.put(`${SCHEMAS}/s1/types`, async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ id: "s1", name: {}, types: ["PRODUCT", "CART"], attributes: [], metadata: { version: 2 } });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
-    const updated = await svc().setSchemaTypes("s1", ["PRODUCT", "CART"]);
-    expect(body).toEqual({ types: ["PRODUCT", "CART"] });
-    expect(updated.types).toEqual(["PRODUCT", "CART"]);
+    const updated = await svc().setSchemaTypes("s1", ["PRODUCT", "MERCH_PRINT_ROUND"]);
+    expect(body).toEqual({ types: ["PRODUCT", "MERCH_PRINT_ROUND"] });
+    expect(updated).toBeUndefined();
+    expectTypeOf(updated).toBeVoid();
   });
 });
 
@@ -218,29 +224,37 @@ describe("SchemaService — custom entities (group C)", () => {
     expect((await svc().getCustomEntity("shoe")).id).toBe("shoe");
   });
 
-  it("createCustomEntity POSTs the draft", async () => {
+  it("createCustomEntity POSTs the draft with its id and resolves to the 201 id", async () => {
     let body: unknown = null;
     server.use(
       http.post(ENTITIES, async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ id: "shoe", name: { en: "Shoe" }, attributes: [], metadata: { version: 1 } }, { status: 201 });
+        return HttpResponse.json({ id: "SHOE" }, { status: 201 });
       }),
     );
-    await svc().createCustomEntity({ name: { en: "Shoe" }, attributes: [] });
-    expect(body).toEqual({ name: { en: "Shoe" }, attributes: [] });
+    const created = await svc().createCustomEntity({ id: "SHOE", name: { en: "Shoe" } });
+    expect(body).toEqual({ id: "SHOE", name: { en: "Shoe" } });
+    expect(created).toEqual({ id: "SHOE" });
+    expectTypeOf(created).toEqualTypeOf<CustomEntityCreated>();
   });
 
-  it("updateCustomEntity PUTs the draft", async () => {
+  it("updateCustomEntity PUTs the update and resolves to undefined on the 204 of an update", async () => {
     let body: unknown = null;
     server.use(
-      http.put(`${ENTITIES}/shoe`, async ({ request }) => {
+      http.put(`${ENTITIES}/SHOE`, async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ id: "shoe", name: { en: "Sneaker" }, attributes: [], metadata: { version: 2 } });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
-    const updated = await svc().updateCustomEntity("shoe", { name: { en: "Sneaker" }, attributes: [] });
-    expect(body).toEqual({ name: { en: "Sneaker" }, attributes: [] });
-    expect(updated.name).toEqual({ en: "Sneaker" });
+    const updated = await svc().updateCustomEntity("SHOE", { name: { en: "Sneaker" }, metadata: { version: 2 } });
+    expect(body).toEqual({ name: { en: "Sneaker" }, metadata: { version: 2 } });
+    expect(updated).toBeUndefined();
+    expectTypeOf(updated).toEqualTypeOf<CustomEntityCreated | undefined>();
+  });
+
+  it("updateCustomEntity resolves to the id when the PUT upsert creates (201)", async () => {
+    server.use(http.put(`${ENTITIES}/SHOE`, () => HttpResponse.json({ id: "SHOE" }, { status: 201 })));
+    await expect(svc().updateCustomEntity("SHOE", { name: { en: "Shoe" } })).resolves.toEqual({ id: "SHOE" });
   });
 
   it("deleteCustomEntity DELETEs and resolves to void", async () => {
@@ -276,47 +290,82 @@ describe("SchemaService — custom instances (group D)", () => {
     expect(inst.mixins.size).toBe(42);
   });
 
-  it("createInstance POSTs the draft", async () => {
+  it("createInstance POSTs the draft — own id and mixin metadata included — and resolves to the 201 id", async () => {
     let body: unknown = null;
     server.use(
       http.post(INSTANCES, async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ id: "i2", name: { en: "n" }, type: "shoe", owner: { type: "SERVICE", userId: "u" }, mixins: { size: 41 }, metadata: { version: 1 } }, { status: 201 });
+        return HttpResponse.json({ id: "runner" }, { status: 201 });
       }),
     );
-    const created = await svc().createInstance("shoe", { name: { en: "n" }, mixins: { size: 41 } });
-    expect(body).toEqual({ name: { en: "n" }, mixins: { size: 41 } });
-    expect(created.id).toBe("i2");
+    const draft = {
+      id: "runner",
+      name: { en: "n" },
+      mixins: { shoe: { size: 41 } },
+      metadata: { mixins: { shoe: "https://cdn/shoe.v1.json" } },
+    };
+    const created = await svc().createInstance("shoe", draft);
+    expect(body).toEqual(draft);
+    expect(created).toEqual({ id: "runner" });
+    expectTypeOf(created).toEqualTypeOf<CustomInstanceCreated>();
   });
 
-  it("replaceInstance PUTs the full draft", async () => {
+  it("replaceInstance PUTs the full draft with metadata.version and resolves to undefined on the 204 of an update", async () => {
     let method = "";
     let body: unknown = null;
     server.use(
       http.put(`${INSTANCES}/i1`, async ({ request }) => {
         method = request.method;
         body = await request.json();
-        return HttpResponse.json({ id: "i1", name: { en: "n2" }, type: "shoe", owner: { type: "SERVICE", userId: "u" }, mixins: { size: 40 }, metadata: { version: 2 } });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
-    await svc().replaceInstance("shoe", "i1", { name: { en: "n2" }, mixins: { size: 40 } });
+    const replaced = await svc().replaceInstance("shoe", "i1", {
+      name: { en: "n2" },
+      mixins: { size: 40 },
+      metadata: { version: 2 },
+    });
     expect(method).toBe("PUT");
-    expect(body).toEqual({ name: { en: "n2" }, mixins: { size: 40 } });
+    expect(body).toEqual({ name: { en: "n2" }, mixins: { size: 40 }, metadata: { version: 2 } });
+    expect(replaced).toBeUndefined();
+    expectTypeOf(replaced).toEqualTypeOf<CustomInstanceCreated | undefined>();
   });
 
-  it("patchInstance PATCHes a partial body", async () => {
+  it("replaceInstance resolves to the id when the PUT upsert creates (201)", async () => {
+    server.use(http.put(`${INSTANCES}/i9`, () => HttpResponse.json({ id: "i9" }, { status: 201 })));
+    await expect(svc().replaceInstance("shoe", "i9", { mixins: { size: 40 } })).resolves.toEqual({ id: "i9" });
+  });
+
+  it("replaceInstance surfaces a stale metadata.version (409) as EmporixConflictError", async () => {
+    server.use(
+      http.put(`${INSTANCES}/i1`, () =>
+        HttpResponse.json({ code: 409, status: "Conflict", message: "stale version" }, { status: 409 }),
+      ),
+    );
+    await expect(
+      svc().replaceInstance("shoe", "i1", { mixins: { size: 40 }, metadata: { version: 1 } }),
+    ).rejects.toBeInstanceOf(EmporixConflictError);
+  });
+
+  it("patchInstance PATCHes an RFC-6902 operation array and resolves on the 204", async () => {
     let method = "";
     let body: unknown = null;
     server.use(
       http.patch(`${INSTANCES}/i1`, async ({ request }) => {
         method = request.method;
         body = await request.json();
-        return HttpResponse.json({ id: "i1", name: { en: "n" }, type: "shoe", owner: { type: "SERVICE", userId: "u" }, mixins: { size: 39 }, metadata: { version: 3 } });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
-    await svc().patchInstance("shoe", "i1", { mixins: { size: 39 } });
+    const ops = [
+      { op: "replace", path: "/mixins/shoe/size", value: 39 },
+      { op: "add", path: "/mixins/shoe/care/-", value: { step: 1 } },
+    ] as const;
+    const patched = await svc().patchInstance("shoe", "i1", [...ops]);
     expect(method).toBe("PATCH");
-    expect(body).toEqual({ mixins: { size: 39 } });
+    expect(body).toEqual(ops);
+    expect(patched).toBeUndefined();
+    expectTypeOf(patched).toBeVoid();
   });
 
   it("deleteInstance DELETEs and resolves to void", async () => {

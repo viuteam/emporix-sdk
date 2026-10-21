@@ -1,6 +1,6 @@
 export {
   EmporixError, EmporixAuthError, EmporixForbiddenError, EmporixNotFoundError,
-  EmporixValidationError, EmporixServerError, EmporixInsufficientScopeError,
+  EmporixValidationError, EmporixConflictError, EmporixServerError, EmporixInsufficientScopeError,
   EmporixTimeoutError, EmporixNetworkError, errorFromResponse,
 } from "./core/errors";
 export { validateConfig, DEFAULT_HOST } from "./core/config";
@@ -91,6 +91,7 @@ export type {
 export { ProductService } from "./services/product";
 export type {
   Product,
+  ProductVariant,
   Media,
   ProductCreateInput,
   ProductUpdateInput,

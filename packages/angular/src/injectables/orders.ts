@@ -188,12 +188,15 @@ export interface EmporixOrderMutations {
   cancel(vars: { orderId: string }): Promise<void>;
   /** Any status transition. The server enforces legality. */
   transition(vars: { orderId: string; status: OrderStatusInput; comment?: string }): Promise<void>;
-  /** Patches a sales order. `recalculate` re-prices it server-side. */
+  /**
+   * Patches a sales order. `recalculate` re-prices it server-side. Resolves to
+   * nothing — the `PATCH` answers `204`; the invalidated sales-order query refetches it.
+   */
   updateSalesOrder(vars: {
     orderId: string;
     patch: SalesOrderPatch;
     recalculate?: boolean;
-  }): Promise<Order>;
+  }): Promise<void>;
   /** Re-adds a past order's lines to the active cart. See {@link ReorderResult}. */
   reorder(vars: { orderId: string; cartId?: string }): Promise<ReorderResult>;
 }

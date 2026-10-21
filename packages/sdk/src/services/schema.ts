@@ -6,11 +6,18 @@ import type {
   SchemaDraft,
   SchemaUpdate,
   SchemaTypeName,
+  SchemaTargetType,
+  SchemaCreated,
   ListSchemasQuery,
   CustomEntity,
   CustomEntityDraft,
+  CustomEntityUpdate,
+  CustomEntityCreated,
   CustomInstance,
   CustomInstanceDraft,
+  CustomInstanceReplace,
+  CustomInstancePatch,
+  CustomInstanceCreated,
   ListInstancesQuery,
   ListCustomEntitiesOptions,
   InstanceSearchBody,
@@ -32,12 +39,19 @@ export type {
   Schema,
   SchemaAttribute,
   SchemaTypeName,
+  SchemaTargetType,
   SchemaDraft,
   SchemaUpdate,
+  SchemaCreated,
   CustomEntity,
   CustomInstance,
   CustomEntityDraft,
+  CustomEntityUpdate,
+  CustomEntityCreated,
   CustomInstanceDraft,
+  CustomInstanceReplace,
+  CustomInstancePatch,
+  CustomInstanceCreated,
   ListSchemasQuery,
   ListInstancesQuery,
   ListCustomEntitiesOptions,
@@ -133,9 +147,9 @@ export class SchemaService {
     });
   }
 
-  /** Create a schema. */
-  async createSchema(draft: SchemaDraft, auth: AuthContext = SERVICE): Promise<Schema> {
-    return this.ctx.http.request<Schema>({
+  /** Create a schema. Resolves to the `201`'s id envelope — read the schema back for the rest. */
+  async createSchema(draft: SchemaDraft, auth: AuthContext = SERVICE): Promise<SchemaCreated> {
+    return this.ctx.http.request<SchemaCreated>({
       method: "POST",
       path: this.schemasBase(),
       auth,
@@ -144,16 +158,16 @@ export class SchemaService {
   }
 
   /**
-   * Update a schema. The upstream API requires `draft.metadata.version`; a
-   * stale version yields 409 Conflict (propagated as the standard conflict
-   * error).
+   * Update a schema; resolves on the `204`. The upstream API requires
+   * `draft.metadata.version`; a stale version yields a 409
+   * (`EmporixConflictError`).
    */
   async updateSchema(
     id: string,
     draft: SchemaUpdate,
     auth: AuthContext = SERVICE,
-  ): Promise<Schema> {
-    return this.ctx.http.request<Schema>({
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
       method: "PUT",
       path: `${this.schemasBase()}/${encodeURIComponent(id)}`,
       auth,
@@ -200,10 +214,10 @@ export class SchemaService {
   /** Set the entity types a schema applies to (`PUT /schemas/{id}/types`). */
   async setSchemaTypes(
     id: string,
-    types: SchemaTypeName[],
+    types: SchemaTargetType[],
     auth: AuthContext = SERVICE,
-  ): Promise<Schema> {
-    return this.ctx.http.request<Schema>({
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
       method: "PUT",
       path: `${this.schemasBase()}/${encodeURIComponent(id)}/types`,
       auth,
@@ -235,12 +249,12 @@ export class SchemaService {
     });
   }
 
-  /** Create a custom-entity definition. */
+  /** Create a custom-entity definition. Resolves to the `201`'s id envelope. */
   async createCustomEntity(
     draft: CustomEntityDraft,
     auth: AuthContext = SERVICE,
-  ): Promise<CustomEntity> {
-    return this.ctx.http.request<CustomEntity>({
+  ): Promise<CustomEntityCreated> {
+    return this.ctx.http.request<CustomEntityCreated>({
       method: "POST",
       path: this.entitiesBase(),
       auth,
@@ -248,13 +262,17 @@ export class SchemaService {
     });
   }
 
-  /** Update a custom-entity definition. */
+  /**
+   * Update a custom-entity definition — an upsert: resolves to the id envelope
+   * when the `PUT` created the type (`201`), to `undefined` when it updated it
+   * (`204`).
+   */
   async updateCustomEntity(
     id: string,
-    draft: CustomEntityDraft,
+    draft: CustomEntityUpdate,
     auth: AuthContext = SERVICE,
-  ): Promise<CustomEntity> {
-    return this.ctx.http.request<CustomEntity>({
+  ): Promise<CustomEntityCreated | undefined> {
+    return this.ctx.http.request<CustomEntityCreated | undefined>({
       method: "PUT",
       path: `${this.entitiesBase()}/${encodeURIComponent(id)}`,
       auth,
@@ -264,8 +282,7 @@ export class SchemaService {
 
   /**
    * Delete a custom-entity definition. The server rejects with 409 if
-   * instances or schemas still reference it (propagated as the standard
-   * conflict error).
+   * instances or schemas still reference it (`EmporixConflictError`).
    */
   async deleteCustomEntity(id: string, auth: AuthContext = SERVICE): Promise<void> {
     await this.ctx.http.request<void>({
@@ -352,13 +369,16 @@ export class SchemaService {
     });
   }
 
-  /** Create an instance of a custom entity. */
+  /**
+   * Create an instance of a custom entity. Resolves to the `201`'s id envelope;
+   * an id that already exists is answered with a 409 (`EmporixConflictError`).
+   */
   async createInstance<T = Record<string, unknown>>(
     type: string,
     draft: CustomInstanceDraft<T>,
     auth: AuthContext = SERVICE,
-  ): Promise<CustomInstance<T>> {
-    return this.ctx.http.request<CustomInstance<T>>({
+  ): Promise<CustomInstanceCreated> {
+    return this.ctx.http.request<CustomInstanceCreated>({
       method: "POST",
       path: this.instancesBase(type),
       auth,
@@ -366,14 +386,18 @@ export class SchemaService {
     });
   }
 
-  /** Replace an instance (full `PUT`). */
+  /**
+   * Replace an instance (full `PUT`, an upsert). Resolves to the id envelope
+   * when it created the instance (`201`), to `undefined` when it replaced one
+   * (`204`). A stale `metadata.version` is answered with a 409.
+   */
   async replaceInstance<T = Record<string, unknown>>(
     type: string,
     id: string,
-    draft: CustomInstanceDraft<T>,
+    draft: CustomInstanceReplace<T>,
     auth: AuthContext = SERVICE,
-  ): Promise<CustomInstance<T>> {
-    return this.ctx.http.request<CustomInstance<T>>({
+  ): Promise<CustomInstanceCreated | undefined> {
+    return this.ctx.http.request<CustomInstanceCreated | undefined>({
       method: "PUT",
       path: `${this.instancesBase(type)}/${encodeURIComponent(id)}`,
       auth,
@@ -381,14 +405,18 @@ export class SchemaService {
     });
   }
 
-  /** Partially update an instance (`PATCH`). */
-  async patchInstance<T = Record<string, unknown>>(
+  /**
+   * Partially update an instance (`PATCH`) with RFC-6902 operations, e.g.
+   * `[{ op: "replace", path: "/mixins/shoe/size", value: 44 }]`. Resolves on
+   * the `204`.
+   */
+  async patchInstance(
     type: string,
     id: string,
-    patch: Partial<CustomInstanceDraft<T>>,
+    patch: CustomInstancePatch,
     auth: AuthContext = SERVICE,
-  ): Promise<CustomInstance<T>> {
-    return this.ctx.http.request<CustomInstance<T>>({
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
       method: "PATCH",
       path: `${this.instancesBase(type)}/${encodeURIComponent(id)}`,
       auth,

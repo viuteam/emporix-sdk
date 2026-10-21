@@ -317,16 +317,20 @@ export class SalesOrdersService {
     });
   }
 
-  /** Patches an existing order (status, mixins, customAttributes, metadata). */
+  /**
+   * Patches an existing order (status, mixins, customAttributes, metadata).
+   * Resolves on the `204`, which carries no body — read the order back with
+   * {@link get} for its new state.
+   */
   async update(
     orderId: string,
     patch: SalesOrderPatch,
     auth: AuthContext,
     opts: UpdateSalesOrderOptions = {},
-  ): Promise<Order> {
+  ): Promise<void> {
     const query: Record<string, string> = {};
     if (opts.recalculate === false) query.recalculate = "false";
-    return this.ctx.http.request<Order>({
+    await this.ctx.http.request<void>({
       method: "PATCH",
       path: `${this.base()}/${orderId}`,
       auth,

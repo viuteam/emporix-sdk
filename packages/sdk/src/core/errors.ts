@@ -41,6 +41,8 @@ export class EmporixForbiddenError extends EmporixError {}
 export class EmporixNotFoundError extends EmporixError {}
 /** 400/422 — request validation failed. */
 export class EmporixValidationError extends EmporixError {}
+/** 409 — conflict: a stale `metadata.version`, or an id that already exists. */
+export class EmporixConflictError extends EmporixError {}
 /** 5xx — server-side failure. */
 export class EmporixServerError extends EmporixError {}
 /** Request aborted by the configured connect/read timeout. No HTTP status. */
@@ -87,6 +89,7 @@ export function errorFromResponse(status: number, message: string, body: unknown
   }
   if (status === 404) return new EmporixNotFoundError(message, status, body);
   if (status === 400 || status === 422) return new EmporixValidationError(message, status, body);
+  if (status === 409) return new EmporixConflictError(message, status, body);
   if (status >= 500) return new EmporixServerError(message, status, body);
   return new EmporixError(message, status, body);
 }

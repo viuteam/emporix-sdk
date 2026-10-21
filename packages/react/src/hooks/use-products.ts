@@ -18,7 +18,7 @@ export function useProduct(productId: string, options: QueryOpts = {}): UseQuery
   return useEmporixQuery({
     mode: "read-auth", site: "full", resource: "product", args: [productId],
     ...(options.auth ? { authOverride: options.auth } : {}),
-    queryFn: (ctx) => client.products.get(productId, undefined, ctx),
+    queryFn: (ctx) => client.products.get(productId, ctx),
     staleTime: PRODUCTS_STALE_TIME,
   });
 }

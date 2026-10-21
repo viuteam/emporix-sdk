@@ -129,11 +129,10 @@ export function productImages(p: Product): Media[] {
 }
 
 /**
- * Whether asking for the product's variant children can find any.
- * `listVariantChildren` searches `productType:VARIANT`, and a VARIANT only ever
- * belongs to a PARENT_VARIANT; for every other type — a dynamic-variant root
- * included, whose children are DYNAMIC_VARIANT themselves — the request can
- * only answer `[]`.
+ * Whether the product's variant children belong in the variant nav: only a
+ * PARENT_VARIANT has VARIANT children. `listVariantChildren` also finds the
+ * descendants of a dynamic-variant root, but those come back from every level;
+ * the picker below reads them from the root's `variants` map instead.
  */
 export function isVariantParent(p: Product): boolean {
   return (p as ReadProduct).productType === "PARENT_VARIANT";

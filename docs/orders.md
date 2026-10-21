@@ -29,7 +29,7 @@ client.orders.transition(orderId, status, auth, opts?)
 client.orders.cancel(orderId, auth, opts?)       // alias: transition(DECLINED)
 
 client.salesOrders.get(orderId, auth)
-client.salesOrders.update(orderId, patch, auth, opts?)
+client.salesOrders.update(orderId, patch, auth, opts?) // → void: the PATCH answers 204, read back with get
 ```
 
 ### saas-token (opt-in)
@@ -54,7 +54,7 @@ useOrderTransition()                // mutate({ orderId, status, comment?, saasT
 useReorder()                        // mutate({ orderId, saasToken? }) → { added, errors }
 
 useSalesOrder(orderId, auth)        // disabled when auth is undefined
-useUpdateSalesOrder()               // mutate({ orderId, patch, auth, recalculate? })
+useUpdateSalesOrder()               // mutate({ orderId, patch, auth, recalculate? }) → void
 ```
 
 ### Active-company defaulting

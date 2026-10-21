@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   EmporixError, EmporixAuthError, EmporixForbiddenError, EmporixNotFoundError,
-  EmporixValidationError, EmporixServerError, EmporixInsufficientScopeError, errorFromResponse,
+  EmporixValidationError, EmporixServerError, EmporixInsufficientScopeError, EmporixConflictError,
+  errorFromResponse,
 } from "../src/core/errors";
 
 describe("errors", () => {
@@ -19,6 +20,7 @@ describe("errors", () => {
     expect(errorFromResponse(404, "a", {})).toBeInstanceOf(EmporixNotFoundError);
     expect(errorFromResponse(400, "a", {})).toBeInstanceOf(EmporixValidationError);
     expect(errorFromResponse(422, "a", {})).toBeInstanceOf(EmporixValidationError);
+    expect(errorFromResponse(409, "a", {})).toBeInstanceOf(EmporixConflictError);
     expect(errorFromResponse(500, "a", {})).toBeInstanceOf(EmporixServerError);
     expect(errorFromResponse(418, "a", {})).toBeInstanceOf(EmporixError);
   });

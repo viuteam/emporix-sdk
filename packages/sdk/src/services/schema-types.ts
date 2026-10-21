@@ -12,6 +12,9 @@ import type {
   IdResponse,
   CustomInstanceCreation,
   CustomInstanceUpdate,
+  CustomSchemaTypeCreation,
+  CustomSchemaTypeUpdate,
+  PatchOperation,
   ExportImportRequest,
   ExportImportResponse,
 } from "../generated/schema";
@@ -33,6 +36,13 @@ export type SchemaAttribute = GenSchemaAttribute;
  */
 export type SchemaTypeName = GenSchemaType;
 
+/**
+ * An entity type a schema attaches to: a {@link SchemaTypeName} or the id of a
+ * custom entity — the spec's `SchemaType` allows "any custom schema type id",
+ * which its enum cannot express.
+ */
+export type SchemaTargetType = SchemaTypeName | (string & {});
+
 /** A custom-entity definition (a tenant-defined resource type). */
 export type CustomEntity = CustomSchemaTypeResponse;
 
@@ -48,11 +58,14 @@ export type CustomInstance<T = Record<string, unknown>> = Omit<
 
 /**
  * Input for creating a schema (server assigns `metadata.version`/`url`).
- * `name`, `types` and `attributes` are the caller-controlled fields.
+ * `name`, `types` and `attributes` are the caller-controlled fields; `id` is
+ * the mixin key the data is stored under (`mixins.<id>`), generated when left
+ * out.
  */
 export interface SchemaDraft {
+  id?: string;
   name: Record<string, string>;
-  types: SchemaTypeName[];
+  types: SchemaTargetType[];
   attributes: SchemaAttribute[];
 }
 
@@ -61,28 +74,57 @@ export interface SchemaDraft {
  * upstream API **requires** `metadata.version` for optimistic locking
  * (409 Conflict on a stale version).
  */
-export interface SchemaUpdate extends SchemaDraft {
+export interface SchemaUpdate extends Omit<SchemaDraft, "id"> {
   metadata: { version: number };
 }
 
-/** Input for creating/updating a custom-entity definition. */
-export interface CustomEntityDraft {
-  name: Record<string, string>;
-  attributes: SchemaAttribute[];
-}
+/** Id envelope of a `201` from {@link SchemaService.createSchema}. */
+export type SchemaCreated = IdResponse;
 
-/** Input for creating/replacing a custom instance. `mixins` carries the data. */
-export interface CustomInstanceDraft<T = Record<string, unknown>> {
-  name: Record<string, string>;
-  mixins: T;
-}
+/**
+ * Input for creating a custom-entity definition. `id` is the type code —
+ * uppercase letters, digits and underscores. Its fields are defined by
+ * schemas attached to the type, not here.
+ */
+export type CustomEntityDraft = CustomSchemaTypeCreation;
+
+/** Input for updating a custom-entity definition (`PUT`, an upsert). */
+export type CustomEntityUpdate = CustomSchemaTypeUpdate;
+
+/** Id envelope of a `201` from creating a custom-entity definition. */
+export type CustomEntityCreated = IdResponse;
+
+/**
+ * Input for creating a custom instance. `mixins` carries the data; `id` is
+ * optional (generated when left out); `metadata.mixins` maps each mixin key to
+ * its schema URL.
+ */
+export type CustomInstanceDraft<T = Record<string, unknown>> = Omit<
+  CustomInstanceCreation,
+  "mixins"
+> & { mixins: T };
+
+/**
+ * Input for replacing a custom instance (`PUT`, an upsert). `metadata.version`
+ * enables optimistic locking — a stale one is answered with a 409.
+ */
+export type CustomInstanceReplace<T = Record<string, unknown>> = Omit<
+  CustomInstanceUpdate,
+  "mixins"
+> & { mixins: T };
+
+/** RFC-6902 operations for {@link SchemaService.patchInstance}. */
+export type CustomInstancePatch = PatchOperation[];
+
+/** Id envelope of a `201` from creating a custom instance. */
+export type CustomInstanceCreated = IdResponse;
 
 /** Filter / pagination options for {@link SchemaService.listSchemas}. */
 export interface ListSchemasQuery {
   /** Emporix `q`-syntax filter (supports `compoundLogicalQuery`). */
   q?: string;
   /** Restrict to schemas attached to this entity type. */
-  type?: SchemaTypeName;
+  type?: SchemaTargetType;
   pageNumber?: number;
   pageSize?: number;
   /** Ask for `X-Total-Count` — becomes a request header, not a query parameter. */

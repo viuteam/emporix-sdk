@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
-import { type AuthContext, type Order, type SalesOrderPatch } from "@viu/emporix-sdk";
+import { type AuthContext, type SalesOrderPatch } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 
 export interface UseUpdateSalesOrderVars {
@@ -10,14 +10,16 @@ export interface UseUpdateSalesOrderVars {
 }
 
 /**
- * Service-account update of a sales-order. Invalidates both
- * ["emporix","salesorders",id] and ["emporix","orders",id] (the customer-view
- * cache for the same order) on success.
+ * Service-account update of a sales-order. The `PATCH` answers `204` without a
+ * body, so the mutation resolves to nothing; the invalidated queries below
+ * refetch the order. Invalidates both ["emporix","salesorders",id] and
+ * ["emporix","orders",id] (the customer-view cache for the same order) on
+ * success.
  */
-export function useUpdateSalesOrder(): UseMutationResult<Order, unknown, UseUpdateSalesOrderVars> {
+export function useUpdateSalesOrder(): UseMutationResult<void, unknown, UseUpdateSalesOrderVars> {
   const { client } = useEmporix();
   const qc = useQueryClient();
-  return useMutation<Order, unknown, UseUpdateSalesOrderVars>({
+  return useMutation<void, unknown, UseUpdateSalesOrderVars>({
     mutationKey: ["emporix", "salesorders", "update"],
     mutationFn: async ({ orderId, patch, auth, recalculate }) => {
       if (!auth) throw new Error("useUpdateSalesOrder: requires an auth context");
