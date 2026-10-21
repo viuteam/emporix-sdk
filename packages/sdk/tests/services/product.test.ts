@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect, expectTypeOf, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
-import { ProductService } from "../../src/services/product";
+import { ProductService, type Product, type ProductVariant } from "../../src/services/product";
 import { HttpClient } from "../../src/core/http";
 import { DefaultTokenProvider } from "../../src/core/auth";
 import { LevelResolver } from "../../src/core/logger";
@@ -56,8 +56,21 @@ describe("ProductService", () => {
   });
 
   it("get() honours a customer context for personalized reads", async () => {
-    await svc().get("p1", undefined, { kind: "customer", token: "CUST" });
+    await svc().get("p1", { kind: "customer", token: "CUST" });
     expect(seenAuth[0]).toBe("Bearer CUST");
+  });
+
+  it("get() still takes the auth context third, behind the unused options slot", async () => {
+    await svc().get("p1", undefined, { kind: "customer", token: "CUST" });
+    await svc().get("p1", {}, { kind: "customer", token: "CUST2" });
+    expect(seenAuth).toEqual(["Bearer CUST", "Bearer CUST2"]);
+  });
+
+  it("Product covers every product type, variants included", () => {
+    expectTypeOf<ProductVariant>().toMatchTypeOf<Product>();
+    const v = {} as ProductVariant;
+    expectTypeOf(v.parentVariantId).toEqualTypeOf<string | undefined>();
+    if ("parentVariantPath" in v) expectTypeOf(v.parentVariantPath).toEqualTypeOf<string[]>();
   });
 
   it("list() returns PaginatedItems with hasNextPage=true when page is full", async () => {
@@ -185,26 +198,50 @@ describe("ProductService", () => {
   });
 });
 
+const SEARCH = "https://api.emporix.io/product/acme/products";
+const variantQ = (id: string) => `productType:VARIANT parentVariantId:${id}`;
+const dynamicQ = (id: string) => `parentVariantPath:${id}`;
+
 describe("ProductService.listVariantChildren", () => {
-  it("resolves a parent with 3 children into a flat array", async () => {
-    let seenQ: string | null = null;
+  it("resolves a PARENT_VARIANT with 3 VARIANT children into a flat array", async () => {
+    const seenQ: (string | null)[] = [];
     server.use(
-      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
-        seenQ = new URL(request.url).searchParams.get("q");
-        return HttpResponse.json([{ id: "v1" }, { id: "v2" }, { id: "v3" }]);
+      http.get(SEARCH, ({ request }) => {
+        const q = new URL(request.url).searchParams.get("q");
+        seenQ.push(q);
+        return HttpResponse.json(q === variantQ("parent-1") ? [{ id: "v1" }, { id: "v2" }, { id: "v3" }] : []);
       }),
     );
     const children = await svc().listVariantChildren("parent-1");
-    expect(seenQ).toBe("productType:VARIANT parentVariantId:parent-1");
+    expect(seenQ).toEqual([variantQ("parent-1"), dynamicQ("parent-1")]);
     expect(children.map((p) => p.id as string)).toEqual(["v1", "v2", "v3"]);
+  });
+
+  it("finds the DYNAMIC_VARIANT descendants of every level through parentVariantPath", async () => {
+    server.use(
+      http.get(SEARCH, ({ request }) =>
+        HttpResponse.json(
+          new URL(request.url).searchParams.get("q") === dynamicQ("hoodie")
+            ? [
+                { id: "hoodie-navy", productType: "DYNAMIC_VARIANT", parentVariantId: "hoodie", parentVariantPath: ["hoodie"] },
+                { id: "hoodie-navy-m", productType: "DYNAMIC_VARIANT", parentVariantId: "hoodie-navy", parentVariantPath: ["hoodie-navy", "hoodie"] },
+              ]
+            : [],
+        ),
+      ),
+    );
+    const children = await svc().listVariantChildren("hoodie");
+    expect(children.map((p) => p.id)).toEqual(["hoodie-navy", "hoodie-navy-m"]);
+    expectTypeOf(children).toEqualTypeOf<ProductVariant[]>();
   });
 
   it("aggregates 250 children across 2 pages (default pageSize 200)", async () => {
     let calls = 0;
     server.use(
-      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+      http.get(SEARCH, ({ request }) => {
         calls += 1;
         const u = new URL(request.url);
+        if (u.searchParams.get("q") !== variantQ("parent-1")) return HttpResponse.json([]);
         const page = Number(u.searchParams.get("pageNumber") ?? "1");
         const size = Number(u.searchParams.get("pageSize") ?? "0");
         const count = page === 1 ? size : 50; // page 1 full (200), page 2 short (50)
@@ -216,7 +253,7 @@ describe("ProductService.listVariantChildren", () => {
     );
     const children = await svc().listVariantChildren("parent-1");
     expect(children).toHaveLength(250);
-    expect(calls).toBe(2);
+    expect(calls).toBe(3); // two VARIANT pages, one empty parentVariantPath page
   });
 
   it("returns an empty array (no throw) when the parent has no children", async () => {
@@ -227,29 +264,30 @@ describe("ProductService.listVariantChildren", () => {
   });
 
   it("encodes a parentVariantId with spaces and special characters", async () => {
-    let seenQ: string | null = null;
+    const seenQ: (string | null)[] = [];
     server.use(
-      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
-        seenQ = new URL(request.url).searchParams.get("q");
+      http.get(SEARCH, ({ request }) => {
+        seenQ.push(new URL(request.url).searchParams.get("q"));
         return HttpResponse.json([]);
       }),
     );
     await svc().listVariantChildren("p 1&x");
     // searchParams.get decodes the value — proves the space and & were encoded
     // (otherwise the & would split the query string and truncate q).
-    expect(seenQ).toBe("productType:VARIANT parentVariantId:p 1&x");
+    expect(seenQ).toEqual([variantQ("p 1&x"), dynamicQ("p 1&x")]);
   });
 
-  it("listVariantChildrenAll streams children across pages", async () => {
+  it("listVariantChildrenAll streams children across pages, VARIANT children first", async () => {
     server.use(
-      http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
+      http.get(SEARCH, ({ request }) => {
         const u = new URL(request.url);
+        const prefix = u.searchParams.get("q") === variantQ("parent-1") ? "v" : "d";
         const page = Number(u.searchParams.get("pageNumber") ?? "1");
         const size = Number(u.searchParams.get("pageSize") ?? "0");
         const count = page === 1 ? size : 1;
         const start = (page - 1) * size;
         return HttpResponse.json(
-          Array.from({ length: count }, (_, i) => ({ id: `v${start + i}` })),
+          Array.from({ length: count }, (_, i) => ({ id: `${prefix}${start + i}` })),
         );
       }),
     );
@@ -257,7 +295,8 @@ describe("ProductService.listVariantChildren", () => {
     for await (const child of svc().listVariantChildrenAll("parent-1", { pageSize: 2 })) {
       ids.push(child.id as string);
     }
-    expect(ids).toEqual(["v0", "v1", "v2"]); // page 1: v0,v1 (full) → page 2: v2 (short)
+    // per query: page 1 full (2), page 2 short (1)
+    expect(ids).toEqual(["v0", "v1", "v2", "d0", "d1", "d2"]);
   });
 });
 

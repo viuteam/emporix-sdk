@@ -91,6 +91,7 @@ export type {
 export { ProductService } from "./services/product";
 export type {
   Product,
+  ProductVariant,
   Media,
   ProductCreateInput,
   ProductUpdateInput,

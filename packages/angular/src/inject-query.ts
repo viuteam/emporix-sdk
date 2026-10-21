@@ -57,7 +57,7 @@ export interface EmporixInfiniteInput<T, TArgs extends readonly unknown[]>
  *     args: [this.id()],
  *     site: "full",
  *     mode: "read-auth",
- *     queryFn: (ctx) => this.emporix.client.products.get(this.id(), undefined, ctx),
+ *     queryFn: (ctx) => this.emporix.client.products.get(this.id(), ctx),
  *   }))
  * }
  * ```

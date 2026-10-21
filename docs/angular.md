@@ -123,7 +123,7 @@ export class ProductPage {
     args: [this.id()],        // ← inside: changing `id` re-keys and refetches
     site: "full",
     mode: "read-auth",
-    queryFn: (ctx) => this.emporix.client.products.get(this.id(), undefined, ctx),
+    queryFn: (ctx) => this.emporix.client.products.get(this.id(), ctx),
   }))
 }
 ```

@@ -9,7 +9,8 @@ const VARIANT_CHILDREN_STALE_TIME = 60_000; // 1 minute — catalog data.
 export type UseVariantChildrenOptions = QueryOpts & { pageSize?: number };
 
 /**
- * Resolves the VARIANT children of a PARENT_VARIANT product via
+ * Resolves the variants below a product — the VARIANT children of a
+ * PARENT_VARIANT, or the DYNAMIC_VARIANT descendants of every level — via
  * `products.listVariantChildren`. The cache key contains `parentVariantId`.
  * Disabled until `parentVariantId` is a non-empty string.
  */

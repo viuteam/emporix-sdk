@@ -107,7 +107,7 @@ export async function prefetchProduct(
     auth: authCtx,
     siteCode: opts.siteCode ?? null,
     language: opts.language ?? null,
-    queryFn: (ctx) => client.products.get(productId, undefined, ctx),
+    queryFn: (ctx) => client.products.get(productId, ctx),
   });
 }
 

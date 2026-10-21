@@ -7,6 +7,8 @@ import type {
   BasicProductWithId,
   BundleProductWithId,
   ParentVariantProductWithId,
+  VariantProductWithId,
+  DynamicVariantProductWithId,
   ProductMedia,
   ProductCreateBody,
   ProductUpdateBody,
@@ -28,7 +30,18 @@ const ANON: AuthContext = { kind: "anonymous" };
 const SERVICE: AuthContext = { kind: "service" };
 
 /** A product as returned by the Product service (all generated fields). */
-export type Product = BasicProductWithId | BundleProductWithId | ParentVariantProductWithId;
+export type Product =
+  | BasicProductWithId
+  | BundleProductWithId
+  | ParentVariantProductWithId
+  | ProductVariant;
+
+/**
+ * A product below a parent: a `VARIANT` of a `PARENT_VARIANT` (`parentVariantId`),
+ * or a `DYNAMIC_VARIANT` of any level (`parentVariantId` is the direct parent,
+ * `parentVariantPath` lists every ancestor up to the root).
+ */
+export type ProductVariant = VariantProductWithId | DynamicVariantProductWithId;
 
 /** A single product media entry (generated; `ProductMedia` is the list type). */
 export type Media = ProductMedia[number];
@@ -97,11 +110,17 @@ export class ProductService {
   constructor(private readonly ctx: ClientContext) {}
 
   /** Fetches one product by id. */
+  async get(productId: string, auth?: AuthContext): Promise<Product>;
+  /** @deprecated The second parameter is unused — pass the auth context second: `get(id, auth)`. */
+  async get(productId: string, opts: Record<string, never> | undefined, auth?: AuthContext): Promise<Product>;
   async get(
     productId: string,
-    _opts?: Record<string, never>,
-    auth: AuthContext = ANON,
+    authOrOpts?: AuthContext | Record<string, never>,
+    legacyAuth?: AuthContext,
   ): Promise<Product> {
+    // The legacy options slot is `{}` or `undefined`; an auth context always has a `kind`.
+    const auth =
+      legacyAuth ?? (authOrOpts !== undefined && "kind" in authOrOpts ? (authOrOpts as AuthContext) : ANON);
     return this.ctx.http.request<Product>({
       method: "GET",
       path: `/product/${this.ctx.tenant}/products/${productId}`,
@@ -302,32 +321,44 @@ export class ProductService {
   }
 
   /**
-   * Streams the VARIANT children of a PARENT_VARIANT product, page by page,
-   * via the search query `productType:VARIANT parentVariantId:<id>`. Default
-   * pageSize 200. The query syntax (space-separated fields = implicit AND) is
-   * encapsulated here so consumers don't build it themselves.
+   * Streams the variants below a product, page by page, in two searches: the
+   * VARIANT children of a PARENT_VARIANT (`productType:VARIANT
+   * parentVariantId:<id>`), then the DYNAMIC_VARIANT descendants of every level
+   * (`parentVariantPath:<id>` — every ancestor is in the path). Only one of the
+   * two finds anything for a given product. Default pageSize 200. The query
+   * syntax (space-separated fields = implicit AND) is encapsulated here so
+   * consumers don't build it themselves.
    */
-  listVariantChildrenAll(
+  async *listVariantChildrenAll(
     parentVariantId: string,
     params: { pageSize?: number } = {},
     auth: AuthContext = ANON,
-  ): AsyncIterable<Product> {
+  ): AsyncIterable<ProductVariant> {
     const pageSize = params.pageSize ?? 200;
-    const q = `productType:VARIANT parentVariantId:${parentVariantId}`;
-    return iterateAll<Product>((pageNumber) => this.search(q, { pageNumber, pageSize }, auth));
+    for (const q of [
+      `productType:VARIANT parentVariantId:${parentVariantId}`,
+      `parentVariantPath:${parentVariantId}`,
+    ]) {
+      // Both queries can only match variants.
+      yield* iterateAll((pageNumber) =>
+        this.search(q, { pageNumber, pageSize }, auth) as Promise<PaginatedItems<ProductVariant>>,
+      );
+    }
   }
 
   /**
-   * Resolves ALL VARIANT children of a PARENT_VARIANT product into a flat
-   * array (loads every page). Default pageSize 200. Returns `[]` when there are
-   * no children — never throws.
+   * Resolves every variant below a product into a flat array (loads every
+   * page): the VARIANT children of a PARENT_VARIANT, or the DYNAMIC_VARIANT
+   * descendants of all levels — tell them apart by `parentVariantId` (the
+   * direct parent) or pick the purchasable ones by `sellable`. Default pageSize
+   * 200. Returns `[]` when there are none — never throws.
    */
   async listVariantChildren(
     parentVariantId: string,
     params: { pageSize?: number } = {},
     auth: AuthContext = ANON,
-  ): Promise<Product[]> {
-    const out: Product[] = [];
+  ): Promise<ProductVariant[]> {
+    const out: ProductVariant[] = [];
     for await (const child of this.listVariantChildrenAll(parentVariantId, params, auth)) {
       out.push(child);
     }

@@ -70,7 +70,7 @@ export function injectProduct(
       site: "full",
       mode: "read-auth",
       enabled: (opts.enabled ?? true) && id() !== "",
-      queryFn: (ctx) => client.products.get(id(), undefined, ctx),
+      queryFn: (ctx) => client.products.get(id(), ctx),
       staleTime: PRODUCTS_STALE,
     }),
     pass(opts),
@@ -269,7 +269,8 @@ export function injectProductsByCodes(
 }
 
 /**
- * Every VARIANT child of a PARENT_VARIANT product, flattened across pages.
+ * Every variant below a product, flattened across pages: the VARIANT children
+ * of a PARENT_VARIANT, or the DYNAMIC_VARIANT descendants of every level.
  *
  * The facade loads all pages and answers `[]` rather than throwing when there
  * are none, so there is no infinite variant of this read to add.

@@ -36,16 +36,20 @@ function wrap() {
 
 describe("useVariantChildren", () => {
   it("fetches the variant children for a parent id", async () => {
-    let seenQ: string | null = null;
+    const seenQ: (string | null)[] = [];
     server.use(
       http.get("https://api.emporix.io/product/acme/products", ({ request }) => {
-        seenQ = new URL(request.url).searchParams.get("q");
-        return HttpResponse.json([{ id: "v1" }, { id: "v2" }]);
+        const q = new URL(request.url).searchParams.get("q");
+        seenQ.push(q);
+        return HttpResponse.json(
+          q === "productType:VARIANT parentVariantId:parent-1" ? [{ id: "v1" }, { id: "v2" }] : [],
+        );
       }),
     );
     const { result } = renderHook(() => useVariantChildren("parent-1"), { wrapper: wrap() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(seenQ).toBe("productType:VARIANT parentVariantId:parent-1");
+    // VARIANT children of a PARENT_VARIANT, then DYNAMIC_VARIANT descendants
+    expect(seenQ).toEqual(["productType:VARIANT parentVariantId:parent-1", "parentVariantPath:parent-1"]);
     expect(result.current.data?.map((p) => p.id)).toEqual(["v1", "v2"]);
   });
 

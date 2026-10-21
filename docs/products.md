@@ -25,24 +25,41 @@ empty; 30s stale-time).
 
 ## Variant children
 
-Emporix products have a `productType` of `BASIC`, `PARENT_VARIANT`, `VARIANT`, or
-`BUNDLE`. A `PARENT_VARIANT` product's variants are separate `VARIANT` products
-that reference the parent via `parentVariantId`. The SDK encapsulates the search
-query so you don't build it by hand.
+Emporix products have a `productType` of `BASIC`, `BUNDLE`, `PARENT_VARIANT`,
+`VARIANT` or `DYNAMIC_VARIANT`, and `Product` covers all five. Two variant models
+exist:
+
+- a `PARENT_VARIANT` product's variants are separate `VARIANT` products that
+  reference the parent via `parentVariantId`;
+- a `DYNAMIC_VARIANT` tree (e.g. root → colour → size) is `DYNAMIC_VARIANT` on
+  every level: `parentVariantId` is the direct parent, `parentVariantPath` lists
+  every ancestor up to the root.
+
+`listVariantChildren` finds the variants below a product in either model, typed
+as `ProductVariant`. The SDK encapsulates the search queries so you don't build
+them by hand.
 
 ```ts
-// All variant children as a flat array (loads every page; default pageSize 200)
+// All variants below a product as a flat array (loads every page; default pageSize 200)
 const children = await client.products.listVariantChildren("PARENT-1");
 
 // Streaming, page by page — for large variant sets
 for await (const variant of client.products.listVariantChildrenAll("PARENT-1")) {
   render(variant);
 }
+
+// Dynamic variants: every level comes back — pick the purchasable leaves
+const sizes = (await client.products.listVariantChildren("HOODIE")).filter(
+  (v) => "sellable" in v && v.sellable,
+);
 ```
 
-A parent with no children resolves to `[]` (it never throws). Internally this
-runs `search("productType:VARIANT parentVariantId:<id>")` — space-separated
-fields are combined with implicit AND, per Emporix's query-parameter syntax.
+A product with no variants resolves to `[]` (it never throws). Internally this
+runs two searches, `productType:VARIANT parentVariantId:<id>` and
+`parentVariantPath:<id>` (space-separated fields are combined with implicit AND,
+per Emporix's query-parameter syntax); only one of them finds anything for a
+given product. The `parentVariantPath` search returning every level was checked
+against a live tenant on 2026-10-21.
 
 ## Localized writes
 
