@@ -1,5 +1,11 @@
 # @viu/emporix-mixins
 
+## 1.0.2
+
+### Patch Changes
+
+- [#422](https://github.com/viuteam/emporix-sdk/pull/422) [`0fa1ab5`](https://github.com/viuteam/emporix-sdk/commit/0fa1ab50e84e199fdd5f8afdd092dfc07831c99c) Thanks [@amnael1](https://github.com/amnael1)! - `schemaService({ types })` keeps the schemas of every listed entity type. It sent only the first one as the Schema Service's `type` filter, so the others were silently left out of the generated types.
+
 ## 1.0.1
 
 ### Patch Changes
