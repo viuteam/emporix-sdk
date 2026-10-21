@@ -36,6 +36,8 @@ export function schemaService(opts: {
   fetchImpl?: typeof fetch;
 }): MixinSource {
   const doFetch = opts.fetchImpl ?? fetch;
+  // Filtered here, not with the API's `type` query parameter: that takes one type.
+  const wanted = opts.types?.length ? new Set(opts.types) : undefined;
   return {
     async list(): Promise<RawMixin[]> {
       const all: SchemaLike[] = [];
@@ -43,7 +45,7 @@ export function schemaService(opts: {
       let page = 1;
       for (;;) {
         const res = await opts.client.schemas.listSchemas(
-          { pageNumber: page, pageSize, ...(opts.types?.[0] ? { type: opts.types[0] } : {}) },
+          { pageNumber: page, pageSize },
           opts.auth,
         );
         all.push(...res.items);
@@ -53,6 +55,7 @@ export function schemaService(opts: {
       }
       const out: RawMixin[] = [];
       for (const s of all) {
+        if (wanted && !s.types?.some((t) => wanted.has(t))) continue;
         const key = s.id;
         const version = s.metadata?.version;
         const url = s.metadata?.url;

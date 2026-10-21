@@ -76,6 +76,28 @@ describe("schemaService adapter", () => {
     expect(received).toEqual({ kind: "anonymous" });
   });
 
+  it("keeps the schemas of every entity type in the types filter, not only the first", async () => {
+    server.use(http.get("https://cdn/*", () => HttpResponse.json({ type: "object" })));
+    const schemas = [
+      { id: "productData", types: ["PRODUCT"], metadata: { version: 1, url: "https://cdn/p.v1.json" } },
+      { id: "roundData", types: ["MERCH_PRINT_ROUND"], metadata: { version: 1, url: "https://cdn/r.v1.json" } },
+      { id: "cartData", types: ["CART"], metadata: { version: 1, url: "https://cdn/c.v1.json" } },
+    ];
+    // honours the server-side `type` filter the way the Schema Service does
+    const client = {
+      schemas: {
+        listSchemas: async (q: { type?: string } = {}) => ({
+          items: schemas.filter((s) => !q.type || s.types.includes(q.type)),
+        }),
+      },
+    } as never;
+    const raw = await schemaService({ client, types: ["PRODUCT", "MERCH_PRINT_ROUND"] }).list();
+    expect(raw.map((r) => `${r.key}:${r.entity}`)).toEqual([
+      "productData:PRODUCT",
+      "roundData:MERCH_PRINT_ROUND",
+    ]);
+  });
+
   it("skips incomplete schemas and defaults entity to UNKNOWN when no types", async () => {
     server.use(http.get("https://cdn/ok.v2.json", () => HttpResponse.json({ type: "object" })));
     const client = fakeClient([
