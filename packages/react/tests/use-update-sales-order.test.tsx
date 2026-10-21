@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect, expectTypeOf, beforeAll, afterAll, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
@@ -40,14 +40,13 @@ function wrap() {
 }
 
 describe("useUpdateSalesOrder", () => {
-  it("PATCHes the order and returns the updated body", async () => {
+  it("PATCHes the order and resolves on the 204 without a body", async () => {
+    let body: unknown = null;
     server.use(
-      http.patch("https://api.emporix.io/order-v2/acme/salesorders/o-1", () =>
-        HttpResponse.json({
-          id: "o-1", orderNumber: "ORD-1", status: "SHIPPED",
-          currency: "CHF", totalPrice: { amount: 50, currency: "CHF" }, items: [],
-        }),
-      ),
+      http.patch("https://api.emporix.io/order-v2/acme/salesorders/o-1", async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
     );
     const { result } = renderHook(() => useUpdateSalesOrder(), { wrapper: wrap() });
     let r: unknown;
@@ -58,7 +57,9 @@ describe("useUpdateSalesOrder", () => {
         auth: auth.service(),
       });
     });
-    expect((r as { status?: string }).status).toBe("SHIPPED");
+    expect(body).toEqual({ status: "SHIPPED" });
+    expect(r).toBeUndefined();
+    expectTypeOf(result.current.data).toEqualTypeOf<void | undefined>();
   });
 
   it("throws synchronously when auth is missing", async () => {

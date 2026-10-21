@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect, expectTypeOf, beforeAll, afterAll, afterEach } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import { SalesOrdersService } from "../../src/services/orders";
@@ -60,16 +60,12 @@ describe("SalesOrdersService.get", () => {
 });
 
 describe("SalesOrdersService.update", () => {
-  it("PATCHes /salesorders/{id} with the body and returns the patched order", async () => {
+  it("PATCHes /salesorders/{id} with the body and resolves on the 204 without a body", async () => {
     let body: unknown = null;
     server.use(
       http.patch("https://api.emporix.io/order-v2/acme/salesorders/o-1", async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({
-          id: "o-1", orderNumber: "ORD-1", status: "SHIPPED",
-          currency: "CHF", totalPrice: { amount: 99, currency: "CHF" }, items: [],
-          mixins: { fulfilment: { trackingNumber: "T123" } },
-        });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
     const r = await svc().update(
@@ -81,7 +77,8 @@ describe("SalesOrdersService.update", () => {
       status: "SHIPPED",
       mixins: { fulfilment: { trackingNumber: "T123" } },
     });
-    expect(r.status).toBe("SHIPPED");
+    expect(r).toBeUndefined();
+    expectTypeOf(r).toBeVoid();
   });
 
   it("sends ?recalculate=false when opts.recalculate === false", async () => {
@@ -89,10 +86,7 @@ describe("SalesOrdersService.update", () => {
     server.use(
       http.patch("https://api.emporix.io/order-v2/acme/salesorders/o-1", ({ request }) => {
         q = new URL(request.url).searchParams;
-        return HttpResponse.json({
-          id: "o-1", orderNumber: "ORD-1", status: "CONFIRMED",
-          currency: "CHF", totalPrice: { amount: 99, currency: "CHF" }, items: [],
-        });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
     await svc().update("o-1", { status: "CONFIRMED" }, SERVICE, { recalculate: false });
@@ -104,10 +98,7 @@ describe("SalesOrdersService.update", () => {
     server.use(
       http.patch("https://api.emporix.io/order-v2/acme/salesorders/o-1", ({ request }) => {
         q = new URL(request.url).searchParams;
-        return HttpResponse.json({
-          id: "o-1", orderNumber: "ORD-1", status: "CONFIRMED",
-          currency: "CHF", totalPrice: { amount: 99, currency: "CHF" }, items: [],
-        });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
     await svc().update("o-1", { status: "CONFIRMED" }, SERVICE);

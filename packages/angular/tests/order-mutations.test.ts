@@ -48,7 +48,7 @@ function boot(signedIn: boolean, overrides: Record<string, unknown> = {}): void 
     cancel: vi.fn(async () => undefined),
     transition: vi.fn(async () => undefined),
     salesOrderGet: vi.fn(async () => ({ id: "EON1" })),
-    salesOrderUpdate: vi.fn(async () => ({ id: "EON1" })),
+    salesOrderUpdate: vi.fn(async () => undefined), // the PATCH answers 204
     ...overrides,
   } as unknown as Calls;
   const client = {
