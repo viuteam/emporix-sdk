@@ -1,5 +1,19 @@
 # @viu/emporix-sdk-react
 
+## 4.7.0
+
+### Minor Changes
+
+- [#422](https://github.com/viuteam/emporix-sdk/pull/422) [`508a6c7`](https://github.com/viuteam/emporix-sdk/commit/508a6c71dcfb2049f53cd5fb8716eae984875c9d) Thanks [@amnael1](https://github.com/amnael1)! - **Type change — `salesOrders.update` resolves to `void`.** The `PATCH` answers `204` without a body, so it always resolved to `undefined` despite promising an `Order`. `useUpdateSalesOrder` (React) and `updateSalesOrder` of the Angular order mutations follow; both still invalidate the sales-order queries, so a mounted read refetches the order. Code that read the result was already broken; it now fails to compile instead.
+
+### Patch Changes
+
+- [#422](https://github.com/viuteam/emporix-sdk/pull/422) [`0bdd13a`](https://github.com/viuteam/emporix-sdk/commit/0bdd13a7d906853941958d8cf95c6331984b52f8) Thanks [@amnael1](https://github.com/amnael1)! - Variants of both models.
+  
+  - **`listVariantChildren` finds dynamic variants.** It searched only `productType:VARIANT parentVariantId:<id>`, so a DYNAMIC_VARIANT tree answered `[]`. It now also searches `parentVariantPath:<id>`, which returns the DYNAMIC_VARIANT descendants of every level (checked against a live tenant). Both results are typed as the new `ProductVariant`. `useVariantChildren` and `injectVariantChildren` pick this up.
+  - **`Product` covers all five product types.** `VARIANT` and `DYNAMIC_VARIANT` products were missing from the union although every read returns them. `ProductVariant` carries `parentVariantId` and, for dynamic variants, `parentVariantPath`.
+  - **`products.get(id, auth)`.** The auth context can go second. `get(id, undefined, auth)` keeps working and is deprecated — its second parameter was never used.
+
 ## 4.6.3
 
 ### Patch Changes

@@ -1,5 +1,27 @@
 # @viu/emporix-sdk
 
+## 4.7.0
+
+### Minor Changes
+
+- [#422](https://github.com/viuteam/emporix-sdk/pull/422) [`0bdd13a`](https://github.com/viuteam/emporix-sdk/commit/0bdd13a7d906853941958d8cf95c6331984b52f8) Thanks [@amnael1](https://github.com/amnael1)! - Variants of both models.
+  
+  - **`listVariantChildren` finds dynamic variants.** It searched only `productType:VARIANT parentVariantId:<id>`, so a DYNAMIC_VARIANT tree answered `[]`. It now also searches `parentVariantPath:<id>`, which returns the DYNAMIC_VARIANT descendants of every level (checked against a live tenant). Both results are typed as the new `ProductVariant`. `useVariantChildren` and `injectVariantChildren` pick this up.
+  - **`Product` covers all five product types.** `VARIANT` and `DYNAMIC_VARIANT` products were missing from the union although every read returns them. `ProductVariant` carries `parentVariantId` and, for dynamic variants, `parentVariantPath`.
+  - **`products.get(id, auth)`.** The auth context can go second. `get(id, undefined, auth)` keeps working and is deprecated — its second parameter was never used.
+
+- [#422](https://github.com/viuteam/emporix-sdk/pull/422) [`508a6c7`](https://github.com/viuteam/emporix-sdk/commit/508a6c71dcfb2049f53cd5fb8716eae984875c9d) Thanks [@amnael1](https://github.com/amnael1)! - **Type change — `salesOrders.update` resolves to `void`.** The `PATCH` answers `204` without a body, so it always resolved to `undefined` despite promising an `Order`. `useUpdateSalesOrder` (React) and `updateSalesOrder` of the Angular order mutations follow; both still invalidate the sales-order queries, so a mounted read refetches the order. Code that read the result was already broken; it now fails to compile instead.
+
+- [#422](https://github.com/viuteam/emporix-sdk/pull/422) [`8e0ef4d`](https://github.com/viuteam/emporix-sdk/commit/8e0ef4dc42b80ace4eac6a8132a71340a36cb2d9) Thanks [@amnael1](https://github.com/amnael1)! - Align the Schema Service writes with the spec, and add `EmporixConflictError`.
+  
+  - **`patchInstance` sends RFC-6902 operations.** It sent a partial instance, which the API does not take; it now takes a `CustomInstancePatch` (`[{ op, path, value }]`) and resolves on the `204`.
+  - **Type change — the writes resolve to what the API answers.** `createSchema`, `createCustomEntity` and `createInstance` resolve to the `201`'s id envelope (`SchemaCreated`, `CustomEntityCreated`, `CustomInstanceCreated`). `updateCustomEntity` and `replaceInstance` are upserts: the id envelope on a `201`, `undefined` on a `204`. `updateSchema`, `setSchemaTypes` and `patchInstance` resolve to `void`. They promised the full resource before, which never came back.
+  - **Type change — the drafts follow the spec.** `SchemaDraft` takes the mixin key `id`; `CustomInstanceDraft` takes an own `id`, `owner` and `metadata.mixins`; `replaceInstance` takes the new `CustomInstanceReplace` with `metadata.version` for optimistic locking. `CustomEntityDraft` now requires `id` and has no `attributes` (the API takes neither shape otherwise); `updateCustomEntity` takes the new `CustomEntityUpdate` (`name`, `metadata.version`).
+  - **Custom entity types as schema targets.** `SchemaDraft.types`, `setSchemaTypes` and the `listSchemas` filter take a `SchemaTargetType` — a `SchemaTypeName` or the id of a custom entity, which the spec allows.
+  - **`EmporixConflictError`.** A `409` — a stale `metadata.version`, an id that already exists — is now thrown as `EmporixConflictError` instead of a plain `EmporixError`. It extends `EmporixError`, so existing catches still work.
+  
+  The type changes only affect code that, per the spec, did not work before — hence a minor rather than a major.
+
 ## 4.6.7
 
 ### Patch Changes
