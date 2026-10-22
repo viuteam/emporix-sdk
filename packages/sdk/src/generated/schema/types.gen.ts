@@ -185,6 +185,13 @@ export type AbstractSchemaRequest = {
 
 export type SchemaRequest = AbstractSchemaRequest & {
     /**
+     * When `true`, custom instances or products that use this mixin may store per-site overlays under keys in the form `{mixinName}__{siteCode}`.
+     * On custom-instance writes, overlay keys are rejected when this flag is not `true`. Product Service does not enforce this flag on product writes.
+     * If omitted or set to `null`, the value behaves like `false`.
+     *
+     */
+    siteAware?: boolean | null;
+    /**
      * List of attributes related to the schema.
      */
     attributes: Array<SchemaAttribute>;
@@ -265,6 +272,12 @@ export type AbstractSchemaResponse = {
 };
 
 export type SchemaResponse = AbstractSchemaResponse & {
+    /**
+     * When `true`, custom instances or products that use this mixin may store per-site overlays under keys in the form `{mixinName}__{siteCode}`.
+     * Historical schemas may omit the field (`null`), which behaves like `false`.
+     *
+     */
+    siteAware?: boolean | null;
     /**
      * List of attributes related to the schema.
      */
@@ -352,12 +365,18 @@ export type CustomInstanceCreation = {
     };
     owner?: CustomInstanceOwnerRequest;
     /**
-     * A key-value map of additional attributes.
+     * Key-value map of mixin payloads. For site-aware schemas, include per-site overlays as additional keys in the form `{mixinName}__{siteCode}`.
+     * Overlay values are validated against the base mixin JSON Schema.
+     *
      */
-    mixins?: string;
+    mixins?: {
+        [key: string]: unknown;
+    };
     metadata?: {
         /**
-         * A key-value map, where key is a mixin name and value is a link to the mixin schema.
+         * Key-value map where each key is a base mixin name and each value is a link to the mixin schema.
+         * Do not add `{mixinName}__{siteCode}` keys here. Site overlays reuse the base schema URL.
+         *
          */
         mixins?: {
             [key: string]: unknown;
@@ -374,16 +393,22 @@ export type CustomInstanceUpdate = {
     };
     owner?: CustomInstanceOwnerRequest;
     /**
-     * A key-value map of additional attributes.
+     * Key-value map of mixin payloads. For site-aware schemas, include per-site overlays as additional keys in the form `{mixinName}__{siteCode}`.
+     * Overlay values are validated against the base mixin JSON Schema.
+     *
      */
-    mixins?: string;
+    mixins?: {
+        [key: string]: unknown;
+    };
     metadata?: {
         /**
          * Version of the custom instance.  If provided, it will be validated against the current entity version.
          */
         version?: number;
         /**
-         * A key-value map, where key is a mixin name and value is a link to the mixin schema.
+         * Key-value map where each key is a base mixin name and each value is a link to the mixin schema.
+         * Do not add `{mixinName}__{siteCode}` keys here. Site overlays reuse the base schema URL.
+         *
          */
         mixins?: {
             [key: string]: unknown;
@@ -444,9 +469,13 @@ export type CustomInstanceResponse = {
     type?: string;
     owner?: CustomInstanceOwner;
     /**
-     * A key-value map of additional attributes.
+     * Key-value map of mixin payloads. Without `emporix-site`, base keys and `{mixinName}__{siteCode}` overlay keys are returned as stored.
+     * With `emporix-site`, overlays for that site are deep-merged into the base keys and only the merged base keys are returned.
+     *
      */
-    mixins?: string;
+    mixins?: {
+        [key: string]: unknown;
+    };
     /**
      * List of media IDs assigned to the custom instance.
      */
@@ -549,9 +578,13 @@ export type CustomInstanceResponseWritable = {
      */
     type?: string;
     /**
-     * A key-value map of additional attributes.
+     * Key-value map of mixin payloads. Without `emporix-site`, base keys and `{mixinName}__{siteCode}` overlay keys are returned as stored.
+     * With `emporix-site`, overlays for that site are deep-merged into the base keys and only the merged base keys are returned.
+     *
      */
-    mixins?: string;
+    mixins?: {
+        [key: string]: unknown;
+    };
     /**
      * List of media IDs assigned to the custom instance.
      */
@@ -716,6 +749,16 @@ export type TraitContentLanguageHeader = string;
  *
  */
 export type TraitAcceptLanguageHeader = string;
+
+/**
+ * Site code used to resolve site-aware mixin overlays. The following behaviors apply:
+ * * When set – each `{mixinName}__{siteCode}` overlay is deep-merged into the base `{mixinName}` value. Nested objects are merged recursively. Arrays and other non-object values are replaced by the overlay (not concatenated or merged by index). Non-null site values override base values for the same path. A null overlay node does not clear the base value. Only the merged base keys are returned.
+ * * When omitted or blank – base mixin keys and overlay keys are returned unmerged.
+ *
+ * `Accept-Language` is applied after the site merge when `emporix-site` is present.
+ *
+ */
+export type TraitEmporixSiteHeader = string;
 
 /**
  * Flag indicating whether the total number of retrieved items should be returned.
@@ -2132,6 +2175,15 @@ export type GetSchemaRetrieveCustomInstancesData = {
          *
          */
         'Accept-Language'?: string;
+        /**
+         * Site code used to resolve site-aware mixin overlays. The following behaviors apply:
+         * * When set – each `{mixinName}__{siteCode}` overlay is deep-merged into the base `{mixinName}` value. Nested objects are merged recursively. Arrays and other non-object values are replaced by the overlay (not concatenated or merged by index). Non-null site values override base values for the same path. A null overlay node does not clear the base value. Only the merged base keys are returned.
+         * * When omitted or blank – base mixin keys and overlay keys are returned unmerged.
+         *
+         * `Accept-Language` is applied after the site merge when `emporix-site` is present.
+         *
+         */
+        'emporix-site'?: string;
     };
     path: {
         /**
@@ -2418,6 +2470,15 @@ export type GetSchemaRetrieveCustomInstanceData = {
          *
          */
         'Accept-Language'?: string;
+        /**
+         * Site code used to resolve site-aware mixin overlays. The following behaviors apply:
+         * * When set – each `{mixinName}__{siteCode}` overlay is deep-merged into the base `{mixinName}` value. Nested objects are merged recursively. Arrays and other non-object values are replaced by the overlay (not concatenated or merged by index). Non-null site values override base values for the same path. A null overlay node does not clear the base value. Only the merged base keys are returned.
+         * * When omitted or blank – base mixin keys and overlay keys are returned unmerged.
+         *
+         * `Accept-Language` is applied after the site merge when `emporix-site` is present.
+         *
+         */
+        'emporix-site'?: string;
     };
     path: {
         /**
@@ -2676,6 +2737,15 @@ export type PostSchemaSearchCustomInstancesData = {
          *
          */
         'Accept-Language'?: string;
+        /**
+         * Site code used to resolve site-aware mixin overlays. The following behaviors apply:
+         * * When set – each `{mixinName}__{siteCode}` overlay is deep-merged into the base `{mixinName}` value. Nested objects are merged recursively. Arrays and other non-object values are replaced by the overlay (not concatenated or merged by index). Non-null site values override base values for the same path. A null overlay node does not clear the base value. Only the merged base keys are returned.
+         * * When omitted or blank – base mixin keys and overlay keys are returned unmerged.
+         *
+         * `Accept-Language` is applied after the site merge when `emporix-site` is present.
+         *
+         */
+        'emporix-site'?: string;
     };
     path: {
         /**

@@ -393,7 +393,7 @@ export type ProductVariantAttributes = {
 };
 
 /**
- * Custom product attributes, keyed by mixin name.
+ * Custom product attributes, keyed by mixin name. For site-aware mixins, include per-site overlays as additional keys in the form `{mixinName}__{siteCode}`.
  *
  * On a partial update, omitted mixin names remain on the product. Sent fields are merged recursively. A `null` value does not remove a mixin. To remove a mixin, send a full product replacement and omit the mixin name.
  */
@@ -413,7 +413,9 @@ export type ProductVariantMixins = {
  */
 export type ProductMetadataCore = {
     /**
-     * Links to the mixin schemas.
+     * Links to the mixin schemas, keyed by base mixin name.
+     * Do not add `{mixinName}__{siteCode}` keys here. Site overlays reuse the base schema URL.
+     *
      */
     mixins?: {
         [key: string]: unknown;
@@ -1315,6 +1317,16 @@ export type HeaderContentLanguage = string;
 export type HeaderAcceptLanguage = string;
 
 /**
+ * Site code used to resolve site-aware mixin overlays. The following behaviors apply:
+ * * When set – each `{mixinName}__{siteCode}` overlay is deep-merged into the base `{mixinName}` value. Nested objects are merged recursively. Arrays and other non-object values are replaced by the overlay (not concatenated or merged by index). Non-null site values override base values for the same path. A null overlay node does not clear the base value. Only the merged base keys are returned.
+ * * When omitted or blank – base mixin keys and overlay keys are returned unmerged.
+ *
+ * `Accept-Language` is applied after the site merge when `emporix-site` is present.
+ *
+ */
+export type HeaderEmporixSite = string;
+
+/**
  * Flag indicating whether the total number of retrieved results should be returned.
  */
 export type HeaderXTotalCount = boolean;
@@ -1463,6 +1475,15 @@ export type PostProductSearchProductsData = {
          * The Accept-Language request HTTP header defines which languages the client is able to understand, and which locale variant is preferred. If empty, the default system language is assumed. It can be a priority list working as a fallback mechanism.
          */
         'Accept-Language'?: string;
+        /**
+         * Site code used to resolve site-aware mixin overlays. The following behaviors apply:
+         * * When set – each `{mixinName}__{siteCode}` overlay is deep-merged into the base `{mixinName}` value. Nested objects are merged recursively. Arrays and other non-object values are replaced by the overlay (not concatenated or merged by index). Non-null site values override base values for the same path. A null overlay node does not clear the base value. Only the merged base keys are returned.
+         * * When omitted or blank – base mixin keys and overlay keys are returned unmerged.
+         *
+         * `Accept-Language` is applied after the site merge when `emporix-site` is present.
+         *
+         */
+        'emporix-site'?: string;
     };
     path: {
         /**
@@ -1574,6 +1595,15 @@ export type GetProductListProductsData = {
          * The Accept-Language request HTTP header defines which languages the client is able to understand, and which locale variant is preferred. If empty, the default system language is assumed. It can be a priority list working as a fallback mechanism.
          */
         'Accept-Language'?: string;
+        /**
+         * Site code used to resolve site-aware mixin overlays. The following behaviors apply:
+         * * When set – each `{mixinName}__{siteCode}` overlay is deep-merged into the base `{mixinName}` value. Nested objects are merged recursively. Arrays and other non-object values are replaced by the overlay (not concatenated or merged by index). Non-null site values override base values for the same path. A null overlay node does not clear the base value. Only the merged base keys are returned.
+         * * When omitted or blank – base mixin keys and overlay keys are returned unmerged.
+         *
+         * `Accept-Language` is applied after the site merge when `emporix-site` is present.
+         *
+         */
+        'emporix-site'?: string;
     };
     path: {
         /**
@@ -2163,6 +2193,15 @@ export type GetProductRetrieveProductData = {
          * The Accept-Language request HTTP header defines which languages the client is able to understand, and which locale variant is preferred. If empty, the default system language is assumed. It can be a priority list working as a fallback mechanism.
          */
         'Accept-Language'?: string;
+        /**
+         * Site code used to resolve site-aware mixin overlays. The following behaviors apply:
+         * * When set – each `{mixinName}__{siteCode}` overlay is deep-merged into the base `{mixinName}` value. Nested objects are merged recursively. Arrays and other non-object values are replaced by the overlay (not concatenated or merged by index). Non-null site values override base values for the same path. A null overlay node does not clear the base value. Only the merged base keys are returned.
+         * * When omitted or blank – base mixin keys and overlay keys are returned unmerged.
+         *
+         * `Accept-Language` is applied after the site merge when `emporix-site` is present.
+         *
+         */
+        'emporix-site'?: string;
     };
     path: {
         /**
