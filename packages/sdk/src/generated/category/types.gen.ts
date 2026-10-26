@@ -2292,11 +2292,24 @@ export type GetCategoryTreeRetrieveCategoryTreeData = {
          *
          */
         categoryIds?: Array<string>;
+        /**
+         * Category type used to filter the category trees. If not provided, category trees of all types are returned.
+         * You can combine this parameter with `categoryIds` to return trees of the specified type that include at least one of the specified categories.
+         * The following category types are available:
+         * * `STANDARD`
+         * * `CLASSIFICATION`
+         *
+         */
+        type?: 'STANDARD' | 'CLASSIFICATION';
     };
     url: '/category/{tenant}/category-trees';
 };
 
 export type GetCategoryTreeRetrieveCategoryTreeErrors = {
+    /**
+     * The request was unsuccessful because the provided category type is invalid.
+     */
+    400: ErrorResponse;
     /**
      * Permission denied due to insufficient rights. This may happen when request does not contain sufficient scopes for given query values.
      */

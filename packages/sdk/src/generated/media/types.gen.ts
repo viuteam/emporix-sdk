@@ -141,6 +141,10 @@ export type AssetDetailsGet = AssetDetailsCreate & {
      * The ETAG digest for the asset.
      */
     etag?: string;
+    /**
+     * Lowercase hex MD5 of the asset bytes. Empty when the store did not return a content digest.
+     */
+    md5?: string;
 };
 
 /**
