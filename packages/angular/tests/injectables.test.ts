@@ -46,7 +46,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     searchByName: vi.fn(async () => page([{ id: "p1" }])),
     productSearch: vi.fn(async () => page([{ id: "p1" }])),
     listForProduct: vi.fn(async () => page([{ id: "m1" }])),
-    categoryTree: vi.fn(async () => [{ id: "c1" }]),
+    categoryTree: vi.fn(async (_filter?: unknown) => [{ id: "c1" }]),
     matchByContext: vi.fn(async () => [{ priceId: "pr1" }]),
     availabilityGet: vi.fn(async () => ({ available: true })),
     cartGet: vi.fn(async () => ({ id: "cart-1", items: [] })),
@@ -75,7 +75,7 @@ function setup(overrides: Record<string, unknown> = {}) {
       searchByName: calls.searchByName,
       search: calls.productSearch,
     },
-    categories: { tree: calls.categoryTree },
+    categories: { listTrees: calls.categoryTree },
     media: { listForProduct: calls.listForProduct },
     prices: { matchByContext: calls.matchByContext },
     availability: { get: calls.availabilityGet },
@@ -194,6 +194,19 @@ describe("catalog injectables", () => {
   it("injectCategoryTree fetches once", async () => {
     TestBed.runInInjectionContext(() => injectCategoryTree());
     await settleUntil(() => expect(ctx.calls.categoryTree).toHaveBeenCalledOnce());
+    expect(ctx.calls.categoryTree.mock.calls[0]?.[0]).toBeUndefined();
+  });
+
+  it("injectCategoryTree refetches when its filter signal changes", async () => {
+    const filter = signal<{ type?: "STANDARD" | "CLASSIFICATION" }>({ type: "STANDARD" });
+    TestBed.runInInjectionContext(() => injectCategoryTree({ filter }));
+    await settleUntil(() => expect(ctx.calls.categoryTree).toHaveBeenCalledOnce());
+    filter.set({ type: "CLASSIFICATION" });
+    await settleUntil(() => expect(ctx.calls.categoryTree).toHaveBeenCalledTimes(2));
+    expect(ctx.calls.categoryTree.mock.calls.map((c) => c[0])).toEqual([
+      { type: "STANDARD" },
+      { type: "CLASSIFICATION" },
+    ]);
   });
 });
 

@@ -6,6 +6,7 @@ import {
   type PaginatedItems,
   type Category,
   type CategoryNode,
+  type CategoryTreeListParams,
   type Product,
   type QueryFor,
 } from "@viu/emporix-sdk";
@@ -90,13 +91,20 @@ export function useCategoriesInfinite(
  * declared the wrong one until 2026-08-04, which made `data[0].subcategories`
  * invisible to consumers and `data[0].parentId` compile while always being
  * `undefined`.
+ *
+ * `filter` narrows the trees by category type, category ids or publication —
+ * see `client.categories.listTrees` for what each one costs. Without a filter
+ * the cache key is the one this hook has always had.
  */
-export function useCategoryTree(options: QueryOpts = {}): UseQueryResult<CategoryNode[]> {
+export function useCategoryTree(
+  options: QueryOpts & { filter?: CategoryTreeListParams } = {},
+): UseQueryResult<CategoryNode[]> {
   const { client } = useEmporix();
+  const { filter } = options;
   return useEmporixQuery({
-    mode: "read-auth", site: "full", resource: "category-tree", args: [],
+    mode: "read-auth", site: "full", resource: "category-tree", args: filter === undefined ? [] : [filter],
     ...(options.auth ? { authOverride: options.auth } : {}),
-    queryFn: (ctx) => client.categories.tree(ctx),
+    queryFn: (ctx) => client.categories.listTrees(filter, ctx),
     staleTime: CATEGORIES_STALE_TIME,
   });
 }

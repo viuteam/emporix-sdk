@@ -43,7 +43,7 @@ function makeClient() {
     categories: {
       get: fn(),
       list: listFn(),
-      tree: vi.fn(async () => []),
+      listTrees: vi.fn(async () => []),
       productsIn: listFn(),
       parents: vi.fn(async () => []),
       childCategories: vi.fn(async () => []),
@@ -205,7 +205,7 @@ const guestReads: Array<{
   { name: "injectVariantChildren", resource: "variant-children", run: () => I.injectVariantChildren(signal("v1"), signal({})), called: () => client.products.listVariantChildren },
   { name: "injectCategory", resource: "category", run: () => I.injectCategory(signal("c1")), called: () => client.categories.get },
   { name: "injectCategories", resource: "categories", run: () => I.injectCategories(signal({})), called: () => client.categories.list },
-  { name: "injectCategoryTree", resource: "category-tree", run: () => I.injectCategoryTree(), called: () => client.categories.tree },
+  { name: "injectCategoryTree", resource: "category-tree", run: () => I.injectCategoryTree(), called: () => client.categories.listTrees },
   { name: "injectCategoryParents", resource: "category-parents", run: () => I.injectCategoryParents(signal("c1")), called: () => client.categories.parents },
   { name: "injectChildCategories", resource: "child-categories", run: () => I.injectChildCategories(signal("c1")), called: () => client.categories.childCategories },
   { name: "injectSubcategories", resource: "subcategories", run: () => I.injectSubcategories(signal("c1"), signal({})), called: () => client.categories.subcategories },

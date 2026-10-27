@@ -12,6 +12,7 @@ import {
   useCategories,
   useCategoryParents,
   useChildCategories,
+  useCategoryTree,
   useCategoryTreeById,
   useProductsInCategory,
   useProductsInCategoryInfinite,
@@ -116,6 +117,29 @@ describe("category hooks", () => {
     const { result } = renderHook(() => useCategoryTreeById("c1"), { wrapper: wrap() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.id).toBe("c1");
+  });
+
+  it("useCategoryTree keeps a filtered tree in its own cache entry", async () => {
+    const searches: string[] = [];
+    server.use(
+      http.get("https://api.emporix.io/category/acme/category-trees", ({ request }) => {
+        const search = new URL(request.url).search;
+        searches.push(search);
+        return HttpResponse.json([{ id: search === "" ? "all" : "classification" }]);
+      }),
+    );
+    const { result } = renderHook(
+      () => ({
+        all: useCategoryTree(),
+        classification: useCategoryTree({ filter: { type: "CLASSIFICATION" } }),
+      }),
+      { wrapper: wrap() },
+    );
+    await waitFor(() => expect(result.current.classification.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.all.isSuccess).toBe(true));
+    expect(result.current.all.data?.[0]?.id).toBe("all");
+    expect(result.current.classification.data?.[0]?.id).toBe("classification");
+    expect([...searches].sort()).toEqual(["", "?type=CLASSIFICATION"]);
   });
 });
 

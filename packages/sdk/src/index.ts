@@ -119,6 +119,7 @@ export type {
   CategoryPatchInput,
   CategoryCreated,
   CategoryTreeSearchInput,
+  CategoryTreeListParams,
   CategoryAssignment,
   CategoryAssignmentInput,
   CategoryAssignmentBulkInput,
