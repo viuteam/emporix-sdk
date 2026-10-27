@@ -91,7 +91,7 @@ export type TaxClass = {
      *
      * * If the `Content-Language` header is set to `*`, then the name should be provided as a map of translations, where each key is a language code and the value is the name in its respective language.
      * * If the `Content-Language` header is set to a specific language, the name should be provided as a string.
-     * * If the `Content-Language` header is empty, the endpoint will asume that the name is provided in the default language defined in the Configuration Service.
+     * * If the `Content-Language` header is empty, the endpoint will assume that the name is provided in the default language defined in the Configuration Service.
      *
      * **Note**: You can provide the names only in languages defined in the Configuration Service. In case the name is provided in a language that is not defined in the Configuration Service, the request will be rejected.
      */
@@ -103,7 +103,7 @@ export type TaxClass = {
      *
      * * If the `Content-Language` header is set to `*`, then the description should be provided as a map of translations, where each key is a language code and the value is the description in its respective language.
      * * If the `Content-Language` header is set to a specific language, the description should be provided as a string.
-     * * If the `Content-Language` header is empty, the endpoint will asume that the description is provided in the default language defined in the Configuration Service.
+     * * If the `Content-Language` header is empty, the endpoint will assume that the description is provided in the default language defined in the Configuration Service.
      *
      * **Note**: You can provide the descriptions only in languages defined in the Configuration Service. In case the description is provided in a language that is not defined in the Configuration Service, the request will be rejected.
      */
@@ -121,7 +121,7 @@ export type TaxClass = {
      */
     rate: number;
     /**
-     * Indicates that the tax class is a default tax class for the tax configuration. Only one tax class can be marked as a default for a particular tax configuration.
+     * Indicates whether the tax class is the default tax class for the tax configuration. Only one tax class can be marked as default for a particular tax configuration.
      */
     isDefault?: boolean;
 };
@@ -131,7 +131,7 @@ export type TaxClass = {
  */
 export type TaxCreationResponse = {
     /**
-     * Code of country for which the tax configuration has been created.
+     * Code of the country for which the tax configuration has been created.
      */
     locationCode?: string;
 };
@@ -179,7 +179,7 @@ export type TaxCalculationRequest = {
         /**
          * Original price value.
          *
-         * This field should contain by a number where the cent part is separated by a dot sign - such as `12.99`.
+         * This field must contain a number where the cent part is separated by a dot — for example `12.99`.
          *
          * **Note**: The cent part of the price is not limited to two digits. You can specify the price with any precision.
          */
@@ -217,8 +217,8 @@ export type TaxCalculationResponse = {
          *
          * | Value | Description |
          * | --- | --- |
-         * | `true` | Prices will be expressed as gross values. |
-         * | `false` | Prices will be expressed as net values. |
+         * | `true` | Prices are expressed as gross values. |
+         * | `false` | Prices are expressed as net values. |
          */
         includesTax?: boolean;
         /**
@@ -264,7 +264,7 @@ export type TaxUpdate = TaxCreation & {
 };
 
 /**
- * Your Emporix tenant name.
+ * Your Emporix tenant's name.
  *
  * **Note**: The tenant should always be written in lowercase.
  *
@@ -283,7 +283,7 @@ export type TraitPagedPageNumber = number;
  *
  * Possible values:
  * * `{fieldName}`
- * * `{fieldName:asc`
+ * * `{fieldName}:asc`
  * * `{fieldName}:desc`
  *
  * **Note:** If you want to sort the results by localized properties, the possible values are:
@@ -312,7 +312,7 @@ export type TraitPagedPageSize = number;
  *
  * * If the `Content-Language` header is set to `*`, the localized fields should be provided as maps of translations, where the keys are language codes and values are the fields in their respective languages.
  * * If the `Content-Language` header is set to a specific language, the localized fields should be provided as strings.
- * * If the `Content-Language` header is empty, the endpoint will asume that the localized fields are provided in the default language defined in the Configuration Service.
+ * * If the `Content-Language` header is empty, the endpoint will assume that the localized fields are provided in the default language defined in the Configuration Service.
  *
  * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request will be rejected.
  *
@@ -338,7 +338,7 @@ export type TraitXTotalCountHeader = boolean;
  * Tax class names. When specified, only tax configurations containing the specified tax class names will be returned.
  *
  * **Important**: See how the `Accept-Language` header influences this parameter:
- * * If The `Accept-Language` header is set to `*`, you need to specify a language in this parameter.
+ * * If the `Accept-Language` header is set to `*`, you need to specify a language in this parameter.
  *
  * For example, if the `Accept-Language` header is set to `*` and you want to find English names containing the word "Reduced", this parameter should be set to "name.en=Reduced"
  *
@@ -379,7 +379,7 @@ export type TraitTaxClassCodeQueryParam = string;
  * Tax class descriptions. When specified, only tax configurations containing the specified tax class descriptions will be returned.
  *
  * **Important**: See how the `Accept-Language` header influences this parameter:
- * * If The `Accept-Language` header is set to `*`, you need to specify a language in this parameter.
+ * * If the `Accept-Language` header is set to `*`, you need to specify a language in this parameter.
  *
  * For example, if the `Accept-Language` header is set to `*` and you want to find English descriptions containing the word "Fruit", this parameter should be set to "description.en=Fruit"
  *
@@ -411,7 +411,7 @@ export type GetTaxListConfigurationsData = {
     };
     path: {
         /**
-         * Your Emporix tenant name.
+         * Your Emporix tenant's name.
          *
          * **Note**: The tenant should always be written in lowercase.
          *
@@ -434,7 +434,7 @@ export type GetTaxListConfigurationsData = {
          *
          * Possible values:
          * * `{fieldName}`
-         * * `{fieldName:asc`
+         * * `{fieldName}:asc`
          * * `{fieldName}:desc`
          *
          * **Note:** If you want to sort the results by localized properties, the possible values are:
@@ -456,7 +456,7 @@ export type GetTaxListConfigurationsData = {
          * Tax class names. When specified, only tax configurations containing the specified tax class names will be returned.
          *
          * **Important**: See how the `Accept-Language` header influences this parameter:
-         * * If The `Accept-Language` header is set to `*`, you need to specify a language in this parameter.
+         * * If the `Accept-Language` header is set to `*`, you need to specify a language in this parameter.
          *
          * For example, if the `Accept-Language` header is set to `*` and you want to find English names containing the word "Reduced", this parameter should be set to "name.en=Reduced"
          *
@@ -493,7 +493,7 @@ export type GetTaxListConfigurationsData = {
          * Tax class descriptions. When specified, only tax configurations containing the specified tax class descriptions will be returned.
          *
          * **Important**: See how the `Accept-Language` header influences this parameter:
-         * * If The `Accept-Language` header is set to `*`, you need to specify a language in this parameter.
+         * * If the `Accept-Language` header is set to `*`, you need to specify a language in this parameter.
          *
          * For example, if the `Accept-Language` header is set to `*` and you want to find English descriptions containing the word "Fruit", this parameter should be set to "description.en=Fruit"
          *
@@ -550,7 +550,7 @@ export type PostTaxCreateConfigurationData = {
          *
          * * If the `Content-Language` header is set to `*`, the localized fields should be provided as maps of translations, where the keys are language codes and values are the fields in their respective languages.
          * * If the `Content-Language` header is set to a specific language, the localized fields should be provided as strings.
-         * * If the `Content-Language` header is empty, the endpoint will asume that the localized fields are provided in the default language defined in the Configuration Service.
+         * * If the `Content-Language` header is empty, the endpoint will assume that the localized fields are provided in the default language defined in the Configuration Service.
          *
          * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request will be rejected.
          *
@@ -559,7 +559,7 @@ export type PostTaxCreateConfigurationData = {
     };
     path: {
         /**
-         * Your Emporix tenant name.
+         * Your Emporix tenant's name.
          *
          * **Note**: The tenant should always be written in lowercase.
          *
@@ -591,7 +591,7 @@ export type PostTaxCreateConfigurationErrors = {
      */
     403: ErrorMessage;
     /**
-     * Conflict
+     * The request could not be completed due to a conflict with the current state of the target resource.
      */
     409: ErrorMessage;
     /**
@@ -615,7 +615,7 @@ export type DeleteTaxRemoveConfigurationByLocationData = {
     body?: never;
     path: {
         /**
-         * Your Emporix tenant name.
+         * Your Emporix tenant's name.
          *
          * **Note**: The tenant should always be written in lowercase.
          *
@@ -678,7 +678,7 @@ export type GetTaxRetrieveConfigurationByLocationData = {
     };
     path: {
         /**
-         * Your Emporix tenant name.
+         * Your Emporix tenant's name.
          *
          * **Note**: The tenant should always be written in lowercase.
          *
@@ -738,7 +738,7 @@ export type PutTaxUpdateConfigurationByLocationData = {
          *
          * * If the `Content-Language` header is set to `*`, the localized fields should be provided as maps of translations, where the keys are language codes and values are the fields in their respective languages.
          * * If the `Content-Language` header is set to a specific language, the localized fields should be provided as strings.
-         * * If the `Content-Language` header is empty, the endpoint will asume that the localized fields are provided in the default language defined in the Configuration Service.
+         * * If the `Content-Language` header is empty, the endpoint will assume that the localized fields are provided in the default language defined in the Configuration Service.
          *
          * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request will be rejected.
          *
@@ -747,7 +747,7 @@ export type PutTaxUpdateConfigurationByLocationData = {
     };
     path: {
         /**
-         * Your Emporix tenant name.
+         * Your Emporix tenant's name.
          *
          * **Note**: The tenant should always be written in lowercase.
          *
@@ -787,7 +787,7 @@ export type PutTaxUpdateConfigurationByLocationErrors = {
      */
     404: ErrorMessage;
     /**
-     * Conflict
+     * The request could not be completed due to a conflict with the current state of the target resource.
      */
     409: ErrorMessage;
     /**
@@ -811,7 +811,7 @@ export type PutTaxCalculateCommandsData = {
     body?: TaxCalculationRequest;
     path: {
         /**
-         * Your Emporix tenant name.
+         * Your Emporix tenant's name.
          *
          * **Note**: The tenant should always be written in lowercase.
          *

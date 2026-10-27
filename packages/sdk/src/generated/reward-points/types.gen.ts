@@ -298,6 +298,9 @@ export type GetRewardPointsRetrieveRewardsSummaryData = {
 };
 
 export type GetRewardPointsRetrieveRewardsSummaryErrors = {
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -313,7 +316,7 @@ export type GetRewardPointsRetrieveRewardsSummaryErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -340,7 +343,7 @@ export type GetRewardPointsRetrieveRewardsSummaryErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -375,6 +378,9 @@ export type DeleteRewardPointsRemoveCustomerRewardEntryData = {
 };
 
 export type DeleteRewardPointsRemoveCustomerRewardEntryErrors = {
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -390,7 +396,7 @@ export type DeleteRewardPointsRemoveCustomerRewardEntryErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -417,7 +423,7 @@ export type DeleteRewardPointsRemoveCustomerRewardEntryErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -457,7 +463,7 @@ export type GetRewardPointsFetchCustomerRewardPointsErrors = {
      */
     400: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -484,7 +490,7 @@ export type GetRewardPointsFetchCustomerRewardPointsErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -511,7 +517,7 @@ export type GetRewardPointsFetchCustomerRewardPointsErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -561,7 +567,7 @@ export type PostRewardPointsCreateCustomerRewardEntryErrors = {
      */
     400: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -581,6 +587,9 @@ export type PostRewardPointsCreateCustomerRewardEntryErrors = {
          */
         detail?: string;
     };
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -596,7 +605,7 @@ export type PostRewardPointsCreateCustomerRewardEntryErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -619,7 +628,7 @@ export type PostRewardPointsCreateCustomerRewardEntryErrors = {
      */
     409: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status: number;
         /**
@@ -667,7 +676,7 @@ export type PostRewardPointsCreateCustomerRewardEntryErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -700,6 +709,9 @@ export type GetRewardPointsRetrieveCustomerRewardSummaryData = {
 };
 
 export type GetRewardPointsRetrieveCustomerRewardSummaryErrors = {
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -715,7 +727,7 @@ export type GetRewardPointsRetrieveCustomerRewardSummaryErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -742,7 +754,7 @@ export type GetRewardPointsRetrieveCustomerRewardSummaryErrors = {
          */
         type?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -765,7 +777,7 @@ export type GetRewardPointsRetrieveCustomerRewardSummaryErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -812,7 +824,7 @@ export type PostRewardPointsAddCustomerRewardPointsErrors = {
      */
     400: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -832,6 +844,9 @@ export type PostRewardPointsAddCustomerRewardPointsErrors = {
          */
         detail?: string;
     };
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -847,7 +862,7 @@ export type PostRewardPointsAddCustomerRewardPointsErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -874,7 +889,7 @@ export type PostRewardPointsAddCustomerRewardPointsErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -898,7 +913,7 @@ export type PostRewardPointsRedeemCustomerPointsData = {
     body?: RedeemedPoints;
     path: {
         /**
-         * Unique identifier of a customer
+         * Unique identifier of a customer, generated when the customer is created through the Customer Service.
          */
         customerId: string;
     };
@@ -914,7 +929,7 @@ export type PostRewardPointsRedeemCustomerPointsErrors = {
      */
     400: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -934,6 +949,9 @@ export type PostRewardPointsRedeemCustomerPointsErrors = {
          */
         detail?: string;
     };
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -949,7 +967,7 @@ export type PostRewardPointsRedeemCustomerPointsErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -976,7 +994,7 @@ export type PostRewardPointsRedeemCustomerPointsErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1004,6 +1022,9 @@ export type GetRewardPointsFetchLoggedCustomerPointsData = {
 };
 
 export type GetRewardPointsFetchLoggedCustomerPointsErrors = {
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -1019,7 +1040,7 @@ export type GetRewardPointsFetchLoggedCustomerPointsErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -1046,7 +1067,7 @@ export type GetRewardPointsFetchLoggedCustomerPointsErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1079,6 +1100,9 @@ export type GetRewardPointsRetrieveLoggedCustomerRewardSummaryData = {
 };
 
 export type GetRewardPointsRetrieveLoggedCustomerRewardSummaryErrors = {
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -1094,7 +1118,7 @@ export type GetRewardPointsRetrieveLoggedCustomerRewardSummaryErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -1121,7 +1145,7 @@ export type GetRewardPointsRetrieveLoggedCustomerRewardSummaryErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1156,6 +1180,9 @@ export type GetRewardPointsListRedeemOptionsData = {
 };
 
 export type GetRewardPointsListRedeemOptionsErrors = {
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -1171,7 +1198,7 @@ export type GetRewardPointsListRedeemOptionsErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -1198,7 +1225,7 @@ export type GetRewardPointsListRedeemOptionsErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1216,7 +1243,7 @@ export type GetRewardPointsListRedeemOptionsError = GetRewardPointsListRedeemOpt
 
 export type GetRewardPointsListRedeemOptionsResponses = {
     /**
-     * Returns all configured reward points redemption options
+     * The request was successful. The list of redemption options is returned.
      */
     200: Array<RedeemOption>;
 };
@@ -1243,7 +1270,7 @@ export type PostRewardPointsCreateRedeemOptionsErrors = {
      */
     400: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1263,6 +1290,9 @@ export type PostRewardPointsCreateRedeemOptionsErrors = {
          */
         detail?: string;
     };
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -1278,7 +1308,7 @@ export type PostRewardPointsCreateRedeemOptionsErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -1305,7 +1335,7 @@ export type PostRewardPointsCreateRedeemOptionsErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1344,6 +1374,9 @@ export type DeleteRewardPointsRemoveRedeemOptionData = {
 };
 
 export type DeleteRewardPointsRemoveRedeemOptionErrors = {
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -1359,7 +1392,7 @@ export type DeleteRewardPointsRemoveRedeemOptionErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -1386,7 +1419,7 @@ export type DeleteRewardPointsRemoveRedeemOptionErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1404,7 +1437,7 @@ export type DeleteRewardPointsRemoveRedeemOptionError = DeleteRewardPointsRemove
 
 export type DeleteRewardPointsRemoveRedeemOptionResponses = {
     /**
-     * Deletes given redeem option by id
+     * The request was successful. No content is returned.
      */
     204: void;
 };
@@ -1435,7 +1468,7 @@ export type PutRewardPointsUpdateRedeemOptionErrors = {
      */
     400: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1455,6 +1488,9 @@ export type PutRewardPointsUpdateRedeemOptionErrors = {
          */
         detail?: string;
     };
+    /**
+     * The authorization token is invalid or has expired.
+     */
     401: {
         fault?: {
             faultstring?: string;
@@ -1470,7 +1506,7 @@ export type PutRewardPointsUpdateRedeemOptionErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -1501,7 +1537,7 @@ export type PutRewardPointsUpdateRedeemOptionErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1519,7 +1555,7 @@ export type PutRewardPointsUpdateRedeemOptionError = PutRewardPointsUpdateRedeem
 
 export type PutRewardPointsUpdateRedeemOptionResponses = {
     /**
-     * Updates given redeem option by id
+     * The request was successful. The redemption option has been updated.
      */
     200: unknown;
 };
@@ -1552,7 +1588,7 @@ export type PostRewardPointsRedeemLoggedCustomerRewardPointsCouponErrors = {
      */
     400: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1579,7 +1615,7 @@ export type PostRewardPointsRedeemLoggedCustomerRewardPointsCouponErrors = {
      */
     403: {
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         code: number;
         /**
@@ -1606,7 +1642,7 @@ export type PostRewardPointsRedeemLoggedCustomerRewardPointsCouponErrors = {
          */
         type?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**
@@ -1629,7 +1665,7 @@ export type PostRewardPointsRedeemLoggedCustomerRewardPointsCouponErrors = {
          */
         timestamp?: string;
         /**
-         * Original HTTP error code, should be consistent with the response HTTP code
+         * Original HTTP error code, must be consistent with the response HTTP code
          */
         status?: number;
         /**

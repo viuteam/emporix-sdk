@@ -139,7 +139,7 @@ export type GetLabelListLabelsData = {
     path?: never;
     query?: {
         /**
-         * Restricts the labels to just the ones which should be printed on the Products as overlay. If the parameter is true, then only the labels with overlay.position >= 1 will be shown. Otherwise, all the labels will be shown.
+         * Restricts the labels to just the ones which should be printed on the Products as overlay. If the parameter is true, then only the labels with `overlay.position >= 1 are shown. Otherwise, all the labels are visible.
          */
         justOverlay?: boolean;
         /**
