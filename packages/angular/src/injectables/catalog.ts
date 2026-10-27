@@ -8,6 +8,7 @@ import { injectEmporix } from "../provide";
 import { injectEmporixInfinite, injectEmporixQuery } from "../inject-query";
 import type {
   Category,
+  CategoryTreeListParams,
   EmporixClient,
   PaginatedItems,
   Product,
@@ -340,21 +341,31 @@ export function injectCategories(
   );
 }
 
-/** The whole category tree. One call, cached for five minutes. */
+/**
+ * The whole category tree. One call, cached for five minutes.
+ *
+ * `filter` narrows the trees by category type, category ids or publication —
+ * see `client.categories.listTrees` for what each one costs. Without a filter
+ * the cache key is the one this injectable has always had, the same as React's.
+ */
 export function injectCategoryTree(
-  opts: CatalogOpts = {},
+  opts: CatalogOpts & { filter?: Signal<CategoryTreeListParams> } = {},
 ): CreateQueryResult<CategoryTreeResult> {
   const { client } = injectEmporix();
-  return injectEmporixQuery<CategoryTreeResult, readonly []>(
-    () => ({
-      resource: "category-tree",
-      args: [] as const,
-      site: "full",
-      mode: "read-auth",
-      ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
-      queryFn: (ctx) => client.categories.tree(ctx),
-      staleTime: CATEGORIES_STALE,
-    }),
+  return injectEmporixQuery<CategoryTreeResult, readonly [] | readonly [CategoryTreeListParams]>(
+    () => {
+      // Read here, inside the options callback, so the key follows the signal.
+      const filter = opts.filter?.();
+      return {
+        resource: "category-tree",
+        args: filter === undefined ? ([] as const) : ([filter] as const),
+        site: "full",
+        mode: "read-auth",
+        ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
+        queryFn: (ctx) => client.categories.listTrees(filter, ctx),
+        staleTime: CATEGORIES_STALE,
+      };
+    },
     pass(opts),
   );
 }

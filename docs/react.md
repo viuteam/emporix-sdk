@@ -330,6 +330,8 @@ Query hooks (`useProduct(s)`, `useProductsInfinite`, `useCategory(ies)`,
 kind. Default: `customer` if a token is stored, else `anonymous`. `useCart` is
 disabled until a `cartId` is supplied — either explicitly via `useCart(id)` or
 implicitly via `storage.getCartId()` when called as `useCart()`.
+`useCategoryTree` also takes `{ filter }` — category `type`, `categoryIds`,
+`showUnpublished` — passed to `client.categories.listTrees`.
 
 #### A cart closed on another device heals itself
 

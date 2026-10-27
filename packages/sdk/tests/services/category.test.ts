@@ -48,6 +48,32 @@ describe("CategoryService", () => {
     const roots = await svc().tree();
     expect(roots.map((c) => c.id)).toEqual(["t1", "t2"]);
   });
+  it("listTrees() sends only the filters the caller chose", async () => {
+    const searches: string[] = [];
+    server.use(
+      http.get("https://api.emporix.io/category/acme/category-trees", ({ request }) => {
+        searches.push(new URL(request.url).search);
+        return HttpResponse.json([{ id: "t1", name: "Sport" }]);
+      }),
+    );
+    await svc().tree();
+    await svc().listTrees({ type: "CLASSIFICATION", categoryIds: ["c1", "c 2"], showUnpublished: true });
+    expect(searches).toEqual([
+      "",
+      "?type=CLASSIFICATION&categoryIds=c1%2Cc+2&showUnpublished=true",
+    ]);
+  });
+  it("listTrees() by no category matches nothing and sends no request", async () => {
+    let calls = 0;
+    server.use(
+      http.get("https://api.emporix.io/category/acme/category-trees", () => {
+        calls++;
+        return HttpResponse.json([{ id: "t1" }]);
+      }),
+    );
+    expect(await svc().listTrees({ categoryIds: [] })).toEqual([]);
+    expect(calls).toBe(0);
+  });
   it("subcategories() resolves CATEGORY assignments to child categories", async () => {
     let searchBody: unknown = null;
     server.use(

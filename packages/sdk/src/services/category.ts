@@ -12,6 +12,7 @@ import type {
   CategoryPartialUpdateRequest,
   CategoryIdResponse,
   CategoryTreeSearchRequest,
+  GetCategoryTreeRetrieveCategoryTreeData,
   CategoryAssignment as GeneratedCategoryAssignment,
   AssignmentRequest,
   BulkAssignmentRequest,
@@ -43,6 +44,9 @@ export type CategoryCreated = CategoryIdResponse;
 
 /** Body for searching category trees (`POST /category-trees/search`). */
 export type CategoryTreeSearchInput = CategoryTreeSearchRequest;
+
+/** Filters for listing category trees (`GET /category-trees`). */
+export type CategoryTreeListParams = NonNullable<GetCategoryTreeRetrieveCategoryTreeData["query"]>;
 
 /** A category assignment (a resource reference bound to a category). */
 export type CategoryAssignment = GeneratedCategoryAssignment;
@@ -165,11 +169,40 @@ export class CategoryService {
    * `"PRODUCT"` filter behind {@link productsIn} worked fine.
    * {@link childCategories} hits `/categories/{id}/subcategories` and answers
    * **404** for a tree root. One call gives you the whole hierarchy.
+   *
+   * To filter by category type, category ids or publication, use {@link listTrees}.
    */
   async tree(auth: AuthContext = ANON): Promise<CategoryNode[]> {
+    return this.listTrees({}, auth);
+  }
+
+  /**
+   * The category trees, filtered (`GET /category-trees`). Default auth: anonymous.
+   * {@link tree} is this call without filters.
+   *
+   * - `categoryIds` goes out comma-joined, because the HTTP layer sends one value
+   *   per key. Emporix reads `a,b` like the repeated `categoryIds=a&categoryIds=b`;
+   *   both were probed on `viu` on 2026-10-27. An empty list matches nothing and
+   *   sends no request.
+   * - `showUnpublished` needs `category.category_read_unpublished`. An anonymous
+   *   token does not carry it, and Emporix answers **403**.
+   * - Filter by `type` with care. On `viu` on 2026-10-27, 27 trees built from
+   *   categories that all read `STANDARD` came back for neither `STANDARD` nor
+   *   `CLASSIFICATION`, only unfiltered.
+   */
+  async listTrees(
+    params: CategoryTreeListParams = {},
+    auth: AuthContext = ANON,
+  ): Promise<CategoryNode[]> {
+    if (params.categoryIds?.length === 0) return [];
     return this.ctx.http.request<CategoryNode[]>({
       method: "GET",
       path: `/category/${this.ctx.tenant}/category-trees`,
+      query: {
+        type: params.type,
+        categoryIds: params.categoryIds?.join(","),
+        showUnpublished: params.showUnpublished,
+      },
       auth,
     });
   }
