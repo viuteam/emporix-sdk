@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 4.7.2
+
+### Patch Changes
+
+- [#427](https://github.com/viuteam/emporix-sdk/pull/427) [`6c56ca9`](https://github.com/viuteam/emporix-sdk/commit/6c56ca9d37727d5565aaa570ee708888efb0834c) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: category,label-service,media,reward-points,tax-service
+
 ## 4.7.1
 
 ### Patch Changes
