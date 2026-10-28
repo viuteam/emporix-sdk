@@ -12,10 +12,13 @@ import type {
   DiagnosticPage,
   DiagnosticRecord,
   ErrorRecord,
+  FileQueue,
   GetImporttoolListRunDiagnosticsData,
   GetImporttoolSearchDataRecordsData,
+  GetImporttoolStreamFileLimitsResponse,
   GetImporttoolStreamOrderResponse,
   ImportConfig as GenImportConfig,
+  ImportFile as GenImportFile,
   ImportRun as GenImportRun,
   ImportRunStream as GenImportRunStream,
   ImportStream as GenImportStream,
@@ -33,12 +36,29 @@ import type {
 
 /** An import configuration, grouping one or more streams. */
 export type ImportConfig = GenImportConfig;
-/** A stream: extracts from a source, maps fields, upserts into an Emporix target type. */
+/**
+ * A stream: extracts from a source, maps fields, upserts into an Emporix target type.
+ *
+ * `sourceDataset` says how the stream addresses its source — its properties
+ * depend on the source type (`keyField`, `limit`, a delimited file's format,
+ * …), so it stays an open record. For a file source, `fileMode` says what one
+ * file represents: `SNAPSHOT` (the default) reads only the newest queued file
+ * and does not delete records missing from it; `INCREMENTAL` reads every queued
+ * file in load order, a later file's values winning.
+ */
 export type ImportStream = GenImportStream;
 /** A cron schedule for a configuration. `cron` is a six-field Spring expression. */
 export type ImportSchedule = Schedule;
 /**
  * An import run with its reconciled counters.
+ *
+ * **The counters add up** (since 2026-10-28), on the run and on each stream:
+ * `recordsRead` = `created` + `updated` + `skipped` + `unresolvedParents` +
+ * `deleted` + `failed` + `collapsed` + `embedded`. A sum over only some of them
+ * will not balance. `collapsed` counts source rows that repeated a key within
+ * one batch and were merged before the write; `embedded` counts child records
+ * an `EMBED` child handed to its parent, which wrote them inside its own
+ * instance.
  *
  * Two counters describe the **source feed** rather than the import: a run can
  * report `SUCCEEDED` while `duplicateKeys` (source rows repeating a key already
@@ -70,13 +90,27 @@ export type ImportRun = GenImportRun;
  * Per-stream progress within a run. A stream `ABORTED` was not run because of
  * its configuration — typically mappings that were never published — and its
  * `message` says why.
+ *
+ * For a file source, `filesRead` lists the files the stream read, in order,
+ * and `fileNames` maps each of those opaque locators to its display name. A
+ * retry re-reads exactly these bytes, even if a newer file arrived since.
  */
 export type ImportRunStream = GenImportRunStream;
 /** A run together with its per-stream progress — what `getRun` resolves to. */
 export type ImportRunDetail = RunDetail;
 /** The outcome of a cancellation request. `accepted: false` means unknown or already finished. */
 export type ImportCancelResult = CancelResult;
-/** A single error recorded during a run. */
+/**
+ * A single error recorded during a run.
+ *
+ * `errorCode` is a plain string upstream, not an enum, so expect values beyond
+ * the documented ones. `CONFIGURATION` (something to change in the import's own
+ * setup) and `EXTERNAL_SYSTEM` (another system answered with an error) are not
+ * faults of the import, and their `message` is a sentence naming what to
+ * change. `REJECTED_BY_SOURCE` fails one record because of its data — a
+ * delimited-file row with too many array elements, say — while the rest of the
+ * file is imported.
+ */
 export type ImportErrorRecord = ErrorRecord;
 /** A record that was imported, with its keys, stored fields and last outcome. */
 export type ImportedRecord = GenImportedRecord;
@@ -86,6 +120,33 @@ export type ImportedRecord = GenImportedRecord;
  * order they run, `prereqs` maps each name to the streams it waits for.
  */
 export type ImportStreamOrder = GetImporttoolStreamOrderResponse;
+
+/**
+ * One file a file-based stream was given, and what became of it. `id` is what
+ * `setStreamFileOrder` and `deleteStreamFile` take. `loadRank` is its place in
+ * the drain order; `runId`, `processedAt` and `recordsRead` are set once a run
+ * consumed it.
+ */
+export type ImportFile = GenImportFile;
+/**
+ * Where an {@link ImportFile} is in its life: `PENDING`, `IN_PROGRESS`,
+ * `PROCESSED` or `FAILED`. A file whose records failed individually still ends
+ * `PROCESSED`; `FAILED` means the stream reading it failed, and such a file can
+ * be uploaded again.
+ */
+export type ImportFileStatus = NonNullable<ImportFile["status"]>;
+/**
+ * A stream's file queue: `pending` in load order, `history` newest first.
+ * `pending` is complete up to 2000 files; beyond that `pendingTruncated` is
+ * `true`, `pendingTotal` has the real count, and the order cannot be changed.
+ */
+export type ImportFileQueue = FileQueue;
+/**
+ * The upload limits of the environment: `maxUploadBytes`, whether the API
+ * gateway rather than the service sets it (`gatewayLimited`), and whether
+ * uploading is available at all (`uploadSupported`).
+ */
+export type ImportFileUploadLimits = GetImporttoolStreamFileLimitsResponse;
 
 /**
  * The rows behind a run's feed-quality counters. **A capped sample, not the

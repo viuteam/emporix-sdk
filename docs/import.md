@@ -7,15 +7,16 @@ import produced.
 The Management Dashboard's [Import Tool](https://developer.emporix.io/import-tool)
 (released 2026-10-02) is the interface on top of this service. Creating
 configurations, streams and mappings — and publishing the mappings — happens
-there: the public API reads configurations and streams, and manages schedules
-and runs, but has no operation that writes either.
+there: the public API reads configurations and streams, and manages schedules,
+runs and the file queue of a file-based stream, but has no operation that writes
+a configuration or a stream.
 
 > **Server-side only.** Every operation requires the service
 > (clientCredentials) token with the `importtool.import_trigger` scope. There is
 > no customer or anonymous variant — see
 > [Why there is no React hook](#why-there-is-no-react-hook).
 
-> **Preview.** Upstream marks all 24 operations as preview: the contract may
+> **Preview.** Upstream marks all 29 operations as preview: the contract may
 > change without a major version, and nearly every response field is optional in
 > the spec. Treat run counters and statuses as possibly absent.
 
@@ -178,6 +179,34 @@ So a resolved `triggerRun` is not proof that anything ran: read the run back wit
 `ABORTED` the same way. `ABORTED` also covers other configuration problems —
 upstream names a changed target schema.
 
+### The counters add up
+
+Since 2026-10-28 the counters reconcile, on the run and on each of its streams:
+
+```
+recordsRead = created + updated + skipped + unresolvedParents + deleted + failed + collapsed + embedded
+```
+
+A sum over only some of them will not balance. Two of them are new:
+
+- `collapsed` counts source rows that repeated a key **within one batch**. They
+  are merged before the write, last row wins. A repeat in a later batch is
+  written again and counted as created or updated, so `duplicateKeys` stays the
+  signal for a feed that is not unique on its key.
+- `embedded` counts child records an `EMBED` child handed to its parent, which
+  wrote them inside its own instance. They are never counted as created, updated
+  or skipped; when the parent turns out unchanged, failed or absent, they move to
+  `skipped`, `failed` or `unresolvedParents` once the parent's pass completes.
+
+`listRunErrors` names the cause of each failed record in `errorCode`, a plain
+string rather than an enum — give any `switch` over it a default branch.
+`CONFIGURATION` (something to change in the import's own setup, such as a missing
+base URL or refused credentials) and `EXTERNAL_SYSTEM` (another system answered
+with an error) are not faults of the import, and their `message` is a sentence
+naming what to change. `REJECTED_BY_SOURCE` fails one record because of its data
+— a delimited-file row whose array has more elements than
+`sourceDataset.arrays.maxElements`, say — while the rest of the file is imported.
+
 ### Run diagnostics
 
 A run can report `SUCCEEDED` while two feed-quality counters say the source was
@@ -244,6 +273,65 @@ stream in its `sourceIssues` array.
 > Whether it is gated by one of those or always returned is not stated in the
 > spec, so read it defensively (`stats.sourceIssues ?? []`) and pass no
 > `sections` if you need it.
+
+## File-based streams
+
+Since 2026-10-28 a stream can read a delimited file — CSV or one of its
+variants. The file goes through the stream's queue: upload it, then trigger a run,
+which drains the queue.
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const limits = await client.imports.getStreamFileLimits("str1");
+// { maxUploadBytes, gatewayLimited, uploadSupported }
+
+const bytes = await readFile("vendors-2026-10-23.csv");
+const queued = await client.imports.uploadStreamFile("str1", new Blob([bytes]), "vendors-2026-10-23.csv");
+// queued.status === "PENDING" — nothing is imported until a run reads it
+await client.imports.triggerRun("cfg1");
+
+const queue = await client.imports.listStreamFiles("str1", { historyLimit: 20 });
+// queue.pending in load order, queue.history newest first
+await client.imports.setStreamFileOrder("str1", ["c56a4180-…", "9b1deb4d-…"]); // every waiting id
+await client.imports.deleteStreamFile("str1", "9b1deb4d-…");
+```
+
+- **The content is the identity.** The service recognises a file by the SHA-256
+  of its bytes, whatever its name. Uploading bytes the stream already imported
+  or queued answers `409`; a file that `FAILED` before is accepted again,
+  because the usual reason is that it was fixed.
+- **`fileName` is required.** The service displays it and infers the compression
+  from it, and a bare `Blob` would otherwise arrive named «blob».
+- **`fileMode` on the stream says what one file means.** `SNAPSHOT`, the
+  default: each file is the whole picture, so only the newest queued file is
+  read, and a record missing from it is not deleted. `INCREMENTAL`: each file is
+  a change set, every queued file is read in load order, and a later file wins on
+  a key an earlier one also carries — which is what `setStreamFileOrder` is for.
+- **Reordering takes the whole waiting set**, not one file to move. A partial
+  list answers `400`, and a queue the response cannot list in full
+  (`pendingTruncated`, more than 2000 files) cannot be reordered.
+- **Only a waiting file can be removed.** An imported file stays in the history
+  on purpose: removing it would make the same bytes importable again.
+- **While the job has a run in flight**, reordering and removing answer `409`,
+  and so does an upload that would replace bytes the stream already holds. A
+  file the stream has not seen before is accepted at any time.
+- **A retry re-reads the same bytes.** A run's stream records `filesRead` and
+  their `fileNames`, and `retryRun` reads exactly those files, even when a newer
+  one arrived since.
+- **An upload is not retried on a 5xx.** One that timed out may have been
+  queued, and sending it again then answers `409`. Read `listStreamFiles`
+  instead.
+
+| Call | Status | Meaning |
+|---|---|---|
+| `uploadStreamFile` | `400` | no file was sent |
+| `uploadStreamFile` | `409` | the bytes are already imported or queued, the stream does not read files, or a run in flight uses the bytes this upload would replace |
+| `uploadStreamFile` | `413` | over `maxUploadBytes`; with `gatewayLimited`, the gateway answers with its own error body. Publish the file at an HTTP(S) URL and set it as the connection's file URL instead |
+| `uploadStreamFile` | `503` | uploading is not configured in this environment |
+| `setStreamFileOrder` | `400` | the list is not exactly the set of waiting files |
+| `setStreamFileOrder` | `409` | a run in flight, or a queue too long to reorder in one request |
+| `deleteStreamFile` | `409` | the file is no longer waiting, or a run in flight |
 
 ## Streaming a run
 
@@ -434,7 +522,10 @@ characters, and which `sections` value (if any) gates `sourceIssues`. The same
 goes for `getStreamOrder`, the diagnostics calls and `streamIds` (2026-09-14 /
 2026-09-23): wired to the spec, never seen on the wire. And for the published
 mappings (2026-09-28): `mappings`, `mappingVersions`, `dryRunPublished` and the
-`200` that comes back for a run the service then aborts.
+`200` that comes back for a run the service then aborts. And for the file queue
+(2026-10-28): the five file calls, the multipart upload — upstream does not
+state which `Content-Type` the file part should carry, so the SDK sends the
+`Blob`'s own — and the reconciled counters.
 
 All methods take an optional trailing `auth` argument (default: the `"backend"`
 service credential set).

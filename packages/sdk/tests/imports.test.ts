@@ -701,3 +701,98 @@ describe("ImportService analytics and retry", () => {
     await expect(sdk().imports.getLicense()).rejects.toBeInstanceOf(EmporixForbiddenError);
   });
 });
+
+describe("ImportService file queue", () => {
+  const file = {
+    id: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    fileName: "vendors.csv",
+    size: 12,
+    status: "PENDING",
+    loadRank: 1,
+  };
+
+  it("listStreamFiles GETs the queue and sends no historyLimit unless given", async () => {
+    const seen: string[] = [];
+    server.use(
+      http.get(`${BASE}/streams/str1/files`, ({ request }) => {
+        seen.push(new URL(request.url).search);
+        return HttpResponse.json({ pending: [file], history: [], pendingTruncated: false, pendingTotal: 1 });
+      }),
+    );
+    const res = await sdk().imports.listStreamFiles("str1");
+    await sdk().imports.listStreamFiles("str1", { historyLimit: 5 });
+    expect(res.pending).toEqual([file]);
+    expect(seen).toEqual(["", "?historyLimit=5"]);
+  });
+
+  it("uploadStreamFile sends the file as the multipart part `file`, under the given name", async () => {
+    let contentType: string | null = null;
+    let part: File | null = null;
+    server.use(
+      http.post(`${BASE}/streams/str1/files`, async ({ request }) => {
+        contentType = request.headers.get("content-type");
+        part = (await request.formData()).get("file") as File | null;
+        return HttpResponse.json(file);
+      }),
+    );
+    const res = await sdk().imports.uploadStreamFile(
+      "str1",
+      new Blob(["ID;NAME\n1;A\n"], { type: "text/csv" }),
+      "vendors.csv",
+    );
+    expect(res).toEqual(file);
+    expect(contentType).toMatch(/^multipart\/form-data; boundary=/);
+    expect(part).not.toBeNull();
+    expect(part!.name).toBe("vendors.csv");
+    expect(await part!.text()).toBe("ID;NAME\n1;A\n");
+  });
+
+  /**
+   * The service dedupes on the content hash, so repeating an upload whose first
+   * attempt went through answers `409`. A timed-out upload must not be retried.
+   */
+  it("uploadStreamFile is not retried on a 5xx", async () => {
+    let calls = 0;
+    server.use(
+      http.post(`${BASE}/streams/str1/files`, () => {
+        calls += 1;
+        return new HttpResponse(null, { status: 503 });
+      }),
+    );
+    await expect(
+      sdk().imports.uploadStreamFile("str1", new Blob(["x"]), "a.csv"),
+    ).rejects.toBeDefined();
+    expect(calls).toBe(1);
+  });
+
+  it("getStreamFileLimits GETs the limits path", async () => {
+    const limits = { maxUploadBytes: 9437184, gatewayLimited: true, uploadSupported: true };
+    server.use(http.get(`${BASE}/streams/str1/files/limits`, () => HttpResponse.json(limits)));
+    await expect(sdk().imports.getStreamFileLimits("str1")).resolves.toEqual(limits);
+  });
+
+  it("setStreamFileOrder PUTs every id as a JSON array and returns the reordered queue", async () => {
+    let body: unknown = null;
+    server.use(
+      http.put(`${BASE}/streams/str1/files/order`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json([{ ...file, id: "b", loadRank: 1 }, { ...file, id: "a", loadRank: 2 }]);
+      }),
+    );
+    const res = await sdk().imports.setStreamFileOrder("str1", ["b", "a"]);
+    expect(body).toEqual(["b", "a"]);
+    expect(res.map((f) => f.id)).toEqual(["b", "a"]);
+  });
+
+  it("deleteStreamFile DELETEs the encoded file and resolves on 204", async () => {
+    let method: string | null = null;
+    server.use(
+      http.delete(`${BASE}/streams/str%2F1/files/f%2F1`, ({ request }) => {
+        method = request.method;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await expect(sdk().imports.deleteStreamFile("str/1", "f/1")).resolves.toBeUndefined();
+    expect(method).toBe("DELETE");
+  });
+});

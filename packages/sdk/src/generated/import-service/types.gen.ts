@@ -83,6 +83,87 @@ export type ImportConfig = {
 };
 
 /**
+ * Import file
+ *
+ * One file a file-based stream has been given, and what became of it.
+ */
+export type ImportFile = {
+    /**
+     * The file's identifier.
+     */
+    id?: string;
+    /**
+     * The name the file was given, used to display it and to infer compression.
+     */
+    fileName?: string;
+    /**
+     * The file's size in bytes.
+     */
+    size?: number;
+    /**
+     * Where the file is in its life. Possible values:
+     *
+     * * `PENDING` – waiting to be imported.
+     * * `IN_PROGRESS` – a run has claimed it and is reading it.
+     * * `PROCESSED` – read to completion. Set only once its records have been written, so a run that
+     * fails part-way leaves the file importable.
+     * * `FAILED` – the stream that read the file finished `FAILED`. The file could not be read
+     * (malformed, truncated, wrong charset), or the import failed for another reason, such as the
+     * target being unavailable. Such a file can be sent again. Records that fail individually do not
+     * put a file here: a stream that finishes with record failures still marks its file imported.
+     */
+    status?: 'PENDING' | 'IN_PROGRESS' | 'PROCESSED' | 'FAILED';
+    /**
+     * The position in the drain order. For an incremental feed the order is part of the data: a later file's values win on a key an earlier one also carries.
+     */
+    loadRank?: number;
+    /**
+     * When the file was added to the queue.
+     */
+    queuedAt?: string;
+    /**
+     * When the file finished being imported.
+     */
+    processedAt?: string;
+    /**
+     * The run that consumed it.
+     */
+    runId?: string;
+    /**
+     * How many records came out of it.
+     */
+    recordsRead?: number;
+    /**
+     * Why the file ended as it did, when that needs saying — a file superseded by a newer snapshot in the same run, or one imported with record-level failures.
+     */
+    message?: string;
+};
+
+/**
+ * File queue
+ *
+ * What a stream still has to import, and what it has already dealt with.
+ */
+export type FileQueue = {
+    /**
+     * The files waiting to be imported, in the order they will be read.
+     */
+    pending?: Array<ImportFile>;
+    /**
+     * Files already dealt with, newest first.
+     */
+    history?: Array<ImportFile>;
+    /**
+     * True when more files are waiting than this response carries. The load order cannot be changed while it is true, because an order that cannot name every waiting file has no meaning.
+     */
+    pendingTruncated?: boolean;
+    /**
+     * How many files are waiting in total, however many this response lists.
+     */
+    pendingTotal?: number;
+};
+
+/**
  * Stream
  *
  * A stream that extracts from a source, maps fields, and upserts into an Emporix target type.
@@ -189,6 +270,80 @@ export type ImportStream = {
      * Whether the stream is active.
      */
     enabled?: boolean;
+    /**
+     * The source connection this stream reads from, when it has its own. Omitted means the configuration's default connection is used. One configuration can therefore mix sources.
+     */
+    connectionId?: string;
+    /**
+     * How this stream addresses its source. The recognised properties depend on the source type; the
+     * ones below are common.
+     *
+     * * `keyField` – the source column holding the natural key.
+     * * `keyFields` and `keyName` – a key that may resolve from more than one column: the first
+     * non-empty of `keyFields` wins, and `keyName` is the single canonical name recorded for it,
+     * so the same entity keeps one target id whichever column supplied the value. Put the stable
+     * identifier first: a lower-priority column winning on an earlier run and a higher-priority
+     * one later re-keys the record.
+     * * `limit` – the maximum number of records one run reads (`Max records`). A positive number
+     * only; text or zero means no cap. A dry run reads at most the smaller of this and its own sample size.
+     * * `record` – the source record, table, or endpoint to read.
+     * * For a file source: the delimited-file format (`delimiter`, `quote`, `escape`, `charset`,
+     * `header`, `skipLines`, `nullLiterals`, `trimValues`, `compression`, `failOnRaggedRow`) and
+     * `arrays`, which reshapes repeated flat columns into nested form. The original columns are kept,
+     * and each array is added beside them under its name followed by `[]` — for example `lineItems[]`
+     * for `lineItems.0.sku`, or `COUNTRIES[]` for a delimited `COUNTRIES` column:
+     * * `style` – how a repeated column is recognised: `DOT` (`lineItems.0.sku`), `BRACKET`
+     * (`lineItems[0].sku`), `SUFFIX` (`phone_1`), or `NONE` (the default), which recognises no
+     * repeated columns.
+     * * `delimited` – a list of column names whose cells each hold a list of values.
+     * * `separator` – the character a `delimited` cell is split on. Defaults to `;`.
+     * * `maxElements` – the maximum number of elements one array can hold. Defaults to 1000; the
+     * highest allowed value is 10000. A row with a longer array is not truncated: only that row
+     * fails, with the error code `REJECTED_BY_SOURCE`, and the rest of the file is imported.
+     * * For an HTTP source: `pagination`, `queryParams`, `bodyTemplate`, and `format` (`JSON` or
+     * `XML`).
+     */
+    sourceDataset?: {
+        [key: string]: unknown;
+    };
+    /**
+     * For a file-based source, what one file represents. `SNAPSHOT`: each file is the whole picture, so only the most recently arrived one is read, and the per-record content hash decides what is written. A record missing from a newer file is not deleted. `INCREMENTAL`: each file is a change set, so every queued file is read in order and a later file's values win. Defaults to `SNAPSHOT`.
+     */
+    fileMode?: 'SNAPSHOT' | 'INCREMENTAL';
+    /**
+     * For an `EMBED` composite child, the source column its parent matches records by. Required for such a stream: without it the parent cannot find its children and writes an empty array.
+     */
+    parentKeyField?: string;
+    /**
+     * Whether the delta field counts as content when deciding a record has changed. Off by default: a modified timestamp is metadata about a change, not content, and a source that restamps every row on reload would otherwise make every run rewrite the whole table. Turn it on only when the timestamp moving genuinely means the record is different.
+     */
+    hashIncludesDeltaField?: boolean;
+    /**
+     * Extra target attributes to declare on the type beyond those the mappings cover, for fields written by something other than this import, keyed by attribute name.
+     */
+    schemaAttributes?: {
+        [key: string]: unknown;
+    };
+    /**
+     * The target mixin schema version this stream's mappings were written against, keyed by schema id. An instance is validated against the version it was written under, so a stream pinned here is also written at that version. Set by the mapping editor, not by a stream update: a stream update that carried this property would blank the pins.
+     */
+    mappingSchemaVersions?: {
+        [key: string]: number;
+    };
+    /**
+     * Whether to refuse to start a run when a pinned mixin's current version has moved past the pinned one, before any record is read. Opt-in, and bypassed by triggering a run with `force`.
+     */
+    abortOnSchemaVersionDrift?: boolean;
+    /**
+     * Names of streams that must run before this one, beyond the ordering a composite parent already implies.
+     */
+    dependsOn?: Array<string>;
+    /**
+     * The source field used as the instance's display name. Superseded by mapping a field to the standard `name` attribute, which a mapping's transformations also apply to; a `name` mapping wins over this property. Kept for streams configured before that existed.
+     *
+     * @deprecated
+     */
+    nameField?: string;
 };
 
 /**
@@ -329,7 +484,7 @@ export type ImportRun = {
      */
     lastRequestedAt?: string;
     /**
-     * Records read (created + updated + skipped + deleted + failed).
+     * Records read. The counters reconcile: `recordsRead` = created + updated + skipped + unresolvedParents + deleted + failed + collapsed + embedded. A client that sums only some of them will not balance.
      */
     recordsRead?: number;
     /**
@@ -360,6 +515,14 @@ export type ImportRun = {
      * Child records that were not imported because their parent could not be found. Counted separately from `skipped`, which counts records that were already up to date.
      */
     unresolvedParents?: number;
+    /**
+     * Source rows that repeated a key already present in the same batch. They are merged before the write, last row wins, and counted here — so the report adds up however the source feed is batched. A repeat in a *later* batch is written again and counted as created or updated instead; `duplicateKeys` is the signal for a feed that is not unique on its key.
+     */
+    collapsed?: number;
+    /**
+     * Child records an `EMBED` composite child handed to its parent, which the parent then wrote inside its own instance. One write of the parent covers them all, so they are never counted as created or updated (that would count each line as an instance) and never as skipped (which means "already up to date"). If the parent turned out to be unchanged, failed, or absent, these are settled onto `skipped`, `failed`, or `unresolvedParents` once the parent's pass completes.
+     */
+    embedded?: number;
     /**
      * A terminal status message, typically set on failure.
      */
@@ -430,7 +593,7 @@ export type ImportRunStream = {
      */
     status?: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'SKIPPED' | 'ABORTED';
     /**
-     * Records read for this stream.
+     * Records read for this stream. The counters reconcile: `recordsRead` = created + updated + skipped + unresolvedParents + deleted + failed + collapsed + embedded.
      */
     recordsRead?: number;
     /**
@@ -462,9 +625,39 @@ export type ImportRunStream = {
      */
     unresolvedParents?: number;
     /**
+     * Source rows that repeated a key already present in the same batch. They are merged before the write, last row wins, and counted here — so the report adds up however the source feed is batched. A repeat in a *later* batch is written again and counted as created or updated instead; `duplicateKeys` is the signal for a feed that is not unique on its key.
+     */
+    collapsed?: number;
+    /**
+     * Child records an `EMBED` composite child handed to its parent, which the parent then wrote inside its own instance. One write of the parent covers them all, so they are never counted as created or updated (that would count each line as an instance) and never as skipped (which means "already up to date"). If the parent turned out to be unchanged, failed, or absent, these are settled onto `skipped`, `failed`, or `unresolvedParents` once the parent's pass completes.
+     */
+    embedded?: number;
+    /**
      * A per-stream status message.
      */
     message?: string;
+    /**
+     * For a file-based source, the file locators this stream actually read, in the order it read them. Recorded so a retry re-reads exactly the same bytes: the file behind a locator can be replaced by a later drop, and re-running against a different file would report a clean success having repaired nothing.
+     */
+    filesRead?: Array<string>;
+    /**
+     * The display name of each locator in `filesRead`, keyed by locator. A file is addressed by an opaque id, so the name is carried beside it rather than derived from it.
+     */
+    fileNames?: {
+        [key: string]: string;
+    };
+    /**
+     * True when the tenant's licensed `maxRecordsPerEntity` was reached and the remaining records were read but not written. They are counted as `skipped` and the stream is `PARTIAL`: the data is not lost, but it is not imported either until the limit is raised. See the license endpoint.
+     */
+    capSkipped?: boolean;
+    /**
+     * True when at least one source record had no value in its key column. Such a record is counted as both read and failed and is reported under error code `NO_KEY` — the import does not invent a key, because a synthesised one collides across records and changes whenever the record does.
+     */
+    keylessSeen?: boolean;
+    /**
+     * True for the extra row produced by the unresolved-parent sweep, which re-fetches the parents a composite child could not find and then re-reads their lines. A child's sweep row is folded into its original row and removed; a parent's sweep row remains, because its reads are genuinely new. Treat a row with this flag as a repair pass, not as a second stream.
+     */
+    sweep?: boolean;
 };
 
 /**
@@ -531,7 +724,27 @@ export type ErrorRecord = {
      */
     stage?: string;
     /**
-     * A machine-readable error code.
+     * A machine-readable error code:
+     *
+     * * `VALIDATION` – the mapped record failed validation before any write was attempted.
+     * * `NO_KEY` – the record's key column was empty, so it cannot be identified.
+     * * `UPSERT` – the target rejected the write.
+     * * `CONFIGURATION` – something to change in the import's own configuration, not a fault: a
+     * missing base URL, refused credentials, an unknown path, a stream that names no parent.
+     * * `EXTERNAL_SYSTEM` – another system answered with an error, for example the source returning
+     * 5xx or a source-side extraction failure.
+     * * `MERGE`, `PATCH_EMBED` – a composite merge or an embed patch onto the parent failed.
+     * * `NO_LINKING_VALUE` – a composite child row carried no value in its linking field.
+     * * `MARKER_DELETE`, `TOMBSTONE_DELETE`, `TOMBSTONE_NO_KEY` – a delete detected by a status
+     * marker or a tombstone record could not be applied.
+     * * `REJECTED_BY_SOURCE` – the source rejected a single record because of its data, for example a
+     * delimited-file row whose array has more elements than `sourceDataset.arrays.maxElements`. That
+     * record is not imported, but the other records are; `message` names the column, its number of
+     * elements, and the limit.
+     * * `STREAM_ERROR` – the stream failed as a whole; the record-level detail is in `message`.
+     *
+     * `CONFIGURATION` and `EXTERNAL_SYSTEM` are reported as a plain sentence naming what to change.
+     * They are not application faults and are not alerted on as such.
      */
     errorCode?: string;
     /**
@@ -1320,6 +1533,337 @@ export type GetImporttoolGetStreamResponses = {
 };
 
 export type GetImporttoolGetStreamResponse = GetImporttoolGetStreamResponses[keyof GetImporttoolGetStreamResponses];
+
+export type GetImporttoolStreamFilesData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The stream identifier.
+         */
+        streamId: string;
+    };
+    query?: {
+        /**
+         * Number of the stream's most recently handled files to return in `history`. A value below 1 is
+         * treated as 1, and a value above 500 as 500. This parameter does not limit `pending`: the queue is
+         * returned in full up to 2000 files, and `pendingTruncated` and `pendingTotal` indicate when it is
+         * longer than the response.
+         */
+        historyLimit?: number;
+    };
+    url: '/importtool/{tenant}/streams/{streamId}/files';
+};
+
+export type GetImporttoolStreamFilesErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetImporttoolStreamFilesError = GetImporttoolStreamFilesErrors[keyof GetImporttoolStreamFilesErrors];
+
+export type GetImporttoolStreamFilesResponses = {
+    /**
+     * The request was successful. The queue and the history are returned.
+     */
+    200: FileQueue;
+};
+
+export type GetImporttoolStreamFilesResponse = GetImporttoolStreamFilesResponses[keyof GetImporttoolStreamFilesResponses];
+
+export type PostImporttoolStreamFilesData = {
+    body: {
+        /**
+         * The file to import.
+         */
+        file: Blob | File;
+    };
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The stream identifier.
+         */
+        streamId: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/streams/{streamId}/files';
+};
+
+export type PostImporttoolStreamFilesErrors = {
+    /**
+     * No file was sent.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * The stream has already imported this exact file, the file is already queued, the stream does not read files, or a run in flight is using the bytes this upload would replace.
+     */
+    409: ErrorMessage;
+    /**
+     * The file is larger than this environment's upload limit. Publish it at an HTTP(S) URL and set that as the connection's file URL instead.
+     */
+    413: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+    /**
+     * File upload is not configured in this environment.
+     */
+    503: ErrorMessage;
+};
+
+export type PostImporttoolStreamFilesError = PostImporttoolStreamFilesErrors[keyof PostImporttoolStreamFilesErrors];
+
+export type PostImporttoolStreamFilesResponses = {
+    /**
+     * The request was successful. The file is queued.
+     */
+    200: ImportFile;
+};
+
+export type PostImporttoolStreamFilesResponse = PostImporttoolStreamFilesResponses[keyof PostImporttoolStreamFilesResponses];
+
+export type GetImporttoolStreamFileLimitsData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The stream identifier.
+         */
+        streamId: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/streams/{streamId}/files/limits';
+};
+
+export type GetImporttoolStreamFileLimitsErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type GetImporttoolStreamFileLimitsError = GetImporttoolStreamFileLimitsErrors[keyof GetImporttoolStreamFileLimitsErrors];
+
+export type GetImporttoolStreamFileLimitsResponses = {
+    /**
+     * The request was successful.
+     */
+    200: {
+        /**
+         * The largest file accepted, in bytes.
+         */
+        maxUploadBytes?: number;
+        /**
+         * Whether `maxUploadBytes` is set by the API gateway in front of the service rather than by the service itself. A larger file is then refused by the gateway, with the gateway's own `413` error body, before it reaches the service. Use the connection's file URL for it.
+         */
+        gatewayLimited?: boolean;
+        /**
+         * False when the environment has nowhere to store an uploaded file. A file URL on the connection does not help: a fetched file is stored in the same place.
+         */
+        uploadSupported?: boolean;
+    };
+};
+
+export type GetImporttoolStreamFileLimitsResponse = GetImporttoolStreamFileLimitsResponses[keyof GetImporttoolStreamFileLimitsResponses];
+
+export type PutImporttoolStreamFileOrderData = {
+    /**
+     * Every waiting file's identifier, in the order they must be imported.
+     */
+    body: Array<string>;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The stream identifier.
+         */
+        streamId: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/streams/{streamId}/files/order';
+};
+
+export type PutImporttoolStreamFileOrderErrors = {
+    /**
+     * The list is not exactly the set of waiting files.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * The job has a run in flight, or the queue is too long to be reordered in one request.
+     */
+    409: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PutImporttoolStreamFileOrderError = PutImporttoolStreamFileOrderErrors[keyof PutImporttoolStreamFileOrderErrors];
+
+export type PutImporttoolStreamFileOrderResponses = {
+    /**
+     * The request was successful. The queue is returned in its new order.
+     */
+    200: Array<ImportFile>;
+};
+
+export type PutImporttoolStreamFileOrderResponse = PutImporttoolStreamFileOrderResponses[keyof PutImporttoolStreamFileOrderResponses];
+
+export type DeleteImporttoolStreamFileData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The stream identifier.
+         */
+        streamId: string;
+        /**
+         * The file's identifier.
+         */
+        fileId: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/streams/{streamId}/files/{fileId}';
+};
+
+export type DeleteImporttoolStreamFileErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * The file is no longer waiting — a run has claimed it or already imported it — or the job has a run in flight.
+     */
+    409: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type DeleteImporttoolStreamFileError = DeleteImporttoolStreamFileErrors[keyof DeleteImporttoolStreamFileErrors];
+
+export type DeleteImporttoolStreamFileResponses = {
+    /**
+     * The request was successful. The file is removed.
+     */
+    204: void;
+};
+
+export type DeleteImporttoolStreamFileResponse = DeleteImporttoolStreamFileResponses[keyof DeleteImporttoolStreamFileResponses];
 
 export type DeleteScheduleData = {
     body?: never;
