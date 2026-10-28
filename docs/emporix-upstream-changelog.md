@@ -5,6 +5,54 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-10-28 — import-service: file imports and run counter reconciliation
+
+[Changelog entry](https://developer.emporix.io/changelog) "Import Service: file
+imports and run counter reconciliation", from
+[emporix/api-references#604](https://github.com/emporix/api-references/pull/604).
+`fetch:specs` reported `changed since last vendored: import-service` and nothing
+else. Measured by path literal (`coverage.mjs --spec import-service`): 24 live
+operations before, 29 after. **5 new endpoints, 0 removed, 0 deprecated.** All
+five are wrapped, so the facade covers 29 of 29.
+
+### Endpoints
+
+| Operation | Method |
+|---|---|
+| `GET /streams/{streamId}/files` (`historyLimit`) | `listStreamFiles` |
+| `POST /streams/{streamId}/files` (multipart, part `file`) | `uploadStreamFile` |
+| `GET /streams/{streamId}/files/limits` | `getStreamFileLimits` |
+| `PUT /streams/{streamId}/files/order` | `setStreamFileOrder` |
+| `DELETE /streams/{streamId}/files/{fileId}` | `deleteStreamFile` |
+
+New public types: `ImportFile`, `ImportFileStatus`, `ImportFileQueue`,
+`ImportFileUploadLimits`.
+
+### Fields
+
+Nothing to build — they arrive through the existing aliases:
+
+| Where | Field | Note |
+|---|---|---|
+| run, run stream | `collapsed`, `embedded` | the counters now reconcile: `recordsRead` = created + updated + skipped + unresolvedParents + deleted + failed + collapsed + embedded |
+| run stream | `filesRead`, `fileNames` | the files a file-based stream read; a retry re-reads exactly these |
+| run stream | `capSkipped`, `keylessSeen`, `sweep` | licence cap reached, a record without a key, the unresolved-parent repair pass |
+| stream | `sourceDataset`, `fileMode` | how the stream addresses its source; `SNAPSHOT` (default) or `INCREMENTAL` per file |
+| stream | `connectionId`, `parentKeyField`, `hashIncludesDeltaField`, `schemaAttributes`, `mappingSchemaVersions`, `abortOnSchemaVersionDrift`, `dependsOn`, `nameField` (deprecated) | now in the spec |
+| error record | `errorCode` | values documented, still a free string: new `CONFIGURATION`, `EXTERNAL_SYSTEM`, `REJECTED_BY_SOURCE` |
+
+### Behaviour
+
+- The service dedupes uploads on the SHA-256 of the content: the same bytes
+  answer `409` once imported or queued, while a `FAILED` file is accepted again.
+  `uploadStreamFile` is therefore not retried on a 5xx.
+- Reordering takes every waiting file's id and is refused while a run is in
+  flight; only a waiting file can be removed.
+
+Updated: the `ImportRun`, `ImportRunStream`, `ImportStream` and
+`ImportErrorRecord` JSDoc, and [import.md](./import.md#file-based-streams).
+Not verified against a live tenant.
+
 ## 2026-10-16 — search-service: CONTAINS filter, Search Cockpit release
 
 [Release note](https://developer.emporix.io/release-notes) "Search for Custom

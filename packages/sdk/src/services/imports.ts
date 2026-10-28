@@ -11,6 +11,9 @@ import type {
   ImportStats,
   ImportStatsQuery,
   ImportErrorRecord,
+  ImportFile,
+  ImportFileQueue,
+  ImportFileUploadLimits,
   ImportPage,
   ImportRecordOutcome,
   ImportRun,
@@ -32,6 +35,10 @@ export type {
   ImportDiagnosticKind,
   ImportDiagnosticRecord,
   ImportErrorRecord,
+  ImportFile,
+  ImportFileQueue,
+  ImportFileStatus,
+  ImportFileUploadLimits,
   ImportHealthThresholds,
   ImportJobGroup,
   ImportLicense,
@@ -639,4 +646,126 @@ export class ImportService {
     });
   }
 
+  // ─── File queue (upstream release 2026-10-28) ──────────────────────────────
+
+  /**
+   * A file-based stream's queue: what it still has to import, in load order,
+   * and the files it already dealt with, newest first. `historyLimit` caps
+   * `history` only (1–500, default 100); `pending` comes back whole up to 2000
+   * files — see {@link ImportFileQueue}.
+   */
+  async listStreamFiles(
+    streamId: string,
+    opts: { historyLimit?: number } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ImportFileQueue> {
+    const query: Record<string, string | number | undefined> = {};
+    if (opts.historyLimit !== undefined) query.historyLimit = opts.historyLimit;
+    return this.ctx.http.request<ImportFileQueue>({
+      method: "GET",
+      path: `${this.base()}/streams/${encodeURIComponent(streamId)}/files`,
+      query,
+      auth,
+    });
+  }
+
+  /**
+   * Queue a delimited file (CSV or one of its variants) for a file-based
+   * stream's next run. Nothing is imported by this call — trigger a run for
+   * that.
+   *
+   * `fileName` is required: the service displays it and infers the compression
+   * from it, and a bare `Blob` would otherwise arrive named «blob».
+   *
+   * The service recognises a file by the SHA-256 of its content, whatever its
+   * name, and answers `409` when the stream already imported or queued those
+   * bytes; a file that previously `FAILED` is accepted again. It also answers
+   * `409` when the stream does not read files, or when a run in flight uses
+   * bytes this upload would replace. `413`: the file is over the limit from
+   * {@link getStreamFileLimits}. `503`: uploading is not configured in this
+   * environment.
+   *
+   * Not retried on a 5xx: a request that timed out may have queued the file,
+   * and sending it again would then answer `409`. Check {@link listStreamFiles}
+   * instead.
+   */
+  async uploadStreamFile(
+    streamId: string,
+    file: Blob,
+    fileName: string,
+    auth: AuthContext = SERVICE,
+  ): Promise<ImportFile> {
+    const fd = new FormData();
+    fd.set("file", file, fileName);
+    return this.ctx.http.request<ImportFile>({
+      method: "POST",
+      path: `${this.base()}/streams/${encodeURIComponent(streamId)}/files`,
+      body: fd,
+      auth,
+    });
+  }
+
+  /**
+   * The largest file this environment accepts, and whether uploading is
+   * available at all — check it to refuse an oversize file before sending it.
+   *
+   * When `gatewayLimited` is `true`, a larger file is refused by the API gateway
+   * with the gateway's own `413` body, before it reaches the service. Publish
+   * such a file at an HTTP(S) URL and set it as the connection's file URL
+   * instead.
+   */
+  async getStreamFileLimits(
+    streamId: string,
+    auth: AuthContext = SERVICE,
+  ): Promise<ImportFileUploadLimits> {
+    return this.ctx.http.request<ImportFileUploadLimits>({
+      method: "GET",
+      path: `${this.base()}/streams/${encodeURIComponent(streamId)}/files/limits`,
+      auth,
+    });
+  }
+
+  /**
+   * Set the order in which a stream's waiting files are read, and resolve to
+   * the queue in that order. For an `INCREMENTAL` feed the order is the data: a
+   * later file's values win on a key an earlier one also carries, so place an
+   * older export first.
+   *
+   * Takes **every** waiting file's id, in load order — not a single file to
+   * move. A list that is not exactly the waiting set answers `400`. `409` means
+   * the job has a run in flight, or the queue is too long to reorder (the
+   * queue's `pendingTruncated`).
+   */
+  async setStreamFileOrder(
+    streamId: string,
+    fileIds: string[],
+    auth: AuthContext = SERVICE,
+  ): Promise<ImportFile[]> {
+    return this.ctx.http.request<ImportFile[]>({
+      method: "PUT",
+      path: `${this.base()}/streams/${encodeURIComponent(streamId)}/files/order`,
+      body: fileIds,
+      auth,
+    });
+  }
+
+  /**
+   * Remove a waiting file from the queue and delete its stored bytes.
+   *
+   * Only a `PENDING` file can go: a file a run has claimed or already imported
+   * answers `409`, and so does any file while the job has a run in flight. An
+   * imported file stays in the history on purpose — removing it would make the
+   * same bytes importable again.
+   */
+  async deleteStreamFile(
+    streamId: string,
+    fileId: string,
+    auth: AuthContext = SERVICE,
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "DELETE",
+      path: `${this.base()}/streams/${encodeURIComponent(streamId)}/files/${encodeURIComponent(fileId)}`,
+      auth,
+    });
+  }
 }
