@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 4.9.1
+
+### Patch Changes
+
+- [#436](https://github.com/viuteam/emporix-sdk/pull/436) [`aa748b6`](https://github.com/viuteam/emporix-sdk/commit/aa748b610d1b264743ed0fe5f35ec4e7138e4f29) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: ai-rag-indexer,ai-service,indexing-service,search-service
+
 ## 4.9.0
 
 ### Minor Changes
