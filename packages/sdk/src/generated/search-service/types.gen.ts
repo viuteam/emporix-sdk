@@ -28,9 +28,13 @@ export type IndexRequest = {
     /**
      * Fields to index. At least one field is required.
      *
-     * A string field needs `text`, `autocomplete`, or `exact`. A number, boolean, or date field supports only `exact` set to `true`. `time`, `list`, `object`, and `dictionary` fields cannot be indexed. A path must be a field defined on the schema type, or `metadata.createdAt`, or `metadata.modifiedAt`. Any other path is rejected.
+     * A string field needs `text`, `autocomplete`, or `exact`. A number, boolean, or date field supports only `exact` set to `true`. `time`, `object`, and `dictionary` fields cannot be indexed. A list of objects is indexed with `itemFields` on `IndexField`. A path must be a field defined on the type, or `metadata.createdAt`, or `metadata.modifiedAt`. Any other path is rejected.
      */
     fields: Array<IndexField>;
+    /**
+     * Named text comparison rules. Optional. Every analyzer must be selected by a field.
+     */
+    analyzers?: Array<IndexAnalyzer>;
     metadata?: IndexMetadataRequest;
 };
 
@@ -54,6 +58,58 @@ export type IndexField = {
      * Indexes the field for equality, list, range, existence, and sort. Required for number, boolean, and date fields.
      */
     exact?: boolean;
+    /**
+     * Comparison rules for a string field with `text` set to `true`. Use a preset (`STANDARD`, `FOLDED`, `IDENTIFIER`, `SOUNDS_LIKE`) or the `name` of an analyzer on the index. When omitted, `STANDARD` is used.
+     */
+    analyzer?: string;
+    /**
+     * Extra comparison rules for the same field. Each entry is a preset or the `name` of an analyzer on the index. A query uses one only when it selects it. Requires `text` set to `true`.
+     */
+    additionalAnalyzers?: Array<string>;
+    /**
+     * Fields inside one list of objects. `path` is that list. The catalog `parent` of each child must be this path. Matching within one list item uses these fields. Do not set `text`, `autocomplete`, `exact`, or `analyzer` on the list itself.
+     */
+    itemFields?: Array<IndexField>;
+};
+
+/**
+ * Rules for comparing text. The service applies the same rules to the stored value and to the query. Unknown properties are ignored.
+ *
+ * `basedOn` starts from a preset. A property you set replaces that preset's value. `STANDARD` compares words and ignores case. `FOLDED` also ignores accents. `IDENTIFIER` compares the whole value, ignores case, and removes spaces, `-`, `.`, and `/`. `SOUNDS_LIKE` matches words that sound alike.
+ */
+export type IndexAnalyzer = {
+    /**
+     * Analyzer name. A letter, then up to 39 letters, digits, underscores, or hyphens. Preset names, `keyword`, and `folded` are reserved.
+     */
+    name: string;
+    /**
+     * Preset these rules start from.
+     */
+    basedOn?: 'STANDARD' | 'FOLDED' | 'IDENTIFIER' | 'SOUNDS_LIKE';
+    /**
+     * `WORDS` compares word by word. `WHOLE_VALUE` compares the whole value as one token.
+     */
+    split?: 'WORDS' | 'WHOLE_VALUE';
+    /**
+     * If set to `true`, upper and lower case are treated as equal.
+     */
+    ignoreCase?: boolean;
+    /**
+     * If set to `true`, letters with and without accents are treated as equal.
+     */
+    ignoreAccents?: boolean;
+    /**
+     * Characters removed before comparing. Each entry is one character.
+     */
+    ignoreCharacters?: Array<string>;
+    /**
+     * Words ignored when comparing. With `WORDS`, each word contains only letters and digits, is at most 50 characters, and must stay one word when text is split. For example, `中文` is two words.
+     */
+    ignoreWords?: Array<string>;
+    /**
+     * `SPELLING` compares the letters. `SOUND` matches words that sound alike.
+     */
+    compare?: 'SPELLING' | 'SOUND';
 };
 
 /**
@@ -73,7 +129,7 @@ export type IndexMetadataRequest = {
  */
 export type IndexSelection = {
     /**
-     * Custom schema type this index belongs to.
+     * Type this index belongs to. A custom schema type, `customer`, or `legal-entity`.
      */
     type: string;
     /**
@@ -85,7 +141,7 @@ export type IndexSelection = {
 /**
  * Package of search index configuration. `data` is the base64 encoding of a JSON array.
  *
- * Each decoded item has `id`, `type`, and `fields`. `name` and `description` are optional localized maps. Export omits `status` and `metadata`. Import accepts `metadata.version` when the caller sends it.
+ * Each decoded item has `id`, `type`, and `fields`. `name`, `description`, and `analyzers` are optional. Export omits `status` and `metadata`. Import accepts `metadata.version` when the caller sends it.
  */
 export type IndexExportPackage = {
     /**
@@ -107,7 +163,7 @@ export type IndexImportResult = {
      */
     id: string;
     /**
-     * Custom schema type this index belongs to.
+     * Type this index belongs to. A custom schema type, `customer`, or `legal-entity`.
      */
     type: string;
     /**
@@ -131,7 +187,7 @@ export type SearchIndex = {
      */
     id?: string;
     /**
-     * Custom schema type this index belongs to.
+     * Type this index belongs to. A custom schema type, `customer`, or `legal-entity`.
      */
     type?: string;
     /**
@@ -150,6 +206,10 @@ export type SearchIndex = {
      * Fields stored for this index.
      */
     fields?: Array<IndexField>;
+    /**
+     * Text comparison rules stored for this index. Omitted when the index has none.
+     */
+    analyzers?: Array<IndexAnalyzer>;
     /**
      * Build state of the index.
      */
@@ -239,7 +299,7 @@ export type SavedSearchCall = {
      */
     query: string;
     /**
-     * Id of the saved search for this schema type.
+     * Id of the saved search for this type.
      */
     searchQueryId: string;
 };
@@ -314,7 +374,7 @@ export type SavedQuery = {
         [key: string]: string;
     };
     /**
-     * Custom schema type this saved search belongs to.
+     * Type this saved search belongs to. A custom schema type, `customer`, or `legal-entity`.
      */
     type?: string;
     /**
@@ -344,7 +404,7 @@ export type QueryNode = {
      */
     query?: string;
     /**
-     * Document field to match. `id` is stored as `_id`.
+     * Document field to match. `id` is stored as `_id`. A field inside `itemFields` uses its full path, such as `addresses.city`. Conditions on one list joined by `and` must match the same item. The list path itself cannot be searched.
      */
     field?: string;
     /**
@@ -352,6 +412,12 @@ export type QueryNode = {
      */
     boost?: number;
     fuzzy?: Fuzzy;
+    /**
+     * Optional analyzer for this clause. Allowed only when `type` is `TEXT` or `PHRASE`.
+     *
+     * The value is the field's `analyzer`, or one name from that field's `additionalAnalyzers`. The name is not case-sensitive. When omitted, the query uses the field's `analyzer`.
+     */
+    analyzer?: string;
 };
 
 /**
@@ -393,7 +459,7 @@ export type FilterNode = {
      */
     or?: Array<FilterNode>;
     /**
-     * Document field to compare. `id` is stored as `_id`.
+     * Document field to compare. `id` is stored as `_id`. A field inside `itemFields` uses its full path, such as `addresses.city`. Conditions on one list joined by `and` must match the same item. A lone `NEQ`, `NOT_IN`, or `EXISTS` `false` on a list excludes the document when any item matches the value. A document with no items in that list matches. The same operator joined by `and` with another condition on that list still applies to one item. The list path itself cannot be searched.
      */
     field?: string;
     operator?: FilterOperator;
@@ -492,9 +558,7 @@ export type ErrorMessageFault = {
 export type PathTenant = string;
 
 /**
- * Type of documents to search.
- *
- * For now, only custom schema types are supported.
+ * Type of documents to search. Use a custom schema type, `customer`, or `legal-entity`.
  *
  */
 export type PathType = string;
@@ -636,9 +700,7 @@ export type PostSearchTenantTypeData = {
          */
         tenant: string;
         /**
-         * Type of documents to search.
-         *
-         * For now, only custom schema types are supported.
+         * Type of documents to search. Use a custom schema type, `customer`, or `legal-entity`.
          *
          */
         type: string;
@@ -701,7 +763,7 @@ export type PostSearchTenantTypeErrors = {
      */
     500: ErrorMessage;
     /**
-     * The Schema Service could not confirm that the type is a custom entity.
+     * For a type other than `customer` or `legal-entity`, the Schema Service could not confirm that the type is a custom entity.
      */
     502: ErrorMessage;
 };
@@ -831,9 +893,7 @@ export type GetSearchTenantTypeQueriesData = {
          */
         tenant: string;
         /**
-         * Type of documents to search.
-         *
-         * For now, only custom schema types are supported.
+         * Type of documents to search. Use a custom schema type, `customer`, or `legal-entity`.
          *
          */
         type: string;
@@ -910,9 +970,7 @@ export type DeleteSearchTenantTypeQueriesIdData = {
          */
         tenant: string;
         /**
-         * Type of documents to search.
-         *
-         * For now, only custom schema types are supported.
+         * Type of documents to search. Use a custom schema type, `customer`, or `legal-entity`.
          *
          */
         type: string;
@@ -977,9 +1035,7 @@ export type GetSearchTenantTypeQueriesIdData = {
          */
         tenant: string;
         /**
-         * Type of documents to search.
-         *
-         * For now, only custom schema types are supported.
+         * Type of documents to search. Use a custom schema type, `customer`, or `legal-entity`.
          *
          */
         type: string;
@@ -1043,9 +1099,7 @@ export type PutSearchTenantTypeQueriesIdData = {
          */
         tenant: string;
         /**
-         * Type of documents to search.
-         *
-         * For now, only custom schema types are supported.
+         * Type of documents to search. Use a custom schema type, `customer`, or `legal-entity`.
          *
          */
         type: string;
@@ -1316,9 +1370,7 @@ export type GetSearchTenantTypeIndexesData = {
          */
         tenant: string;
         /**
-         * Type of documents to search.
-         *
-         * For now, only custom schema types are supported.
+         * Type of documents to search. Use a custom schema type, `customer`, or `legal-entity`.
          *
          */
         type: string;
@@ -1395,9 +1447,7 @@ export type DeleteSearchTenantTypeIndexesIdData = {
          */
         tenant: string;
         /**
-         * Type of documents to search.
-         *
-         * For now, only custom schema types are supported.
+         * Type of documents to search. Use a custom schema type, `customer`, or `legal-entity`.
          *
          */
         type: string;
@@ -1466,9 +1516,7 @@ export type GetSearchTenantTypeIndexesIdData = {
          */
         tenant: string;
         /**
-         * Type of documents to search.
-         *
-         * For now, only custom schema types are supported.
+         * Type of documents to search. Use a custom schema type, `customer`, or `legal-entity`.
          *
          */
         type: string;
@@ -1532,9 +1580,7 @@ export type PutSearchTenantTypeIndexesIdData = {
          */
         tenant: string;
         /**
-         * Type of documents to search.
-         *
-         * For now, only custom schema types are supported.
+         * Type of documents to search. Use a custom schema type, `customer`, or `legal-entity`.
          *
          */
         type: string;

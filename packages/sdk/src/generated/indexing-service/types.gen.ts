@@ -46,7 +46,15 @@ export type Metadata = {
 };
 
 /**
- * Entity type which should be reindexed. It supports `ORDER`, `PRODUCT` and custom schema types.
+ * Entity type to reindex. The following values are supported:
+ * * `PRODUCT`
+ * * `ORDER`
+ * * `CUSTOMER`
+ * * `LEGAL-ENTITY`
+ *
+ * You can also use a custom schema type.
+ *
+ * Values are case-insensitive. `LEGAL-ENTITY` uses a hyphen, not an underscore.
  */
 export type ReindexEntityType = string;
 

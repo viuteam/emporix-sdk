@@ -26,6 +26,10 @@ export type MetadataFilter = {
      * Type of the field.
      */
     type?: 'string' | 'integer' | 'float' | 'boolean' | 'datetime' | 'date' | 'time' | 'dictionary' | 'list' | 'object';
+    /**
+     * Path of the list of objects that contains this field. Omitted when the field is not inside a list.
+     */
+    parent?: string;
 };
 
 export type ErrorMessage = {
@@ -59,7 +63,14 @@ export type ErrorMessageFault = {
 export type PathTenant = string;
 
 /**
- * Rag Entity Type. Supported predefined types: [ORDER, PRODUCT] and custom entity types.
+ * Entity type. Possible values:
+ * * `product`
+ * * `order`
+ * * `customer`
+ * * `legal-entity`
+ * * a custom entity type defined in the Schema Service
+ *
+ * Any other value returns `400 Bad Request`.
  */
 export type PathType = string;
 
@@ -74,7 +85,14 @@ export type GetAiRagIndexerReindexData = {
          */
         tenant: string;
         /**
-         * Rag Entity Type. Supported predefined types: [ORDER, PRODUCT] and custom entity types.
+         * Entity type. Possible values:
+         * * `product`
+         * * `order`
+         * * `customer`
+         * * `legal-entity`
+         * * a custom entity type defined in the Schema Service
+         *
+         * Any other value returns `400 Bad Request`.
          */
         type: string;
     };
@@ -119,7 +137,14 @@ export type GetAiRagIndexerRetrieveRagMetadataData = {
          */
         tenant: string;
         /**
-         * Rag Entity Type. Supported predefined types: [ORDER, PRODUCT] and custom entity types.
+         * Entity type. Possible values:
+         * * `product`
+         * * `order`
+         * * `customer`
+         * * `legal-entity`
+         * * a custom entity type defined in the Schema Service
+         *
+         * Any other value returns `400 Bad Request`.
          */
         type: string;
     };
@@ -164,7 +189,14 @@ export type GetAiRagIndexerRetrieveFilterMetadataData = {
          */
         tenant: string;
         /**
-         * Rag Entity Type. Supported predefined types: [ORDER, PRODUCT] and custom entity types.
+         * Entity type. Possible values:
+         * * `product`
+         * * `order`
+         * * `customer`
+         * * `legal-entity`
+         * * a custom entity type defined in the Schema Service
+         *
+         * Any other value returns `400 Bad Request`.
          */
         type: string;
     };
