@@ -103,8 +103,9 @@ export type ExpandableTokenResponse = IdResponse | ExpandedTokenResponse;
  * * `rag_custom`
  * * `rag_emporix`
  * * `teams`
+ * * `search`
  */
-export type NativeToolType = 'slack' | 'rag_custom' | 'rag_emporix' | 'teams';
+export type NativeToolType = 'slack' | 'rag_custom' | 'rag_emporix' | 'teams' | 'search';
 
 export type BaseNativeTool = {
     type: NativeToolType;
@@ -250,7 +251,12 @@ export type RagEmporixNativeToolConfig = {
      */
     prompt: string;
     /**
-     * Type of the entity which is stored in the given collection. Supported predefined types: [ORDER, PRODUCT] and custom entity types.
+     * Type of the entity which is stored in the given collection. Possible values:
+     * * `product`
+     * * `order`
+     * * `customer`
+     * * `legal-entity`
+     * * a custom entity type defined in the Schema Service
      */
     entityType: string;
     /**
@@ -392,6 +398,50 @@ export type TeamsNativeToolResponse = BaseNativeTool & {
     metadata?: MetadataResponse;
 };
 
+/**
+ * Type of documents the tool searches. Possible values:
+ * * `customer`
+ * * `legal-entity`
+ */
+export type SearchEntityType = 'customer' | 'legal-entity';
+
+/**
+ * Configuration of a search native tool instance.
+ */
+export type SearchNativeToolConfig = {
+    /**
+     * Instructions for the agent on when and why to call this tool. They are added to the tool description.
+     */
+    prompt?: string;
+    entityType: SearchEntityType;
+    /**
+     * Maximum number of documents the tool returns for one search.
+     */
+    maxResults?: number;
+};
+
+export type SearchNativeToolRequest = BaseNativeTool & {
+    /**
+     * For `SearchNativeTool`, it has to be set to `search`.
+     */
+    type?: unknown;
+    config: SearchNativeToolConfig;
+    metadata?: MetadataRequest;
+};
+
+export type SearchNativeToolResponse = BaseNativeTool & {
+    /**
+     * Unique identifier of the tool.
+     */
+    id?: string;
+    /**
+     * For `SearchNativeTool`, it has to be set to `search`.
+     */
+    type?: unknown;
+    config?: SearchNativeToolConfig;
+    metadata?: MetadataResponse;
+};
+
 export type RagCustomNativeToolRequest = BaseNativeTool & {
     /**
      * For `RagCustomNativeTool`, it has to be set to `rag_custom`.
@@ -439,7 +489,7 @@ export type RagEmporixNativeToolResponse = BaseNativeTool & {
 /**
  * List of native tools which agents should have access to.
  */
-export type NativeToolsResponse = Array<SlackNativeToolResponse | RagCustomNativeToolResponse | RagEmporixNativeToolResponse | TeamsNativeToolResponse>;
+export type NativeToolsResponse = Array<SlackNativeToolResponse | RagCustomNativeToolResponse | RagEmporixNativeToolResponse | TeamsNativeToolResponse | SearchNativeToolResponse>;
 
 /**
  * Represents an active agent conversation context (MS Teams channel or group chat).
@@ -2020,7 +2070,7 @@ export type OauthUpsertBody = OAuthRequest;
 
 export type OauthPatchBody = PatchRequest;
 
-export type ToolUpsertBody = SlackNativeToolRequest | RagCustomNativeToolRequest | RagEmporixNativeToolRequest | TeamsNativeToolRequest;
+export type ToolUpsertBody = SlackNativeToolRequest | RagCustomNativeToolRequest | RagEmporixNativeToolRequest | TeamsNativeToolRequest | SearchNativeToolRequest;
 
 export type ToolPatchBody = PatchRequest;
 
@@ -3621,7 +3671,7 @@ export type GetAiRetrieveToolResponses = {
     /**
      * A single tool.
      */
-    200: SlackNativeToolResponse | RagCustomNativeToolResponse | RagEmporixNativeToolResponse | TeamsNativeToolResponse;
+    200: SlackNativeToolResponse | RagCustomNativeToolResponse | RagEmporixNativeToolResponse | TeamsNativeToolResponse | SearchNativeToolResponse;
 };
 
 export type GetAiRetrieveToolResponse = GetAiRetrieveToolResponses[keyof GetAiRetrieveToolResponses];
