@@ -32,18 +32,6 @@ export type AccessControlQueryDocument = {
      */
     id?: string;
     /**
-     * Role unique identifier associated with this access control.
-     *
-     * @deprecated
-     */
-    roleId?: string;
-    /**
-     * Resource unique identifier associated with this access control.
-     *
-     * @deprecated
-     */
-    resourceId?: string;
-    /**
      * Domain identifiers associated with this access control.
      */
     domains?: Array<string>;
@@ -53,8 +41,6 @@ export type AccessControlQueryDocument = {
     name?: {
         [key: string]: string;
     };
-    role?: RoleQueryDocument;
-    resource?: ResourceQueryDocument;
     metadata?: AccessControlMetadataQueryDocument;
     /**
      * A list of resolved scopes for a particular access control.
@@ -408,157 +394,6 @@ export type GroupsQueryDocument = {
 export type Restrictions = Array<string>;
 
 /**
- * Definition of permissions
- */
-export type PermissionQueryDocument = {
-    /**
-     * Permission unique identifier generated when the permission is created.
-     */
-    id?: string;
-    /**
-     * Permission code identifier used for scopes mapping.
-     */
-    code?: string;
-    /**
-     * Localized permission name in the form of a map of codes.
-     */
-    name?: {
-        [key: string]: string;
-    };
-    /**
-     * Localized permission description in the form of a map of translations.
-     */
-    description?: {
-        [key: string]: string;
-    };
-    /**
-     * Applicable domains list declared for this permission.
-     */
-    applicableResources?: Array<string>;
-    metadata?: PermissionsMetadataQueryDocument;
-};
-
-/**
- * Permission metadata.
- */
-export type PermissionsMetadataQueryDocument = {
-    /**
-     * Permission document version.
-     */
-    version: number;
-    /**
-     * Timestamp indicating when the permission was created.
-     */
-    createdAt: string;
-    /**
-     * Timestamp indicating when the permission was last modified.
-     */
-    modifiedAt?: string;
-};
-
-/**
- * Resource definition associated with this access control.
- */
-export type ResourceQueryDocument = {
-    /**
-     * Resource unique identifier generated when the resource is created.
-     */
-    id?: string;
-    /**
-     * Localized resource name in the form of a map of translations.
-     */
-    name?: {
-        [key: string]: string;
-    };
-    /**
-     * Localized resource description in the form of a map of translations.
-     */
-    description?: {
-        [key: string]: string;
-    };
-    /**
-     * Resource unique code identifier.
-     */
-    code?: string;
-    metadata?: ResourcesMetadataQueryDocument;
-};
-
-/**
- * Resource metadata.
- */
-export type ResourcesMetadataQueryDocument = {
-    /**
-     * Resource document version.
-     */
-    version: number;
-    /**
-     * Timestamp indicating when the resource was created.
-     */
-    createdAt: string;
-    /**
-     * Timestamp indicating when the resource was last modified.
-     */
-    modifiedAt?: string;
-};
-
-/**
- * Role permissions list.
- */
-export type RolePermissionsDocument = {
-    /**
-     * Allows you to allowlist resources that the permission is applicable to. Can only contain resources specified in the permission document under `applicableResources`.
-     *
-     */
-    applicablePermissionResources?: Array<string>;
-    /**
-     * Reference to the permission document with specific resources defined.
-     */
-    id: string;
-};
-
-/**
- * Role definition associated with this access control.
- */
-export type RoleQueryDocument = {
-    /**
-     * Role unique identifier generated when the role is created.
-     */
-    id?: string;
-    /**
-     * Localized role name in the form of a map of translations.
-     */
-    name?: {
-        [key: string]: string;
-    };
-    /**
-     * Localized role description in the form of a map of translations.
-     */
-    description?: {
-        [key: string]: string;
-    };
-    /**
-     * Permissions unique identifier list declared for this role.
-     */
-    permissions?: Array<RolePermissionsDocument>;
-    metadata?: RolesMetadata;
-};
-
-export type RolesMetadata = {
-    /**
-     * Role document version.
-     */
-    version: number;
-    /**
-     * Timestamp indicating when the role was created.
-     */
-    createdAt: string;
-    /**
-     * Timestamp indicating when the role was last modified.
-     */
-    modifiedAt?: string;
-};
-
-/**
  * Definition of user scopes
  */
 export type UserScopesResponse = {
@@ -825,18 +660,6 @@ export type AccessControlQueryDocumentWritable = {
      */
     id?: string;
     /**
-     * Role unique identifier associated with this access control.
-     *
-     * @deprecated
-     */
-    roleId?: string;
-    /**
-     * Resource unique identifier associated with this access control.
-     *
-     * @deprecated
-     */
-    resourceId?: string;
-    /**
      * Domain identifiers associated with this access control.
      */
     domains?: Array<string>;
@@ -846,8 +669,6 @@ export type AccessControlQueryDocumentWritable = {
     name?: {
         [key: string]: string;
     };
-    role?: RoleQueryDocument;
-    resource?: ResourceQueryDocument;
     metadata?: AccessControlMetadataQueryDocument;
     /**
      * A list of resolved scopes for a particular access control.
@@ -1095,16 +916,6 @@ export type TraitAcceptLanguageHeader = string;
 export type XTotalCount = boolean;
 
 /**
- * Search by the id of a given resource.
- *
- * **Note**: This query parameter is deprecated.
- *
- *
- * @deprecated
- */
-export type TraitResourceIdQueryParam = string;
-
-/**
  * Search by the name of a given resource. The value is conformed against all of the specified accepted languages.
  *
  */
@@ -1123,16 +934,6 @@ export type TraitQQueryParam = string;
  *
  */
 export type TraitMetadataModifiedAtQueryParam = string;
-
-/**
- * Adds expanded resource and/or role objects to the response.
- *
- * **Note**: This query parameter is deprecated.
- *
- *
- * @deprecated
- */
-export type TraitExpandQueryParam = 'role,resource' | 'resource,role' | 'role' | 'resource';
 
 /**
  * Search by the description of the the given resource, it is conformed against all of the specified accepted-languages.
@@ -1160,11 +961,6 @@ export type UserType = string;
 export type VendorId = string;
 
 /**
- * Unique identifier of a resource.
- */
-export type ResourceId = string;
-
-/**
  * Unique identifier of a scope. Only letters, digits, periods (`.`), hyphens (`-`), and underscores (`_`) are allowed.
  *
  */
@@ -1174,28 +970,6 @@ export type ScopeId = string;
  * Unique identifier of an access control.
  */
 export type AccessControlId = string;
-
-/**
- * Unique identifier of a permission, generated when the permission is created.
- *
- */
-export type PermissionId = string;
-
-/**
- * Unique identifier of a role, generated when the role is created.
- *
- */
-export type RoleIdPath = string;
-
-/**
- * Search by access controls with the `roleId` field equal to the specified value.
- *
- * **Note**: This query parameter is deprecated.
- *
- *
- * @deprecated
- */
-export type RoleIdQuery = string;
 
 export type GetIamListTenantAccessControlsData = {
     body?: never;
@@ -1240,39 +1014,12 @@ export type GetIamListTenantAccessControlsData = {
          */
         metadataModifiedAt?: string;
         /**
-         * Search by access controls with the `roleId` field equal to the specified value.
-         *
-         * **Note**: This query parameter is deprecated.
-         *
-         *
-         * @deprecated
-         */
-        roleId?: string;
-        /**
-         * Search by the id of a given resource.
-         *
-         * **Note**: This query parameter is deprecated.
-         *
-         *
-         * @deprecated
-         */
-        resourceId?: string;
-        /**
          * Standard query parameter used to search for specific values.
          * * Searching for an item by string property: `q=id:31065d5b-b62e`, where `id` is the field name and `31065d5b-b62e` is its required value.
          * * Searching for an item by localized field property: `q=name.en:T-s` where `name` is the name of the field, `en` is a language code and `T-s` is a required value of this field.   This query works only for localized fields, which are stored in a Map format where `key` is a language code and `value` is translation to particular language.   + Searching for items by date property. All numer-based property queries are valid also for dates. In that case the date should be placed within double quotes: `q=metadata.createdAt:(>="2021-05-18T07:27:27.455Z" AND <"2021-05-20T07:27:27.455Z")`   + Searching for items with non existing or empty property: `q=name.en:null` where `name.en` is a name of fields that has value `null`.   + Searching for items with existing property: `q=attributes:exists` where `attributes` is a name of field that has `non null` value.   + Searching for items by multiple specific values: `q=id:(5c3325baa9812100098ff48f,5c3325d1a9812100098ff494)` where `id` is name of field and strings within a bracket are it''s required value.   + Searching for items by multiple fields: `q=id:5c3325baa9812100098ff48f name.en:T-s` where `id` and ''name.en'' are the names of fields. All documents that contain given values of these fields are returned. Multiple fields separated by space can be specified. Multiple values for each field can be also specified in a format presented above.   + Searching for items with string fields conforming to a regex: `q=name.en:~ABCD12` or `q=name.en:(~AB CD)` - in case of searching for strings with space, where `name` is the name of field and `ABCD12` or `AB CD` is it''s querying regex.'
          *
          */
         q?: string;
-        /**
-         * Adds expanded resource and/or role objects to the response.
-         *
-         * **Note**: This query parameter is deprecated.
-         *
-         *
-         * @deprecated
-         */
-        expand?: 'role,resource' | 'resource,role' | 'role' | 'resource';
     };
     url: '/iam/{tenant}/access-controls';
 };
@@ -1398,17 +1145,7 @@ export type GetIamRetrieveAccessControlData = {
          */
         accessControlId: string;
     };
-    query?: {
-        /**
-         * Adds expanded resource and/or role objects to the response.
-         *
-         * **Note**: This query parameter is deprecated.
-         *
-         *
-         * @deprecated
-         */
-        expand?: 'role,resource' | 'resource,role' | 'role' | 'resource';
-    };
+    query?: never;
     url: '/iam/{tenant}/access-controls/{accessControlId}';
 };
 
@@ -2273,15 +2010,6 @@ export type GetIamListGroupAccessControlsData = {
          *
          */
         pageSize?: number;
-        /**
-         * Adds expanded resource and/or role objects to the response.
-         *
-         * **Note**: This query parameter is deprecated.
-         *
-         *
-         * @deprecated
-         */
-        expand?: 'role,resource' | 'resource,role' | 'role' | 'resource';
     };
     url: '/iam/{tenant}/groups/{groupId}/access-controls';
 };
@@ -2661,382 +2389,6 @@ export type DeleteIamRemoveUserFromGroupResponses = {
 
 export type DeleteIamRemoveUserFromGroupResponse = DeleteIamRemoveUserFromGroupResponses[keyof DeleteIamRemoveUserFromGroupResponses];
 
-export type GetIamListAllTenantPermissionsData = {
-    body?: never;
-    headers?: {
-        /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If the value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
-         *
-         */
-        'Accept-Language'?: string;
-        /**
-         * Flag indicating whether the total number of retrieved items should be returned.
-         *
-         */
-        'X-Total-Count'?: boolean;
-    };
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant name should always be written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query?: {
-        /**
-         * Page number to be retrieved. The number of the first page is 1.
-         *
-         */
-        pageNumber?: number;
-        /**
-         * Number of items to be retrieved per page.
-         *
-         */
-        pageSize?: number;
-        /**
-         * List of properties used to sort the results, separated by colons. The order of properties indicates their priority in sorting.
-         *
-         * Possible values:
-         * * `{fieldName}`
-         * * `{fieldName}:asc`
-         * * `{fieldName}:desc`
-         *
-         * **Note:** If you want to sort the results by localized properties, the possible values are as follows:
-         * * `{fieldName}.{language}`
-         * * `{fieldName}.{language}:asc`
-         * * `{fieldName}.{language}:desc`
-         *
-         * If the sorting direction is not specified, the fields are sorted in ascending order.
-         */
-        sort?: string;
-        /**
-         * Search by the name of a given resource. The value is conformed against all of the specified accepted languages.
-         *
-         */
-        name?: string;
-        /**
-         * Search by the description of the the given resource, it is conformed against all of the specified accepted-languages.
-         */
-        description?: string;
-        /**
-         * Search by given resources that contain the `metadata.modifiedAt` date field with a date later than the specified value. The format is as follows: ''yyyy-MM-dd''.
-         *
-         */
-        metadataModifiedAt?: string;
-    };
-    url: '/iam/{tenant}/permissions';
-};
-
-export type GetIamListAllTenantPermissionsErrors = {
-    /**
-     * Unsupported language provided.
-     */
-    400: {
-        code?: number;
-        status?: string;
-        message?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given request is unauthorized - the authorization token is invalid or has expired. It usually means that tenant from the token does not match tenant from path.
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-    /**
-     * Scope validation failed, details will be provided in response message
-     */
-    403: {
-        code?: number;
-        message?: string;
-        status?: string;
-        details?: Array<string>;
-    };
-};
-
-export type GetIamListAllTenantPermissionsError = GetIamListAllTenantPermissionsErrors[keyof GetIamListAllTenantPermissionsErrors];
-
-export type GetIamListAllTenantPermissionsResponses = {
-    /**
-     * The request was successful. A list of permissions is returned.
-     */
-    200: Array<PermissionQueryDocument>;
-};
-
-export type GetIamListAllTenantPermissionsResponse = GetIamListAllTenantPermissionsResponses[keyof GetIamListAllTenantPermissionsResponses];
-
-export type GetIamRetrievePermissionByPermissionIdData = {
-    body?: never;
-    headers?: {
-        /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If the value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
-         *
-         */
-        'Accept-Language'?: string;
-    };
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant name should always be written in lowercase.
-         *
-         */
-        tenant: string;
-        /**
-         * Unique identifier of a permission, generated when the permission is created.
-         *
-         */
-        permissionId: string;
-    };
-    query?: never;
-    url: '/iam/{tenant}/permissions/{permissionId}';
-};
-
-export type GetIamRetrievePermissionByPermissionIdErrors = {
-    /**
-     * Unsupported language provided.
-     */
-    400: {
-        code?: number;
-        status?: string;
-        message?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given request is unauthorized - the authorization token is invalid or has expired. It usually means that tenant from the token does not match tenant from path.
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-    /**
-     * Scope validation failed, details will be provided in response message
-     */
-    403: {
-        code?: number;
-        message?: string;
-        status?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given resources cannot be found.
-     */
-    404: ErrorResponse;
-};
-
-export type GetIamRetrievePermissionByPermissionIdError = GetIamRetrievePermissionByPermissionIdErrors[keyof GetIamRetrievePermissionByPermissionIdErrors];
-
-export type GetIamRetrievePermissionByPermissionIdResponses = {
-    /**
-     * The request was successful. Permission details are returned.
-     */
-    200: PermissionQueryDocument;
-};
-
-export type GetIamRetrievePermissionByPermissionIdResponse = GetIamRetrievePermissionByPermissionIdResponses[keyof GetIamRetrievePermissionByPermissionIdResponses];
-
-export type GetIamListTenantResourcesData = {
-    body?: never;
-    headers?: {
-        /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If the value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
-         *
-         */
-        'Accept-Language'?: string;
-        /**
-         * Flag indicating whether the total number of retrieved items should be returned.
-         *
-         */
-        'X-Total-Count'?: boolean;
-    };
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant name should always be written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query?: {
-        /**
-         * Number of items to be retrieved per page.
-         *
-         */
-        pageSize?: number;
-        /**
-         * Page number to be retrieved. The number of the first page is 1.
-         *
-         */
-        pageNumber?: number;
-        /**
-         * List of properties used to sort the results, separated by colons. The order of properties indicates their priority in sorting.
-         *
-         * Possible values:
-         * * `{fieldName}`
-         * * `{fieldName}:asc`
-         * * `{fieldName}:desc`
-         *
-         * **Note:** If you want to sort the results by localized properties, the possible values are as follows:
-         * * `{fieldName}.{language}`
-         * * `{fieldName}.{language}:asc`
-         * * `{fieldName}.{language}:desc`
-         *
-         * If the sorting direction is not specified, the fields are sorted in ascending order.
-         */
-        sort?: string;
-        /**
-         * Search by the name of a given resource. The value is conformed against all of the specified accepted languages.
-         *
-         */
-        name?: string;
-        /**
-         * Search by the description of the the given resource, it is conformed against all of the specified accepted-languages.
-         */
-        description?: string;
-        /**
-         * Search by given resources that contain the `metadata.modifiedAt` date field with a date later than the specified value. The format is as follows: ''yyyy-MM-dd''.
-         *
-         */
-        metadataModifiedAt?: string;
-    };
-    url: '/iam/{tenant}/resources';
-};
-
-export type GetIamListTenantResourcesErrors = {
-    /**
-     * Request was syntactically incorrect. Details will be provided in the response payload
-     */
-    400: ErrorResponse;
-    /**
-     * Given request is unauthorized - the authorization token is invalid or has expired. It usually means that tenant from the token does not match tenant from path.
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-    /**
-     * Scope validation failed, details will be provided in response message
-     */
-    403: {
-        code?: number;
-        message?: string;
-        status?: string;
-        details?: Array<string>;
-    };
-};
-
-export type GetIamListTenantResourcesError = GetIamListTenantResourcesErrors[keyof GetIamListTenantResourcesErrors];
-
-export type GetIamListTenantResourcesResponses = {
-    /**
-     * The request was successful. A list of resources is returned.
-     */
-    200: Array<ResourceQueryDocument>;
-};
-
-export type GetIamListTenantResourcesResponse = GetIamListTenantResourcesResponses[keyof GetIamListTenantResourcesResponses];
-
-export type GetIamRetrieveResourceData = {
-    body?: never;
-    headers?: {
-        /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If the value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
-         *
-         */
-        'Accept-Language'?: string;
-    };
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant name should always be written in lowercase.
-         *
-         */
-        tenant: string;
-        /**
-         * Unique identifier of a resource.
-         */
-        resourceId: string;
-    };
-    query?: never;
-    url: '/iam/{tenant}/resources/{resourceId}';
-};
-
-export type GetIamRetrieveResourceErrors = {
-    /**
-     * Unsupported language provided.
-     */
-    400: {
-        code?: number;
-        status?: string;
-        message?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given request is unauthorized - the authorization token is invalid or has expired. It usually means that tenant from the token does not match tenant from path.
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-    /**
-     * Scope validation failed, details will be provided in response message
-     */
-    403: {
-        code?: number;
-        message?: string;
-        status?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given resources cannot be found.
-     */
-    404: ErrorResponse;
-};
-
-export type GetIamRetrieveResourceError = GetIamRetrieveResourceErrors[keyof GetIamRetrieveResourceErrors];
-
-export type GetIamRetrieveResourceResponses = {
-    /**
-     * The request was successful. Resource details are returned.
-     */
-    200: ResourceQueryDocument;
-};
-
-export type GetIamRetrieveResourceResponse = GetIamRetrieveResourceResponses[keyof GetIamRetrieveResourceResponses];
-
 export type GetIamListAccessControlTemplatesData = {
     body?: never;
     headers?: {
@@ -3100,7 +2452,7 @@ export type GetIamListAccessControlTemplatesData = {
          */
         description?: string;
         /**
-         * Adds expanded access controls with resource and role objects to the response.
+         * Adds the related access control objects to the response.
          */
         expand?: 'accessControls';
     };
@@ -3150,197 +2502,6 @@ export type GetIamListAccessControlTemplatesResponses = {
 
 export type GetIamListAccessControlTemplatesResponse = GetIamListAccessControlTemplatesResponses[keyof GetIamListAccessControlTemplatesResponses];
 
-export type GetIamListTenantRolesData = {
-    body?: never;
-    headers?: {
-        /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If the value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
-         *
-         */
-        'Accept-Language'?: string;
-        /**
-         * Flag indicating whether the total number of retrieved items should be returned.
-         *
-         */
-        'X-Total-Count'?: boolean;
-    };
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant name should always be written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query?: {
-        /**
-         * Page number to be retrieved. The number of the first page is 1.
-         *
-         */
-        pageNumber?: number;
-        /**
-         * Number of items to be retrieved per page.
-         *
-         */
-        pageSize?: number;
-        /**
-         * List of properties used to sort the results, separated by colons. The order of properties indicates their priority in sorting.
-         *
-         * Possible values:
-         * * `{fieldName}`
-         * * `{fieldName}:asc`
-         * * `{fieldName}:desc`
-         *
-         * **Note:** If you want to sort the results by localized properties, the possible values are as follows:
-         * * `{fieldName}.{language}`
-         * * `{fieldName}.{language}:asc`
-         * * `{fieldName}.{language}:desc`
-         *
-         * If the sorting direction is not specified, the fields are sorted in ascending order.
-         */
-        sort?: string;
-        /**
-         * Search by the name of a given resource. The value is conformed against all of the specified accepted languages.
-         *
-         */
-        name?: string;
-        /**
-         * Search by the description of the the given resource, it is conformed against all of the specified accepted-languages.
-         */
-        description?: string;
-        /**
-         * Search by given resources that contain the `metadata.modifiedAt` date field with a date later than the specified value. The format is as follows: ''yyyy-MM-dd''.
-         *
-         */
-        metadataModifiedAt?: string;
-    };
-    url: '/iam/{tenant}/roles';
-};
-
-export type GetIamListTenantRolesErrors = {
-    /**
-     * Unsupported language provided.
-     */
-    400: {
-        code?: number;
-        status?: string;
-        message?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given request is unauthorized - the authorization token is invalid or has expired. It usually means that tenant from the token does not match tenant from path.
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-    /**
-     * Scope validation failed, details will be provided in response message
-     */
-    403: {
-        code?: number;
-        message?: string;
-        status?: string;
-        details?: Array<string>;
-    };
-};
-
-export type GetIamListTenantRolesError = GetIamListTenantRolesErrors[keyof GetIamListTenantRolesErrors];
-
-export type GetIamListTenantRolesResponses = {
-    /**
-     * The request was successful. A list of roles is returned.
-     */
-    200: Array<RoleQueryDocument>;
-};
-
-export type GetIamListTenantRolesResponse = GetIamListTenantRolesResponses[keyof GetIamListTenantRolesResponses];
-
-export type GetIamRetrieveRoleByRoleIdData = {
-    body?: never;
-    headers?: {
-        /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If the value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
-         *
-         */
-        'Accept-Language'?: string;
-    };
-    path: {
-        /**
-         * Unique identifier of a role, generated when the role is created.
-         *
-         */
-        roleId: string;
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant name should always be written in lowercase.
-         *
-         */
-        tenant: string;
-    };
-    query?: never;
-    url: '/iam/{tenant}/roles/{roleId}';
-};
-
-export type GetIamRetrieveRoleByRoleIdErrors = {
-    /**
-     * Unsupported language provided.
-     */
-    400: {
-        code?: number;
-        status?: string;
-        message?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given request is unauthorized - the authorization token is invalid or has expired. It usually means that tenant from the token does not match tenant from path.
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-    /**
-     * Scope validation failed, details will be provided in response message
-     */
-    403: {
-        code?: number;
-        message?: string;
-        status?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given resources cannot be found.
-     */
-    404: ErrorResponse;
-};
-
-export type GetIamRetrieveRoleByRoleIdError = GetIamRetrieveRoleByRoleIdErrors[keyof GetIamRetrieveRoleByRoleIdErrors];
-
-export type GetIamRetrieveRoleByRoleIdResponses = {
-    /**
-     * The request was successful. Role details are returned.
-     */
-    200: RoleQueryDocument;
-};
-
-export type GetIamRetrieveRoleByRoleIdResponse = GetIamRetrieveRoleByRoleIdResponses[keyof GetIamRetrieveRoleByRoleIdResponses];
-
 export type GetIamListUserAccessControlsData = {
     body?: never;
     headers?: {
@@ -3382,15 +2543,6 @@ export type GetIamListUserAccessControlsData = {
          *
          */
         pageSize?: number;
-        /**
-         * Adds expanded resource and/or role objects to the response.
-         *
-         * **Note**: This query parameter is deprecated.
-         *
-         *
-         * @deprecated
-         */
-        expand?: 'role,resource' | 'resource,role' | 'role' | 'resource';
     };
     url: '/iam/{tenant}/users/{userId}/access-controls';
 };
@@ -3441,96 +2593,6 @@ export type GetIamListUserAccessControlsResponses = {
 };
 
 export type GetIamListUserAccessControlsResponse = GetIamListUserAccessControlsResponses[keyof GetIamListUserAccessControlsResponses];
-
-export type GetIamRetrieveUserResourceAccessControlsData = {
-    body?: never;
-    headers?: {
-        /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If the value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
-         *
-         */
-        'Accept-Language'?: string;
-    };
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant name should always be written in lowercase.
-         *
-         */
-        tenant: string;
-        /**
-         * User unique identifier, generated when the user is created.
-         */
-        userId: string;
-        /**
-         * Unique identifier of a resource.
-         */
-        resourceId: string;
-    };
-    query?: {
-        /**
-         * Adds expanded resource and/or role objects to the response.
-         *
-         * **Note**: This query parameter is deprecated.
-         *
-         *
-         * @deprecated
-         */
-        expand?: 'role,resource' | 'resource,role' | 'role' | 'resource';
-    };
-    url: '/iam/{tenant}/users/{userId}/access-controls/{resourceId}';
-};
-
-export type GetIamRetrieveUserResourceAccessControlsErrors = {
-    /**
-     * Unsupported language provided.
-     */
-    400: {
-        code?: number;
-        status?: string;
-        message?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given request is unauthorized - the authorization token is invalid or has expired. It usually means that tenant from the token does not match tenant from path.
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-    /**
-     * Scope validation failed, details will be provided in response message
-     */
-    403: {
-        code?: number;
-        message?: string;
-        status?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given resources cannot be found.
-     */
-    404: ErrorResponse;
-};
-
-export type GetIamRetrieveUserResourceAccessControlsError = GetIamRetrieveUserResourceAccessControlsErrors[keyof GetIamRetrieveUserResourceAccessControlsErrors];
-
-export type GetIamRetrieveUserResourceAccessControlsResponses = {
-    /**
-     * The request was successful. A list of user access controls for the resource is returned.
-     */
-    200: Array<AccessControlQueryDocument>;
-};
-
-export type GetIamRetrieveUserResourceAccessControlsResponse = GetIamRetrieveUserResourceAccessControlsResponses[keyof GetIamRetrieveUserResourceAccessControlsResponses];
 
 export type DeleteIamRemoveUserFromAllGroupsData = {
     body?: never;
@@ -3764,82 +2826,6 @@ export type GetIamRetrieveUserGroupResponses = {
 
 export type GetIamRetrieveUserGroupResponse = GetIamRetrieveUserGroupResponses[keyof GetIamRetrieveUserGroupResponses];
 
-export type GetIamRetrieveUserResourcePermissionsData = {
-    body?: never;
-    headers?: {
-        /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If the value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
-         *
-         */
-        'Accept-Language'?: string;
-    };
-    path: {
-        /**
-         * Your Emporix tenant name.
-         *
-         * **Note**: The tenant name should always be written in lowercase.
-         *
-         */
-        tenant: string;
-        /**
-         * User unique identifier, generated when the user is created.
-         */
-        userId: string;
-        /**
-         * Unique identifier of a resource.
-         */
-        resourceId: string;
-    };
-    query?: never;
-    url: '/iam/{tenant}/users/{userId}/permissions/{resourceId}';
-};
-
-export type GetIamRetrieveUserResourcePermissionsErrors = {
-    /**
-     * Unsupported language provided.
-     */
-    400: {
-        code?: number;
-        status?: string;
-        message?: string;
-        details?: Array<string>;
-    };
-    /**
-     * Given request is unauthorized - the authorization token is invalid or has expired. It usually means that tenant from the token does not match tenant from path.
-     */
-    401: {
-        fault?: {
-            faultstring?: string;
-            detail?: {
-                errorcode?: string;
-            };
-        };
-    };
-    /**
-     * Scope validation failed, details will be provided in response message
-     */
-    403: {
-        code?: number;
-        message?: string;
-        status?: string;
-        details?: Array<string>;
-    };
-};
-
-export type GetIamRetrieveUserResourcePermissionsError = GetIamRetrieveUserResourcePermissionsErrors[keyof GetIamRetrieveUserResourcePermissionsErrors];
-
-export type GetIamRetrieveUserResourcePermissionsResponses = {
-    /**
-     * The request was successful. A list of user permissions for the resource is returned.
-     */
-    200: Array<PermissionQueryDocument>;
-};
-
-export type GetIamRetrieveUserResourcePermissionsResponse = GetIamRetrieveUserResourcePermissionsResponses[keyof GetIamRetrieveUserResourcePermissionsResponses];
-
 export type GetIamRetrieveUserScopesData = {
     body?: never;
     path: {
@@ -3930,15 +2916,6 @@ export type GetIamRetrieveUserAccessControlsData = {
          *
          */
         pageSize?: number;
-        /**
-         * Adds expanded resource and/or role objects to the response.
-         *
-         * **Note**: This query parameter is deprecated.
-         *
-         *
-         * @deprecated
-         */
-        expand?: 'role,resource' | 'resource,role' | 'role' | 'resource';
     };
     url: '/iam/{tenant}/users/me/access-controls';
 };
