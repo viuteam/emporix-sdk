@@ -1770,11 +1770,13 @@ export type DeleteIamRemoveUserGroupData = {
     };
     query?: {
         /**
-         * * If set to `true` and the group has users assigned to it, both the group and the group assignments will be deleted.
+         * The parameter has the following effects:
+         *
+         * * `true` when the group has assigned users – the endpoint deletes the group and its assignments. This does not apply when the group's `code` is `CUSTOMER`, `BO_USER`, `BO_MANAGER`, `BO_ADMIN`, or `SUPPORT_USER`. Those groups stay, and the response is HTTP 400.
          *
          * **Important**: To set this parameter to true, you must request an access token with the `iam.assignment_manage` scope.
          *
-         * * If set to `false` or not specified and the group has users assigned to it, the endpoint will respond with the 400 error.
+         * * `false` or omitted when the group has assigned users – the endpoint responds with HTTP 400.
          *
          */
         forceDelete?: boolean;
