@@ -76,12 +76,23 @@ drops the stored guest session and cart. `VITE_DEMO_DEFAULT_TENANT` and
 - **Catalog** — home with a featured category and category chips, a
   category-tree sidebar on category and search pages, and grids that put priced
   products first and add to the cart from the card (`useProductsInCategory`,
-  `useCategoryTree`, `useMatchPrices`, `useCartCommands`).
-- **Product detail** — gallery, article number, variant picker (only for a
-  `PARENT_VARIANT`, the one type that has variant children), add-to-cart with
-  the price row Emporix requires; without a price in the site's context the
-  button is disabled and says why (`useProduct`, `useVariantChildren`,
-  `useCartCommands`).
+  `useCategoryTree`, `useMatchPrices`, `useCartCommands`). A product that is
+  not sellable itself (a `PARENT_VARIANT` or the root of a dynamic-variant
+  tree) gets «Choose options», a link to its picker, instead of «Add to cart».
+  Category pages list only the root of a dynamic-variant tree, not each of its
+  variants.
+- **Product detail** — gallery, article number, variant pickers, add-to-cart
+  with the price row Emporix requires; without a price in the site's context
+  the button is disabled and says why (`useProduct`, `useCartCommands`).
+  - Template variants: one link per child of a `PARENT_VARIANT`
+    (`useVariantChildren`).
+  - Dynamic variants (`DYNAMIC_VARIANT`, e.g. root → colour → size): one
+    selector per attribute, built from the root's sellable variants
+    (`useProductsByCodes`; an anonymous token's `variants` map has no
+    attributes). The selectors stay on every variant page and the title is the
+    root's. Switching renders the target from that list at once, without a
+    loading spinner. On the root or a colour node the cart button asks to
+    choose a variant first.
 - **Cart** — line items with image and article number, quantity (`partial`),
   coupons, and a summary that separates the subtotal from the delivery estimate
   Emporix already counts into the cart's total. Every cart change is one command
