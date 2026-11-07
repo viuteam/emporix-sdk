@@ -109,7 +109,8 @@ export type ImportFile = {
      * fails part-way leaves the file importable.
      * * `FAILED` – the stream that read the file finished `FAILED`. The file could not be read
      * (malformed, truncated, wrong charset), or the import failed for another reason, such as the
-     * target being unavailable. Such a file can be sent again. Records that fail individually do not
+     * target being unavailable. Such a file can be queued again with the content the service holds, or
+     * uploaded again. Records that fail individually do not
      * put a file here: a stream that finishes with record failures still marks its file imported.
      */
     status?: 'PENDING' | 'IN_PROGRESS' | 'PROCESSED' | 'FAILED';
@@ -161,6 +162,10 @@ export type FileQueue = {
      * How many files are waiting in total, however many this response lists.
      */
     pendingTotal?: number;
+    /**
+     * The newest file the stream has imported, or `null` when it has imported none. Returned whatever `historyLimit` is, because a run with no file waiting reads this file again (a snapshot stream).
+     */
+    lastProcessed?: ImportFile | null;
 };
 
 /**
@@ -634,6 +639,12 @@ export type ImportRunStream = {
     embedded?: number;
     /**
      * A per-stream status message.
+     *
+     * When a run of a file-based stream finds no file waiting, the message starts with `No file was
+     * waiting, so nothing was imported`. If the latest file in the stream's history failed, the message
+     * names that file and suggests queuing it again. Otherwise, it suggests uploading a file to the
+     * stream's queue first. This message is not set for a dry run, for a retry, or for a stream whose
+     * connection reads its file from a file URL.
      */
     message?: string;
     /**
@@ -1865,6 +1876,68 @@ export type DeleteImporttoolStreamFileResponses = {
 
 export type DeleteImporttoolStreamFileResponse = DeleteImporttoolStreamFileResponses[keyof DeleteImporttoolStreamFileResponses];
 
+export type PostImporttoolStreamFileRequeueData = {
+    body?: never;
+    path: {
+        /**
+         * The tenant you want to access.
+         *
+         */
+        tenant: string;
+        /**
+         * The stream identifier.
+         */
+        streamId: string;
+        /**
+         * The file's identifier.
+         */
+        fileId: string;
+    };
+    query?: never;
+    url: '/importtool/{tenant}/streams/{streamId}/files/{fileId}/requeue';
+};
+
+export type PostImporttoolStreamFileRequeueErrors = {
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * The file has not failed, its stored content is no longer available, or it is not one of this stream's files. Also returned when a newer file arrived after it on a snapshot stream, and while the job has a run in flight.
+     */
+    409: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PostImporttoolStreamFileRequeueError = PostImporttoolStreamFileRequeueErrors[keyof PostImporttoolStreamFileRequeueErrors];
+
+export type PostImporttoolStreamFileRequeueResponses = {
+    /**
+     * The request was successful. The file is queued again in the `PENDING` status.
+     */
+    200: ImportFile;
+};
+
+export type PostImporttoolStreamFileRequeueResponse = PostImporttoolStreamFileRequeueResponses[keyof PostImporttoolStreamFileRequeueResponses];
+
 export type DeleteScheduleData = {
     body?: never;
     path: {
@@ -2197,7 +2270,7 @@ export type PostImporttoolTriggerRunData = {
 
 export type PostImporttoolTriggerRunErrors = {
     /**
-     * The request is invalid. For example, `dryRun` is `true` and `mappings` has a value other than `published` or `draft`.
+     * The request is invalid. For example, `dryRun` is `true` and `mappings` has a value other than `published` or `draft`. Also returned for a run with nothing to import: every stream the run starts from reads uploaded files and none has ever had a file, neither waiting nor imported. Upload a file to a stream's queue first. A dry run is not refused for this, because it reads the connection's sample file.
      */
     400: {
         /**
@@ -2232,6 +2305,10 @@ export type PostImporttoolTriggerRunErrors = {
      * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
      */
     403: ErrorMessage;
+    /**
+     * The requested resource does not exist.
+     */
+    404: ErrorMessage;
     /**
      * The request conflicts with the current state of the resource.
      */
