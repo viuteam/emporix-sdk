@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 4.9.4
+
+### Patch Changes
+
+- [#444](https://github.com/viuteam/emporix-sdk/pull/444) [`50a7401`](https://github.com/viuteam/emporix-sdk/commit/50a74013dc6f591fd3fc3b5a9090549605e22990) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: import-service
+
 ## 4.9.3
 
 ### Patch Changes
