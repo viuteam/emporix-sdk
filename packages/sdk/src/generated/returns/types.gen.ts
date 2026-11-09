@@ -115,6 +115,26 @@ export type MetadataResponse = MetadataUpdate & {
 };
 
 /**
+ * Site copied from the orders
+ *
+ * Site and access boundary copied from the referenced orders. You can send these fields on the create request. The create response returns only the new return id. Retrieved return documents include the fields. Update and patch request bodies do not accept them.
+ *
+ */
+export type ReturnSite = {
+    /**
+     * Site of the orders in the return. On create, the service copies this value from the referenced orders. You can omit it. If you send it, it must match the orders. Every order in the return must use the same site.
+     *
+     */
+    siteCode?: string;
+    /**
+     * Access boundary copied from the referenced orders, together with `siteCode`. You can omit it. If you send it, it must match the orders. Every order in the return must use the same restriction.
+     * An employee scope with a site suffix, such as `returns.returns_read--DE`, can access only returns whose `restriction` is in that list. A scope without a suffix can access every return. A return with no `restriction` is hidden from a site-limited employee.
+     *
+     */
+    restriction?: string;
+};
+
+/**
  * basicReturn
  *
  * Base schema for a return.
@@ -146,7 +166,12 @@ export type BasicReturn = {
     metadata?: MetadataCore;
 };
 
-export type BasicCustomerReturn = BasicReturn;
+/**
+ * A return request created by a customer.
+ *
+ * Base schema for a return requested BY A CUSTOMER.
+ */
+export type BasicCustomerReturn = BasicReturn & ReturnSite;
 
 /**
  * A return request created on behalf of a customer.
@@ -195,7 +220,7 @@ export type EmployeeReturnForAnonymousOrder = BasicEmployeeReturnBase & {
  *
  * Common structure for returns created by an employee on behalf of a customer.
  */
-export type BasicEmployeeReturnBase = BasicReturn & {
+export type BasicEmployeeReturnBase = BasicReturn & ReturnSite & {
     /**
      * Indicates who requested the return. The field can be set and updated only by an employee,
      * that is a person who has the `returns.returns_manage` scope granted.
@@ -598,7 +623,7 @@ export type SortQueryParam = string;
 /**
  * A standard query parameter is used to search for specific values.
  *
- * + Searching for an item by a string property: `q=approvalStatus:PENDING`, where `approvalStatus` is the name of the string field and `PENDING` is its required value.
+ * + Searching for an item by a string property: `q=approvalStatus:PENDING`, where `approvalStatus` is the name of the string field and `PENDING` is its required value. Searching by site uses the same form: `q=siteCode:{siteCode}` — for example, `q=siteCode:DE`.
  * + Searching for items by a number-based property:
  * + Searching for items with specific values: `q=mixins.returnCustomAttributes.orderQuantity:20`
  * + Searching for items with values greater than: `q=mixins.returnCustomAttributes.orderQuantity:>20`
@@ -668,7 +693,7 @@ export type GetReturnsListReturnsData = {
         /**
          * A standard query parameter is used to search for specific values.
          *
-         * + Searching for an item by a string property: `q=approvalStatus:PENDING`, where `approvalStatus` is the name of the string field and `PENDING` is its required value.
+         * + Searching for an item by a string property: `q=approvalStatus:PENDING`, where `approvalStatus` is the name of the string field and `PENDING` is its required value. Searching by site uses the same form: `q=siteCode:{siteCode}` — for example, `q=siteCode:DE`.
          * + Searching for items by a number-based property:
          * + Searching for items with specific values: `q=mixins.returnCustomAttributes.orderQuantity:20`
          * + Searching for items with values greater than: `q=mixins.returnCustomAttributes.orderQuantity:>20`
@@ -756,7 +781,8 @@ export type PostReturnsCreateReturnErrors = {
         };
     };
     /**
-     * Access forbidden. The caller is not allowed to access this resource.
+     * The caller is not allowed to create the return. A missing `returns.returns_manage` or `returns.returns_manage_own` scope returns `The access to the requested resource has been forbidden by the server.` A site-limited employee who creates a return outside that site, including a return whose copied `restriction` is empty, returns `Creating a return for this site is not allowed.`
+     *
      */
     403: CoreErrorMessage;
     /**
@@ -827,6 +853,11 @@ export type DeleteReturnsRemoveReturnErrors = {
      */
     403: CoreErrorMessage;
     /**
+     * The return does not exist, or a site-limited employee cannot see it. A return with no `restriction` is hidden from a site-limited employee. The message is the same in both cases.
+     *
+     */
+    404: ReturnErrorMessage;
+    /**
      * Internal Server Error.
      */
     500: CoreErrorMessage;
@@ -878,7 +909,8 @@ export type GetReturnsRetrieveReturnErrors = {
      */
     403: CoreErrorMessage;
     /**
-     * Not found response due to not-existing entity
+     * The return does not exist, or a site-limited employee cannot see it. A return with no `restriction` is hidden from a site-limited employee. The message is the same in both cases.
+     *
      */
     404: ReturnErrorMessage;
 };
@@ -936,7 +968,8 @@ export type PatchReturnsUpdateReturnErrors = {
      */
     403: CoreErrorMessage;
     /**
-     * Not found response due to not-existing entity
+     * The return does not exist, or a site-limited employee cannot see it. A return with no `restriction` is hidden from a site-limited employee. The message is the same in both cases.
+     *
      */
     404: ReturnErrorMessage;
     /**
@@ -1001,7 +1034,8 @@ export type PutReturnsUpdateReturnErrors = {
      */
     403: CoreErrorMessage;
     /**
-     * Not found response due to not-existing entity
+     * The return does not exist, or a site-limited employee cannot see it. A return with no `restriction` is hidden from a site-limited employee. The message is the same in both cases.
+     *
      */
     404: ReturnErrorMessage;
     /**
