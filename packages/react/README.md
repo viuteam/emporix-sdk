@@ -33,6 +33,33 @@ const client = new EmporixClient({
 Create `EmporixClient` **once** (per app, or once per server for SSR) — never
 per request/render.
 
+### No token in the browser (BFF)
+
+For a Backend for Frontend that holds every token, build the client with
+`proxy` and tell the provider what the BFF says about the session:
+
+```tsx
+const client = new EmporixClient({
+  tenant: "mytenant",
+  host: "/emporix",
+  credentials: {},
+  proxy: { headers: { "X-CSRF": "1" } },
+});
+
+<EmporixProvider
+  client={client}
+  proxySession={{ authenticated, login: () => location.assign("/bff/login"), logout: () => location.assign("/bff/logout") }}
+  onCustomerSessionExpired={() => location.assign("/bff/login")}
+>
+  <App />
+</EmporixProvider>;
+```
+
+Nothing writes a token to the storage, and no anonymous session or refresh
+happens in the browser. `useCustomerSession().login` and `.logout` call your
+callbacks. What the BFF must do is in
+[`docs/bff.md`](../../docs/bff.md).
+
 ## Managed Dashboard module (host-owned token)
 
 Emporix's [`md-module-template`](https://github.com/emporix/md-module-template) is a Module

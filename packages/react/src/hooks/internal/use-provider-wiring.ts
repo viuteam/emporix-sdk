@@ -1,28 +1,38 @@
 import { createContext, useEffect, useLayoutEffect, useRef } from "react";
 import type { EmporixClient } from "@viu/emporix-sdk";
 import type { EmporixStorage } from "../../storage/index";
+import type { EmporixProxySession } from "../../provider.types";
 
 // React 18 warns about useLayoutEffect in a server render. A server render never
 // commits, so the plain effect it falls back to there never runs either.
-const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+export const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /**
  * The host's `initialCustomerToken` under `customerSession: "external"`, straight
- * from the prop; `undefined` otherwise. Render-time token readers prefer it to
- * the stored copy, which a changed token reaches only after the render (see
- * below). Reading storage, the render that rotates the token would run on the
- * outgoing one, and so would every request it starts — on a tenant switch that
- * is every query, since the tenant is part of every key.
+ * from the prop; under `"proxy"`, `PROXY_CUSTOMER_TOKEN` or `null` as
+ * `proxySession.authenticated` says; `undefined` otherwise. Render-time token
+ * readers prefer it to the stored copy, which a changed token reaches only after
+ * the render (see below). Reading storage, the render that rotates the token
+ * would run on the outgoing one, and so would every request it starts — on a
+ * tenant switch that is every query, since the tenant is part of every key.
  */
-export const HostTokenContext = createContext<string | undefined>(undefined);
+export const HostTokenContext = createContext<string | null | undefined>(undefined);
+
+/** The `proxySession` prop under `customerSession: "proxy"`; `null` in every other mode. */
+export const ProxySessionContext = createContext<EmporixProxySession | null>(null);
 
 interface ProviderWiringArgs {
   client: EmporixClient;
   /** Resolved storage (the `storage` prop or the provider's memory fallback). */
   storage: EmporixStorage;
   initialCustomerToken?: string;
-  /** See `EmporixProviderProps.customerSession`. Always resolved by the provider. */
-  customerSession: "owned" | "external";
+  /**
+   * See `EmporixProviderProps.customerSession`. Always resolved by the provider.
+   * `"proxy"` needs nothing here: its token provider has no anonymous store to
+   * attach, and it never has an `initialCustomerToken` to seed.
+   */
+  customerSession: "owned" | "external" | "proxy";
 }
 
 /**

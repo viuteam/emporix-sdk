@@ -60,3 +60,18 @@ export const EXTERNAL_CTX: CompanyContextValue = {
   },
   refetchMyCompanies: async () => {},
 };
+
+/**
+ * Context value for `customerSession="proxy"`. Switching the legal entity
+ * re-scopes the customer token, and in proxy mode only the proxy holds it.
+ */
+export const PROXY_CTX: CompanyContextValue = {
+  ...EXTERNAL_CTX,
+  setActiveCompany: async () => {
+    throw new Error(
+      'setActiveCompany is unavailable: customerSession is "proxy", and switching the legal ' +
+        "entity re-scopes a token only the proxy holds. Switch it there; " +
+        "client.companies.listMine() lists the companies through the proxy.",
+    );
+  },
+};

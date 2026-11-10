@@ -1,3 +1,4 @@
+import { useContext } from "react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import {
   auth,
@@ -8,6 +9,8 @@ import {
 } from "@viu/emporix-sdk";
 import { useEmporix } from "../provider";
 import { useCustomerCtxResolver } from "./internal/use-read-auth";
+import { ProxySessionContext } from "./internal/use-provider-wiring";
+import { proxyRefusal } from "./use-customer-session";
 
 /**
  * Requests a login-email change. Without a customer token the mutation fails;
@@ -27,11 +30,20 @@ export function useConfirmEmailChange(): UseMutationResult<void, unknown, Confir
   });
 }
 
-/** Completes double opt-in signup with the emailed token, returning a logged-in session (anonymous). */
+/**
+ * Completes double opt-in signup with the emailed token, returning a logged-in session (anonymous).
+ *
+ * Rejects under `customerSession: "proxy"`: the session it returns is a set of
+ * tokens, which the browser must not receive. Confirm the signup through the proxy.
+ */
 export function useConfirmSignup(): UseMutationResult<CustomerSession, unknown, string> {
   const { client } = useEmporix();
+  const proxy = useContext(ProxySessionContext);
   return useMutation({
-    mutationFn: (token) => client.customers.confirmSignup(token, auth.anonymous()),
+    mutationFn: async (token) => {
+      if (proxy) throw proxyRefusal("useConfirmSignup()");
+      return client.customers.confirmSignup(token, auth.anonymous());
+    },
   });
 }
 

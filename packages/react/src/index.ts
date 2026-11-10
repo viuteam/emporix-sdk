@@ -8,7 +8,7 @@ export { EmporixProvider, useEmporix } from "./provider";
 export { useEmporixQuery } from "./hooks/internal/use-emporix-query";
 export type { EmporixQueryConfig } from "./hooks/internal/use-emporix-query";
 export { useEmporixInfinite } from "./hooks/internal/use-emporix-infinite";
-export type { EmporixProviderProps, SiteContextValue } from "./provider";
+export type { EmporixProviderProps, EmporixProxySession, SiteContextValue } from "./provider";
 export type { TokenStorage, EmporixStorage, PersistedAnonymousSession } from "./storage/index";
 export {
   createMemoryStorage,

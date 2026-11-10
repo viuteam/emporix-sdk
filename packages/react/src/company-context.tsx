@@ -19,7 +19,7 @@ export interface CompanyContextProviderProps {
   storage: EmporixStorage;
   initialActiveLegalEntityId?: string | null;
   /** See `EmporixProviderProps.customerSession`. Always resolved by the provider. */
-  customerSession: "owned" | "external";
+  customerSession: "owned" | "external" | "proxy";
   children: ReactNode;
 }
 

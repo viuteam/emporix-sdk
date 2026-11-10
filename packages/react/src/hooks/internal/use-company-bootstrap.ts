@@ -5,6 +5,7 @@ import type { EmporixStorage } from "../../storage";
 import type { EmporixTelemetryEvent } from "../../telemetry";
 import {
   EXTERNAL_CTX,
+  PROXY_CTX,
   type CompanyContextValue,
   type CompanyMode,
 } from "../../company-context.types";
@@ -14,8 +15,11 @@ interface CompanyBootstrapArgs {
   storage: EmporixStorage;
   initialActiveLegalEntityId?: string | null;
   emit: (event: EmporixTelemetryEvent) => void;
-  /** `"external"` skips the listMine bootstrap entirely — see {@link EXTERNAL_CTX}. */
-  customerSession: "owned" | "external";
+  /**
+   * `"external"` and `"proxy"` skip the listMine bootstrap entirely — see
+   * {@link EXTERNAL_CTX} and {@link PROXY_CTX}.
+   */
+  customerSession: "owned" | "external" | "proxy";
 }
 
 /**
@@ -144,21 +148,23 @@ export function useCompanyBootstrap({
     [client, storage, initialActiveLegalEntityId, switchTo],
   );
 
+  const bootstraps = customerSession === "owned";
+
   useEffect(() => {
-    if (customerSession === "external") return;
+    if (!bootstraps) return;
     const signal = { cancelled: false };
     void load(signal);
     return () => {
       signal.cancelled = true;
     };
-  }, [load, customerSession]);
+  }, [load, bootstraps]);
 
   // Re-run bootstrap only on token-presence transitions (login/logout). A
   // mid-session token swap (e.g. switch-driven refresh) keeps prev/next both
   // truthy and is ignored — otherwise the auto-pick branch would clobber an
   // explicit B2C choice as soon as the new token is written.
   useEffect(() => {
-    if (customerSession === "external") return;
+    if (!bootstraps) return;
     let prev = storage.getCustomerToken();
     return storage.subscribe?.((next) => {
       const becameAuth = !prev && next;
@@ -166,7 +172,7 @@ export function useCompanyBootstrap({
       prev = next;
       if (becameAuth || becameUnauth) void load();
     });
-  }, [storage, load, customerSession]);
+  }, [storage, load, bootstraps]);
 
   const setActiveCompany = useCallback(
     async (legalEntityId: string | null) => {
@@ -208,5 +214,9 @@ export function useCompanyBootstrap({
 
   // Chosen after the memo, not instead of it: hook order must not depend on the
   // mode, and every hook above has already run.
-  return customerSession === "external" ? EXTERNAL_CTX : value;
+  return customerSession === "external"
+    ? EXTERNAL_CTX
+    : customerSession === "proxy"
+      ? PROXY_CTX
+      : value;
 }
