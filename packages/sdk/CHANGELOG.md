@@ -1,5 +1,21 @@
 # @viu/emporix-sdk
 
+## 4.10.0
+
+### Minor Changes
+
+- [#448](https://github.com/viuteam/emporix-sdk/pull/448) [`9805297`](https://github.com/viuteam/emporix-sdk/commit/9805297c8e6e959ecbcae7ece4eb146ef5f189ed) Thanks [@amnael1](https://github.com/amnael1)! - feat(sdk): queue a failed import file again, and document customer and legal-entity search
+  
+  `client.imports.requeueStreamFile(streamId, fileId)` puts a `FAILED` file back at the end of a file-based stream's queue, so the next run reads the content the service already holds. It is not retried on a 5xx: a requeue that went through leaves the file `PENDING`, and a repeat answers `409`. The JSDoc of `triggerRun`, `retryRun` and the file-queue types now describes `lastProcessed` and the new `404` / `400` answers.
+  
+  The Search Service accepts `customer` and `legal-entity` as a type besides custom schema types, with the matching read scopes; the `SearchService` JSDoc and the search docs say so, and describe index `analyzers` and `itemFields`. New type alias `SearchIndexAnalyzer`.
+
+### Patch Changes
+
+- [#447](https://github.com/viuteam/emporix-sdk/pull/447) [`c2703d9`](https://github.com/viuteam/emporix-sdk/commit/c2703d9c8c0ee61ac7230479c83c49439eef7724) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: product,returns,schema
+
 ## 4.9.4
 
 ### Patch Changes

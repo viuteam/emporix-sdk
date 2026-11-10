@@ -1,5 +1,13 @@
 # @viu/emporix-sdk-angular
 
+## 0.6.1
+
+### Patch Changes
+
+- [#448](https://github.com/viuteam/emporix-sdk/pull/448) [`9dbb999`](https://github.com/viuteam/emporix-sdk/commit/9dbb999817a6b153bbf98d903cffaadc315c66a1) Thanks [@amnael1](https://github.com/amnael1)! - fix(react): match the active language against the site's languages regardless of case
+  
+  Emporix compares language codes without regard to case since 2026-11-09 and accepts codes such as `en-NL`. The site state now does the same: a stored or active language that the site lists in another case — `en-nl` on a site with `en-NL` — is kept in the site's spelling, in storage too, instead of being replaced by the site's default language. This applies on mount and when switching sites, in both the React provider and the Angular site state.
+
 ## 0.6.0
 
 ### Minor Changes
