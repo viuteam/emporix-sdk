@@ -3,6 +3,7 @@ import { requestPage, type PageParams } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import type {
   FilterNode,
+  IndexAnalyzer,
   IndexExportPackage,
   IndexField,
   IndexImportResult,
@@ -36,12 +37,22 @@ export type SavedSearch = SavedQuery;
 export type SavedSearchInput = SavedQueryRequest;
 /** `201` response of {@link SearchService.upsertSavedSearch}. */
 export type SavedSearchCreated = SavedQueryId;
-/** A search index on one custom schema type. */
+/** A search index on one type: a custom schema type, `customer` or `legal-entity`. */
 export type SearchIndex = GenSearchIndex;
 /** Body of {@link SearchService.upsertIndex}. */
 export type SearchIndexInput = IndexRequest;
-/** One field of a search index. */
+/**
+ * One field of a search index. A string field with `text: true` can name an
+ * `analyzer` and up to three `additionalAnalyzers`; a list of objects is
+ * indexed through `itemFields` instead of flags on the list itself.
+ */
 export type SearchIndexField = IndexField;
+/**
+ * Named text-comparison rules on an index (`analyzers`, at most ten), starting
+ * from a preset (`basedOn`: `STANDARD`, `FOLDED`, `IDENTIFIER`, `SOUNDS_LIKE`).
+ * Every analyzer must be selected by a field, or the index write answers `400`.
+ */
+export type SearchIndexAnalyzer = IndexAnalyzer;
 /** An index build or deletion job. */
 export type SearchIndexJob = IndexJob;
 /** The id of the job an index write started. */
@@ -73,7 +84,7 @@ export interface SearchListOptions {
 
 /** Options for {@link SearchService.listSavedSearches} and {@link SearchService.listIndexes}. */
 export interface SearchTypeListOptions extends SearchListOptions {
-  /** One custom schema type. Omitted, the list spans every custom schema type, and each item carries `type`. */
+  /** One type: a custom schema type, `customer` or `legal-entity`. Omitted, the list spans every type, and each item carries `type`. */
   type?: string;
 }
 
@@ -102,14 +113,20 @@ function pageQuery(opts: SearchListOptions): { query: Record<string, string | nu
 
 /**
  * Emporix Search Service (`/search/{tenant}/…`, **preview**): searches the
- * documents of a custom schema type, stores saved searches, and manages the
- * search indexes and the jobs that build them. Only custom schema types are
- * supported so far. Server-side; defaults to the service token.
+ * documents of one type, stores saved searches, and manages the search indexes
+ * and the jobs that build them. A type is a custom schema type, `customer` or
+ * `legal-entity` (the last two since 2026-10-29). Server-side; defaults to the
+ * service token.
  *
  * Scopes: `search.search_read` for every read and for `search`,
  * `search.search_manage` for every write. Searching also needs read access to
- * the documents themselves (`schema.custominstance_read`, `custom.{type}_read`
- * or `custom.{type}_read_own`), or it answers `403`.
+ * the documents themselves, or it answers `403`: `schema.custominstance_read`,
+ * `custom.{type}_read` or `custom.{type}_read_own` for a custom type;
+ * `customer.customer_read` or `customer.customer_read_own` for `customer`;
+ * `customermanagement.legalentity_read` or `…_read_own` for `legal-entity`. A
+ * site-restricted read scope (`customer.customer_read--DE#AT`) returns only the
+ * documents whose `restriction` / `restrictions` match, and an own scope only
+ * the caller's own customer or legal entity.
  */
 export class SearchService {
   static readonly channel = "search" as const;
@@ -120,13 +137,18 @@ export class SearchService {
   }
 
   /**
-   * Search the documents of one custom schema type. Paging, `sort` and
-   * `fields` travel as query parameters, not in the body.
+   * Search the documents of one type — a custom schema type, `customer` or
+   * `legal-entity`. Paging, `sort` and `fields` travel as query parameters, not
+   * in the body.
    *
    * Filter and sort fields must be indexed on the index the search uses —
-   * `exact`, or `text: true` for a `CONTAINS` filter — or the call answers `400`. A saved-search call (`{ searchQueryId, query }`) answers
-   * `404` when no saved search has that id for `type`, and `502` means the
-   * Schema Service could not confirm that `type` is a custom entity.
+   * `exact`, or `text: true` for a `CONTAINS` filter — or the call answers
+   * `400`. A `TEXT` or `PHRASE` query may pick the field's `analyzer` or one of
+   * its `additionalAnalyzers`. Conditions joined by `and` on fields of one
+   * `itemFields` list must match the same list item. A saved-search call
+   * (`{ searchQueryId, query }`) answers `404` when no saved search has that id
+   * for `type`, and `502` means the Schema Service could not confirm that a
+   * custom `type` is a custom entity.
    *
    * @example
    * const hits = await client.search.search("VEHICLE", {
@@ -156,7 +178,7 @@ export class SearchService {
     );
   }
 
-  /** List saved searches of one custom schema type (`opts.type`), or of every type. */
+  /** List saved searches of one type (`opts.type`), or of every type. */
   async listSavedSearches(
     opts: SearchTypeListOptions = {},
     auth: AuthContext = SERVICE,
@@ -221,7 +243,7 @@ export class SearchService {
     });
   }
 
-  /** List search indexes of one custom schema type (`opts.type`), or of every type. */
+  /** List search indexes of one type (`opts.type`), or of every type. */
   async listIndexes(
     opts: SearchTypeListOptions = {},
     auth: AuthContext = SERVICE,

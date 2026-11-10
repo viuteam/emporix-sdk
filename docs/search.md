@@ -1,18 +1,43 @@
 # Search Service
 
 Bindings for the Emporix **Search Service** (`/search/{tenant}/…`): search the
-documents of a custom schema type, store saved searches, and manage the search
-indexes and the jobs that build them.
+documents of one type — a custom schema type, `customer` or `legal-entity` —
+store saved searches, and manage the search indexes and the jobs that build
+them.
 
 > **Preview.** Emporix marks the whole service as preview — "some of the
-> features may not be fully operational yet" — and supports **custom schema
-> types only** so far.
+> features may not be fully operational yet".
 >
 > **Server-side.** Defaults to the service (clientCredentials) token:
 > `search.search_read` for reads and `search`, `search.search_manage` for
-> writes. Searching also needs read access to the documents themselves
-> (`schema.custominstance_read`, `custom.{type}_read` or
-> `custom.{type}_read_own`), or it answers `403`.
+> writes. Searching also needs read access to the documents themselves, or it
+> answers `403` — see [Types and scopes](#types-and-scopes).
+
+## Types and scopes
+
+Every method takes a `type`. Since 2026-10-29 that is a custom schema type,
+`customer` or `legal-entity`:
+
+| `type` | Read access the search also needs |
+|---|---|
+| a custom schema type, such as `VEHICLE` | `schema.custominstance_read`, `custom.{type}_read` or `custom.{type}_read_own` |
+| `customer` | `customer.customer_read` or `customer.customer_read_own` |
+| `legal-entity` | `customermanagement.legalentity_read` or `customermanagement.legalentity_read_own` |
+
+For `customer` and `legal-entity` the scope also decides **which documents come
+back**:
+
+- The unrestricted read scope returns every document.
+- A site-restricted read scope, such as `customer.customer_read--DE#AT`, returns
+  only the documents whose `restriction` (customer) or `restrictions` (legal
+  entity) contains one of the listed values. A restricted scope with no values
+  answers `403`.
+- The own-read scope returns only the caller's own customer or legal entity; a
+  token that identifies neither answers `403`.
+- With both a restricted and an own scope, a document must match both.
+
+A custom type is written as the Schema Service stores it — upstream's examples
+use upper case (`VEHICLE`). The two built-in types are lower case.
 
 ## Indexes come first
 
@@ -33,14 +58,58 @@ if (job) await client.search.getJob(job.id);
 ```
 
 - `path` is the full stored path: `name.en`, not `name`. It must be a field of
-  the schema type, `metadata.createdAt` or `metadata.modifiedAt`.
+  the type, `metadata.createdAt` or `metadata.modifiedAt`.
 - A string field needs `text`, `autocomplete` or `exact`. Number, boolean and
-  date fields take only `exact: true`. `time`, `list`, `object` and
-  `dictionary` fields cannot be indexed.
+  date fields take only `exact: true`. `time`, `object` and `dictionary` fields
+  cannot be indexed; a list of objects is indexed through `itemFields` (below).
 - **Filter and sort fields must be indexed with `exact`** — except for the
   `CONTAINS` filter, which needs `text: true` — or the search answers `400`.
-- The `type` argument is the custom schema type as the Schema Service stores
-  it. Upstream's examples write it in upper case (`VEHICLE`).
+
+### Analyzers and lists of objects
+
+Since 2026-10-29 an index decides how text is compared, and can index a list of
+objects so that conditions match within one list item:
+
+```ts
+// Field paths as in upstream's example — check them against your documents.
+await client.search.upsertIndex("legal-entity", "companies", {
+  analyzers: [
+    { name: "companyName", basedOn: "FOLDED", ignoreCharacters: ["."], ignoreWords: ["gmbh", "ag"] },
+  ],
+  fields: [
+    { path: "name", text: true, analyzer: "companyName", additionalAnalyzers: ["SOUNDS_LIKE"] },
+    {
+      path: "addresses",
+      itemFields: [
+        { path: "addresses.street", text: true, analyzer: "FOLDED" },
+        { path: "addresses.zipCode", text: true, analyzer: "IDENTIFIER" },
+      ],
+    },
+  ],
+});
+
+await client.search.search("legal-entity", {
+  index: "companies",
+  queries: [{ type: "TEXT", query: "mueller", field: "name", analyzer: "SOUNDS_LIKE" }],
+});
+```
+
+- **Presets:** `STANDARD` compares words and ignores case (the default),
+  `FOLDED` also ignores accents, `IDENTIFIER` compares the whole value and drops
+  spaces, `-`, `.` and `/`, `SOUNDS_LIKE` matches words that sound alike.
+- A field with `text: true` takes one `analyzer` — a preset or the `name` of an
+  analyzer on the index — and up to three `additionalAnalyzers`, which a query
+  uses only when it names one. A `TEXT` or `PHRASE` query may set `analyzer` to
+  either.
+- An index holds at most ten named `analyzers` (`SearchIndexAnalyzer`), and
+  every one must be used by a field — otherwise `400` «Analyzer '…' is not
+  used.». Names start with a letter; preset names, `keyword` and `folded` are
+  reserved.
+- **A list of objects** is declared on its own path with `itemFields`; its
+  children use the full path (`addresses.city`), and the list itself carries no
+  `text`, `autocomplete`, `exact` or `analyzer`. A child declared outside
+  `itemFields` answers `400`. Conditions on one list joined by `and` must match
+  the **same** item.
 
 `upsertIndex` starts a job (`202`) for a new index, for a changed field list, and
 for an index whose status is `building` or `failed`. An index that is `ready`
@@ -142,11 +211,12 @@ Saving or deleting a saved search never starts an index build.
 
 | Call | Status | Meaning |
 |---|---|---|
-| `search` | `400` | a filter or sort field is not indexed — or `index` is missing, or the body has neither `queries` nor `filters` |
+| `search` | `400` | a filter or sort field is not indexed — or `index` is missing, the body has neither `queries` nor `filters`, or a query names an `analyzer` the field does not have |
+| `search` | `403` | no read access to the documents of this type, a site-restricted scope with no values, or an own scope whose token identifies no customer or legal entity |
 | `search` | `404` | only with `searchQueryId`: no saved search with that id for this type |
-| `search` | `502` | the Schema Service could not confirm that the type is a custom entity |
+| `search` | `502` | for a custom type: the Schema Service could not confirm that the type is a custom entity |
 | `upsertSavedSearch` | `400` | an update without `metadata.version`; an `id` in the body that differs from the path |
-| `upsertIndex` | `400` | an `id` in the body that differs from the path; `metadata.version` below 1 |
+| `upsertIndex` | `400` | an `id` in the body that differs from the path; `metadata.version` below 1; an analyzer no field uses; a list child outside `itemFields` |
 | `upsertSavedSearch`, `upsertIndex`, `importIndexes` | `409` | a stale `metadata.version`; for an index also a job already running |
 | `exportIndexes` | `404` | one of the selected indexes does not exist |
 | `importIndexes` | `400` | an unreadable package, or an index that fails validation; the indexes before it are already written |
