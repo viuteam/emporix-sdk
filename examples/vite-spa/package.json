@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:bff": "vite --mode bff",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "echo \"(no tests for example)\" && exit 0",

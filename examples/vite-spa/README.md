@@ -28,3 +28,23 @@ in the context `src/main.tsx` binds (CHF, `main`, CH).
 
 This is also the app `pnpm e2e` boots — port 5173, tenant `viu` unless
 `VITE_EMPORIX_TENANT` is set; see [`docs/e2e.md`](../../docs/e2e.md).
+
+## Run without a token in the browser (BFF mode)
+
+```bash
+VITE_EMPORIX_TENANT=mytenant EMPORIX_STOREFRONT_CLIENT_ID=xxx \
+  pnpm --filter @viu/emporix-examples-vite-spa dev:bff
+```
+
+The same app in the SDK's proxy mode ([`docs/bff.md`](../../docs/bff.md)).
+`bff-dev-proxy.ts` is a guest-only Backend for Frontend that runs inside the Vite
+dev server. It starts a session with an `HttpOnly` cookie, checks `X-CSRF`,
+forwards an allowlist of catalog and cart paths to Emporix, and attaches an
+anonymous token it minted itself. The client id is read without the `VITE_`
+prefix, so it stays on the server.
+
+The catalog works as before, and no request from the browser carries an
+`Authorization` header. There is no login in this mode: the dev proxy has
+none, and `useCustomerSession().login` rejects without a `proxySession.login`
+to delegate to. Checkout is not on the allowlist, so `/guest` gets a 403. It is
+a development aid, not a BFF to deploy.
