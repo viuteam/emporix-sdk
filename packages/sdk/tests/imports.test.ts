@@ -795,4 +795,30 @@ describe("ImportService file queue", () => {
     await expect(sdk().imports.deleteStreamFile("str/1", "f/1")).resolves.toBeUndefined();
     expect(method).toBe("DELETE");
   });
+
+  it("requeueStreamFile POSTs to the encoded file's requeue path and resolves to the pending file", async () => {
+    let method: string | null = null;
+    server.use(
+      http.all(`${BASE}/streams/str%2F1/files/f%2F1/requeue`, ({ request }) => {
+        method = request.method;
+        return HttpResponse.json({ ...file, status: "PENDING", loadRank: 3 });
+      }),
+    );
+    const res = await sdk().imports.requeueStreamFile("str/1", "f/1");
+    expect(method).toBe("POST");
+    expect(res.status).toBe("PENDING");
+  });
+
+  /** A repeat after a requeue that went through answers 409: the file is no longer FAILED. */
+  it("requeueStreamFile is not retried on a 5xx", async () => {
+    let calls = 0;
+    server.use(
+      http.post(`${BASE}/streams/str1/files/f1/requeue`, () => {
+        calls += 1;
+        return new HttpResponse(null, { status: 503 });
+      }),
+    );
+    await expect(sdk().imports.requeueStreamFile("str1", "f1")).rejects.toBeDefined();
+    expect(calls).toBe(1);
+  });
 });

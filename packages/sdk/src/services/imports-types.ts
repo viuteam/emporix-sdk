@@ -93,7 +93,10 @@ export type ImportRun = GenImportRun;
  *
  * For a file source, `filesRead` lists the files the stream read, in order,
  * and `fileNames` maps each of those opaque locators to its display name. A
- * retry re-reads exactly these bytes, even if a newer file arrived since.
+ * retry re-reads exactly these bytes, even if a newer file arrived since. When
+ * a run of a file-based stream finds no file waiting, `message` starts with
+ * `No file was waiting, so nothing was imported` and, if the stream's latest
+ * file failed, names it.
  */
 export type ImportRunStream = GenImportRunStream;
 /** A run together with its per-stream progress — what `getRun` resolves to. */
@@ -123,7 +126,7 @@ export type ImportStreamOrder = GetImporttoolStreamOrderResponse;
 
 /**
  * One file a file-based stream was given, and what became of it. `id` is what
- * `setStreamFileOrder` and `deleteStreamFile` take. `loadRank` is its place in
+ * `setStreamFileOrder`, `deleteStreamFile` and `requeueStreamFile` take. `loadRank` is its place in
  * the drain order; `runId`, `processedAt` and `recordsRead` are set once a run
  * consumed it.
  */
@@ -132,13 +135,17 @@ export type ImportFile = GenImportFile;
  * Where an {@link ImportFile} is in its life: `PENDING`, `IN_PROGRESS`,
  * `PROCESSED` or `FAILED`. A file whose records failed individually still ends
  * `PROCESSED`; `FAILED` means the stream reading it failed, and such a file can
- * be uploaded again.
+ * be queued again with `requeueStreamFile` or uploaded again.
  */
 export type ImportFileStatus = NonNullable<ImportFile["status"]>;
 /**
  * A stream's file queue: `pending` in load order, `history` newest first.
  * `pending` is complete up to 2000 files; beyond that `pendingTruncated` is
  * `true`, `pendingTotal` has the real count, and the order cannot be changed.
+ *
+ * `lastProcessed` is the newest file the stream imported, whatever
+ * `historyLimit` is, or `null` when it imported none: on a snapshot stream, a
+ * run with no file waiting reads that file again.
  */
 export type ImportFileQueue = FileQueue;
 /**

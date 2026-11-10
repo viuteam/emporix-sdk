@@ -16,7 +16,7 @@ a configuration or a stream.
 > no customer or anonymous variant — see
 > [Why there is no React hook](#why-there-is-no-react-hook).
 
-> **Preview.** Upstream marks all 29 operations as preview: the contract may
+> **Preview.** Upstream marks all 30 operations as preview: the contract may
 > change without a major version, and nearly every response field is optional in
 > the spec. Treat run counters and statuses as possibly absent.
 
@@ -99,6 +99,13 @@ const errors = await client.imports.listRunErrors(run.id!, { pageSize: 100 });
 await client.imports.cancelRun(run.id!);                 // cooperative
 await client.imports.cancelRun(run.id!, { force: true }); // hard stop
 ```
+
+Since 2026-11-06 a configuration or run that does not exist answers `404` on
+`triggerRun` and `retryRun`, where it used to be a `500`. A real run with nothing
+to import answers `400`: every stream it starts from reads uploaded files and
+none has ever had one — upload a file first ([File-based
+streams](#file-based-streams)). A dry run is not refused for this, because it
+reads the connection's sample file.
 
 ### Runs queue first
 
@@ -292,15 +299,31 @@ const queued = await client.imports.uploadStreamFile("str1", new Blob([bytes]), 
 await client.imports.triggerRun("cfg1");
 
 const queue = await client.imports.listStreamFiles("str1", { historyLimit: 20 });
-// queue.pending in load order, queue.history newest first
+// queue.pending in load order, queue.history newest first,
+// queue.lastProcessed the newest imported file (or null)
 await client.imports.setStreamFileOrder("str1", ["c56a4180-…", "9b1deb4d-…"]); // every waiting id
 await client.imports.deleteStreamFile("str1", "9b1deb4d-…");
+
+// A FAILED file goes back to the end of the queue with the content the service holds
+await client.imports.requeueStreamFile("str1", "1b4e28ba-…");
 ```
 
 - **The content is the identity.** The service recognises a file by the SHA-256
   of its bytes, whatever its name. Uploading bytes the stream already imported
   or queued answers `409`; a file that `FAILED` before is accepted again,
   because the usual reason is that it was fixed.
+- **A failed file does not need a new upload** (since 2026-11-06).
+  `requeueStreamFile` puts it back at the end of the queue, `PENDING`, and the
+  next run reads the stored content — useful after fixing a mapping. Only a
+  `FAILED` file qualifies: a file imported with some records failing is
+  `PROCESSED`, and `retryRun` is the way to retry those records. On a `SNAPSHOT`
+  stream a failed file can no longer be queued once a newer file arrived, because
+  the older snapshot would be imported over newer data.
+- **`lastProcessed` is the newest imported file**, returned whatever
+  `historyLimit` is. On a snapshot stream, a run with no file waiting reads that
+  file again. When a run finds nothing waiting, the stream's `message` starts with
+  `No file was waiting, so nothing was imported` and, if the latest file failed,
+  names it.
 - **`fileName` is required.** The service displays it and infers the compression
   from it, and a bare `Blob` would otherwise arrive named «blob».
 - **`fileMode` on the stream says what one file means.** `SNAPSHOT`, the
@@ -332,6 +355,8 @@ await client.imports.deleteStreamFile("str1", "9b1deb4d-…");
 | `setStreamFileOrder` | `400` | the list is not exactly the set of waiting files |
 | `setStreamFileOrder` | `409` | a run in flight, or a queue too long to reorder in one request |
 | `deleteStreamFile` | `409` | the file is no longer waiting, or a run in flight |
+| `requeueStreamFile` | `409` | the file has not failed, its stored content is gone, it is not this stream's file, a newer file arrived on a snapshot stream, or a run in flight |
+| `requeueStreamFile` | — | not retried on a 5xx: a requeue that went through leaves the file `PENDING`, and a repeat answers `409` |
 
 ## Streaming a run
 
@@ -525,7 +550,9 @@ mappings (2026-09-28): `mappings`, `mappingVersions`, `dryRunPublished` and the
 `200` that comes back for a run the service then aborts. And for the file queue
 (2026-10-28): the five file calls, the multipart upload — upstream does not
 state which `Content-Type` the file part should carry, so the SDK sends the
-`Blob`'s own — and the reconciled counters.
+`Blob`'s own — and the reconciled counters. And for `requeueStreamFile`,
+`lastProcessed` and the `404` / `400` of `triggerRun` and `retryRun`
+(2026-11-06).
 
 All methods take an optional trailing `auth` argument (default: the `"backend"`
 service credential set).
