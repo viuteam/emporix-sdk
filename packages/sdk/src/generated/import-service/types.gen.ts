@@ -16,7 +16,7 @@ export type ErrorMessage = {
      */
     code: number;
     /**
-     * HTTP status.
+     * The HTTP status reason phrase, for example `Conflict`.
      */
     status: string;
     /**
@@ -24,9 +24,22 @@ export type ErrorMessage = {
      */
     message: string;
     /**
+     * Identifier of the resource the error concerns, for example the configuration of a run that conflicts with an active run, or the run a retry was requested for. `null` when the error concerns no single resource.
+     */
+    resourceId?: string | null;
+    /**
      * List of problems causing this error.
      */
-    details?: Array<string>;
+    details?: Array<{
+        /**
+         * What is wrong.
+         */
+        message?: string;
+        /**
+         * The field the problem concerns, when there is one.
+         */
+        field?: string;
+    }>;
 };
 
 /**
@@ -163,9 +176,9 @@ export type FileQueue = {
      */
     pendingTotal?: number;
     /**
-     * The newest file the stream has imported, or `null` when it has imported none. Returned whatever `historyLimit` is, because a run with no file waiting reads this file again (a snapshot stream).
+     * The newest file the stream has imported. Absent when it has imported none. Returned whatever `historyLimit` is, because a run with no file waiting reads this file again (a snapshot stream).
      */
-    lastProcessed?: ImportFile | null;
+    lastProcessed?: ImportFile;
 };
 
 /**
@@ -191,17 +204,79 @@ export type ImportStream = {
      */
     sourceEntity?: string;
     /**
-     * The target writer code, for example `emporix.customEntity`.
+     * Where the stream writes. Possible values:
+     *
+     * * `emporix.customEntity` – instances of a custom entity type, named by `targetType`.
+     * * `emporix.product` – products. `STANDALONE` streams only.
+     * * `emporix.category` – categories of the tenant's category tree. `STANDALONE` streams only.
+     * * `emporix.price` – prices of products.
+     * * `emporix.availability` – stock of products at a site.
+     * * `emporix.media` – images of products, linked by URL. The images stay where they are hosted.
+     * * `emporix.categoryAssignment` – assignments of products to existing categories.
+     *
+     * The price, availability, media, and category assignment writers are normally used by a `FAN_OUT`
+     * stream whose parent is a product stream. The `FAN_OUT` stream supplies each product's identifier as
+     * `productId`. A `STANDALONE` stream that uses them maps `productId` itself.
+     *
+     * The writers other than `emporix.customEntity` are catalog writers. The Management Dashboard offers them
+     * only to tenants for which Emporix has enabled catalog targets. To have them enabled, contact Emporix
+     * support.
      */
     targetWriter?: string;
     /**
-     * The default target type (custom-entity type identifier).
+     * For `emporix.customEntity`, the custom entity type the stream writes to. For the other writers, a label that groups the stream's imported records, for example in imported data and statistics. Defaults to `PRODUCT` for `emporix.product` and `CATEGORY` for `emporix.category`. For a `FAN_OUT` stream into a catalog writer, the service sets the label.
      */
     targetType?: string;
     /**
-     * How the stream contributes to the target.
+     * The stream's position in the configuration. Streams are listed in this order. When dependencies do not decide the run order, streams run in this order.
      */
-    mode?: 'STANDALONE' | 'COMPOSITE_CHILD' | 'COMPOSITE_MERGE';
+    seq?: number;
+    /**
+     * How the stream contributes to the target. Possible values:
+     *
+     * * `STANDALONE` – reads its source and writes its own target objects.
+     * * `COMPOSITE_CHILD` – reads its source and writes into the objects of the stream named in
+     * `compositeParent`.
+     * * `COMPOSITE_MERGE` – reads its source and adds fields to the objects of the stream named in
+     * `compositeParent`.
+     * * `FAN_OUT` – has no source of its own. It reads the records the stream named in `compositeParent`
+     * wrote in the same run, and writes further objects for each of them, for example a product's prices.
+     * It runs after that stream. Objects it created earlier for a record that no longer lists them are
+     * removed.
+     */
+    mode?: 'STANDALONE' | 'COMPOSITE_CHILD' | 'COMPOSITE_MERGE' | 'FAN_OUT';
+    /**
+     * `FAN_OUT` only. The array in the parent record whose elements each produce one target object, for example `prices[]`. When omitted, one target object is written per parent record.
+     */
+    fanOutPath?: string;
+    /**
+     * `FAN_OUT` only. The element field that identifies an element of `fanOutPath`, for example `currency`, so that a target object keeps its identity when the elements change order. When omitted, a scalar element identifies itself and an object element is identified by its position.
+     */
+    fanOutKey?: string;
+    /**
+     * Whether the stream is a `FAN_OUT` stream with a parent. Derived from `mode` and `compositeParent`.
+     */
+    readonly fanOut?: boolean;
+    /**
+     * Settings for the target writer. Absent when the writer needs none. `emporix.product` reads the
+     * following settings:
+     *
+     * * `matchField` – how existing products are found: `CODE` (the default) or `ID`.
+     * * `createMissing` – whether products that are not found are created. Defaults to `true`.
+     * * `schemas` – a list of the identifiers of the product mixin schemas the stream writes.
+     * * `templateId` – the product template assigned to the products.
+     * * `language` – the language of localized fields. Defaults to `en`.
+     * * `categoryMatchField` – how the categories to assign are found: `CODE` (the default) or `ID`.
+     *
+     * `emporix.category` reads `language`, and `emporix.categoryAssignment` reads `categoryMatchField`.
+     * `emporix.price` reads `currency`, `countryCode`, `siteCode`, and `priceModelId`, and
+     * `emporix.availability` reads `site`. These price and availability settings are fallback values with no
+     * default of their own: a record that does not map the field gets the stream's value. A price needs a
+     * currency and a country, and stock needs a site, from a mapping or from these settings.
+     */
+    targetOptions?: {
+        [key: string]: unknown;
+    };
     /**
      * The source field whose value is tracked as the delta watermark. A delta run extracts only the records whose value is newer than the last run's.
      */
@@ -211,7 +286,7 @@ export type ImportStream = {
      */
     deltaFieldFormat?: 'DATE' | 'UNIX_SECONDS' | 'UNIX_MILLIS';
     /**
-     * For a composite child stream, the name of the stream it contributes to.
+     * For a `COMPOSITE_CHILD`, `COMPOSITE_MERGE`, or `FAN_OUT` stream, the name of the stream it contributes to or fans out from.
      */
     compositeParent?: string;
     /**
@@ -227,7 +302,19 @@ export type ImportStream = {
      */
     childStrategy?: 'EMBED' | 'PATCH';
     /**
-     * How an existing target object is updated. `PATCH` changes only the mapped fields and preserves everything else; `REPLACE_PUT` replaces the whole object, so fields this import does not manage are cleared.
+     * How an existing target object is updated. Possible values:
+     *
+     * * `PATCH` – changes only the mapped fields and keeps everything else.
+     * * `MERGE_PUT` – reads the object, merges the mapped fields into it, and writes it back whole.
+     * * `REPLACE_PUT` – replaces the whole object, so fields this import does not manage are cleared.
+     *
+     * The values a stream can use depend on its target writer. The following values are available per
+     * writer, with the default listed first:
+     *
+     * * `emporix.customEntity` – `PATCH`, `MERGE_PUT`, `REPLACE_PUT`.
+     * * `emporix.product` and `emporix.category` – `PATCH`.
+     * * `emporix.media` – `PATCH`, `REPLACE_PUT`.
+     * * `emporix.price`, `emporix.availability`, and `emporix.categoryAssignment` – `REPLACE_PUT`.
      */
     writeStrategy?: 'PATCH' | 'MERGE_PUT' | 'REPLACE_PUT';
     /**
@@ -316,6 +403,10 @@ export type ImportStream = {
      */
     fileMode?: 'SNAPSHOT' | 'INCREMENTAL';
     /**
+     * Whether the stream treats each file as a snapshot. `true` unless `fileMode` is `INCREMENTAL`.
+     */
+    readonly snapshotFiles?: boolean;
+    /**
      * For an `EMBED` composite child, the source column its parent matches records by. Required for such a stream: without it the parent cannot find its children and writes an empty array.
      */
     parentKeyField?: string;
@@ -370,11 +461,11 @@ export type Schedule = {
      */
     cron: string;
     /**
-     * The IANA time zone the cron is evaluated in.
+     * The IANA time zone the cron is evaluated in. Defaults to `UTC`.
      */
     timezone?: string;
     /**
-     * Whether the schedule is active.
+     * Whether the schedule is active. Defaults to `true`.
      */
     enabled?: boolean;
     /**
@@ -402,9 +493,13 @@ export type ImportRun = {
      */
     tenant?: string;
     /**
-     * What triggered the run.
+     * What triggered the run. Possible values:
+     *
+     * * `MANUAL` – triggered with the run operation.
+     * * `SCHEDULED` – started by the configuration's schedule.
+     * * `RETRY` – created by retrying the failed records of an earlier run. `retryOfRunId` names that run.
      */
-    trigger?: 'MANUAL' | 'SCHEDULED';
+    trigger?: 'MANUAL' | 'SCHEDULED' | 'RETRY';
     /**
      * Dry-run only. A sample of the mapped records that would be written, so the mapping can be previewed without a real import. Absent on normal runs. Each stream is sampled separately, up to the `sampleSize` set in the run request. A parent stream's records include the records of its composite child streams that have `childStrategy` set to `EMBED` or `PATCH`. Those child records appear in the parent attribute named by the child stream's `embedAttribute`, as a real import writes them. Only child records inside the child stream's own sample are included, so a sampled parent record can show fewer child records than the source contains for that parent, or none. Child records are also sampled under their own stream.
      */
@@ -533,6 +628,10 @@ export type ImportRun = {
      */
     message?: string;
     /**
+     * The streams the run was asked to execute, as sent in `streamIds` when it was triggered. Absent when the run executes every stream of the configuration.
+     */
+    streamIds?: Array<string>;
+    /**
      * When the run retries another run's failed records, the identifier of that original run.
      */
     retryOfRunId?: string;
@@ -594,9 +693,9 @@ export type ImportRunStream = {
      */
     streamName?: string;
     /**
-     * The stream's status within the run. `ABORTED` means the service refused to run the stream because of its configuration, for example because its mappings have never been published. It indicates a configuration problem to fix. The `message` field gives the reason.
+     * The stream's status within the run. `ABORTED` means the service refused to run the stream because of its configuration, for example because its mappings have never been published. It indicates a configuration problem to fix. The `message` field gives the reason. `CANCELLED` means the run was cancelled while the stream was running.
      */
-    status?: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'SKIPPED' | 'ABORTED';
+    status?: 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'ABORTED' | 'CANCELLED';
     /**
      * Records read for this stream. The counters reconcile: `recordsRead` = created + updated + skipped + unresolvedParents + deleted + failed + collapsed + embedded.
      */
@@ -699,9 +798,15 @@ export type CancelResult = {
      */
     force?: boolean;
     /**
-     * Whether the cancellation was accepted. `false` when the run is unknown or already finished.
+     * Whether the cancellation was accepted. `false` when the run does not exist, has already finished, or has the `RESUMABLE` status and `force` was not set.
      */
     accepted?: boolean;
+    /**
+     * The same value as `accepted`. Kept for clients written against an earlier response. Use `accepted`.
+     *
+     * @deprecated
+     */
+    cancelRequested?: boolean;
 };
 
 /**
@@ -731,9 +836,14 @@ export type ErrorRecord = {
      */
     targetEntity?: string;
     /**
-     * The pipeline stage the error occurred in.
+     * The pipeline stage the error occurred in. Possible values:
+     *
+     * * `EXTRACT` – reading records from the source.
+     * * `MAP` – applying the field mappings.
+     * * `VALIDATE` – validating the mapped record before the write.
+     * * `UPSERT` – writing to the target.
      */
-    stage?: string;
+    stage?: 'EXTRACT' | 'MAP' | 'VALIDATE' | 'UPSERT';
     /**
      * A machine-readable error code:
      *
@@ -752,6 +862,8 @@ export type ErrorRecord = {
      * delimited-file row whose array has more elements than `sourceDataset.arrays.maxElements`. That
      * record is not imported, but the other records are; `message` names the column, its number of
      * elements, and the limit.
+     * * `FAN_OUT_REMOVE` – a `FAN_OUT` stream could not remove the objects its parent record no longer
+     * lists. The next run that carries those records tries again.
      * * `STREAM_ERROR` – the stream failed as a whole; the record-level detail is in `message`.
      *
      * `CONFIGURATION` and `EXTERNAL_SYSTEM` are reported as a plain sentence naming what to change.
@@ -762,6 +874,12 @@ export type ErrorRecord = {
      * A human-readable error message.
      */
     message?: string;
+    /**
+     * The source record that failed, as the service read it, when the error concerns one record. Absent for errors that concern the whole stream.
+     */
+    payload?: {
+        [key: string]: unknown;
+    };
     /**
      * When the error was recorded.
      */
@@ -813,7 +931,7 @@ export type ImportedRecord = {
         [key: string]: unknown;
     };
     /**
-     * The last outcome, one of `UPSERTED`, `DELETED`, `DELETED_TARGET`, `FAILED`, or `DRY_RUN`.
+     * The last outcome, one of `UPSERTED`, `DELETED`, `FAILED`, or `DRY_RUN`.
      */
     outcome?: string;
     /**
@@ -1065,6 +1183,10 @@ export type ImportStatsSummary = {
      */
     cancelled?: number;
     /**
+     * The number of runs the service refused to run because of their configuration (`ABORTED`).
+     */
+    aborted?: number;
+    /**
      * The number of source records read.
      */
     recordsRead?: number;
@@ -1296,6 +1418,259 @@ export type ImportSourceIssue = {
 };
 
 /**
+ * Stream
+ *
+ * A stream that extracts from a source, maps fields, and upserts into an Emporix target type.
+ */
+export type ImportStreamWritable = {
+    /**
+     * The stream identifier.
+     */
+    id?: string;
+    /**
+     * The parent configuration.
+     */
+    configId?: string;
+    /**
+     * The stream name.
+     */
+    name?: string;
+    /**
+     * The logical source entity or record.
+     */
+    sourceEntity?: string;
+    /**
+     * Where the stream writes. Possible values:
+     *
+     * * `emporix.customEntity` – instances of a custom entity type, named by `targetType`.
+     * * `emporix.product` – products. `STANDALONE` streams only.
+     * * `emporix.category` – categories of the tenant's category tree. `STANDALONE` streams only.
+     * * `emporix.price` – prices of products.
+     * * `emporix.availability` – stock of products at a site.
+     * * `emporix.media` – images of products, linked by URL. The images stay where they are hosted.
+     * * `emporix.categoryAssignment` – assignments of products to existing categories.
+     *
+     * The price, availability, media, and category assignment writers are normally used by a `FAN_OUT`
+     * stream whose parent is a product stream. The `FAN_OUT` stream supplies each product's identifier as
+     * `productId`. A `STANDALONE` stream that uses them maps `productId` itself.
+     *
+     * The writers other than `emporix.customEntity` are catalog writers. The Management Dashboard offers them
+     * only to tenants for which Emporix has enabled catalog targets. To have them enabled, contact Emporix
+     * support.
+     */
+    targetWriter?: string;
+    /**
+     * For `emporix.customEntity`, the custom entity type the stream writes to. For the other writers, a label that groups the stream's imported records, for example in imported data and statistics. Defaults to `PRODUCT` for `emporix.product` and `CATEGORY` for `emporix.category`. For a `FAN_OUT` stream into a catalog writer, the service sets the label.
+     */
+    targetType?: string;
+    /**
+     * The stream's position in the configuration. Streams are listed in this order. When dependencies do not decide the run order, streams run in this order.
+     */
+    seq?: number;
+    /**
+     * How the stream contributes to the target. Possible values:
+     *
+     * * `STANDALONE` – reads its source and writes its own target objects.
+     * * `COMPOSITE_CHILD` – reads its source and writes into the objects of the stream named in
+     * `compositeParent`.
+     * * `COMPOSITE_MERGE` – reads its source and adds fields to the objects of the stream named in
+     * `compositeParent`.
+     * * `FAN_OUT` – has no source of its own. It reads the records the stream named in `compositeParent`
+     * wrote in the same run, and writes further objects for each of them, for example a product's prices.
+     * It runs after that stream. Objects it created earlier for a record that no longer lists them are
+     * removed.
+     */
+    mode?: 'STANDALONE' | 'COMPOSITE_CHILD' | 'COMPOSITE_MERGE' | 'FAN_OUT';
+    /**
+     * `FAN_OUT` only. The array in the parent record whose elements each produce one target object, for example `prices[]`. When omitted, one target object is written per parent record.
+     */
+    fanOutPath?: string;
+    /**
+     * `FAN_OUT` only. The element field that identifies an element of `fanOutPath`, for example `currency`, so that a target object keeps its identity when the elements change order. When omitted, a scalar element identifies itself and an object element is identified by its position.
+     */
+    fanOutKey?: string;
+    /**
+     * Settings for the target writer. Absent when the writer needs none. `emporix.product` reads the
+     * following settings:
+     *
+     * * `matchField` – how existing products are found: `CODE` (the default) or `ID`.
+     * * `createMissing` – whether products that are not found are created. Defaults to `true`.
+     * * `schemas` – a list of the identifiers of the product mixin schemas the stream writes.
+     * * `templateId` – the product template assigned to the products.
+     * * `language` – the language of localized fields. Defaults to `en`.
+     * * `categoryMatchField` – how the categories to assign are found: `CODE` (the default) or `ID`.
+     *
+     * `emporix.category` reads `language`, and `emporix.categoryAssignment` reads `categoryMatchField`.
+     * `emporix.price` reads `currency`, `countryCode`, `siteCode`, and `priceModelId`, and
+     * `emporix.availability` reads `site`. These price and availability settings are fallback values with no
+     * default of their own: a record that does not map the field gets the stream's value. A price needs a
+     * currency and a country, and stock needs a site, from a mapping or from these settings.
+     */
+    targetOptions?: {
+        [key: string]: unknown;
+    };
+    /**
+     * The source field whose value is tracked as the delta watermark. A delta run extracts only the records whose value is newer than the last run's.
+     */
+    deltaField?: string;
+    /**
+     * How the delta field's values are formatted, so they can be compared correctly.
+     */
+    deltaFieldFormat?: 'DATE' | 'UNIX_SECONDS' | 'UNIX_MILLIS';
+    /**
+     * For a `COMPOSITE_CHILD`, `COMPOSITE_MERGE`, or `FAN_OUT` stream, the name of the stream it contributes to or fans out from.
+     */
+    compositeParent?: string;
+    /**
+     * For a composite child stream, the source field holding its parent's key.
+     */
+    linkingField?: string;
+    /**
+     * For a composite child stream, the parent attribute its records are embedded into.
+     */
+    embedAttribute?: string;
+    /**
+     * How a composite child's records reach the parent object.
+     */
+    childStrategy?: 'EMBED' | 'PATCH';
+    /**
+     * How an existing target object is updated. Possible values:
+     *
+     * * `PATCH` – changes only the mapped fields and keeps everything else.
+     * * `MERGE_PUT` – reads the object, merges the mapped fields into it, and writes it back whole.
+     * * `REPLACE_PUT` – replaces the whole object, so fields this import does not manage are cleared.
+     *
+     * The values a stream can use depend on its target writer. The following values are available per
+     * writer, with the default listed first:
+     *
+     * * `emporix.customEntity` – `PATCH`, `MERGE_PUT`, `REPLACE_PUT`.
+     * * `emporix.product` and `emporix.category` – `PATCH`.
+     * * `emporix.media` – `PATCH`, `REPLACE_PUT`.
+     * * `emporix.price`, `emporix.availability`, and `emporix.categoryAssignment` – `REPLACE_PUT`.
+     */
+    writeStrategy?: 'PATCH' | 'MERGE_PUT' | 'REPLACE_PUT';
+    /**
+     * A source field whose value routes each record to a different target type, as defined by `discriminatorMap`.
+     */
+    discriminatorField?: string;
+    /**
+     * Maps a discriminator value to the target type that receives those records.
+     */
+    discriminatorMap?: {
+        [key: string]: string;
+    };
+    /**
+     * How deletes are detected in the source and propagated to the target. Omit for an upsert-only
+     * stream. `MARKER`: a field on the record flags it as deleted. `TOMBSTONE`: a separate source
+     * record lists the deleted IDs.
+     */
+    deleteConfig?: {
+        /**
+         * How a deleted record is recognised.
+         */
+        mode?: 'MARKER' | 'TOMBSTONE';
+        /**
+         * `MARKER` only. The source field that flags a record as deleted.
+         */
+        markerField?: string;
+        /**
+         * `MARKER` only. The values of `markerField` that mean deleted.
+         */
+        markerValues?: Array<string>;
+        /**
+         * `TOMBSTONE` only. The explicit name of the source record that lists deleted IDs. Omit this
+         * property when the name can be derived from the imported record by adding a prefix or suffix —
+         * for example, `invoice_deleted` for an `invoice` stream. Specify it when the deletion record
+         * does not follow that naming convention.
+         */
+        record?: string;
+    };
+    healthThresholds?: HealthThresholds;
+    /**
+     * When the stream was created.
+     */
+    createdAt?: string;
+    /**
+     * Whether the stream is active.
+     */
+    enabled?: boolean;
+    /**
+     * The source connection this stream reads from, when it has its own. Omitted means the configuration's default connection is used. One configuration can therefore mix sources.
+     */
+    connectionId?: string;
+    /**
+     * How this stream addresses its source. The recognised properties depend on the source type; the
+     * ones below are common.
+     *
+     * * `keyField` – the source column holding the natural key.
+     * * `keyFields` and `keyName` – a key that may resolve from more than one column: the first
+     * non-empty of `keyFields` wins, and `keyName` is the single canonical name recorded for it,
+     * so the same entity keeps one target id whichever column supplied the value. Put the stable
+     * identifier first: a lower-priority column winning on an earlier run and a higher-priority
+     * one later re-keys the record.
+     * * `limit` – the maximum number of records one run reads (`Max records`). A positive number
+     * only; text or zero means no cap. A dry run reads at most the smaller of this and its own sample size.
+     * * `record` – the source record, table, or endpoint to read.
+     * * For a file source: the delimited-file format (`delimiter`, `quote`, `escape`, `charset`,
+     * `header`, `skipLines`, `nullLiterals`, `trimValues`, `compression`, `failOnRaggedRow`) and
+     * `arrays`, which reshapes repeated flat columns into nested form. The original columns are kept,
+     * and each array is added beside them under its name followed by `[]` — for example `lineItems[]`
+     * for `lineItems.0.sku`, or `COUNTRIES[]` for a delimited `COUNTRIES` column:
+     * * `style` – how a repeated column is recognised: `DOT` (`lineItems.0.sku`), `BRACKET`
+     * (`lineItems[0].sku`), `SUFFIX` (`phone_1`), or `NONE` (the default), which recognises no
+     * repeated columns.
+     * * `delimited` – a list of column names whose cells each hold a list of values.
+     * * `separator` – the character a `delimited` cell is split on. Defaults to `;`.
+     * * `maxElements` – the maximum number of elements one array can hold. Defaults to 1000; the
+     * highest allowed value is 10000. A row with a longer array is not truncated: only that row
+     * fails, with the error code `REJECTED_BY_SOURCE`, and the rest of the file is imported.
+     * * For an HTTP source: `pagination`, `queryParams`, `bodyTemplate`, and `format` (`JSON` or
+     * `XML`).
+     */
+    sourceDataset?: {
+        [key: string]: unknown;
+    };
+    /**
+     * For a file-based source, what one file represents. `SNAPSHOT`: each file is the whole picture, so only the most recently arrived one is read, and the per-record content hash decides what is written. A record missing from a newer file is not deleted. `INCREMENTAL`: each file is a change set, so every queued file is read in order and a later file's values win. Defaults to `SNAPSHOT`.
+     */
+    fileMode?: 'SNAPSHOT' | 'INCREMENTAL';
+    /**
+     * For an `EMBED` composite child, the source column its parent matches records by. Required for such a stream: without it the parent cannot find its children and writes an empty array.
+     */
+    parentKeyField?: string;
+    /**
+     * Whether the delta field counts as content when deciding a record has changed. Off by default: a modified timestamp is metadata about a change, not content, and a source that restamps every row on reload would otherwise make every run rewrite the whole table. Turn it on only when the timestamp moving genuinely means the record is different.
+     */
+    hashIncludesDeltaField?: boolean;
+    /**
+     * Extra target attributes to declare on the type beyond those the mappings cover, for fields written by something other than this import, keyed by attribute name.
+     */
+    schemaAttributes?: {
+        [key: string]: unknown;
+    };
+    /**
+     * The target mixin schema version this stream's mappings were written against, keyed by schema id. An instance is validated against the version it was written under, so a stream pinned here is also written at that version. Set by the mapping editor, not by a stream update: a stream update that carried this property would blank the pins.
+     */
+    mappingSchemaVersions?: {
+        [key: string]: number;
+    };
+    /**
+     * Whether to refuse to start a run when a pinned mixin's current version has moved past the pinned one, before any record is read. Opt-in, and bypassed by triggering a run with `force`.
+     */
+    abortOnSchemaVersionDrift?: boolean;
+    /**
+     * Names of streams that must run before this one, beyond the ordering a composite parent already implies.
+     */
+    dependsOn?: Array<string>;
+    /**
+     * The source field used as the instance's display name. Superseded by mapping a field to the standard `name` attribute, which a mapping's transformations also apply to; a `name` mapping wins over this property. Kept for streams configured before that existed.
+     *
+     * @deprecated
+     */
+    nameField?: string;
+};
+
+/**
  * Restrict the rows to those recorded for this stream.
  */
 export type TraitDiagnosticsStreamId = string;
@@ -1332,12 +1707,12 @@ export type TraitStreamId = string;
 export type TraitRunId = string;
 
 /**
- * The zero-based page number.
+ * The zero-based page number. A negative value returns HTTP 400.
  */
 export type TraitPage = number;
 
 /**
- * The page size.
+ * The page size. Defaults to 20 for run history, 50 for run errors, and 25 for imported records. A value below 1 returns HTTP 400.
  */
 export type TraitSize = number;
 
@@ -1371,9 +1746,26 @@ export type GetImporttoolListConfigsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolListConfigsError = GetImporttoolListConfigsErrors[keyof GetImporttoolListConfigsErrors];
@@ -1425,9 +1817,26 @@ export type GetImporttoolGetConfigErrors = {
      */
     404: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolGetConfigError = GetImporttoolGetConfigErrors[keyof GetImporttoolGetConfigErrors];
@@ -1475,9 +1884,26 @@ export type GetImporttoolListStreamsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolListStreamsError = GetImporttoolListStreamsErrors[keyof GetImporttoolListStreamsErrors];
@@ -1529,9 +1955,26 @@ export type GetImporttoolGetStreamErrors = {
      */
     404: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolGetStreamError = GetImporttoolGetStreamErrors[keyof GetImporttoolGetStreamErrors];
@@ -1591,9 +2034,26 @@ export type GetImporttoolStreamFilesErrors = {
      */
     404: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolStreamFilesError = GetImporttoolStreamFilesErrors[keyof GetImporttoolStreamFilesErrors];
@@ -1662,9 +2122,26 @@ export type PostImporttoolStreamFilesErrors = {
      */
     413: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
     /**
      * File upload is not configured in this environment.
      */
@@ -1720,9 +2197,26 @@ export type GetImporttoolStreamFileLimitsErrors = {
      */
     404: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolStreamFileLimitsError = GetImporttoolStreamFileLimitsErrors[keyof GetImporttoolStreamFileLimitsErrors];
@@ -1798,9 +2292,26 @@ export type PutImporttoolStreamFileOrderErrors = {
      */
     409: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type PutImporttoolStreamFileOrderError = PutImporttoolStreamFileOrderErrors[keyof PutImporttoolStreamFileOrderErrors];
@@ -1860,9 +2371,26 @@ export type DeleteImporttoolStreamFileErrors = {
      */
     409: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type DeleteImporttoolStreamFileError = DeleteImporttoolStreamFileErrors[keyof DeleteImporttoolStreamFileErrors];
@@ -1922,9 +2450,26 @@ export type PostImporttoolStreamFileRequeueErrors = {
      */
     409: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type PostImporttoolStreamFileRequeueError = PostImporttoolStreamFileRequeueErrors[keyof PostImporttoolStreamFileRequeueErrors];
@@ -1972,9 +2517,26 @@ export type DeleteScheduleErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type DeleteScheduleError = DeleteScheduleErrors[keyof DeleteScheduleErrors];
@@ -2022,9 +2584,26 @@ export type GetImporttoolGetScheduleErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolGetScheduleError = GetImporttoolGetScheduleErrors[keyof GetImporttoolGetScheduleErrors];
@@ -2084,9 +2663,26 @@ export type PutImporttoolScheduleJobErrors = {
      */
     404: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type PutImporttoolScheduleJobError = PutImporttoolScheduleJobErrors[keyof PutImporttoolScheduleJobErrors];
@@ -2134,9 +2730,26 @@ export type GetImporttoolStreamOrderErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolStreamOrderError = GetImporttoolStreamOrderErrors[keyof GetImporttoolStreamOrderErrors];
@@ -2176,11 +2789,11 @@ export type GetImporttoolListRunsData = {
     };
     query?: {
         /**
-         * The zero-based page number.
+         * The zero-based page number. A negative value returns HTTP 400.
          */
         page?: number;
         /**
-         * The page size.
+         * The page size. Defaults to 20 for run history, 50 for run errors, and 25 for imported records. A value below 1 returns HTTP 400.
          */
         size?: number;
     };
@@ -2188,6 +2801,10 @@ export type GetImporttoolListRunsData = {
 };
 
 export type GetImporttoolListRunsErrors = {
+    /**
+     * The `page` or `size` query parameter is out of range. The message names the parameter.
+     */
+    400: ErrorMessage;
     /**
      * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
      */
@@ -2204,9 +2821,26 @@ export type GetImporttoolListRunsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolListRunsError = GetImporttoolListRunsErrors[keyof GetImporttoolListRunsErrors];
@@ -2223,7 +2857,7 @@ export type GetImporttoolListRunsResponse = GetImporttoolListRunsResponses[keyof
 export type PostImporttoolTriggerRunData = {
     body?: {
         /**
-         * The run mode. When omitted, defaults to `DELTA`.
+         * The run mode, `FULL` or `DELTA`. When omitted, defaults to `DELTA`. The value is not case-sensitive. Send one of the listed values. The service does not reject another value and runs the import as `DELTA`.
          */
         mode?: 'FULL' | 'DELTA';
         /**
@@ -2243,7 +2877,7 @@ export type PostImporttoolTriggerRunData = {
          */
         sampleSize?: number;
         /**
-         * What requested this run. Examples: `Dashboard`, an integration scenario name, or a scheduler name. The `trigger` field records only `MANUAL` or `SCHEDULED`. Use `origin` when more than one system calls this endpoint. If you omit `origin` or send a blank value, the service stores the `trigger` value. The service rejects values longer than 40 characters and values that contain control characters. It does not shorten them.
+         * What requested this run. Examples: `Dashboard`, an integration scenario name, or a scheduler name. The `trigger` field records only how the run started, for example `MANUAL`. Use `origin` when more than one system calls this endpoint. If you omit `origin` or send a blank value, the service stores the `trigger` value. The service rejects values longer than 40 characters and values that contain control characters. It does not shorten them.
          */
         origin?: string;
         /**
@@ -2270,26 +2904,21 @@ export type PostImporttoolTriggerRunData = {
 
 export type PostImporttoolTriggerRunErrors = {
     /**
-     * The request is invalid. For example, `dryRun` is `true` and `mappings` has a value other than `published` or `draft`. Also returned for a run with nothing to import: every stream the run starts from reads uploaded files and none has ever had a file, neither waiting nor imported. Upload a file to a stream's queue first. A dry run is not refused for this, because it reads the connection's sample file.
+     * The request is invalid. For example, `dryRun` is `true` and `mappings` has a value other than
+     * `published` or `draft`.
+     *
+     * Also returned for a run with nothing to import: every stream the run starts from reads uploaded
+     * files, and none of them has a file to read. A stream has a file to read when a file is waiting in
+     * its queue, or when it is a snapshot stream with an imported file, which the run reads again. A
+     * stream with incremental files reads each file once, so it has nothing to read when every file in
+     * its queue has been imported. The message names each stream and what to do: upload a file to its
+     * queue, or, when its latest file failed, queue that file again after fixing the cause.
+     *
+     * Only streams that the run would execute are checked. A stream whose mappings have never been
+     * published is not considered. A dry run, a scheduled run, and a retry are not refused for this. When
+     * the configuration already has a run in progress, the response is `409 Conflict` instead.
      */
-    400: {
-        /**
-         * When the error occurred.
-         */
-        timestamp?: string;
-        /**
-         * HTTP status code.
-         */
-        status?: number;
-        /**
-         * HTTP status reason phrase.
-         */
-        error?: string;
-        /**
-         * The request path.
-         */
-        path?: string;
-    };
+    400: ErrorMessage;
     /**
      * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
      */
@@ -2314,9 +2943,26 @@ export type PostImporttoolTriggerRunErrors = {
      */
     409: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type PostImporttoolTriggerRunError = PostImporttoolTriggerRunErrors[keyof PostImporttoolTriggerRunErrors];
@@ -2368,9 +3014,26 @@ export type GetImporttoolGetRunErrors = {
      */
     404: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolGetRunError = GetImporttoolGetRunErrors[keyof GetImporttoolGetRunErrors];
@@ -2418,9 +3081,26 @@ export type GetImporttoolStreamRunEventsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolStreamRunEventsError = GetImporttoolStreamRunEventsErrors[keyof GetImporttoolStreamRunEventsErrors];
@@ -2473,13 +3153,30 @@ export type PostImporttoolCancelRunErrors = {
      */
     403: ErrorMessage;
     /**
-     * The request conflicts with the current state of the resource.
+     * Nothing was cancelled. The run does not exist, has already finished, or has the `RESUMABLE` status and `force` was not set.
      */
-    409: ErrorMessage;
+    409: CancelResult;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type PostImporttoolCancelRunError = PostImporttoolCancelRunErrors[keyof PostImporttoolCancelRunErrors];
@@ -2508,11 +3205,11 @@ export type GetImporttoolListRunErrorsData = {
     };
     query?: {
         /**
-         * The zero-based page number.
+         * The zero-based page number. A negative value returns HTTP 400.
          */
         page?: number;
         /**
-         * The page size.
+         * The page size. Defaults to 20 for run history, 50 for run errors, and 25 for imported records. A value below 1 returns HTTP 400.
          */
         size?: number;
     };
@@ -2520,6 +3217,10 @@ export type GetImporttoolListRunErrorsData = {
 };
 
 export type GetImporttoolListRunErrorsErrors = {
+    /**
+     * The `page` or `size` query parameter is out of range. The message names the parameter.
+     */
+    400: ErrorMessage;
     /**
      * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
      */
@@ -2536,9 +3237,26 @@ export type GetImporttoolListRunErrorsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolListRunErrorsError = GetImporttoolListRunErrorsErrors[keyof GetImporttoolListRunErrorsErrors];
@@ -2599,9 +3317,26 @@ export type GetImporttoolListRunDiagnosticsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolListRunDiagnosticsError = GetImporttoolListRunDiagnosticsErrors[keyof GetImporttoolListRunDiagnosticsErrors];
@@ -2662,9 +3397,26 @@ export type GetImporttoolDownloadRunDiagnosticsCsvErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolDownloadRunDiagnosticsCsvError = GetImporttoolDownloadRunDiagnosticsCsvErrors[keyof GetImporttoolDownloadRunDiagnosticsCsvErrors];
@@ -2708,9 +3460,26 @@ export type GetImporttoolListDataTypesErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolListDataTypesError = GetImporttoolListDataTypesErrors[keyof GetImporttoolListDataTypesErrors];
@@ -2739,19 +3508,25 @@ export type GetImporttoolSearchDataRecordsData = {
          */
         type: string;
         /**
-         * Optional free-text filter. This is a case-insensitive substring match on the record's natural key only — it is NOT the Emporix query language, so field selectors and operators (e.g. `field:value`, comparisons, boolean logic) are not supported.
+         * Optional filter. Returns the records whose natural key or Emporix identifier starts with the given text. The natural key can be given with its key name (`ID:SKU-1001`) or as the source value alone (`SKU-1001`). The match is case-sensitive and matches from the start only: text from the middle of a key matches nothing. Emporix identifiers are lower case, so the identifier is also matched with the text converted to lower case: `3FA85F64` finds `3fa85f64-…`. This is not the Emporix query language, so field selectors and operators are not supported.
          */
         search?: string;
         /**
-         * Optional filter by import outcome. Omit to return records of all outcomes. `UPSERTED` (created or updated), `DELETED` (removed at the source), `DELETED_TARGET` (removed in Emporix), `FAILED`, `DRY_RUN` (produced by a dry run).
+         * Optional filter by import outcome. Omit to return records of all outcomes. The value must match
+         * exactly, in upper case. Any other value returns no records. Possible values:
+         *
+         * * `UPSERTED` – created or updated.
+         * * `DELETED` – removed at the source.
+         * * `FAILED` – the record could not be imported.
+         * * `DRY_RUN` – produced by a dry run.
          */
-        outcome?: 'UPSERTED' | 'DELETED' | 'DELETED_TARGET' | 'FAILED' | 'DRY_RUN';
+        outcome?: 'UPSERTED' | 'DELETED' | 'FAILED' | 'DRY_RUN';
         /**
-         * The zero-based page number.
+         * The zero-based page number. A negative value returns HTTP 400.
          */
         page?: number;
         /**
-         * The page size.
+         * The page size. Defaults to 20 for run history, 50 for run errors, and 25 for imported records. A value below 1 returns HTTP 400.
          */
         size?: number;
     };
@@ -2759,6 +3534,10 @@ export type GetImporttoolSearchDataRecordsData = {
 };
 
 export type GetImporttoolSearchDataRecordsErrors = {
+    /**
+     * The `page` or `size` query parameter is out of range. The message names the parameter.
+     */
+    400: ErrorMessage;
     /**
      * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
      */
@@ -2775,9 +3554,26 @@ export type GetImporttoolSearchDataRecordsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolSearchDataRecordsError = GetImporttoolSearchDataRecordsErrors[keyof GetImporttoolSearchDataRecordsErrors];
@@ -2806,19 +3602,25 @@ export type GetImporttoolSearchStreamRecordsData = {
     };
     query?: {
         /**
-         * Optional free-text filter. This is a case-insensitive substring match on the record's natural key only — it is NOT the Emporix query language, so field selectors and operators (e.g. `field:value`, comparisons, boolean logic) are not supported.
+         * Optional filter. Returns the records whose natural key or Emporix identifier starts with the given text. The natural key can be given with its key name (`ID:SKU-1001`) or as the source value alone (`SKU-1001`). The match is case-sensitive and matches from the start only: text from the middle of a key matches nothing. Emporix identifiers are lower case, so the identifier is also matched with the text converted to lower case: `3FA85F64` finds `3fa85f64-…`. This is not the Emporix query language, so field selectors and operators are not supported.
          */
         search?: string;
         /**
-         * Optional filter by import outcome. Omit to return records of all outcomes. `UPSERTED` (created or updated), `DELETED` (removed at the source), `DELETED_TARGET` (removed in Emporix), `FAILED`, `DRY_RUN` (produced by a dry run).
+         * Optional filter by import outcome. Omit to return records of all outcomes. The value must match
+         * exactly, in upper case. Any other value returns no records. Possible values:
+         *
+         * * `UPSERTED` – created or updated.
+         * * `DELETED` – removed at the source.
+         * * `FAILED` – the record could not be imported.
+         * * `DRY_RUN` – produced by a dry run.
          */
-        outcome?: 'UPSERTED' | 'DELETED' | 'DELETED_TARGET' | 'FAILED' | 'DRY_RUN';
+        outcome?: 'UPSERTED' | 'DELETED' | 'FAILED' | 'DRY_RUN';
         /**
-         * The zero-based page number.
+         * The zero-based page number. A negative value returns HTTP 400.
          */
         page?: number;
         /**
-         * The page size.
+         * The page size. Defaults to 20 for run history, 50 for run errors, and 25 for imported records. A value below 1 returns HTTP 400.
          */
         size?: number;
     };
@@ -2826,6 +3628,10 @@ export type GetImporttoolSearchStreamRecordsData = {
 };
 
 export type GetImporttoolSearchStreamRecordsErrors = {
+    /**
+     * The `page` or `size` query parameter is out of range. The message names the parameter.
+     */
+    400: ErrorMessage;
     /**
      * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
      */
@@ -2842,9 +3648,26 @@ export type GetImporttoolSearchStreamRecordsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolSearchStreamRecordsError = GetImporttoolSearchStreamRecordsErrors[keyof GetImporttoolSearchStreamRecordsErrors];
@@ -2877,7 +3700,7 @@ export type GetImporttoolStatsData = {
          */
         configIds?: string;
         /**
-         * Restricts the statistics to a single stream. Takes precedence over the configuration filters.
+         * Restricts the statistics to a single stream. Takes precedence over `configIds`. When `configId` is also given, the stream must belong to that configuration.
          */
         streamId?: string;
         /**
@@ -2893,7 +3716,7 @@ export type GetImporttoolStatsData = {
          */
         granularity?: 'DAY' | 'WEEK' | 'MONTH';
         /**
-         * A comma-separated list of the sections to compute: `TOTALS`, `STREAMS`, `ERRORS`, `CHANGES`. When omitted, defaults to all sections. A section not requested through the `sections` parameter is returned as `null`.
+         * A comma-separated list of the sections to compute: `TOTALS`, `STREAMS`, `ERRORS`, `CHANGES`. When omitted, defaults to all sections. A section not requested through the `sections` parameter is returned as `null`. `sourceIssues` belongs to the `STREAMS` section.
          */
         sections?: string;
     };
@@ -2902,7 +3725,7 @@ export type GetImporttoolStatsData = {
 
 export type GetImporttoolStatsErrors = {
     /**
-     * The window or a filter value is invalid.
+     * The window or a filter value is invalid. For example, `from` is after `to`, the window is longer than 366 days, `streamId` does not belong to `configId`, or `sections` names an unknown section.
      */
     400: ErrorMessage;
     /**
@@ -2921,9 +3744,30 @@ export type GetImporttoolStatsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * The stream named in `streamId` does not exist.
      */
-    500: ErrorMessage;
+    404: ErrorMessage;
+    /**
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
+     */
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolStatsError = GetImporttoolStatsErrors[keyof GetImporttoolStatsErrors];
@@ -2967,9 +3811,26 @@ export type GetImporttoolListJobGroupsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolListJobGroupsError = GetImporttoolListJobGroupsErrors[keyof GetImporttoolListJobGroupsErrors];
@@ -3013,9 +3874,26 @@ export type GetImporttoolHealthThresholdsErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolHealthThresholdsError = GetImporttoolHealthThresholdsErrors[keyof GetImporttoolHealthThresholdsErrors];
@@ -3059,9 +3937,26 @@ export type GetImporttoolLicenseErrors = {
      */
     403: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type GetImporttoolLicenseError = GetImporttoolLicenseErrors[keyof GetImporttoolLicenseErrors];
@@ -3117,9 +4012,26 @@ export type PostImporttoolRetryRunErrors = {
      */
     409: ErrorMessage;
     /**
-     * Internal Service Error occurred.
+     * An unexpected error occurred in the service. The body is the framework's default error body, not the error schema of the other responses.
      */
-    500: ErrorMessage;
+    500: {
+        /**
+         * When the error occurred.
+         */
+        timestamp?: string;
+        /**
+         * The HTTP status code.
+         */
+        status?: number;
+        /**
+         * The HTTP status reason phrase.
+         */
+        error?: string;
+        /**
+         * The request path.
+         */
+        path?: string;
+    };
 };
 
 export type PostImporttoolRetryRunError = PostImporttoolRetryRunErrors[keyof PostImporttoolRetryRunErrors];

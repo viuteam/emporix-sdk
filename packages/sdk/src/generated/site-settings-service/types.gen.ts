@@ -104,13 +104,15 @@ export type SiteDto = {
      */
     includesTax?: boolean;
     /**
-     * Site's default language, compliant with the IETF BCP-47 standard. Regional variants such as `fr-ca` are supported.
+     * Site's default language: a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits. Regional variants such as `fr-ca` and custom codes such as `en-NL` are supported.
+     *
+     * **Note**: The default language must be one of the site's `languages`. The values are compared ignoring letter case, so `de-de` matches `de-DE`.
      */
     defaultLanguage: string;
     /**
      * Languages supported by the site.
      *
-     * **Note**: The languages must be compliant with the IETF BCP-47 standard. Regional variants such as `fr-ca` are supported.
+     * **Note**: Each language must be a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits. The format is checked, not whether the language or region exists. We recommend an ISO 639 language code combined with an ISO 3166 country code, such as `en-NL`. Regional variants such as `fr-ca` and custom codes such as `en-NL` are supported. Letter case is not checked, and the values are stored as sent. For more information, see [Language configuration](https://developer.emporix.io/api-documentation/api-guides/configuration/configuration-service/language).
      */
     languages: Array<string>;
     currency: CurrencyDto;
