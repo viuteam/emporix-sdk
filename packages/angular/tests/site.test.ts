@@ -115,6 +115,20 @@ describe("mount-time derivation from the site DTO", () => {
     expect(storage.getLanguage()).toBe("de");
   });
 
+  it("adopts the site's spelling of a stored language that differs only in case, in storage too", async () => {
+    const storage = createMemoryStorage();
+    storage.setLanguage("en-nl");
+    const client = clientWith(
+      { siteCode: "main" },
+      { get: async () => ({ currency: "EUR", defaultLanguage: "de", languages: ["de", "en-NL"] }) },
+    );
+    TestBed.configureTestingModule({ providers: [provideEmporix({ client, storage })] });
+    const site = TestBed.runInInjectionContext(() => injectEmporixSite());
+    await derived();
+    expect(site.language()).toBe("en-NL");
+    expect(storage.getLanguage()).toBe("en-NL");
+  });
+
   it("keeps a stored language the active site offers", async () => {
     const storage = createMemoryStorage();
     storage.setLanguage("fr");

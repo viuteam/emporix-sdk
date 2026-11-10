@@ -569,6 +569,17 @@ describe("useSiteContext — language mount-derive", () => {
     expect(result.current.language).toBe("en");
     expect(storage.getLanguage()).toBe("en");
   });
+
+  it("adopts the site's spelling of a stored language that differs only in case, in storage too", async () => {
+    server.use(mainSite());
+    const storage = createMemoryStorage();
+    storage.setLanguage("EN");
+    const { result } = renderHook(() => useSiteContext(), {
+      wrapper: wrap({ storage, initialSiteCode: "main" }),
+    });
+    await waitFor(() => expect(result.current.language).toBe("en"));
+    expect(storage.getLanguage()).toBe("en");
+  });
 });
 
 describe("useSiteContext — language reset on site switch", () => {
@@ -598,5 +609,32 @@ describe("useSiteContext — language reset on site switch", () => {
     expect(result.current.language).toBe("fr");
     // Persisted too — otherwise the next reload restores the unsupported language.
     expect(storage.getLanguage()).toBe("fr");
+  });
+
+  it("keeps a language the new site offers in another case, in the site's spelling", async () => {
+    server.use(
+      http.get("https://api.emporix.io/site/acme/sites/ch-site", () =>
+        HttpResponse.json({
+          code: "ch-site", name: "CH", active: true, default: false,
+          defaultLanguage: "de", languages: ["de", "fr-CH"],
+          currency: "CHF",
+          homeBase: { address: { country: "CH", zipCode: "8000" } },
+          shipToCountries: ["CH"],
+        }),
+      ),
+      http.get(
+        "https://api.emporix.io/session-context/acme/me/context",
+        () => new HttpResponse(null, { status: 404 }),
+      ),
+    );
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useSiteContext(), {
+      wrapper: wrap({ storage, initialLanguage: "fr-ch", initialSiteCode: "old" }),
+    });
+    await act(async () => {
+      await result.current.setSite("ch-site");
+    });
+    expect(result.current.language).toBe("fr-CH");
+    expect(storage.getLanguage()).toBe("fr-CH");
   });
 });

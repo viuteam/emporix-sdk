@@ -35,6 +35,16 @@ async function runSwitch(
 }
 
 /**
+ * The site's own spelling of `language`, or `undefined` when the site does not
+ * offer it. Matched without regard to case, as Emporix does since 2026-11-09
+ * (`de-de` addresses `de-DE`).
+ */
+function offeredLanguage(languages: string[], language: string): string | undefined {
+  const wanted = language.toLowerCase();
+  return languages.find((l) => l.toLowerCase() === wanted);
+}
+
+/**
  * Manages the active-site state. Sits inside `QueryClientProvider` so
  * `setSite` can invalidate the React-Query cache on switch.
  */
@@ -95,13 +105,16 @@ export function SiteContextProvider({
         if (cancelled) return;
         if (currency === null) setCurrencyState(site.currency);
         setTargetLocation(site.homeBase?.address?.country ?? null);
-        // Fill a missing language; replace one the site does not offer, in storage
-        // too, or the next reload restores it.
-        const unsupported = language !== null && site.languages && !site.languages.includes(language);
-        if ((language === null || unsupported) && site.defaultLanguage) {
-          setLanguageState(site.defaultLanguage);
-          client.setStorefrontContext({ language: site.defaultLanguage });
-          if (unsupported) storage.setLanguage(site.defaultLanguage);
+        // Fill a missing language; replace one the site does not offer, or adopt
+        // the site's spelling of it — in storage too, or the next reload
+        // restores the old value.
+        const offered =
+          language === null ? undefined : site.languages ? offeredLanguage(site.languages, language) : language;
+        const next = offered ?? site.defaultLanguage;
+        if (next && next !== language) {
+          setLanguageState(next);
+          client.setStorefrontContext({ language: next });
+          if (language !== null) storage.setLanguage(next);
         }
       })
       .catch(() => {
@@ -155,11 +168,17 @@ export function SiteContextProvider({
           const nextTarget = site.homeBase?.address?.country ?? null;
           setCurrencyState(nextCurrency);
           setTargetLocation(nextTarget);
-          // Reset the language if the new site doesn't support the active one.
-          if (site.languages && !site.languages.includes(language ?? "") && site.defaultLanguage) {
-            storage.setLanguage(site.defaultLanguage);
-            setLanguageState(site.defaultLanguage);
-            client.setStorefrontContext({ language: site.defaultLanguage });
+          // Reset the language if the new site doesn't support the active one,
+          // or adopt the new site's spelling of it.
+          if (site.languages) {
+            const next =
+              (language === null ? undefined : offeredLanguage(site.languages, language)) ??
+              site.defaultLanguage;
+            if (next && next !== language) {
+              storage.setLanguage(next);
+              setLanguageState(next);
+              client.setStorefrontContext({ language: next });
+            }
           }
           // 3) Push everything into the session-context PATCH.
           await client.sessionContext.patch(

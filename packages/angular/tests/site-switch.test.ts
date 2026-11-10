@@ -72,6 +72,14 @@ describe("setSite", () => {
     expect(storage.getLanguage()).toBe("de");
   });
 
+  it("keeps a language the new site offers in another case, in the site's spelling", async () => {
+    const { site, switcher, storage } = setup();
+    await switcher.setLanguage("FR");
+    await switcher.setSite("other");
+    expect(site.language()).toBe("fr");
+    expect(storage.getLanguage()).toBe("fr");
+  });
+
   it("clears currency and target for a null site without server work", async () => {
     // Also the regression test for a race this caught: `setup()` resolves a
     // siteCode from the client config, so createSiteState has a site-DTO fetch
