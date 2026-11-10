@@ -28,9 +28,46 @@ export interface StorefrontCredentials {
   context?: { currency?: string; siteCode?: string; targetLocation?: string; language?: string };
 }
 
+/** What {@link EmporixProxyConfig.onUnauthorized} learns about the request a proxy answered with 401. */
+export interface EmporixUnauthorizedInfo {
+  method: string;
+  /** The API path, without host and query, e.g. `/customer/acme/me`. */
+  path: string;
+}
+
+/**
+ * Proxy mode, for a Backend for Frontend (BFF) that holds the Emporix tokens.
+ *
+ * With it set, the SDK requests no token and sends no `Authorization` header:
+ * every request goes to `host` — usually a same-origin path such as `/emporix` —
+ * with the session cookie and `headers`, and the proxy attaches the bearer token
+ * itself. A `customer` or `anonymous` {@link AuthContext} is still accepted but
+ * no longer decides anything on the wire; `auth.service()` throws. A 401 is never
+ * retried or refreshed: `onUnauthorized` runs, then `EmporixAuthError` is thrown.
+ *
+ * See `docs/bff.md` for what the proxy has to do.
+ */
+export interface EmporixProxyConfig {
+  /** Sent with every request, e.g. `{ "X-CSRF": "1" }` for the proxy's CSRF check. */
+  headers?: Record<string, string>;
+  /** `fetch`'s `credentials`. Default `"same-origin"`, which sends the session cookie to the same origin. */
+  credentials?: RequestInit["credentials"];
+  /**
+   * Called on every 401, before the `EmporixAuthError` is thrown — typically to
+   * send the browser to the proxy's login. Parallel requests call it once each.
+   */
+  onUnauthorized?: (info: EmporixUnauthorizedInfo) => void;
+}
+
 /** User-supplied SDK configuration. */
 export interface EmporixConfig {
   tenant: string;
+  /**
+   * API host. Default `https://api.emporix.io`. A path such as `/emporix` is
+   * resolved against `globalThis.location.origin` per request — what a
+   * same-origin proxy needs (see {@link EmporixProxyConfig}); without a
+   * `location` (on a server) such a request throws.
+   */
   host?: string;
   credentials: {
     /**
@@ -75,6 +112,19 @@ export interface EmporixConfig {
    * can override it per call with `contentLanguage` in their write options.
    */
   contentLanguage?: string;
+  /**
+   * Proxy (BFF) mode — see {@link EmporixProxyConfig}. Excludes `tokenProvider`
+   * and `credentials.backend` / `credentials.custom`: in proxy mode the SDK
+   * requests no tokens, so neither could ever be used.
+   */
+  proxy?: EmporixProxyConfig;
+}
+
+/** {@link EmporixProxyConfig} with defaults applied. */
+export interface ResolvedProxyConfig {
+  headers: Record<string, string>;
+  credentials: NonNullable<RequestInit["credentials"]>;
+  onUnauthorized: ((info: EmporixUnauthorizedInfo) => void) | undefined;
 }
 
 /** Fully-resolved configuration with defaults applied. */
@@ -89,6 +139,8 @@ export interface ResolvedConfig {
   logger: LoggerConfig | undefined;
   fetch: typeof globalThis.fetch | undefined;
   contentLanguage: string | undefined;
+  /** Set exactly when the client runs in proxy mode. */
+  proxy: ResolvedProxyConfig | undefined;
 }
 
 /**
@@ -136,6 +188,20 @@ export function validateConfig(input: EmporixConfig): ResolvedConfig {
     throw new Error("credentials is required (provide at least one of backend/storefront/custom)");
   }
   warnOnMisplacedContext(input);
+  const proxy = input.proxy;
+  if (proxy) {
+    // A throw, not a warning: both would sit unused, and a backend secret in a
+    // browser bundle is exactly what proxy mode exists to prevent.
+    if (input.tokenProvider) {
+      throw new Error("proxy and tokenProvider are mutually exclusive: in proxy mode the SDK requests no tokens");
+    }
+    if (input.credentials.backend || input.credentials.custom) {
+      throw new Error(
+        "credentials.backend and credentials.custom cannot be used in proxy mode: the proxy attaches the token, " +
+          "and service credentials never belong in a browser",
+      );
+    }
+  }
   return {
     tenant: input.tenant,
     host: input.host ?? DEFAULT_HOST,
@@ -153,5 +219,12 @@ export function validateConfig(input: EmporixConfig): ResolvedConfig {
     logger: input.logger,
     fetch: input.fetch,
     contentLanguage: input.contentLanguage,
+    proxy: proxy
+      ? {
+          headers: proxy.headers ?? {},
+          credentials: proxy.credentials ?? "same-origin",
+          onUnauthorized: proxy.onUnauthorized,
+        }
+      : undefined,
   };
 }

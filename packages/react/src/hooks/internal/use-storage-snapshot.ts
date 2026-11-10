@@ -11,8 +11,9 @@ import { HostTokenContext } from "./use-provider-wiring";
  * Server snapshot reads the same store: a server-side memory storage seeded
  * with `initialCustomerToken` must render authenticated markup.
  *
- * Under `customerSession: "external"` the host's prop wins over the stored
- * copy — see {@link HostTokenContext}.
+ * Under `customerSession: "external"` and `"proxy"` the provider's value wins
+ * over the stored copy — see {@link HostTokenContext}. `null` from it is an
+ * answer too ("no customer"), so only `undefined` falls back to storage.
  */
 export function useCustomerToken(): string | null {
   const { storage } = useEmporix();
@@ -20,7 +21,7 @@ export function useCustomerToken(): string | null {
   const store = useMemo(() => getCustomerSessionStore(storage), [storage]);
   const getToken = useCallback(() => store.getSnapshot().token, [store]);
   const stored = useSyncExternalStore(store.subscribe, getToken, getToken);
-  return hostToken ?? stored;
+  return hostToken !== undefined ? hostToken : stored;
 }
 
 /**

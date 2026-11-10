@@ -90,7 +90,17 @@ export function createRescope(
   client: EmporixClient,
   storage: EmporixStorage,
   qc: QueryClient,
+  /** Proxy mode: the token to re-scope is the proxy's, so every switch rejects. */
+  proxied = false,
 ): (state: CompanyStateWritables, target: LegalEntity | null) => Promise<void> {
+  if (proxied) {
+    return async () => {
+      throw new Error(
+        "setActiveCompany is unavailable in proxy mode: switching the legal entity re-scopes a " +
+          "token only the proxy holds. Switch it there.",
+      );
+    };
+  }
   let chain: Promise<void> = Promise.resolve();
   return (state, target) => {
     const run = (): Promise<void> => rescopeTo(client, storage, qc, state, target);

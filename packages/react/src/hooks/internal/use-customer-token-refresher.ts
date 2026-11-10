@@ -12,7 +12,7 @@ interface CustomerTokenRefresherArgs {
   /** Called when no refresh token is stored or the refresh fails. */
   onExpired?: () => void;
   /** See `EmporixProviderProps.customerSession`. Always resolved by the provider. */
-  customerSession: "owned" | "external";
+  customerSession: "owned" | "external" | "proxy";
 }
 
 /**
@@ -22,6 +22,9 @@ interface CustomerTokenRefresherArgs {
  *
  * In `customerSession: "external"` mode it registers a **report-only** refresher
  * instead: the host owns the token, so a 401 is reported and never repaired.
+ *
+ * In `"proxy"` mode the HTTP layer consults no refresher at all; `onExpired`
+ * listens to the client's proxy 401s instead.
  */
 export function useCustomerTokenRefresher({
   client,
@@ -46,6 +49,9 @@ export function useCustomerTokenRefresher({
   }
 
   useEffect(() => {
+    if (customerSession === "proxy") {
+      return onExpired ? client.onUnauthorized(() => onExpired()) : undefined;
+    }
     if (customerSession === "external") {
       // Report-only. Registering rather than skipping is what makes the callback
       // fire at all: the HTTP layer consults the refresher on a customer 401 and

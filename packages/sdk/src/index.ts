@@ -6,7 +6,15 @@ export {
 export { validateConfig, DEFAULT_HOST } from "./core/config";
 export type {
   EmporixConfig, ResolvedConfig, ServiceCredentials, StorefrontCredentials,
+  EmporixProxyConfig, ResolvedProxyConfig, EmporixUnauthorizedInfo,
 } from "./core/config";
+// Proxy (BFF) mode: the storage view the framework bindings share.
+export {
+  PROXY_CUSTOMER_TOKEN,
+  createProxyModeTokenProvider,
+  createProxySessionStorage,
+} from "./core/proxy";
+export type { ProxySessionStorage } from "./core/proxy";
 export {
   LEVEL, LevelResolver, createConsoleLogger, createNoopLogger, redact,
 } from "./core/logger";

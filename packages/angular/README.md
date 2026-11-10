@@ -55,6 +55,10 @@ model. Pass your own `queryClient` to share one cache with the host application.
 
 Create the `EmporixClient` **once** per application, never per component.
 
+For a Backend for Frontend that keeps every token out of the browser, build the
+client with `proxy` and pass `proxySession: { authenticated, login, logout }`
+to `provideEmporix`. See [`docs/bff.md`](../../docs/bff.md).
+
 ## The one rule
 
 **Read signals inside the options callback, not before it.**

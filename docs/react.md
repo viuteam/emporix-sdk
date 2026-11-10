@@ -22,6 +22,16 @@ The core SDK has **no** React dependency; React lives only in this package.
 `EmporixClient` must be created **once** — once per app (CSR) or once per server
 (SSR), never per request/render.
 
+`customerSession` says who owns the customer token:
+
+- `"owned"` (the default): the provider logs in and refreshes.
+- `"external"`: a host application hands the token in (see the README's Managed
+  Dashboard section).
+- `"proxy"`: a Backend for Frontend holds every token and the browser holds
+  none. It is the default for a client built with `proxy`, and it takes
+  `proxySession={{ authenticated, login, logout }}` instead of a token. See
+  [bff.md](./bff.md).
+
 ## Storage adapters
 
 | Adapter | Persistence | Notes |

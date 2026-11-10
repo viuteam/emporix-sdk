@@ -5,6 +5,7 @@ import type { EmporixStorage } from "../storage";
 import { EmporixSiteContext, useEmporix, type SiteContextValue } from "../provider";
 import { bootstrapCart } from "./internal/bootstrap-cart";
 import { useCustomerToken } from "./internal/use-storage-snapshot";
+import { ProxySessionContext } from "./internal/use-provider-wiring";
 import {
   getCustomerSessionStore,
   type CustomerSessionState,
@@ -25,7 +26,37 @@ const EMPTY_SESSION: SessionState = {
   saasToken: null,
 };
 
-/** Customer authentication state and actions. */
+/** The error an action that would put a token into the browser rejects with in proxy mode. */
+export function proxyRefusal(action: string): Error {
+  return new Error(
+    `${action} is unavailable under customerSession "proxy": it would put a customer token ` +
+      "into the browser. Sign in through the proxy instead.",
+  );
+}
+
+/** Runs `proxySession.login` / `.logout`, or rejects when the app passed none. */
+async function delegate(
+  fn: (() => void | Promise<void>) | undefined,
+  name: "login" | "logout",
+): Promise<void> {
+  if (!fn) {
+    throw new Error(
+      `useCustomerSession().${name} needs proxySession.${name} under customerSession "proxy": ` +
+        "the proxy owns the session, so this hook cannot sign in or out itself.",
+    );
+  }
+  await fn();
+}
+
+/**
+ * Customer authentication state and actions.
+ *
+ * Under `customerSession: "proxy"` no action calls an Emporix auth endpoint:
+ * `login` and `logout` run `proxySession.login` / `.logout` (and reject without
+ * them), `socialLogin`, `exchangeToken` and `refreshSession` reject, and
+ * `customerToken` is `PROXY_CUSTOMER_TOKEN` or `null` — a marker, never a token.
+ * `signup` and `refresh` work as usual, through the proxy.
+ */
 export interface CustomerSessionApi {
   customerToken: string | null;
   customer: Customer | null;
@@ -80,6 +111,7 @@ export function useCustomerSession(): CustomerSessionApi {
   // The token itself is read like every other hook reads it: under
   // customerSession "external" the host's prop wins over `session.token`.
   const customerToken = useCustomerToken();
+  const proxy = useContext(ProxySessionContext);
 
   const meQuery = useQuery({
     queryKey: ["emporix", "customer", "me", { tenant: client.tenant, hasToken: customerToken !== null }],
@@ -92,6 +124,7 @@ export function useCustomerSession(): CustomerSessionApi {
 
   const login = useCallback(
     async (input: { email: string; password: string }) => {
+      if (proxy) return delegate(proxy.login, "login");
       const result = await client.customers.login(input);
       storage.setCustomerToken(result.customerToken);
       storage.setRefreshToken(result.refreshToken || null);
@@ -125,7 +158,7 @@ export function useCustomerSession(): CustomerSessionApi {
       await qc.invalidateQueries({ queryKey: ["emporix", "customer"], refetchType: "none" });
       await qc.invalidateQueries({ queryKey: ["emporix", "cart"], refetchType: "none" });
     },
-    [client, storage, qc, siteCtx, setSession],
+    [client, storage, qc, siteCtx, setSession, proxy],
   );
 
   const signup = useCallback(
@@ -173,19 +206,32 @@ export function useCustomerSession(): CustomerSessionApi {
       codeVerifier?: string;
       sessionId?: string;
     }) => {
+      if (proxy) throw proxyRefusal("useCustomerSession().socialLogin");
       await applySession(await client.customers.socialLogin(input));
     },
-    [client, applySession],
+    [client, applySession, proxy],
   );
 
   const exchangeToken = useCallback(
     async (input: { subjectToken: string; config?: string }) => {
+      if (proxy) throw proxyRefusal("useCustomerSession().exchangeToken");
       await applySession(await client.customers.exchangeToken(input));
     },
-    [client, applySession],
+    [client, applySession, proxy],
   );
 
   const logout = useCallback(async () => {
+    if (proxy) {
+      if (proxy.logout) {
+        // The customer's cart and company are not the guest's, and cached
+        // customer data must not outlive the session — whether or not the
+        // callback navigates away.
+        storage.setActiveLegalEntityId(null);
+        storage.setCartId(null);
+        qc.removeQueries({ queryKey: ["emporix"] });
+      }
+      return delegate(proxy.logout, "logout");
+    }
     if (customerToken) {
       // Best-effort server invalidation; the local session is cleared
       // regardless (the token may already be expired/invalid).
@@ -210,13 +256,14 @@ export function useCustomerSession(): CustomerSessionApi {
     // customer's data straight from cache. bootstrap-cart.ts already
     // documents this contract.
     qc.removeQueries({ queryKey: ["emporix"] });
-  }, [client, customerToken, storage, qc, setSession]);
+  }, [client, customerToken, storage, qc, setSession, proxy]);
 
   const refresh = useCallback(async () => {
     await meQuery.refetch();
   }, [meQuery]);
 
   const refreshSession = useCallback(async () => {
+    if (proxy) throw proxyRefusal("useCustomerSession().refreshSession");
     if (!session.refreshToken) return;
     const refreshed = await client.customers.refresh({
       refreshToken: session.refreshToken,
@@ -232,7 +279,7 @@ export function useCustomerSession(): CustomerSessionApi {
     }));
     await qc.invalidateQueries({ queryKey: ["emporix", "customer"] });
     await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
-  }, [client, storage, qc, session.refreshToken, session.saasToken, setSession]);
+  }, [client, storage, qc, session.refreshToken, session.saasToken, setSession, proxy]);
 
   return {
     customerToken,

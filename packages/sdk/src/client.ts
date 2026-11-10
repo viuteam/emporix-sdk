@@ -1,4 +1,4 @@
-import type { EmporixConfig, ResolvedConfig } from "./core/config";
+import type { EmporixConfig, EmporixUnauthorizedInfo, ResolvedConfig } from "./core/config";
 import type { TokenProvider, CustomerTokenRefresher } from "./core/auth";
 import type { LogLevel, ServiceName } from "./core/logger";
 import { createCore, type EmporixCore } from "./core/create-core";
@@ -218,5 +218,15 @@ export class EmporixClient {
    */
   setCustomerTokenRefresher(refresher: CustomerTokenRefresher | null): void {
     this.core.setCustomerTokenRefresher(refresher);
+  }
+
+  /**
+   * Proxy mode (`config.proxy`): subscribes to the 401s the proxy answers, next
+   * to `proxy.onUnauthorized`. Returns the unsubscribe function. The React
+   * `EmporixProvider` uses it for `onCustomerSessionExpired`. Never fires outside
+   * proxy mode — there a 401 is answered by re-authenticating.
+   */
+  onUnauthorized(listener: (info: EmporixUnauthorizedInfo) => void): () => void {
+    return this.core.onUnauthorized(listener);
   }
 }

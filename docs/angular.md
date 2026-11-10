@@ -73,6 +73,15 @@ answer, not a failure worth repeating, and Emporix bills per call. Your own
 queries outside that namespace are untouched, and your explicit choices inside it
 win over these.
 
+For a Backend for Frontend that keeps every token out of the browser:
+
+1. Build the client with `proxy`.
+2. Pass `proxySession: { authenticated, login, logout }` to `provideEmporix`.
+
+The storage then never receives a token. `injectCustomerSession().login` and
+`.logout` call your callbacks, and no company context is bootstrapped. This
+matches React's `customerSession: "proxy"`; see [bff.md](./bff.md).
+
 ## The one rule that matters
 
 **Read signals INSIDE the options callback, never before it.**

@@ -47,6 +47,25 @@ export interface SiteContextValue {
   switchError: Error | null;
 }
 
+/**
+ * What the app knows about its Backend-for-Frontend session, for
+ * `customerSession: "proxy"`. The proxy answers the customer's identity — e.g. a
+ * `/bff/user` endpoint — and the app passes it in; the provider asks nothing
+ * itself, because any probe through the proxy would answer 401 for a guest.
+ */
+export interface EmporixProxySession {
+  /** `true` while the proxy session belongs to a logged-in customer. Default `false`. */
+  authenticated?: boolean;
+  /**
+   * What `useCustomerSession().login` does — usually a navigation to the proxy's
+   * login (`location.assign("/bff/login")`). Its input is ignored. Unset, `login`
+   * rejects.
+   */
+  login?: () => void | Promise<void>;
+  /** What `useCustomerSession().logout` does — usually a navigation to the proxy's logout. Unset, `logout` rejects. */
+  logout?: () => void | Promise<void>;
+}
+
 /** Props for {@link EmporixProvider}. */
 export interface EmporixProviderProps {
   client: EmporixClient;
@@ -68,8 +87,22 @@ export interface EmporixProviderProps {
    * it right after that render. While the prop is set, a token written to storage
    * from inside the tree does not reach the hooks. `autoRefreshCustomerToken` is
    * ignored; `onCustomerSessionExpired` still fires on a 401.
+   *
+   * `"proxy"` — a Backend for Frontend holds the tokens and the browser holds
+   * none; the client must be built with `proxy` (see `docs/bff.md`). It is the
+   * default for such a client, and any other value with one — or `"proxy"`
+   * without one — throws. Whether a customer is logged in comes from
+   * `proxySession.authenticated`; hooks then take their customer paths with
+   * `PROXY_CUSTOMER_TOKEN` as a marker that is never sent. Nothing is written to
+   * the token slots of `storage`, no anonymous session is stored, no token is
+   * refreshed, and no company context is bootstrapped. `useCustomerSession`'s
+   * `login` / `logout` call `proxySession.login` / `.logout`; its token-minting
+   * actions reject. `onCustomerSessionExpired` fires on every 401 the proxy
+   * answers; `autoRefreshCustomerToken` and `initialCustomerToken` cannot be used.
    */
-  customerSession?: "owned" | "external";
+  customerSession?: "owned" | "external" | "proxy";
+  /** The proxy session, for `customerSession: "proxy"`. Ignored otherwise. */
+  proxySession?: EmporixProxySession;
   /**
    * Initial site code. Resolution order: this prop → `storage.getSiteCode()` →
    * `client.config.credentials.storefront.context.siteCode` → `null`.
@@ -107,7 +140,8 @@ export interface EmporixProviderProps {
   /**
    * Called when a customer-token refresh is needed but fails (refresh token
    * expired/revoked) or no refresh token is stored. Use to drive logout /
-   * redirect to login.
+   * redirect to login. With `customerSession: "proxy"`: called on every 401 the
+   * proxy answers — parallel requests call it once each.
    */
   onCustomerSessionExpired?: () => void;
   children: ReactNode;

@@ -48,3 +48,23 @@ export const EMPORIX_COMPANY = new InjectionToken<EmporixCompanyState>("EMPORIX_
 export const EMPORIX_COMPANY_INTERNAL = new InjectionToken<EmporixCompanyInternal>(
   "EMPORIX_COMPANY_INTERNAL",
 );
+
+/** The proxy session's callbacks, set exactly when the client runs in proxy mode. */
+export interface EmporixProxySession {
+  /**
+   * `true` while the proxy session belongs to a logged-in customer — ask the
+   * proxy (e.g. `/bff/user`) before bootstrapping. Default `false`. Fixed for the
+   * injector's lifetime: a login or logout through the proxy is a navigation,
+   * which bootstraps the application again.
+   */
+  authenticated?: boolean;
+  /** What `injectCustomerSession().login` does — usually a navigation to the proxy's login. Unset, `login` rejects. */
+  login?: () => void | Promise<void>;
+  /** What `injectCustomerSession().logout` does — usually a navigation to the proxy's logout. Unset, `logout` rejects. */
+  logout?: () => void | Promise<void>;
+}
+
+/** The `proxySession` of a proxy-mode client; `null` otherwise. Always provided by `provideEmporix`. */
+export const EMPORIX_PROXY_SESSION = new InjectionToken<EmporixProxySession | null>(
+  "EMPORIX_PROXY_SESSION",
+);
