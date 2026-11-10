@@ -1317,6 +1317,24 @@ export type HeaderContentLanguage = string;
 export type HeaderAcceptLanguage = string;
 
 /**
+ * List of language codes acceptable for the product response, ordered by preference.
+ *
+ * The following rules apply:
+ *
+ * * For first-class localized fields such as `name` and `description`, a specific language or ordered list returns the first matching translation.
+ * * If none of the requested languages has a translation for a first-class localized field, the field is returned as `null`.
+ * * `*` returns all translations for first-class localized fields.
+ * * An omitted or empty header uses the tenant's default language for first-class localized fields.
+ * * For v2 mixin language maps, a specific language or ordered list returns the first matching non-null translation as a single-key map.
+ * * A v2 mixin language map without a matching non-null translation is omitted. For a localized `OBJECT`, a whole-field `null` value is preserved.
+ * * In an array of language maps, an element without a matching translation is omitted.
+ * * `*`, an omitted header, or an empty header leaves full v2 mixin language maps unchanged.
+ * * v1 `[{language,value}]` mixin arrays remain unchanged.
+ *
+ */
+export type HeaderAcceptLanguageProductMixins = string;
+
+/**
  * Site code used to resolve site-aware mixin overlays. The following behaviors apply:
  * * When set – each `{mixinName}__{siteCode}` overlay is deep-merged into the base `{mixinName}` value. Nested objects are merged recursively. Arrays and other non-object values are replaced by the overlay (not concatenated or merged by index). Non-null site values override base values for the same path. A null overlay node does not clear the base value. Only the merged base keys are returned.
  * * When omitted or blank – base mixin keys and overlay keys are returned unmerged.
@@ -1472,7 +1490,20 @@ export type PostProductSearchProductsData = {
          */
         'X-Total-Count'?: boolean;
         /**
-         * The Accept-Language request HTTP header defines which languages the client is able to understand, and which locale variant is preferred. If empty, the default system language is assumed. It can be a priority list working as a fallback mechanism.
+         * List of language codes acceptable for the product response, ordered by preference.
+         *
+         * The following rules apply:
+         *
+         * * For first-class localized fields such as `name` and `description`, a specific language or ordered list returns the first matching translation.
+         * * If none of the requested languages has a translation for a first-class localized field, the field is returned as `null`.
+         * * `*` returns all translations for first-class localized fields.
+         * * An omitted or empty header uses the tenant's default language for first-class localized fields.
+         * * For v2 mixin language maps, a specific language or ordered list returns the first matching non-null translation as a single-key map.
+         * * A v2 mixin language map without a matching non-null translation is omitted. For a localized `OBJECT`, a whole-field `null` value is preserved.
+         * * In an array of language maps, an element without a matching translation is omitted.
+         * * `*`, an omitted header, or an empty header leaves full v2 mixin language maps unchanged.
+         * * v1 `[{language,value}]` mixin arrays remain unchanged.
+         *
          */
         'Accept-Language'?: string;
         /**
@@ -1592,7 +1623,20 @@ export type GetProductListProductsData = {
          */
         'X-Total-Count'?: boolean;
         /**
-         * The Accept-Language request HTTP header defines which languages the client is able to understand, and which locale variant is preferred. If empty, the default system language is assumed. It can be a priority list working as a fallback mechanism.
+         * List of language codes acceptable for the product response, ordered by preference.
+         *
+         * The following rules apply:
+         *
+         * * For first-class localized fields such as `name` and `description`, a specific language or ordered list returns the first matching translation.
+         * * If none of the requested languages has a translation for a first-class localized field, the field is returned as `null`.
+         * * `*` returns all translations for first-class localized fields.
+         * * An omitted or empty header uses the tenant's default language for first-class localized fields.
+         * * For v2 mixin language maps, a specific language or ordered list returns the first matching non-null translation as a single-key map.
+         * * A v2 mixin language map without a matching non-null translation is omitted. For a localized `OBJECT`, a whole-field `null` value is preserved.
+         * * In an array of language maps, an element without a matching translation is omitted.
+         * * `*`, an omitted header, or an empty header leaves full v2 mixin language maps unchanged.
+         * * v1 `[{language,value}]` mixin arrays remain unchanged.
+         *
          */
         'Accept-Language'?: string;
         /**
@@ -2190,7 +2234,20 @@ export type GetProductRetrieveProductData = {
     body?: never;
     headers?: {
         /**
-         * The Accept-Language request HTTP header defines which languages the client is able to understand, and which locale variant is preferred. If empty, the default system language is assumed. It can be a priority list working as a fallback mechanism.
+         * List of language codes acceptable for the product response, ordered by preference.
+         *
+         * The following rules apply:
+         *
+         * * For first-class localized fields such as `name` and `description`, a specific language or ordered list returns the first matching translation.
+         * * If none of the requested languages has a translation for a first-class localized field, the field is returned as `null`.
+         * * `*` returns all translations for first-class localized fields.
+         * * An omitted or empty header uses the tenant's default language for first-class localized fields.
+         * * For v2 mixin language maps, a specific language or ordered list returns the first matching non-null translation as a single-key map.
+         * * A v2 mixin language map without a matching non-null translation is omitted. For a localized `OBJECT`, a whole-field `null` value is preserved.
+         * * In an array of language maps, an element without a matching translation is omitted.
+         * * `*`, an omitted header, or an empty header leaves full v2 mixin language maps unchanged.
+         * * v1 `[{language,value}]` mixin arrays remain unchanged.
+         *
          */
         'Accept-Language'?: string;
         /**

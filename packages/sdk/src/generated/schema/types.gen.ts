@@ -66,7 +66,10 @@ export type SchemaTypes = Array<SchemaType>;
 export type SchemaAttributeType = 'TEXT' | 'NUMBER' | 'DECIMAL' | 'BOOLEAN' | 'DATE' | 'TIME' | 'DATE_TIME' | 'ENUM' | 'ARRAY' | 'OBJECT' | 'REFERENCE';
 
 /**
- * Whether the attribute is localized or not. Only attributes of 'TEXT' type can be localized.
+ * Whether the attribute or array item is localized.
+ *
+ * `TEXT` can be localized with either language schema version. `OBJECT` can be localized only when the tenant's `languageSchemaVersion` configuration is `v2`. Its map keys must be BCP 47 language tags. A localized `OBJECT` cannot contain another localized attribute anywhere in its subtree.
+ *
  */
 export type Localized = boolean;
 
@@ -84,7 +87,10 @@ export type SchemaAttributeMetadata = {
      */
     required?: boolean;
     /**
-     * Whether the attribute could accept null or not.
+     * Whether the attribute accepts `null`.
+     *
+     * For a localized v2 `OBJECT`, both the whole field and each per-language value can be `null`.
+     *
      */
     nullable?: boolean;
 };
@@ -108,12 +114,36 @@ export type SchemaFileAttributeResponse = {
     /**
      * Unique key of the attribute.
      */
-    key?: string;
-    metadata?: SchemaAttributeMetadata;
+    key: string;
+    type: SchemaAttributeType;
+    metadata: SchemaAttributeMetadata;
     /**
      * List of available values for the attribute. Only valid for `ENUM` and `REFERENCE` types.
      */
     values?: Array<SchemaAttributeValue>;
+    /**
+     * Nested properties of an `OBJECT` attribute.
+     */
+    attributes?: Array<SchemaFileAttributeResponse>;
+    /**
+     * Parsed type information for items of an `ARRAY` attribute.
+     */
+    arrayType?: {
+        type: SchemaAttributeType;
+        /**
+         * List of available values for `ENUM` or `REFERENCE` array items.
+         */
+        values?: Array<SchemaAttributeValue>;
+        localized?: Localized;
+        /**
+         * Whether each array item accepts `null`.
+         */
+        nullable?: boolean;
+        /**
+         * Nested properties of an `OBJECT` array item.
+         */
+        attributes?: Array<SchemaFileAttributeResponse>;
+    };
 };
 
 /**
@@ -154,7 +184,10 @@ export type SchemaAttribute = {
      */
     values?: Array<SchemaAttributeValue>;
     /**
-     * Object's properties. It can only be provided for attribute of `OBJECT` type.
+     * Object properties. This field can only be provided for an `OBJECT` attribute.
+     *
+     * For a localized `OBJECT`, these properties define each language value. None of the nested properties can be localized.
+     *
      */
     attributes?: Array<SchemaAttribute>;
     /**
@@ -167,6 +200,17 @@ export type SchemaAttribute = {
          */
         values?: Array<SchemaAttributeValue>;
         localized?: Localized;
+        /**
+         * Whether each array item accepts `null`.
+         */
+        nullable?: boolean;
+        /**
+         * Object properties for an array whose `arrayType.type` is `OBJECT`.
+         *
+         * For localized `OBJECT` items, these properties define each language value. None of the nested properties can be localized.
+         *
+         */
+        attributes?: Array<SchemaAttribute>;
     };
 };
 
@@ -749,6 +793,23 @@ export type TraitContentLanguageHeader = string;
  *
  */
 export type TraitAcceptLanguageHeader = string;
+
+/**
+ * List of language codes acceptable for the custom-instance response, ordered by preference. If a value is specified, it must be present in the tenant configuration.
+ *
+ * The following rules apply:
+ *
+ * * A specific language or ordered list returns first-class localized fields as strings in the first matching language.
+ * * `*` returns first-class localized fields as maps of translations.
+ * * An omitted or empty header returns first-class localized fields as strings in the tenant's default language.
+ * * For v2 mixin language maps, a specific language or ordered list returns the first matching non-null translation as a single-key map.
+ * * A v2 mixin language map without a matching non-null translation is omitted. For a localized `OBJECT`, a whole-field `null` value is preserved.
+ * * In an array of language maps, an element without a matching translation is omitted.
+ * * `*`, an omitted header, or an empty header leaves full v2 mixin language maps unchanged.
+ * * v1 `[{language,value}]` mixin arrays remain unchanged.
+ *
+ */
+export type TraitAcceptLanguageCustomInstanceHeader = string;
 
 /**
  * Site code used to resolve site-aware mixin overlays. The following behaviors apply:
@@ -2168,10 +2229,18 @@ export type GetSchemaRetrieveCustomInstancesData = {
          */
         'X-Total-Count'?: boolean;
         /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If a value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
+         * List of language codes acceptable for the custom-instance response, ordered by preference. If a value is specified, it must be present in the tenant configuration.
+         *
+         * The following rules apply:
+         *
+         * * A specific language or ordered list returns first-class localized fields as strings in the first matching language.
+         * * `*` returns first-class localized fields as maps of translations.
+         * * An omitted or empty header returns first-class localized fields as strings in the tenant's default language.
+         * * For v2 mixin language maps, a specific language or ordered list returns the first matching non-null translation as a single-key map.
+         * * A v2 mixin language map without a matching non-null translation is omitted. For a localized `OBJECT`, a whole-field `null` value is preserved.
+         * * In an array of language maps, an element without a matching translation is omitted.
+         * * `*`, an omitted header, or an empty header leaves full v2 mixin language maps unchanged.
+         * * v1 `[{language,value}]` mixin arrays remain unchanged.
          *
          */
         'Accept-Language'?: string;
@@ -2463,10 +2532,18 @@ export type GetSchemaRetrieveCustomInstanceData = {
     body?: never;
     headers?: {
         /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If a value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
+         * List of language codes acceptable for the custom-instance response, ordered by preference. If a value is specified, it must be present in the tenant configuration.
+         *
+         * The following rules apply:
+         *
+         * * A specific language or ordered list returns first-class localized fields as strings in the first matching language.
+         * * `*` returns first-class localized fields as maps of translations.
+         * * An omitted or empty header returns first-class localized fields as strings in the tenant's default language.
+         * * For v2 mixin language maps, a specific language or ordered list returns the first matching non-null translation as a single-key map.
+         * * A v2 mixin language map without a matching non-null translation is omitted. For a localized `OBJECT`, a whole-field `null` value is preserved.
+         * * In an array of language maps, an element without a matching translation is omitted.
+         * * `*`, an omitted header, or an empty header leaves full v2 mixin language maps unchanged.
+         * * v1 `[{language,value}]` mixin arrays remain unchanged.
          *
          */
         'Accept-Language'?: string;
@@ -2730,10 +2807,18 @@ export type PostSchemaSearchCustomInstancesData = {
          */
         'X-Total-Count'?: boolean;
         /**
-         * List of language codes acceptable for the response. You can specify factors that indicate which language should be retrieved if the one with a higher factor was not found in the localized fields. If a value is specified, then it must be present in the tenant configuration.
-         * * If the header is set to a particular language or a list of languages, all localized fields are retrieved as strings.
-         * * If the header is set to `*`, all localized fields are retrieved as maps of translations, where the keys are language codes and values are the fields in their respective languages.
-         * * If the header is empty, localized fields are retrieved in the default language defined in the Configuration Service.
+         * List of language codes acceptable for the custom-instance response, ordered by preference. If a value is specified, it must be present in the tenant configuration.
+         *
+         * The following rules apply:
+         *
+         * * A specific language or ordered list returns first-class localized fields as strings in the first matching language.
+         * * `*` returns first-class localized fields as maps of translations.
+         * * An omitted or empty header returns first-class localized fields as strings in the tenant's default language.
+         * * For v2 mixin language maps, a specific language or ordered list returns the first matching non-null translation as a single-key map.
+         * * A v2 mixin language map without a matching non-null translation is omitted. For a localized `OBJECT`, a whole-field `null` value is preserved.
+         * * In an array of language maps, an element without a matching translation is omitted.
+         * * `*`, an omitted header, or an empty header leaves full v2 mixin language maps unchanged.
+         * * v1 `[{language,value}]` mixin arrays remain unchanged.
          *
          */
         'Accept-Language'?: string;
