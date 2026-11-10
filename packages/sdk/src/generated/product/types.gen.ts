@@ -1308,11 +1308,21 @@ export type QuerySort = string;
  *
  * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request is rejected.
  *
+ * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For example, if `de-DE` is configured, `de-de` is treated as `de-DE`. When you update a localized field, a translation that is already stored keeps the letter case of its key. For example, sending `de-de` updates the stored `de-DE` translation. If the `Content-Language` header is set to `*`, the keys in the maps of translations must match the configured letter case exactly.
+ *
+ * The request is rejected with the `400` status in the following cases:
+ * * A language code has an invalid format. A valid code is a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits, for example `en`, `en-US`, or `zh-Hant`.
+ * * A localized field contains the same language more than once in different letter case, for example both `de-DE` and `de-de`.
+ *
+ * For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
+ *
  */
 export type HeaderContentLanguage = string;
 
 /**
  * The Accept-Language request HTTP header defines which languages the client is able to understand, and which locale variant is preferred. If empty, the default system language is assumed. It can be a priority list working as a fallback mechanism.
+ *
+ * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
  */
 export type HeaderAcceptLanguage = string;
 
@@ -1767,6 +1777,14 @@ export type PostProductCreateProductData = {
          *
          * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request is rejected.
          *
+         * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For example, if `de-DE` is configured, `de-de` is treated as `de-DE`. When you update a localized field, a translation that is already stored keeps the letter case of its key. For example, sending `de-de` updates the stored `de-DE` translation. If the `Content-Language` header is set to `*`, the keys in the maps of translations must match the configured letter case exactly.
+         *
+         * The request is rejected with the `400` status in the following cases:
+         * * A language code has an invalid format. A valid code is a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits, for example `en`, `en-US`, or `zh-Hant`.
+         * * A localized field contains the same language more than once in different letter case, for example both `de-DE` and `de-de`.
+         *
+         * For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
+         *
          */
         'Content-Language'?: string;
     };
@@ -1857,6 +1875,14 @@ export type PostProductCreateBulkProductsData = {
          *
          * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request is rejected.
          *
+         * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For example, if `de-DE` is configured, `de-de` is treated as `de-DE`. When you update a localized field, a translation that is already stored keeps the letter case of its key. For example, sending `de-de` updates the stored `de-DE` translation. If the `Content-Language` header is set to `*`, the keys in the maps of translations must match the configured letter case exactly.
+         *
+         * The request is rejected with the `400` status in the following cases:
+         * * A language code has an invalid format. A valid code is a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits, for example `en`, `en-US`, or `zh-Hant`.
+         * * A localized field contains the same language more than once in different letter case, for example both `de-DE` and `de-de`.
+         *
+         * For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
+         *
          */
         'Content-Language'?: string;
     };
@@ -1939,6 +1965,14 @@ export type PutProductUpdateBulkProductsData = {
          * * If the `Content-Language` header is empty, the endpoint interprets the localized fields as being provided in the default language or the languages defined in the Configuration Service.
          *
          * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request is rejected.
+         *
+         * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For example, if `de-DE` is configured, `de-de` is treated as `de-DE`. When you update a localized field, a translation that is already stored keeps the letter case of its key. For example, sending `de-de` updates the stored `de-DE` translation. If the `Content-Language` header is set to `*`, the keys in the maps of translations must match the configured letter case exactly.
+         *
+         * The request is rejected with the `400` status in the following cases:
+         * * A language code has an invalid format. A valid code is a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits, for example `en`, `en-US`, or `zh-Hant`.
+         * * A localized field contains the same language more than once in different letter case, for example both `de-DE` and `de-de`.
+         *
+         * For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
          *
          */
         'Content-Language'?: string;
@@ -2355,6 +2389,14 @@ export type PatchProductUpdateProductData = {
          *
          * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request is rejected.
          *
+         * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For example, if `de-DE` is configured, `de-de` is treated as `de-DE`. When you update a localized field, a translation that is already stored keeps the letter case of its key. For example, sending `de-de` updates the stored `de-DE` translation. If the `Content-Language` header is set to `*`, the keys in the maps of translations must match the configured letter case exactly.
+         *
+         * The request is rejected with the `400` status in the following cases:
+         * * A language code has an invalid format. A valid code is a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits, for example `en`, `en-US`, or `zh-Hant`.
+         * * A localized field contains the same language more than once in different letter case, for example both `de-DE` and `de-de`.
+         *
+         * For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
+         *
          */
         'Content-Language'?: string;
     };
@@ -2450,6 +2492,14 @@ export type PutProductUpdateProductData = {
          * * If the `Content-Language` header is empty, the endpoint interprets the localized fields as being provided in the default language or the languages defined in the Configuration Service.
          *
          * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request is rejected.
+         *
+         * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For example, if `de-DE` is configured, `de-de` is treated as `de-DE`. When you update a localized field, a translation that is already stored keeps the letter case of its key. For example, sending `de-de` updates the stored `de-DE` translation. If the `Content-Language` header is set to `*`, the keys in the maps of translations must match the configured letter case exactly.
+         *
+         * The request is rejected with the `400` status in the following cases:
+         * * A language code has an invalid format. A valid code is a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits, for example `en`, `en-US`, or `zh-Hant`.
+         * * A localized field contains the same language more than once in different letter case, for example both `de-DE` and `de-de`.
+         *
+         * For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
          *
          */
         'Content-Language'?: string;
@@ -2556,6 +2606,8 @@ export type GetProductListTemplatesData = {
         'X-Total-Count'?: boolean;
         /**
          * The Accept-Language request HTTP header defines which languages the client is able to understand, and which locale variant is preferred. If empty, the default system language is assumed. It can be a priority list working as a fallback mechanism.
+         *
+         * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
          */
         'Accept-Language'?: string;
     };
@@ -2646,6 +2698,14 @@ export type PostProductCreateTemplateData = {
          * * If the `Content-Language` header is empty, the endpoint interprets the localized fields as being provided in the default language or the languages defined in the Configuration Service.
          *
          * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request is rejected.
+         *
+         * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For example, if `de-DE` is configured, `de-de` is treated as `de-DE`. When you update a localized field, a translation that is already stored keeps the letter case of its key. For example, sending `de-de` updates the stored `de-DE` translation. If the `Content-Language` header is set to `*`, the keys in the maps of translations must match the configured letter case exactly.
+         *
+         * The request is rejected with the `400` status in the following cases:
+         * * A language code has an invalid format. A valid code is a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits, for example `en`, `en-US`, or `zh-Hant`.
+         * * A localized field contains the same language more than once in different letter case, for example both `de-DE` and `de-de`.
+         *
+         * For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
          *
          */
         'Content-Language'?: string;
@@ -2761,6 +2821,8 @@ export type GetProductRetrieveTemplateData = {
     headers?: {
         /**
          * The Accept-Language request HTTP header defines which languages the client is able to understand, and which locale variant is preferred. If empty, the default system language is assumed. It can be a priority list working as a fallback mechanism.
+         *
+         * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
          */
         'Accept-Language'?: string;
     };
@@ -2831,6 +2893,14 @@ export type PutProductUpdateTemplateData = {
          * * If the `Content-Language` header is empty, the endpoint interprets the localized fields as being provided in the default language or the languages defined in the Configuration Service.
          *
          * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request is rejected.
+         *
+         * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For example, if `de-DE` is configured, `de-de` is treated as `de-DE`. When you update a localized field, a translation that is already stored keeps the letter case of its key. For example, sending `de-de` updates the stored `de-DE` translation. If the `Content-Language` header is set to `*`, the keys in the maps of translations must match the configured letter case exactly.
+         *
+         * The request is rejected with the `400` status in the following cases:
+         * * A language code has an invalid format. A valid code is a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits, for example `en`, `en-US`, or `zh-Hant`.
+         * * A localized field contains the same language more than once in different letter case, for example both `de-DE` and `de-de`.
+         *
+         * For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
          *
          */
         'Content-Language'?: string;
