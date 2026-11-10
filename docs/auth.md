@@ -37,6 +37,15 @@ single process).
 By default a `customer` 401 propagates. You can opt in to reactive auto-refresh
 — see below.
 
+## No token in the browser: proxy mode
+
+With `proxy` in the config, none of the above runs in the browser. The SDK
+requests no token, sends no `Authorization` header, and leaves a 401 to
+`proxy.onUnauthorized`. A Backend for Frontend on the same origin holds the
+tokens and attaches them to each call it forwards. `auth.customer()` and
+`auth.anonymous()` are still accepted, but they no longer decide anything on
+the wire, and `auth.service()` throws. See [bff.md](./bff.md).
+
 ## Customer token auto-refresh (opt-in)
 
 Customer access tokens are long-lived (Emporix: **30 days**) but do expire and
