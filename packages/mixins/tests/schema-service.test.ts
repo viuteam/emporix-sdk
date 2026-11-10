@@ -51,7 +51,7 @@ describe("schemaService adapter", () => {
         id: "x",
         types: ["CART"],
         metadata: { version: 1, url: "https://cdn/x.v1.json" },
-        attributes: [{ key: "note", type: "TEXT", required: true }],
+        attributes: [{ key: "note", type: "TEXT", metadata: { required: true } }],
       },
     ]);
     const raw = await schemaService({ client, auth: AUTH }).list();

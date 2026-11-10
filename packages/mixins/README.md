@@ -78,6 +78,14 @@ Built-in sources: `schemaService` (default — reads the tenant Schema Service,
 fetches the hosted JSON Schema with an attribute-conversion fallback),
 `localFiles`, `cdnManifest`.
 
+The fallback reads the attributes as the Schema Service returns them:
+`metadata.required` and `metadata.nullable`, `ENUM` values, and an `ARRAY`'s
+`arrayType` with its own `localized`, `nullable` and nested `attributes`. A
+localized `OBJECT` becomes a language-keyed map. A localized `TEXT` becomes a
+map *or* a `{ language, value }[]` array: the attributes do not say whether the
+tenant's `languageSchemaVersion` is `v2` or `v1`, and the hosted JSON Schema
+does.
+
 ## Custom source
 
 Anything that returns `RawMixin[]` is a source:
