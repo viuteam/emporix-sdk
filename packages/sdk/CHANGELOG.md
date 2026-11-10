@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 4.11.1
+
+### Patch Changes
+
+- [#452](https://github.com/viuteam/emporix-sdk/pull/452) [`00cf421`](https://github.com/viuteam/emporix-sdk/commit/00cf4212331dee47021110a02815e4909c6112fd) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: brand-service,import-service,indexing-service,product,site-settings-service
+
 ## 4.11.0
 
 ### Minor Changes
