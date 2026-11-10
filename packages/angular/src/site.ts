@@ -25,6 +25,16 @@ export interface SiteStateWritables {
 export type EmporixSiteInternal = EmporixSiteState & { internal: SiteStateWritables };
 
 /**
+ * The site's own spelling of `language`, or `undefined` when the site does not
+ * offer it. Matched without regard to case, as Emporix does since 2026-11-09
+ * (`de-de` addresses `de-DE`).
+ */
+export function offeredLanguage(languages: string[], language: string): string | undefined {
+  const wanted = language.toLowerCase();
+  return languages.find((l) => l.toLowerCase() === wanted);
+}
+
+/**
  * Resolve and derive the active site.
  *
  * Resolution order, matching React exactly: explicit init value → storage →
@@ -34,7 +44,8 @@ export type EmporixSiteInternal = EmporixSiteState & { internal: SiteStateWritab
  * `targetLocation` and a default `language`. Only fields still `null` are
  * filled: a currency seeded from config or storage is the user's choice and
  * outranks the site default. The one exception is a language the site does not
- * offer, which is replaced by the site default. A failed fetch is silent — `switchError` is
+ * offer, which is replaced by the site default; one the site offers in another
+ * letter case takes the site's spelling. A failed fetch is silent — `switchError` is
  * reserved for switches the user initiated and can retry, and a mount-time 502
  * has no action attached to it.
  */
@@ -77,14 +88,17 @@ export function createSiteState(
         if (siteCode() !== code) return;
         if (currency() === null) currency.set(site.currency ?? null);
         targetLocation.set(site.homeBase?.address?.country ?? null);
-        // Fill a missing language; replace one the site does not offer, in storage
-        // too, or the next reload restores it.
+        // Fill a missing language; replace one the site does not offer, or adopt
+        // the site's spelling of it — in storage too, or the next reload
+        // restores the old value.
         const current = language();
-        const unsupported = current !== null && site.languages && !site.languages.includes(current);
-        if ((current === null || unsupported) && site.defaultLanguage) {
-          language.set(site.defaultLanguage);
-          client.setStorefrontContext({ language: site.defaultLanguage });
-          if (unsupported) storage.setLanguage(site.defaultLanguage);
+        const offered =
+          current === null ? undefined : site.languages ? offeredLanguage(site.languages, current) : current;
+        const next = offered ?? site.defaultLanguage;
+        if (next && next !== current) {
+          language.set(next);
+          client.setStorefrontContext({ language: next });
+          if (current !== null) storage.setLanguage(next);
         }
       })
       .catch(() => {

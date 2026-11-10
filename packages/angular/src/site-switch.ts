@@ -2,7 +2,7 @@ import { inject } from "@angular/core";
 import { injectQueryClient } from "@tanstack/angular-query-experimental";
 import type { EmporixClient, EmporixStorage } from "@viu/emporix-sdk";
 import { EMPORIX_CLIENT, EMPORIX_SITE_INTERNAL, EMPORIX_STORAGE } from "./tokens";
-import type { SiteStateWritables } from "./site";
+import { offeredLanguage, type SiteStateWritables } from "./site";
 import { ctxFor } from "./write-bundle";
 
 /**
@@ -62,15 +62,18 @@ export function injectEmporixSiteSwitch(): EmporixSiteSwitch {
         const nextTarget = site.homeBase?.address?.country ?? null;
         w.currency.set(nextCurrency);
         w.targetLocation.set(nextTarget);
-        // Reset the language if the new site does not offer the active one.
-        if (
-          site.languages &&
-          !site.languages.includes(w.language() ?? "") &&
-          site.defaultLanguage
-        ) {
-          storage.setLanguage(site.defaultLanguage);
-          w.language.set(site.defaultLanguage);
-          client.setStorefrontContext({ language: site.defaultLanguage });
+        // Reset the language if the new site does not offer the active one, or
+        // adopt the new site's spelling of it.
+        if (site.languages) {
+          const current = w.language();
+          const next =
+            (current === null ? undefined : offeredLanguage(site.languages, current)) ??
+            site.defaultLanguage;
+          if (next && next !== current) {
+            storage.setLanguage(next);
+            w.language.set(next);
+            client.setStorefrontContext({ language: next });
+          }
         }
         await client.sessionContext.patch(
           {

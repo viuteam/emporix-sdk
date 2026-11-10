@@ -23,6 +23,26 @@ await client.returns.deleteReturn("return-id");
 `listReturns` is paginated (`pageSize` / `pageNumber` / `sort` / `q`). The read
 shape is a customer- or employee-return variant.
 
+## Sites
+
+Since 2026-11-09 a return carries the `siteCode` and `restriction` of the orders
+it references:
+
+- **On create** the service copies both from the orders, so leave them out. A
+  value that differs from the orders answers `400` «site does not match order»;
+  orders that disagree among themselves answer `400` «orders belong to different
+  sites».
+- **Update and patch** do not accept them (`ReturnUpdate` has neither field).
+  Attaching an order from another site answers the same `400`s.
+- **Filter by site** with `q`: `listReturns({ q: "siteCode:DE" })`.
+- **A site-limited employee scope** such as `returns.returns_manage--DE` only
+  sees returns whose `restriction` matches. Any other return — including one with
+  no `restriction`, which every return created before this change has — answers
+  `404` on read, update, patch and delete, and is left out of `listReturns` and
+  its `X-Total-Count`. Creating a return for another site answers `403`
+  «Creating a return for this site is not allowed.». A scope without a suffix
+  still sees every return.
+
 ## React hooks (customer self-service)
 
 ```tsx

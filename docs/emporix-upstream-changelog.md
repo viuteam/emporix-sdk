@@ -5,6 +5,81 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-11-09 — returns: sites; schema and product: localized OBJECT mixins; language codes
+
+Three entries of the [changelog](https://developer.emporix.io/changelog). The specs
+of the first two arrived with the daily sync (viuteam/emporix-sdk#447, `product`,
+`returns`, `schema`): measured by path literal, **0 new endpoints, 0 removed** —
+returns 6 of 6 and the rest unchanged.
+
+- **Returns: sites on returns**
+  ([emporix/api-references#612](https://github.com/emporix/api-references/pull/612)).
+  `siteCode` and `restriction` are copied from the orders on create and returned
+  on read; update and patch bodies do not take them. `q=siteCode:DE` filters.
+  Site-suffixed employee scopes (`returns.returns_manage--DE`) see only matching
+  returns: `404` outside, `403` on creating one. Existing returns get no site.
+  Documented in [returns.md](./returns.md#sites); the types arrive through the
+  aliases.
+- **Schema and product: localized `OBJECT` mixins**
+  ([emporix/api-references#620](https://github.com/emporix/api-references/pull/620)).
+  With `languageSchemaVersion` v2 an `OBJECT` attribute can be localized, and an
+  `ARRAY`'s `arrayType` carries `localized`, `nullable` and nested `attributes`.
+  `Accept-Language` filters these maps on product and custom-instance reads.
+  The `@viu/emporix-mixins` attribute fallback now reads that shape — and, fixed
+  on the way, `metadata.required` and `{ value }` enum values, which it read
+  from the wrong place before.
+- **Custom language codes** (`en-NL`), compared without regard to case
+  ([emporix/api-references#622](https://github.com/emporix/api-references/pull/622),
+  merged after the sync ran — the product, brand and site-settings specs follow
+  with the next one). The React and Angular site state now matches a language
+  against the site's `languages` the same way and adopts the site's spelling.
+
+Not vendored yet: the indexing service's per-tenant Battery Included `apiUrl`
+([emporix/api-references#638](https://github.com/emporix/api-references/pull/638)),
+merged after the sync ran as well.
+
+## 2026-11-06 — import-service: queue a failed file again, run responses
+
+[Changelog](https://developer.emporix.io/changelog) "Import Service: queue a
+failed file again" and "run responses and the last imported file", from
+[emporix/api-references#626](https://github.com/emporix/api-references/pull/626)
+and [#632](https://github.com/emporix/api-references/pull/632). Vendored by the
+daily sync; measured by path literal: 29 → 30 live operations, **1 new
+endpoint**, now wrapped (30 of 30).
+
+| Operation | Method |
+|---|---|
+| `POST /streams/{streamId}/files/{fileId}/requeue` | `requeueStreamFile` — not retried on a 5xx |
+
+- The file queue reports `lastProcessed`, the newest imported file, whatever
+  `historyLimit` is.
+- `triggerRun` and `retryRun` answer `404` for an unknown configuration or run
+  (it was `500`); a real run with nothing to import answers `400`.
+- A run that finds no file waiting says so in the stream's `message`.
+
+Documented in the facade JSDoc and [import.md](./import.md#file-based-streams).
+
+## 2026-10-29 — search-service: customer and legal-entity search, analyzers and lists
+
+[Changelog](https://developer.emporix.io/changelog), vendored by the daily sync
+(viuteam/emporix-sdk#436). 15 of 15 operations covered, no new endpoints.
+
+- `type` can now be `customer` or `legal-entity` besides a custom schema type.
+  Searching needs `customer.customer_read` / `…_read_own` or
+  `customermanagement.legalentity_read` / `…_read_own`; a site-restricted scope
+  returns only documents whose `restriction` / `restrictions` match.
+- An index can define `analyzers` and index a list of objects through
+  `itemFields`; a `TEXT` or `PHRASE` query can pick an `analyzer`. New alias
+  `SearchIndexAnalyzer`.
+
+Documented in the `SearchService` JSDoc and [search.md](./search.md#types-and-scopes).
+
+The other entries of 2026-10-29 to 2026-11-05 — the AI `search` tool, the RAG
+indexer's customer and legal-entity types, reindexing customers and legal
+entities, `restriction` on the customer webhooks, the IAM removals and the
+undeletable IAM system groups — arrived as spec changes through the daily sync
+with no endpoint for this SDK to add, and are not described here yet.
+
 ## 2026-10-28 — import-service: file imports and run counter reconciliation
 
 [Changelog entry](https://developer.emporix.io/changelog) "Import Service: file

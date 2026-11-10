@@ -80,7 +80,8 @@ export interface EmporixProviderProps {
    * → `client.config.credentials.storefront.context.language` → `null` (then
    * seeded from the active site's `defaultLanguage` on mount). A language the
    * active site does not list in `languages` is replaced by its `defaultLanguage`
-   * on mount, and in storage too.
+   * on mount, and in storage too. Languages are matched regardless of case, as
+   * Emporix does: `en-nl` on a site listing `en-NL` becomes `en-NL`.
    */
   initialLanguage?: string;
   /**

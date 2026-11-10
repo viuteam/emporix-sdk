@@ -324,6 +324,11 @@ export class ImportService {
    * streams. Read it back with {@link getRun}, or follow it with
    * {@link streamRun}, before treating a resolved call as a started import.
    *
+   * A configuration that does not exist answers `404` (since 2026-11-06; it used
+   * to be a `500`). A real run with nothing to import answers `400`: every stream
+   * it starts from reads uploaded files, and none has ever had one. Upload a file
+   * with {@link uploadStreamFile} first. A dry run is not refused for this.
+   *
    * Not retried on a 5xx: a POST that timed out may already have queued a run.
    *
    * @example
@@ -631,7 +636,7 @@ export class ImportService {
    * {@link streamRun} exactly as you would a triggered run. Like one, it comes
    * back `QUEUED`, answers `409` while the configuration has a run `QUEUED`,
    * `RUNNING` or `RESUMABLE`, runs the published mappings and can finish
-   * `ABORTED`.
+   * `ABORTED`. A run that does not exist answers `404`.
    *
    * Not retried on a 5xx, for the same reason {@link triggerRun} is not: a POST
    * that timed out may already have queued the retry.
@@ -765,6 +770,34 @@ export class ImportService {
     await this.ctx.http.request<void>({
       method: "DELETE",
       path: `${this.base()}/streams/${encodeURIComponent(streamId)}/files/${encodeURIComponent(fileId)}`,
+      auth,
+    });
+  }
+
+  /**
+   * Put a `FAILED` file back at the end of the stream's queue, so the next run
+   * reads the content the service already holds — no new upload. Use it after
+   * fixing the cause of the failure, a mapping say. Resolves to the file,
+   * `PENDING` again.
+   *
+   * Only a failed file can be queued again; `409` otherwise. A file imported with
+   * some records failing is `PROCESSED`: retry those records with
+   * {@link retryRun} instead. On a `SNAPSHOT` stream a failed file cannot be
+   * queued again once a newer file arrived, since the older snapshot would be
+   * imported over newer data — upload a corrected current file instead. `409`
+   * also when the stored content is gone, and while the job has a run in flight.
+   *
+   * Not retried on a 5xx: if the first attempt went through, the file is no
+   * longer `FAILED` and a repeat answers `409`.
+   */
+  async requeueStreamFile(
+    streamId: string,
+    fileId: string,
+    auth: AuthContext = SERVICE,
+  ): Promise<ImportFile> {
+    return this.ctx.http.request<ImportFile>({
+      method: "POST",
+      path: `${this.base()}/streams/${encodeURIComponent(streamId)}/files/${encodeURIComponent(fileId)}/requeue`,
       auth,
     });
   }
