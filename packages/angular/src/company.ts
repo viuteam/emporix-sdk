@@ -64,7 +64,8 @@ export type EmporixCompanyInternal = EmporixCompanyState & { internal: CompanySt
 export function createCompanyState(
   client: EmporixClient,
   storage: EmporixStorage,
-  init: { legalEntityId?: string },
+  /** `proxied`: proxy mode — no bootstrap at all, since only the proxy can re-scope the token. */
+  init: { legalEntityId?: string; proxied?: boolean },
   rescope: (state: CompanyStateWritables, target: LegalEntity | null) => Promise<void>,
 ): EmporixCompanyInternal {
   const activeCompany = signal<LegalEntity | null>(null);
@@ -89,6 +90,7 @@ export function createCompanyState(
   };
 
   async function load(): Promise<void> {
+    if (init.proxied) return;
     const token = storage.getCustomerToken();
     if (token === null) {
       // Logged out: no companies, no active entity, and nothing to fetch.

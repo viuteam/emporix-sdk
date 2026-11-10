@@ -9,7 +9,7 @@ import {
   type EmporixClient,
   type EmporixStorage,
 } from "@viu/emporix-sdk";
-import { EMPORIX_CLIENT, EMPORIX_STORAGE } from "./tokens";
+import { EMPORIX_CLIENT, EMPORIX_PROXY_SESSION, EMPORIX_STORAGE } from "./tokens";
 import { injectEmporixQuery } from "./inject-query";
 import { injectEmporixSite } from "./site";
 import { injectEmporixSiteSwitch } from "./site-switch";
@@ -64,10 +64,17 @@ export interface EmporixCustomerSession {
  * Deliberately absent, matching `@viu/emporix-sdk-next`'s reasoning: `socialLogin`
  * and `exchangeToken`. Both need an IdP configured at the tenant, and shipping an
  * SSO surface nobody can exercise means shipping something untested.
+ *
+ * In proxy mode (`provideEmporix({ proxySession })`) no action calls an Emporix
+ * auth endpoint: `login` / `logout` run `proxySession.login` / `.logout` and
+ * reject without them; `confirmSignup` and `refreshSession` reject, since both
+ * would put a customer token into the browser. `token` is `PROXY_CUSTOMER_TOKEN`
+ * or `null` — a marker, never a token.
  */
 export function injectCustomerSession(): EmporixCustomerSession {
   const client: EmporixClient = inject(EMPORIX_CLIENT);
   const storage: EmporixStorage = inject(EMPORIX_STORAGE);
+  const proxy = inject(EMPORIX_PROXY_SESSION, { optional: true });
   const qc = injectQueryClient();
   const site = injectEmporixSite();
   const switcher = injectEmporixSiteSwitch();
@@ -143,6 +150,7 @@ export function injectCustomerSession(): EmporixCustomerSession {
 
     login: (input) =>
       run(async () => {
+        if (proxy) return delegate(proxy.login, "login");
         await applySession(await client.customers.login(input));
       }),
 
@@ -153,6 +161,7 @@ export function injectCustomerSession(): EmporixCustomerSession {
 
     confirmSignup: (token) =>
       run(async () => {
+        if (proxy) throw proxyRefusal("confirmSignup");
         // Anonymous: the token came from an email and there is no session yet.
         const incoming = await client.customers.confirmSignup(token, auth.anonymous());
         await applySession(incoming);
@@ -160,6 +169,16 @@ export function injectCustomerSession(): EmporixCustomerSession {
 
     logout: () =>
       run(async () => {
+        if (proxy) {
+          if (proxy.logout) {
+            // The customer's cart and company are not the guest's, and cached
+            // customer data must not outlive the session.
+            storage.setActiveLegalEntityId(null);
+            storage.setCartId(null);
+            qc.removeQueries({ queryKey: ["emporix"] });
+          }
+          return delegate(proxy.logout, "logout");
+        }
         const token = session().token;
         if (token !== null) {
           try {
@@ -186,6 +205,7 @@ export function injectCustomerSession(): EmporixCustomerSession {
 
     refreshSession: () =>
       run(async () => {
+        if (proxy) throw proxyRefusal("refreshSession");
         const current = session();
         if (current.refreshToken === null) return;
         const refreshed = await client.customers.refresh({
@@ -204,6 +224,28 @@ export function injectCustomerSession(): EmporixCustomerSession {
         await qc.invalidateQueries({ queryKey: ["emporix", "cart"] });
       }),
   };
+}
+
+/** The error an action that would put a token into the browser rejects with in proxy mode. */
+function proxyRefusal(action: string): Error {
+  return new Error(
+    `injectCustomerSession().${action} is unavailable in proxy mode: it would put a customer ` +
+      "token into the browser. Go through the proxy instead.",
+  );
+}
+
+/** Runs `proxySession.login` / `.logout`, or rejects when the app passed none. */
+async function delegate(
+  fn: (() => void | Promise<void>) | undefined,
+  name: "login" | "logout",
+): Promise<void> {
+  if (!fn) {
+    throw new Error(
+      `injectCustomerSession().${name} needs proxySession.${name} in proxy mode: the proxy owns ` +
+        "the session, so this cannot sign in or out itself.",
+    );
+  }
+  await fn();
 }
 
 /**

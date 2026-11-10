@@ -2,6 +2,7 @@ import { inject, makeEnvironmentProviders, type EnvironmentProviders } from "@an
 import { provideTanStackQuery, QueryClient } from "@tanstack/angular-query-experimental";
 import {
   createMemoryStorage,
+  createProxySessionStorage,
   EmporixNotFoundError,
   type EmporixClient,
   type EmporixStorage,
@@ -10,9 +11,11 @@ import {
   EMPORIX_CLIENT,
   EMPORIX_COMPANY,
   EMPORIX_COMPANY_INTERNAL,
+  EMPORIX_PROXY_SESSION,
   EMPORIX_SITE,
   EMPORIX_SITE_INTERNAL,
   EMPORIX_STORAGE,
+  type EmporixProxySession,
 } from "./tokens";
 import { createSiteState } from "./site";
 import { createCompanyState } from "./company";
@@ -35,6 +38,17 @@ export interface EmporixConfig {
    * they no longer belong to does not stay active.
    */
   initialLegalEntityId?: string;
+  /**
+   * Proxy (BFF) mode, for a `client` built with `proxy` — see `docs/bff.md`.
+   * With such a client the browser holds no token: `storage` gets a view in front
+   * of it whose token slots stay empty, the customer paths run on
+   * `PROXY_CUSTOMER_TOKEN` (a marker, never sent) while `authenticated` is true,
+   * `injectCustomerSession().login` / `.logout` call these callbacks, its
+   * token-minting actions reject, and no company context is bootstrapped. A 401
+   * goes to the client's own `proxy.onUnauthorized`. Throws with a client that is
+   * not in proxy mode.
+   */
+  proxySession?: EmporixProxySession;
 }
 
 /**
@@ -85,7 +99,18 @@ export function applyEmporixQueryDefaults(qc: QueryClient): void {
  * ```
  */
 export function provideEmporix(config: EmporixConfig): EnvironmentProviders {
-  const storage = config.storage ?? createMemoryStorage();
+  // `?.` because test doubles often carry no config at all.
+  const proxied = config.client.config?.proxy !== undefined;
+  if (config.proxySession !== undefined && !proxied) {
+    throw new Error(
+      "provideEmporix: proxySession needs a client built with `proxy` — without it the SDK " +
+        "requests tokens itself. See docs/bff.md.",
+    );
+  }
+  const baseStorage = config.storage ?? createMemoryStorage();
+  const storage = proxied
+    ? createProxySessionStorage(baseStorage, config.proxySession?.authenticated ?? false)
+    : baseStorage;
   const queryClient = config.queryClient ?? new QueryClient();
   applyEmporixQueryDefaults(queryClient);
   const site = createSiteState(config.client, storage, {
@@ -98,14 +123,18 @@ export function provideEmporix(config: EmporixConfig): EnvironmentProviders {
   const company = createCompanyState(
     config.client,
     storage,
-    config.initialLegalEntityId !== undefined
-      ? { legalEntityId: config.initialLegalEntityId }
-      : {},
-    createRescope(config.client, storage, queryClient),
+    {
+      ...(config.initialLegalEntityId !== undefined
+        ? { legalEntityId: config.initialLegalEntityId }
+        : {}),
+      ...(proxied ? { proxied } : {}),
+    },
+    createRescope(config.client, storage, queryClient, proxied),
   );
   return makeEnvironmentProviders([
     { provide: EMPORIX_CLIENT, useValue: config.client },
     { provide: EMPORIX_STORAGE, useValue: storage },
+    { provide: EMPORIX_PROXY_SESSION, useValue: proxied ? (config.proxySession ?? {}) : null },
     { provide: EMPORIX_SITE, useValue: site },
     { provide: EMPORIX_SITE_INTERNAL, useValue: site.internal },
     { provide: EMPORIX_COMPANY, useValue: company },
