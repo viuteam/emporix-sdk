@@ -100,7 +100,7 @@ See [`../../docs/mixin-search.md`](../../docs/mixin-search.md) for the capabilit
 | `credentials.backend` | — | `{ clientId, secret, scope? }` — service token |
 | `credentials.storefront` | — | `{ clientId, context? }` — anonymous token (no secret). `context` holds `currency` / `siteCode` / `targetLocation`, bound to the anonymous token and needed by `prices.matchByContext`, plus `language` (`Accept-Language`); `sdk.setStorefrontContext()` switches it at runtime |
 | `credentials.custom` | — | `Record<name, { clientId, secret, scope? }>` |
-| `host` | `https://api.emporix.io` | |
+| `host` | `https://api.emporix.io` | a path such as `/emporix` resolves against `location.origin` (for a same-origin proxy) |
 | `timeouts` | `{ connectMs: 10000, readMs: 60000 }` | |
 | `retry` | `{ maxAttempts: 3 }` | 5xx/429 backoff + jitter for idempotent methods (GET/PUT/DELETE; POST/PATCH opt in via `idempotent: true`); numeric `Retry-After` honoured, capped at 8s |
 | `cache` | `{ expirationBufferSeconds: 60, maxLifetimeSeconds: 3600 }` | token cache |
@@ -108,6 +108,7 @@ See [`../../docs/mixin-search.md`](../../docs/mixin-search.md) for the capabilit
 | `tokenProvider` | built-in | inject for SSO/token-exchange |
 | `fetch` | global `fetch` | replaces `fetch` for API requests; token requests and SSE streams keep the global one |
 | `contentLanguage` | — (no header) | `Content-Language` on every request with a body: `"*"` when localized fields are maps of translations, a language code when they are plain strings. Product and category writes override it per call — see [`../../docs/products.md`](../../docs/products.md#localized-writes) |
+| `proxy` | — | `{ headers?, credentials?, onUnauthorized? }`: Backend-for-Frontend mode. No token requests, no `Authorization` header, a 401 goes to `onUnauthorized` — see [`../../docs/bff.md`](../../docs/bff.md) |
 
 `credentials: {}` is legal: a client that never mints its own token, for when the
 token comes from outside. The Managed Dashboard module in

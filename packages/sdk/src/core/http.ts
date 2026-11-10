@@ -4,7 +4,14 @@ import {
   type CustomerRefreshRegistry,
   resolveToken,
 } from "./auth";
-import { errorFromResponse, EmporixTimeoutError, EmporixNetworkError } from "./errors";
+import {
+  errorFromResponse,
+  EmporixAuthError,
+  EmporixError,
+  EmporixTimeoutError,
+  EmporixNetworkError,
+} from "./errors";
+import type { ResolvedProxyConfig } from "./config";
 import type { Logger } from "./logger";
 import { parseSseStream, type SseEvent } from "./sse";
 
@@ -84,6 +91,12 @@ export interface HttpClientOptions {
    * (`core/auth.ts`) or by {@link HttpClient.stream} — see `EmporixConfig.fetch`.
    */
   fetch?: typeof globalThis.fetch;
+  /**
+   * Proxy mode — see `EmporixConfig.proxy`. No token is resolved and no
+   * `Authorization` header is sent; `headers` and `credentials` go on every
+   * request, the stream included; a 401 calls `onUnauthorized` and throws.
+   */
+  proxy?: ResolvedProxyConfig;
 }
 
 let requestSeq = 0;
@@ -107,12 +120,59 @@ export class HttpClient {
     this.doFetch = opts.fetch ?? ((...args) => globalThis.fetch(...args));
   }
 
+  /**
+   * `null` in proxy mode, where no token is resolved at all — the provider is
+   * never asked, so no token request can happen. A service context is refused
+   * there rather than sent anonymously through the proxy.
+   */
+  private async tokenFor(o: RequestOptions): Promise<string | null> {
+    if (!this.opts.proxy) return resolveToken(o.auth, this.opts.provider);
+    if (o.auth.kind === "service") {
+      throw new EmporixAuthError(
+        `${o.method} ${o.path}: auth.service() is not available in proxy mode — service tokens ` +
+          "never belong in a browser. Make this call from your server.",
+      );
+    }
+    return null;
+  }
+
+  /** `host + path` plus query. A relative host (`/emporix`) resolves against the page origin. */
+  private urlFor(o: RequestOptions): URL {
+    const host = this.opts.host;
+    let url: URL;
+    if (host.startsWith("/")) {
+      const origin = (globalThis as { location?: { origin?: string } }).location?.origin;
+      if (!origin) {
+        throw new EmporixError(
+          `host "${host}" is a path, which needs a page origin to resolve against, and ` +
+            "globalThis.location is not available here. Use an absolute host on a server.",
+        );
+      }
+      url = new URL(host + o.path, origin);
+    } else {
+      url = new URL(host + o.path);
+    }
+    for (const [k, v] of Object.entries(o.query ?? {})) {
+      if (v !== undefined) url.searchParams.set(k, String(v));
+    }
+    return url;
+  }
+
+  /** Proxy mode: report the 401 before it is thrown. A throwing callback must not mask it. */
+  private reportUnauthorized(o: RequestOptions): void {
+    try {
+      this.opts.proxy?.onUnauthorized?.({ method: o.method, path: o.path });
+    } catch {
+      // The EmporixAuthError that follows is the signal the caller relies on.
+    }
+  }
+
   private buildHeaders(
     o: RequestOptions,
-    token: string,
+    token: string | null,
     isFormData: boolean,
   ): Record<string, string> {
-    return {
+    const headers: Record<string, string> = {
       // Before `o.headers` on purpose: a caller may override the tenant for a
       // single request, the way `Accept-Language` and `Content-Language` can be
       // overridden. Only `Authorization` is non-negotiable.
@@ -123,14 +183,27 @@ export class HttpClient {
       ...(this.opts.contentLanguage && o.body !== undefined
         ? { "Content-Language": this.opts.contentLanguage }
         : {}),
+      ...(this.opts.proxy?.headers ?? {}),
       ...(o.headers ?? {}),
-      Authorization: `Bearer ${token}`,
+      ...(token !== null ? { Authorization: `Bearer ${token}` } : {}),
       // JSON bodies: set Content-Type. FormData bodies: let `fetch`
       // emit `multipart/form-data; boundary=...` itself.
       ...(o.body !== undefined && !isFormData
         ? { "Content-Type": "application/json" }
         : {}),
     };
+    if (token === null) {
+      // Proxy mode: no Authorization at all, not even one a caller passed in.
+      for (const k of Object.keys(headers)) {
+        if (k.toLowerCase() === "authorization") delete headers[k];
+      }
+    }
+    return headers;
+  }
+
+  /** `fetch`'s `credentials` — set only in proxy mode, where the session cookie must go along. */
+  private credentialsInit(): Pick<RequestInit, "credentials"> {
+    return this.opts.proxy ? { credentials: this.opts.proxy.credentials } : {};
   }
 
   /**
@@ -156,10 +229,7 @@ export class HttpClient {
   private async send<T>(o: RequestOptions): Promise<HttpResult<T>> {
     const requestId = `req-${++requestSeq}`;
     const log = this.opts.logger.child({ requestId });
-    const url = new URL(this.opts.host + o.path);
-    for (const [k, v] of Object.entries(o.query ?? {})) {
-      if (v !== undefined) url.searchParams.set(k, String(v));
-    }
+    const url = this.urlFor(o);
     const sdkManaged = o.auth.kind === "service" || o.auth.kind === "anonymous";
     const maxAttempts = this.opts.retry.maxAttempts;
     let reauthed = false;
@@ -167,7 +237,8 @@ export class HttpClient {
     let customerReauthed = false;
 
     for (let attempt = 1; ; attempt++) {
-      const token = customerToken ?? (await resolveToken(o.auth, this.opts.provider));
+      const token =
+        !this.opts.proxy && customerToken !== undefined ? customerToken : await this.tokenFor(o);
       log.debug("http request", {
         authKind: o.auth.kind,
         method: o.method,
@@ -200,6 +271,7 @@ export class HttpClient {
         method: o.method,
         headers: this.buildHeaders(o, token, isFormData),
         signal: controller.signal,
+        ...this.credentialsInit(),
       };
       if (o.body !== undefined) {
         init.body = isFormData ? (o.body as FormData) : JSON.stringify(o.body);
@@ -237,6 +309,11 @@ export class HttpClient {
 
       // 401 asymmetry.
       if (res.status === 401) {
+        if (this.opts.proxy) {
+          // The proxy owns the session: no token to re-mint, none to refresh.
+          this.reportUnauthorized(o);
+          throw errorFromResponse(res.status, `${o.method} ${o.path} → 401`, parsed);
+        }
         if (sdkManaged && !reauthed) {
           reauthed = true;
           if (o.auth.kind === "service") {
@@ -315,11 +392,8 @@ export class HttpClient {
   ): Promise<Response> {
     const requestId = `req-${++requestSeq}`;
     const log = this.opts.logger.child({ requestId });
-    const url = new URL(this.opts.host + o.path);
-    for (const [k, v] of Object.entries(o.query ?? {})) {
-      if (v !== undefined) url.searchParams.set(k, String(v));
-    }
-    const token = await resolveToken(o.auth, this.opts.provider);
+    const url = this.urlFor(o);
+    const token = await this.tokenFor(o);
     log.debug("http requestRaw", {
       authKind: o.auth.kind,
       method: o.method,
@@ -338,12 +412,14 @@ export class HttpClient {
       headers: this.buildHeaders(o, token, isFormData),
       signal: controller.signal,
       ...(extra?.redirect ? { redirect: extra.redirect } : {}),
+      ...this.credentialsInit(),
     };
     if (o.body !== undefined) {
       init.body = isFormData ? (o.body as FormData) : JSON.stringify(o.body);
     }
+    let res: Response;
     try {
-      return await this.doFetch(url, init);
+      res = await this.doFetch(url, init);
     } catch (err) {
       if ((err as Error).name === "AbortError") {
         throw new EmporixTimeoutError(
@@ -356,6 +432,13 @@ export class HttpClient {
     } finally {
       clearTimeout(timer);
     }
+    // Proxy mode maps a 401 here too: every path reports it the same way.
+    if (this.opts.proxy && res.status === 401) {
+      this.reportUnauthorized(o);
+      const text = await res.text().catch(() => "");
+      throw errorFromResponse(401, `${o.method} ${o.path} → 401`, text ? safeJson(text) : undefined);
+    }
+    return res;
   }
 
   /**
@@ -368,11 +451,8 @@ export class HttpClient {
    */
   async *requestStream(o: RequestOptions): AsyncIterable<SseEvent> {
     const log = this.opts.logger.child({ requestId: `req-${++requestSeq}` });
-    const url = new URL(this.opts.host + o.path);
-    for (const [k, v] of Object.entries(o.query ?? {})) {
-      if (v !== undefined) url.searchParams.set(k, String(v));
-    }
-    const token = await resolveToken(o.auth, this.opts.provider);
+    const url = this.urlFor(o);
+    const token = await this.tokenFor(o);
     const controller = new AbortController();
     const connectTimer = setTimeout(() => controller.abort(), this.opts.timeouts.connectMs);
     const headers = this.buildHeaders(o, token, false);
@@ -384,6 +464,7 @@ export class HttpClient {
         headers,
         signal: controller.signal,
         ...(o.body !== undefined ? { body: JSON.stringify(o.body) } : {}),
+        ...this.credentialsInit(),
       });
     } catch (err) {
       clearTimeout(connectTimer);
@@ -396,6 +477,7 @@ export class HttpClient {
     }
     clearTimeout(connectTimer);
     if (!res.ok) {
+      if (this.opts.proxy && res.status === 401) this.reportUnauthorized(o);
       const text = await res.text().catch(() => "");
       throw errorFromResponse(
         res.status,

@@ -1,4 +1,9 @@
-import { validateConfig, type EmporixConfig, type ResolvedConfig } from "./config";
+import {
+  validateConfig,
+  type EmporixConfig,
+  type EmporixUnauthorizedInfo,
+  type ResolvedConfig,
+} from "./config";
 import {
   DefaultTokenProvider,
   CustomerRefreshRegistry,
@@ -6,6 +11,8 @@ import {
   type CustomerTokenRefresher,
 } from "./auth";
 import { HttpClient } from "./http";
+import { createProxyModeTokenProvider } from "./proxy";
+import { createListenerSet } from "./browser-storage";
 import {
   LevelResolver,
   createConsoleLogger,
@@ -32,6 +39,12 @@ export interface EmporixCore {
   setLogLevel(level: LogLevel, opts?: { service?: ServiceName; force?: boolean }): void;
   getLogLevel(service: ServiceName): LogLevel;
   setCustomerTokenRefresher(refresher: CustomerTokenRefresher | null): void;
+  /**
+   * Proxy mode: subscribes to the 401s the proxy answers, next to
+   * `config.proxy.onUnauthorized`. Returns the unsubscribe function. Never fires
+   * outside proxy mode — there a 401 is answered by re-authenticating.
+   */
+  onUnauthorized(listener: (info: EmporixUnauthorizedInfo) => void): () => void;
   /** Internal: builds a per-service ClientContext (logger child + HttpClient). */
   mk(service: ServiceName): ClientContext;
 }
@@ -58,8 +71,21 @@ export function createCore(config: EmporixConfig): EmporixCore {
       tenant: cfg.tenant,
     });
 
-  const tokenProvider: TokenProvider = cfg.tokenProvider ?? new DefaultTokenProvider(cfg);
+  const tokenProvider: TokenProvider = cfg.proxy
+    ? createProxyModeTokenProvider()
+    : (cfg.tokenProvider ?? new DefaultTokenProvider(cfg));
   const customerRefresh = new CustomerRefreshRegistry();
+  const unauthorized = createListenerSet<EmporixUnauthorizedInfo>();
+  const proxy = cfg.proxy && {
+    ...cfg.proxy,
+    onUnauthorized: (info: EmporixUnauthorizedInfo) => {
+      try {
+        cfg.proxy?.onUnauthorized?.(info);
+      } finally {
+        unauthorized.notify(info);
+      }
+    },
+  };
   const requestContext: { language?: string | undefined } = {
     language: cfg.credentials.storefront?.context?.language,
   };
@@ -81,6 +107,7 @@ export function createCore(config: EmporixConfig): EmporixCore {
       // against `fetch?: typeof globalThis.fetch`, so spread conditionally.
       ...(cfg.fetch !== undefined ? { fetch: cfg.fetch } : {}),
       ...(cfg.contentLanguage !== undefined ? { contentLanguage: cfg.contentLanguage } : {}),
+      ...(proxy ? { proxy } : {}),
     }),
   });
 
@@ -106,6 +133,9 @@ export function createCore(config: EmporixConfig): EmporixCore {
     },
     setCustomerTokenRefresher(refresher) {
       customerRefresh.set(refresher);
+    },
+    onUnauthorized(listener) {
+      return unauthorized.add(listener);
     },
   };
 }
