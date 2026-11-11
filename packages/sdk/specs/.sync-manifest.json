@@ -23,7 +23,7 @@
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/checkout/cart/api-reference/api.yml",
       "specVersion": "",
       "fetchedAt": "2026-11-10T14:44:03.721Z",
-      "sha256": "87c699b7aa731c88c63b305ba900c1124f5aebb55d7a7d09a360aae6201a353c"
+      "sha256": "e79a5da15fec8565769b98dbb1ffd1903142a4cb4246d7244ddb5d7b456b888d"
     },
     "checkout": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/checkout/checkout/api-reference/api.yml",

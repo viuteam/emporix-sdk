@@ -13,8 +13,82 @@ describe("spec-patches", () => {
 
   it("only registers patches for confirmed-defective specs", () => {
     // The two `schema.yml` patches lived here until Emporix fixed both defects
-    // upstream; `approval-service` is what remains under active repair.
-    expect(Object.keys(SPEC_PATCHES)).toContain("approval-service");
+    // upstream; `approval-service` and `cart` are what remains under active repair.
+    expect(Object.keys(SPEC_PATCHES).sort()).toEqual(["approval-service", "cart"]);
+  });
+});
+
+// The request `itemType`, then `priceRow` (the price Emporix returns) followed by
+// `priceRowItem` (the price of a cart-item request) and the start of the next
+// schema, as vendored on 2026-11-10. Descriptions of the price rows are shortened;
+// indentation, the `itemType` block and the `required` lists are verbatim.
+const CART_DEFECTS = [
+  "  schemas:",
+  "    cartItemRequest:",
+  "      properties:",
+  "        itemType:",
+  "          allOf:",
+  "            - $ref: '#/components/schemas/itemType'",
+  "            - type: object",
+  "              description: Optional field which allows fetching external prices if set to EXTERNAL.",
+  "    priceRow:",
+  "      type: object",
+  "      properties:",
+  "        priceId:",
+  "          type: string",
+  "      required:",
+  "        - priceId",
+  "        - originalAmount",
+  "        - effectiveAmount",
+  "        - currency",
+  "    priceRowItem:",
+  "      type: object",
+  "      description: Price details.",
+  "      properties:",
+  "        priceId:",
+  "          type: string",
+  "          description: This field should not be provided when itemType is EXTERNAL.",
+  "      required:",
+  "        - priceId",
+  "        - originalAmount",
+  "        - effectiveAmount",
+  "        - currency",
+  "    product:",
+  "      type: object",
+  "",
+].join("\n");
+
+/** The `required` list of the schema `name`, read back out of the YAML. */
+function requiredOf(yaml: string, name: string): string[] {
+  const block = yaml.split(`\n    ${name}:\n`)[1]?.split(/\n {4}\S/)[0] ?? "";
+  return [...block.matchAll(/^ {8}- (\S+)$/gm)].map((m) => m[1] as string);
+}
+
+describe("cart patches", () => {
+  it("drops priceId from the request price, so an external item can omit it", () => {
+    const out = applyPatches("cart", CART_DEFECTS);
+    expect(requiredOf(out.yaml, "priceRowItem")).toEqual(["originalAmount", "effectiveAmount", "currency"]);
+  });
+
+  it("leaves the returned price alone", () => {
+    const out = applyPatches("cart", CART_DEFECTS);
+    expect(requiredOf(out.yaml, "priceRow")).toEqual(["priceId", "originalAmount", "effectiveAmount", "currency"]);
+  });
+
+  it("unwraps the request itemType from its object intersection and keeps the description", () => {
+    const out = applyPatches("cart", CART_DEFECTS);
+    expect(out.yaml).toContain(
+      "            - $ref: '#/components/schemas/itemType'\n            - description: Optional field",
+    );
+    expect(out.yaml).not.toContain("- type: object");
+  });
+
+  it("is idempotent: a second pass changes nothing and reports every patch stale", () => {
+    const once = applyPatches("cart", CART_DEFECTS);
+    const twice = applyPatches("cart", once.yaml);
+    expect(once.applied).toHaveLength(2);
+    expect(twice.yaml).toBe(once.yaml);
+    expect(twice.stale).toHaveLength(2);
   });
 });
 
