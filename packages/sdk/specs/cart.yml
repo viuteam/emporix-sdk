@@ -4396,8 +4396,7 @@ components:
         itemType:
           allOf:
             - $ref: '#/components/schemas/itemType'
-            - type: object
-              description: Optional field which allows fetching external prices if set to EXTERNAL.
+            - description: Optional field which allows fetching external prices if set to EXTERNAL.
         taxCode:
           description: Tax code. Tax indicated in this field overrides the site's default tax value.
           type: string
@@ -5440,7 +5439,6 @@ components:
         measurementUnit:
           $ref: '#/components/schemas/measurementUnit'
       required:
-        - priceId
         - originalAmount
         - effectiveAmount
         - currency
@@ -5747,8 +5745,7 @@ components:
         itemType:
           allOf:
             - $ref: '#/components/schemas/itemType'
-            - type: object
-              description: Optional field which allows fetching external prices if set to EXTERNAL.
+            - description: Optional field which allows fetching external prices if set to EXTERNAL.
         quantity:
           type: number
           minimum: 0

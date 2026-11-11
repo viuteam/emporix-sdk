@@ -256,9 +256,7 @@ export type CartItemRequest = {
      * External discounts that should be applied to this cart item. Requires `cart.cart_manage_external_prices` scope
      */
     externalDiscounts?: Array<ExternalDiscount>;
-    itemType?: ItemType & {
-        [key: string]: unknown;
-    };
+    itemType?: ItemType & unknown;
     /**
      * Tax code. Tax indicated in this field overrides the site's default tax value.
      */
@@ -1082,7 +1080,7 @@ export type PriceRowItem = {
     /**
      * Price’s unique identifier generated when the price is created through the Price Service. This field should not be provided when itemType is EXTERNAL.
      */
-    priceId: string;
+    priceId?: string;
     yrn?: Yrn;
     /**
      * Product’s regular price per specified `measurementUnit`. Property can be made optional by setting `cartItemValidationSkipOriginalAmount` configuration to `true` in the configuration-service. In that case, the value is fetched from `priceId`.
@@ -1388,9 +1386,7 @@ export type UpdateCartItem = {
     externalDiscounts?: Array<ExternalDiscount>;
     product?: UpdateProduct;
     itemYrn?: Yrn;
-    itemType?: ItemType & {
-        [key: string]: unknown;
-    };
+    itemType?: ItemType & unknown;
     /**
      * Quantity of the product added to cart.
      */

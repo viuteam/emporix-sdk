@@ -76,6 +76,52 @@ export const SPEC_PATCHES: Record<string, SpecPatch[]> = {
       },
     },
   ],
+  /**
+   * Two defects that together stop an external cart item from compiling.
+   *
+   * 1. `priceRowItem` requires `priceId`, which an external item must not send.
+   *
+   * The schema is the `price` of an add/update cart-item request. Its own `priceId`
+   * description says the field "should not be provided when itemType is EXTERNAL",
+   * and every example in Emporix's "External Products, Pricing and Fees" guide omits
+   * it — yet `required` lists it, so the generated `CartItemInput` rejects the body
+   * the guide documents. Not measured live: the `viu` keys do not carry
+   * `cart.cart_manage_external_prices`. Safe without a measurement, because the patch
+   * only widens a request type — every body that compiled before still compiles.
+   *
+   * Scoped to the `priceRowItem` block on purpose. `priceRow`, right above it, is the
+   * price Emporix returns, and keeps `priceId` required.
+   *
+   * 2. The request `itemType` (add and update) wraps its enum in an `allOf` with a
+   * `type: object` member that only exists to carry a description. The generator
+   * intersects the two, `ItemType & { [key: string]: unknown }`, which no string
+   * satisfies — `itemType: "EXTERNAL"` cannot be written at all. Also a pure
+   * widening: no value compiled before.
+   */
+  cart: [
+    {
+      reason:
+        "upstream: `priceRowItem` lists `priceId` as required although its description says it must not be sent when itemType is EXTERNAL. Dropping it from `required` lets the generated `PriceRowItem` type an external price.",
+      apply: (yaml) => {
+        const start = yaml.indexOf("\n    priceRowItem:\n");
+        if (start === -1) return null;
+        // The block ends at the next schema, the next line indented by exactly four spaces.
+        const rest = yaml.slice(start + 1).search(/\n {4}\S/);
+        const end = rest === -1 ? yaml.length : start + 1 + rest;
+        const block = yaml.slice(start, end);
+        const fixed = block.replace("\n        - priceId\n", "\n");
+        return fixed === block ? null : yaml.slice(0, start) + fixed + yaml.slice(end);
+      },
+    },
+    {
+      reason:
+        "upstream: the request `itemType` is `allOf: [itemType, { type: object, description }]`. Intersecting the string enum with an object makes the generated type unsatisfiable, so not even `\"EXTERNAL\"` compiles. Dropping `type: object` keeps the description and leaves the enum.",
+      apply: replaceAll(
+        "            - $ref: '#/components/schemas/itemType'\n            - type: object\n              description:",
+        "            - $ref: '#/components/schemas/itemType'\n            - description:",
+      ),
+    },
+  ],
 };
 
 /** Result of applying every registered patch for a spec. */
