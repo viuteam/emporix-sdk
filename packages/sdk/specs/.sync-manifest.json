@@ -1,268 +1,268 @@
 {
-  "generatedAt": "2026-11-10T14:44:03.721Z",
+  "generatedAt": "2026-11-11T13:59:07.361Z",
   "services": {
     "customer": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/companies-and-customers/customer-management/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "dd9534483ecfcc95617cf465411d7b25627da41de920b32dd3610fffc15dcc5e"
     },
     "product": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/products-labels-and-brands/product-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "04ad249112feca571b323ad6cf4e1c36f414284d471849010db80f0ebddde24c"
     },
     "category": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/catalogs-and-categories/category-tree/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "b0096d6ebff80796ad0db413b6183fe479f69ef2d956c0a5ac1b370be1c95b20"
     },
     "cart": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/checkout/cart/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "87c699b7aa731c88c63b305ba900c1124f5aebb55d7a7d09a360aae6201a353c"
     },
     "checkout": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/checkout/checkout/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "210404df94bd7b1cbb0da0d4e28d460bff8dabe179015e9d0bcc127d812b5d67"
     },
     "payment": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/checkout/payment-gateway/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "23999e8748cd164b7914a29feda57a5dfb49891871957a7253f7bbaad8b6d515"
     },
     "price": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/prices-and-taxes/price-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
-      "sha256": "459657848bb690d84d277ecb1ef8f9165d33a5da5a285c4e6c039b13d307aa09"
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
+      "sha256": "0f626a666339328b97b0d5d9794063861f43b82dfd6ddd3aa09a3e7140c6386a"
     },
     "tax-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/prices-and-taxes/tax-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "eeed47fd48a6e674e913eda4b9064d7ab2d021d2a9074a8bd8cd37435ebb007c"
     },
     "media": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/media/media/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "1971c0db713f9f5589ea60593f1f0ff26660509f7db3b501ce3061d90d6ebecd"
     },
     "customer-segment": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/companies-and-customers/customer-segments/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "62f929a03aa3f86f6470fd62b75810075a2fa9864b6de523b6c53623aad00b21"
     },
     "configuration": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/configuration/configuration-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "4828141d03579294e9c05fde2e7dfa1dae9dba3b954eb3be50b535b138708840"
     },
     "ai-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/artificial-intelligence/ai-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "95b19437c77669bfff725c5bf25b24408413f945aac6c1216815470fffdeaad7"
     },
     "shopping-list": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/checkout/shopping-list/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "fc38e007a974293c2c7ecabb24f43b3f13cbaa5907fdf9be343e3a7b0db10162"
     },
     "ai-rag-indexer": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/artificial-intelligence/ai-rag-indexer/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "8cfa8bd53d35736e36f069f6117826f38277550f6f57a6294ec1878607611626"
     },
     "sequential-id": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/utilities/sequential-id/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "1757f6825bb94639b93db8a4c762ad5a239d4531ed8b41ee416e0b2b3b2787b7"
     },
     "fee": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/checkout/fee/api-reference/api.yml",
       "specVersion": "v1",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "70835ec39ff1f5e4b786e16f0559cb958565cdb09937ffc2749fb2c9add5ecf1"
     },
     "webhook": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/webhooks/webhook-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "743dd4d2cd7ea8127ea8cee3b8e34a7467d36773a83d897b69e62a7bc2601cbe"
     },
     "schema": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/utilities/schema/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "f2ba82933d4231df52f45f6f673617ed9625badb6f156f29979f63e293b70ec9"
     },
     "import-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/utilities/import-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "ef555918277bd94d62f46f3680bfdd877b8844c323277e35fcb2c69217aa075b"
     },
     "search-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/utilities/search-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "313685f5cc82f728fe4d51284d6a3fc2489b231924557b4fe618db815183d76d"
     },
     "audit-logs-changelog": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/utilities/audit-logs-changelog/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "17b344d2de2c0805a7603fa52e24acd02f95e1d926d5eceb7ab100024c617be8"
     },
     "coupon": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/rewards-and-promotions/coupon/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "1d00199a7efdef834ae0d765f31c45a5431abdc7f7713a5ebaa4626eba7cb4e8"
     },
     "reward-points": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/rewards-and-promotions/reward-points/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "f13981e2e3f3c004062699eb4069d70b9a01bee0b124e7f9ac674de24fc648dc"
     },
     "brand-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/products-labels-and-brands/brand-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "a36d876c8ed5de93d939918c8dba69aca9b102a60481d4ca930bc674ef9467a2"
     },
     "label-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/products-labels-and-brands/label-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "7115cd0ece01312d874b2457a2149246eb1d47c53ee41bd162544594d2c1f6b3"
     },
     "country-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/configuration/country-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "5d5768b7cc1c262fd4e6fc0dcfe411baec56fea5f155b3f7718e1f78af08cd2d"
     },
     "currency-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/configuration/currency-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "e73e32852e57999018d6efb5790934e55cd2c93b635102ec55141c3fd872e0b0"
     },
     "shipping": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/delivery-and-shipping/shipping/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "745783712bb0c9434e24fe06e78de9a26492f089af9993a6e480581eb95b5586"
     },
     "order-v2": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/orders/order/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "ae9a8238d79a96d85df2fa8a41d9af0668336be6710855a7530049dcabe16e0f"
     },
     "returns": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/orders/returns/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "fae028d0eeb35f16f1ff6a8f2fa1fe5b1a7d8f40c74cbb7151e639cc35901185"
     },
     "indexing-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/configuration/indexing-service/api-reference/api.yml",
       "specVersion": "v1",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "5d7a5f38c7d771dfede23fded8fc8151a3268f74b17ba71a41151405ce64b627"
     },
     "unit-handling-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/configuration/unit-handling-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "1f1a484b5db154a31d7d209d8fe01a535b2773326d3d9e4130629f945e8f6e81"
     },
     "catalog": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/catalogs-and-categories/catalog/api-reference/api.yml",
       "specVersion": "1.0.0",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "cc9e20bcefe1efdf9772bf77479055390b8b045e8e723e5a39a4453848ad57a1"
     },
     "vendor-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/companies-and-customers/vendor-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "ee65624fbc6934db8813fd2da003018cafd77f3a34b783b003a989079974070f"
     },
     "customer-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/companies-and-customers/customer-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "01ebeda74227a30e44e73d5d1d5c1b91856c4a49c86bd2b482a18e064629e540"
     },
     "customer-management": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/companies-and-customers/client-management/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "d26cb40af7138f57a07949443a970907eb81dfe37969aef0e2d278749286899b"
     },
     "approval-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/companies-and-customers/approval-service/approval-api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "7eea0c76f0d4a63672a876af1784aa1380b123d21bd08cc541026b87a079589b"
     },
     "iam": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/users-and-permissions/iam/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "54f417e4eac929d2a2de254849adf28e9a8cac8fbd375a8840fe41e5270c1b34"
     },
     "availability": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/orders/availability/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "63916c44b3d460f009e7cfb5b97f81b15187777e6b6f42c71444eda023eff1dd"
     },
     "oauth-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/authentication/oauth-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "bec87919553f7d68754725f6dcf6c9270e56925a6c7b15083cabe41c433fdab5"
     },
     "site-settings-service": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/configuration/site-settings-service/api-reference/api.yml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "454d85f849eeec444a0332757401e95b6ae5255662f07c7092f21435ee2cbce2"
     },
     "invoice": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/orders/invoice/api-reference/api.yaml",
       "specVersion": "1.0.0",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "75350daceb1be9dbf9013a68d1ca6c45231c7d8fc6c52685263d9f2d94e1e043"
     },
     "quote": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/quotes/quote/api-reference/api.yaml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "0287fd81be6158be42f083d5f8b09f63e234e7e78fba2eac4b69f39de083a4ff"
     },
     "session-context": {
       "url": "https://raw.githubusercontent.com/emporix/api-references/refs/heads/main/users-and-permissions/session-context/api-reference/api.yaml",
       "specVersion": "",
-      "fetchedAt": "2026-11-10T14:44:03.721Z",
+      "fetchedAt": "2026-11-11T13:59:07.361Z",
       "sha256": "c97d2c48e3ba368d10cf571f15201cba75f7a951b0f43ade0e4e7fb509243086"
     }
   }
