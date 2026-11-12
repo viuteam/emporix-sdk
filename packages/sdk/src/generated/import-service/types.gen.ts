@@ -207,7 +207,7 @@ export type ImportStream = {
      * Where the stream writes. Possible values:
      *
      * * `emporix.customEntity` – instances of a custom entity type, named by `targetType`.
-     * * `emporix.product` – products. `STANDALONE` streams only.
+     * * `emporix.product` – products, including parents and variants. `STANDALONE` streams only.
      * * `emporix.category` – categories of the tenant's category tree. `STANDALONE` streams only.
      * * `emporix.price` – prices of products.
      * * `emporix.availability` – stock of products at a site.
@@ -263,10 +263,25 @@ export type ImportStream = {
      *
      * * `matchField` – how existing products are found: `CODE` (the default) or `ID`.
      * * `createMissing` – whether products that are not found are created. Defaults to `true`.
+     * * `variantRole` – what the stream's records are: `NONE` (the default) for products without
+     * variants, `PARENT` for parent products, or `VARIANT` for variants of a parent.
+     * * `variantModel` – how a `PARENT` or `VARIANT` stream's products are linked: `DYNAMIC` (the default)
+     * or `TEMPLATE`. With `DYNAMIC`, parents and variants are written as products of type
+     * `DYNAMIC_VARIANT` and need no product template. With `TEMPLATE`, parents are written as
+     * `PARENT_VARIANT` products and variants as `VARIANT` products of the template in `templateId`.
+     * * `templateId` – the product template assigned to the products. Required for a `PARENT` or `VARIANT`
+     * stream whose `variantModel` is `TEMPLATE`, and not allowed for one whose `variantModel` is `DYNAMIC`.
      * * `schemas` – a list of the identifiers of the product mixin schemas the stream writes.
-     * * `templateId` – the product template assigned to the products.
      * * `language` – the language of localized fields. Defaults to `en`.
      * * `categoryMatchField` – how the categories to assign are found: `CODE` (the default) or `ID`.
+     *
+     * A `VARIANT` stream maps each record's parent to `parentCode` or `parentId`, and the record's variant
+     * attribute values to `variantAttributes.<attribute>`. The parent is found in the Product Service by its
+     * code or identifier, so it can come from another stream, another configuration, or the Management
+     * Dashboard. When a stream of the same configuration imports the parents, list it in `dependsOn` so that
+     * the parents are written first. With `DYNAMIC`, a `VARIANT` stream can also take its parents from another
+     * `VARIANT` stream, which adds a level to the product hierarchy, up to four levels. `FAN_OUT` streams of
+     * the `VARIANT` stream write the variants' prices, stock, and images.
      *
      * `emporix.category` reads `language`, and `emporix.categoryAssignment` reads `categoryMatchField`.
      * `emporix.price` reads `currency`, `countryCode`, `siteCode`, and `priceModelId`, and
@@ -431,7 +446,7 @@ export type ImportStream = {
      */
     abortOnSchemaVersionDrift?: boolean;
     /**
-     * Names of streams that must run before this one, beyond the ordering a composite parent already implies.
+     * Names of streams that must run before this one, beyond the ordering a composite parent already implies. A product stream whose `variantRole` is `VARIANT` lists here the stream of the same configuration that imports its parent products, if there is one, so that the parents are written first.
      */
     dependsOn?: Array<string>;
     /**
@@ -1443,7 +1458,7 @@ export type ImportStreamWritable = {
      * Where the stream writes. Possible values:
      *
      * * `emporix.customEntity` – instances of a custom entity type, named by `targetType`.
-     * * `emporix.product` – products. `STANDALONE` streams only.
+     * * `emporix.product` – products, including parents and variants. `STANDALONE` streams only.
      * * `emporix.category` – categories of the tenant's category tree. `STANDALONE` streams only.
      * * `emporix.price` – prices of products.
      * * `emporix.availability` – stock of products at a site.
@@ -1495,10 +1510,25 @@ export type ImportStreamWritable = {
      *
      * * `matchField` – how existing products are found: `CODE` (the default) or `ID`.
      * * `createMissing` – whether products that are not found are created. Defaults to `true`.
+     * * `variantRole` – what the stream's records are: `NONE` (the default) for products without
+     * variants, `PARENT` for parent products, or `VARIANT` for variants of a parent.
+     * * `variantModel` – how a `PARENT` or `VARIANT` stream's products are linked: `DYNAMIC` (the default)
+     * or `TEMPLATE`. With `DYNAMIC`, parents and variants are written as products of type
+     * `DYNAMIC_VARIANT` and need no product template. With `TEMPLATE`, parents are written as
+     * `PARENT_VARIANT` products and variants as `VARIANT` products of the template in `templateId`.
+     * * `templateId` – the product template assigned to the products. Required for a `PARENT` or `VARIANT`
+     * stream whose `variantModel` is `TEMPLATE`, and not allowed for one whose `variantModel` is `DYNAMIC`.
      * * `schemas` – a list of the identifiers of the product mixin schemas the stream writes.
-     * * `templateId` – the product template assigned to the products.
      * * `language` – the language of localized fields. Defaults to `en`.
      * * `categoryMatchField` – how the categories to assign are found: `CODE` (the default) or `ID`.
+     *
+     * A `VARIANT` stream maps each record's parent to `parentCode` or `parentId`, and the record's variant
+     * attribute values to `variantAttributes.<attribute>`. The parent is found in the Product Service by its
+     * code or identifier, so it can come from another stream, another configuration, or the Management
+     * Dashboard. When a stream of the same configuration imports the parents, list it in `dependsOn` so that
+     * the parents are written first. With `DYNAMIC`, a `VARIANT` stream can also take its parents from another
+     * `VARIANT` stream, which adds a level to the product hierarchy, up to four levels. `FAN_OUT` streams of
+     * the `VARIANT` stream write the variants' prices, stock, and images.
      *
      * `emporix.category` reads `language`, and `emporix.categoryAssignment` reads `categoryMatchField`.
      * `emporix.price` reads `currency`, `countryCode`, `siteCode`, and `priceModelId`, and
@@ -1659,7 +1689,7 @@ export type ImportStreamWritable = {
      */
     abortOnSchemaVersionDrift?: boolean;
     /**
-     * Names of streams that must run before this one, beyond the ordering a composite parent already implies.
+     * Names of streams that must run before this one, beyond the ordering a composite parent already implies. A product stream whose `variantRole` is `VARIANT` lists here the stream of the same configuration that imports its parent products, if there is one, so that the parents are written first.
      */
     dependsOn?: Array<string>;
     /**
