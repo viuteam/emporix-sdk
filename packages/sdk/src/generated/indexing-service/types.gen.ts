@@ -123,9 +123,9 @@ export type IndexConfiguration = IndexPublicConfiguration & {
      */
     writeKey?: string;
     /**
-     * Optional base URL of the Battery Included API that holds the tenant's index, for example `https://api-next.batteryincluded.io`. Applies only to the `BATTERY_INCLUDED` provider.
-     * When set, the Indexing Service sends all of the tenant's Battery Included requests to this host and validates `writeKey` against it, so the write key must be valid on this host. When not set, the default Battery Included host is used.
-     * The value must be an `https` address of an allowed Battery Included host, without a path, query, fragment, user information, or port. A trailing slash is allowed. Other values are rejected with `400`. A change takes effect within 10 minutes. Change `apiUrl` when no product reindex is running. If the index on the new host does not yet hold all products, start a full product reindex after the change takes effect.
+     * Optional base URL of the BatteryIncluded API that holds the tenant's index, for example `https://api-next.batteryincluded.io`. Applies only to the `BATTERY_INCLUDED` provider.
+     * When set, the Indexing Service sends all of the tenant's BatteryIncluded requests to this host and validates `writeKey` against it, so the write key must be valid on this host. When not set, the default BatteryIncluded host is used.
+     * The value must be an `https` address of an allowed BatteryIncluded host, without a path, query, fragment, user information, or port. A trailing slash is allowed. Other values are rejected with `400`. A change takes effect within 10 minutes. Change `apiUrl` when no product reindex is running. If the index on the new host does not yet hold all products, start a full product reindex after the change takes effect.
      */
     apiUrl?: string;
     /**
@@ -139,6 +139,13 @@ export type IndexConfiguration = IndexPublicConfiguration & {
      * `includedMixinPaths` and `excludedMixinKeys` are mutually exclusive when `includedMixinPaths` is non-empty. Malformed glob patterns are rejected with a validation error on configuration writes.
      */
     includedMixinPaths?: Array<string>;
+    /**
+     * Optional list of the Emporix data dependencies that BatteryIncluded product indexing calls. Applies only to the `BATTERY_INCLUDED` provider. The Product, Site Settings, and Configuration services are always called and are not listed.
+     * `AVAILABILITY` adds availability data, `PRICE` adds prices, and `CUSTOMER_SEGMENT` adds segment IDs to the site-specific data of the indexed document. `FEE` calls the Fee Service, but fee data is not part of the Battery Included document.
+     * When this field is not set, the default set `AVAILABILITY`, `PRICE`, and `CUSTOMER_SEGMENT` is used. An empty list means that no optional dependency is called. Values are case sensitive. The stored list is returned as sent. When the field is not set, the response does not contain it, and the default set applies.
+     * A dependency that is not listed is not called for any site. Its condition counts as met, so a site without prices or availability still contributes to the merged document when `PRICE` or `AVAILABILITY` is not listed. Its data is not part of the indexed document or of the `index.item-updated` webhook events. A change takes effect within 10 minutes. For details, see [How to choose the data that BatteryIncluded indexing uses](https://developer.emporix.io/api-documentation/api-guides/configuration/indexing-service/indexing#how-to-choose-the-data-that-batteryincluded-indexing-uses).
+     */
+    enrichments?: Array<'AVAILABILITY' | 'PRICE' | 'CUSTOMER_SEGMENT' | 'FEE'>;
 };
 
 /**

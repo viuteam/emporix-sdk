@@ -1356,6 +1356,7 @@ export type JobType = 'IMPORT' | 'EXPORT' | 'AGENT_CHAT';
 
 /**
  * Contains information about the job result - whether it was successful or not, what was the agent output etc.
+ * A successful agent-chat job includes provenance details in `mixins`.
  */
 export type Job = {
     /**
@@ -1376,14 +1377,23 @@ export type Job = {
      */
     agentId?: string;
     /**
-     * Agent message.
+     * User message that started the job.
      */
     message?: string;
+    /**
+     * Assistant reply.
+     */
+    response?: string;
     /**
      * Commerce event which triggered the job.
      */
     commerceEvent?: string;
-    metadata?: MetadataResponse;
+    metadata?: MetadataResponse & {
+        mixins?: {
+            [key: string]: string;
+        };
+    };
+    mixins?: ProvenanceMixins;
 };
 
 export type ImportResult = {
@@ -1471,6 +1481,60 @@ export type ChatResponse = {
      * Agent message.
      */
     message?: string;
+    mixins?: ProvenanceMixins;
+    metadata?: ProvenanceMetadata;
+};
+
+/**
+ * Provenance details for generated content. Entries are `mixins.provenance.entries`.
+ * Clients that display generated content to a person must disclose that the content is AI-generated.
+ */
+export type ProvenanceMixins = {
+    provenance: {
+        entries: Array<{
+            /**
+             * Source of the content. `ai_generated` means the content was produced by AI.
+             */
+            origin: 'ai_generated';
+            /**
+             * Version of the generated content.
+             */
+            contentVersion: number;
+            /**
+             * Unique identifier of the generation.
+             */
+            generationId: string;
+            /**
+             * Date and time when the content was generated.
+             */
+            generatedAt: string;
+            /**
+             * Identifier of the generator.
+             */
+            generator: string;
+            /**
+             * Version of the generator, when available.
+             */
+            generatorVersion?: number;
+            /**
+             * AI model used to generate the content, when available.
+             */
+            model?: string;
+            /**
+             * Review state of the generated content.
+             */
+            reviewStatus: string;
+        }>;
+    };
+};
+
+/**
+ * Schema references for response mixins.
+ */
+export type ProvenanceMetadata = {
+    mixins?: {
+        [key: string]: string;
+    };
 };
 
 /**
@@ -1557,6 +1621,8 @@ export type ChatStreamDoneData = unknown & {
      * Unique identifier of the session. Send this value as the `session-id` header on later chat and attachment calls. Snake_case equivalent of `ChatResponse.sessionId`.
      */
     session_id?: string;
+    mixins?: ProvenanceMixins;
+    metadata?: ProvenanceMetadata;
 };
 
 export type ChatStreamErrorData = unknown & {
@@ -1706,6 +1772,8 @@ export type GenerationResponse = {
      * Text generation result.
      */
     result?: string;
+    mixins?: ProvenanceMixins;
+    metadata?: ProvenanceMetadata;
 };
 
 /**
