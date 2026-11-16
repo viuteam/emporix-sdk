@@ -105,9 +105,7 @@ export type ProductTemplateAttribute = {
          */
         defaultValue?: string | boolean | number;
     };
-    values?: Values & {
-        [key: string]: unknown;
-    };
+    values?: Values;
 };
 
 /**
