@@ -38,9 +38,7 @@ export type AggregateFee = {
         total?: number;
     };
     elements?: Array<{
-        name?: LocalizedValue & {
-            [key: string]: unknown;
-        };
+        name?: LocalizedValue;
         /**
          * Unique identifier of the fee.
          */

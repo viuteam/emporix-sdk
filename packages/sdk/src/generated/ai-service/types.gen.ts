@@ -104,6 +104,8 @@ export type ExpandableTokenResponse = IdResponse | ExpandedTokenResponse;
  * * `rag_emporix`
  * * `teams`
  * * `search`
+ *
+ * The built-in file generator (type `file`) is returned only in agent responses and is not a creatable tool type. See `FileNativeToolResponse`.
  */
 export type NativeToolType = 'slack' | 'rag_custom' | 'rag_emporix' | 'teams' | 'search';
 
@@ -442,6 +444,28 @@ export type SearchNativeToolResponse = BaseNativeTool & {
     metadata?: MetadataResponse;
 };
 
+/**
+ * The built-in file generator has no settings. It lets the agent create downloadable text, Markdown, source code, CSV, JSON, YAML, XML, and PDF files, and generate images when the agent's model supports it.
+ *
+ * The built-in file generator is not stored as a tool. To enable it, add the reserved ID `file_generator` to the agent's `nativeTools`. Creating a tool with the ID `file_generator` returns `400`. A tool with type `file` and any other ID does not enable file or image generation. The agent creates files and images only when the caller's token includes the `media.asset_manage` scope.
+ */
+export type FileNativeToolConfig = {
+    [key: string]: never;
+};
+
+export type FileNativeToolResponse = {
+    /**
+     * Reserved identifier of the built-in file generator.
+     */
+    id?: 'file_generator';
+    /**
+     * For `FileNativeToolResponse`, it has to be set to `file`.
+     */
+    type?: 'file';
+    config?: FileNativeToolConfig;
+    metadata?: MetadataResponse;
+};
+
 export type RagCustomNativeToolRequest = BaseNativeTool & {
     /**
      * For `RagCustomNativeTool`, it has to be set to `rag_custom`.
@@ -490,6 +514,11 @@ export type RagEmporixNativeToolResponse = BaseNativeTool & {
  * List of native tools which agents should have access to.
  */
 export type NativeToolsResponse = Array<SlackNativeToolResponse | RagCustomNativeToolResponse | RagEmporixNativeToolResponse | TeamsNativeToolResponse | SearchNativeToolResponse>;
+
+/**
+ * List of native tools enabled for the agent. It includes the built-in file generator (`file_generator`), which is not stored as a tool.
+ */
+export type AgentNativeToolsResponse = Array<SlackNativeToolResponse | RagCustomNativeToolResponse | RagEmporixNativeToolResponse | TeamsNativeToolResponse | SearchNativeToolResponse | FileNativeToolResponse>;
 
 /**
  * Represents an active agent conversation context (MS Teams channel or group chat).
@@ -1225,7 +1254,7 @@ export type AgentTemplateResponse = BaseForAgentAndTemplate & {
      * Identifier of the agent.
      */
     id?: string;
-    nativeTools?: NativeToolsResponse;
+    nativeTools?: AgentNativeToolsResponse;
     mcpServers?: AgentMcpServersResponse;
 };
 
@@ -1249,7 +1278,7 @@ export type AgentResponse = BaseForAgentRequestAndResponse & {
      * Identifier of the agent.
      */
     id?: string;
-    nativeTools?: NativeToolsResponse;
+    nativeTools?: AgentNativeToolsResponse;
     llmConfig?: EmporixLlm | ApiKeyLlmResponse | SelfHostedLlmResponse;
     mcpServers?: AgentMcpServersResponse;
     /**
@@ -1273,7 +1302,7 @@ export type AgentVersion = BaseForAgentRequestAndResponse & {
      * Prompt inherited from the template at the time of this version.
      */
     templatePrompt?: string;
-    nativeTools?: NativeToolsResponse;
+    nativeTools?: AgentNativeToolsResponse;
     llmConfig?: EmporixLlm | ApiKeyLlmResponse | SelfHostedLlmResponse;
     mcpServers?: AgentMcpServersResponse;
     metadata: AgentVersionMetadata;
@@ -1356,6 +1385,7 @@ export type JobType = 'IMPORT' | 'EXPORT' | 'AGENT_CHAT';
 
 /**
  * Contains information about the job result - whether it was successful or not, what was the agent output etc.
+ * A successful agent-chat job includes provenance details in `mixins`.
  */
 export type Job = {
     /**
@@ -1376,14 +1406,23 @@ export type Job = {
      */
     agentId?: string;
     /**
-     * Agent message.
+     * User message that started the job.
      */
     message?: string;
+    /**
+     * Assistant reply.
+     */
+    response?: string;
     /**
      * Commerce event which triggered the job.
      */
     commerceEvent?: string;
-    metadata?: MetadataResponse;
+    metadata?: MetadataResponse & {
+        mixins?: {
+            [key: string]: string;
+        };
+    };
+    mixins?: ProvenanceMixins;
 };
 
 export type ImportResult = {
@@ -1471,6 +1510,108 @@ export type ChatResponse = {
      * Agent message.
      */
     message?: string;
+    mixins?: ProvenanceMixins;
+    metadata?: ProvenanceMetadata;
+};
+
+/**
+ * Provenance details for generated content. Entries are `mixins.provenance.entries`.
+ * Clients that display generated content to a person must disclose that the content is AI-generated.
+ */
+export type ProvenanceMixins = {
+    provenance: {
+        entries: Array<{
+            /**
+             * Source of the content. `ai_generated` means the content was produced by AI.
+             */
+            origin: 'ai_generated';
+            /**
+             * Version of the generated content.
+             */
+            contentVersion: number;
+            /**
+             * Unique identifier of the generation.
+             */
+            generationId: string;
+            /**
+             * Date and time when the content was generated.
+             */
+            generatedAt: string;
+            /**
+             * Identifier of the generator.
+             */
+            generator: string;
+            /**
+             * Version of the generator, when available.
+             */
+            generatorVersion?: number;
+            /**
+             * AI model used to generate the content, when available.
+             */
+            model?: string;
+            /**
+             * Review state of the generated content.
+             */
+            reviewStatus: string;
+        }>;
+    };
+};
+
+/**
+ * Schema references for response mixins.
+ */
+export type ProvenanceMetadata = {
+    mixins?: {
+        [key: string]: string;
+    };
+};
+
+/**
+ * Artifact event data
+ *
+ * **The `artifact` event is in preview mode** - some of the features may not be fully operational yet.
+ *
+ * JSON object in the SSE `data` field when `event` is `artifact`. The agent published one image or file. Bytes stay in Media Service. A `failed` status does not fail the text stream.
+ *
+ * The agent publishes artifacts only when it has the built-in file generator (`file_generator`) in `nativeTools` and the caller's token includes the `media.asset_manage` scope. Downloading a ready asset requires the `media.asset_read` scope. Only the chat stream sends artifacts. The synchronous chat endpoint and agent jobs do not.
+ */
+export type ChatStreamArtifactData = {
+    /**
+     * Media Service asset id. Present when `status` is `ready`. Absent while `status` is `pending`. Download with `GET /media/{tenant}/assets/{artifact_id}/download`.
+     */
+    artifact_id?: string;
+    /**
+     * Correlates the pending image card with the later ready or failed event. Absent when the artifact was not produced by image generation.
+     */
+    generation_id?: string;
+    /**
+     * Image preview or file download.
+     */
+    kind: 'image' | 'file';
+    /**
+     * Display name of the artifact.
+     */
+    filename: string;
+    /**
+     * Media type of the stored asset.
+     */
+    mime_type: string;
+    /**
+     * Size of the stored asset in bytes. `0` when generation failed before upload.
+     */
+    size: number;
+    /**
+     * `pending` means an image is still generating. `ready` means the asset can be downloaded. `failed` means this item failed and the text answer continues.
+     */
+    status: 'pending' | 'ready' | 'failed';
+    /**
+     * Stable failure code. Present when `status` is `failed`. Possible values:
+     * * `CAPABILITY_UNAVAILABLE` — the agent's model provider cannot generate images.
+     * * `INVALID_CONTENT` — the requested file content was rejected.
+     * * `OVERSIZED` — the image or file exceeds the size limit.
+     * * `UPLOAD_FAILED` — the asset could not be stored in Media Service.
+     */
+    error_code?: 'CAPABILITY_UNAVAILABLE' | 'INVALID_CONTENT' | 'OVERSIZED' | 'UPLOAD_FAILED';
 };
 
 /**
@@ -1478,7 +1619,7 @@ export type ChatResponse = {
  *
  * JSON object in one SSE `data` field. This is not the HTTP response body. The response body is `text/event-stream` text; each named event carries one of these objects in `data`.
  */
-export type ChatStreamEventData = ChatStreamTokenData | ChatStreamThinkingData | ChatStreamToolMetaData | ChatStreamToolResultData | ChatStreamDoneData | ChatStreamErrorData;
+export type ChatStreamEventData = ChatStreamTokenData | ChatStreamThinkingData | ChatStreamToolMetaData | ChatStreamToolResultData | ChatStreamDoneData | ChatStreamErrorData | ChatStreamArtifactData;
 
 /**
  * Token event data
@@ -1557,6 +1698,8 @@ export type ChatStreamDoneData = unknown & {
      * Unique identifier of the session. Send this value as the `session-id` header on later chat and attachment calls. Snake_case equivalent of `ChatResponse.sessionId`.
      */
     session_id?: string;
+    mixins?: ProvenanceMixins;
+    metadata?: ProvenanceMetadata;
 };
 
 export type ChatStreamErrorData = unknown & {
@@ -1706,6 +1849,8 @@ export type GenerationResponse = {
      * Text generation result.
      */
     result?: string;
+    mixins?: ProvenanceMixins;
+    metadata?: ProvenanceMetadata;
 };
 
 /**
@@ -2533,6 +2678,9 @@ export type PostAiAgentsChatStreamResponses = {
      * `ChatStreamThinkingData`
      * * `tool_start` and `tool_end` — `ChatStreamToolMetaData`
      * * `tool_result` — `ChatStreamToolResultData`
+     * * `artifact` — **The `artifact` event is in preview mode** - some of the features may not be fully operational yet.
+     *
+     * One image or file the agent decided to publish. The agent needs the built-in file generator (`file_generator`) in `nativeTools`, and the caller's token must include `media.asset_manage`. The image can come from the configured provider's image generation, and the file can come from the built-in file generator or from a tool result the agent included in its final answer. Download the private asset with `GET /media/{tenant}/assets/{artifact_id}/download`. The event carries no bytes and no URL. Image generation first sends `status` `pending` with `generation_id`. A provider that cannot draw returns `status` `failed` and `error_code` `CAPABILITY_UNAVAILABLE`. That failure does not fail the text stream.
      * * `done` — `ChatStreamDoneData`
      * * `error` — **The `error` event is in preview mode** - some of the features may not be fully operational yet.
      *

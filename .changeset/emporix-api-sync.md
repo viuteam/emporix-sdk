@@ -4,4 +4,4 @@
 
 chore(sdk): sync generated types with upstream Emporix API specs
 
-Updated services: import-service
+Updated services: ai-service,cart,indexing-service,order-v2,product
