@@ -702,7 +702,8 @@ export type CustomMcpServerRequest = BaseManagedMcpServer & {
      */
     type?: ManagedMcpServerType;
     config: McpServerConfigRequest;
-    metadata?: MetadataRequest;
+    metadata?: McpMetadataRequest;
+    mixins?: MixinValuesRequest;
 };
 
 export type DynamicMcpServerRequest = BaseManagedMcpServer & {
@@ -716,7 +717,8 @@ export type DynamicMcpServerRequest = BaseManagedMcpServer & {
      * **The `tools` field is in preview mode** - some of the features may not be fully operational yet.
      */
     tools: Array<McpToolRequest>;
-    metadata?: MetadataRequest;
+    metadata?: McpMetadataRequest;
+    mixins?: MixinValuesRequest;
 };
 
 export type McpServerRequest = CustomMcpServerRequest | DynamicMcpServerRequest;
@@ -731,7 +733,8 @@ export type CustomMcpServerResponse = BaseManagedMcpServer & {
      */
     type?: ManagedMcpServerType;
     config?: McpServerConfigResponse;
-    metadata?: MetadataResponse;
+    metadata?: McpMetadataResponse;
+    mixins?: McpMixinValuesResponse;
 };
 
 export type DynamicMcpServerResponse = BaseManagedMcpServer & {
@@ -749,7 +752,8 @@ export type DynamicMcpServerResponse = BaseManagedMcpServer & {
      * **The `tools` field is in preview mode** - some of the features may not be fully operational yet.
      */
     tools?: Array<McpToolResponse>;
-    metadata?: MetadataResponse;
+    metadata?: McpMetadataResponse;
+    mixins?: McpMixinValuesResponse;
 };
 
 export type McpServerResponse = CustomMcpServerResponse | DynamicMcpServerResponse;
@@ -1270,7 +1274,9 @@ export type AgentRequest = BaseForAgentRequestAndResponse & {
          * Optional note stored on this version. A blank value clears the live note. The next successful update archives the note with this version.
          */
         changeNote?: string;
+        mixins?: MixinSchemaUrls;
     };
+    mixins?: MixinValuesRequest;
 };
 
 export type AgentResponse = BaseForAgentRequestAndResponse & {
@@ -1292,6 +1298,12 @@ export type AgentResponse = BaseForAgentRequestAndResponse & {
     templatePrompt?: string;
     metadata?: AgentMetadataResponse;
     /**
+     * Mixin values keyed by name. Present when the agent stores mixins.
+     */
+    mixins?: {
+        [key: string]: unknown;
+    };
+    /**
      * Stored history of previous agent configurations. Present only when the request sets `allVersions=true`. Omitted otherwise.
      */
     versions?: Array<AgentVersion>;
@@ -1306,6 +1318,12 @@ export type AgentVersion = BaseForAgentRequestAndResponse & {
     llmConfig?: EmporixLlm | ApiKeyLlmResponse | SelfHostedLlmResponse;
     mcpServers?: AgentMcpServersResponse;
     metadata: AgentVersionMetadata;
+    /**
+     * Mixin values stored with this version.
+     */
+    mixins?: {
+        [key: string]: unknown;
+    };
 };
 
 export type AgentVersionMetadata = {
@@ -1322,6 +1340,12 @@ export type AgentVersionMetadata = {
      * Note stored with this snapshot.
      */
     changeNote?: string;
+    /**
+     * JSON Schema URLs for the mixins stored in this version.
+     */
+    mixins?: {
+        [key: string]: string;
+    };
 };
 
 /**
@@ -1345,6 +1369,35 @@ export type ModifiedBy = {
      * Last name of the customer or employee.
      */
     lastName?: string;
+};
+
+/**
+ * Map of mixin names to the URLs of their JSON Schemas.
+ */
+export type MixinSchemaUrls = {
+    [key: string]: string;
+};
+
+/**
+ * Mixin values keyed by name. When `metadata.mixins` has a schema URL for a key, that value is validated against the schema. Omitting mixin metadata skips schema validation. Send the full map on every upsert. A missing or null `mixins` clears stored mixins.
+ */
+export type MixinValuesRequest = {
+    [key: string]: unknown;
+} | null;
+
+export type McpMetadataRequest = MetadataRequest & {
+    mixins?: MixinSchemaUrls;
+};
+
+export type McpMetadataResponse = MetadataResponse & {
+    mixins?: MixinSchemaUrls;
+};
+
+/**
+ * Mixin values keyed by name. Present when the MCP server stores mixins.
+ */
+export type McpMixinValuesResponse = {
+    [key: string]: unknown;
 };
 
 export type MetadataRequest = {
@@ -1371,6 +1424,7 @@ export type AgentMetadataResponse = MetadataResponse & {
      * Note stored for this live version.
      */
     changeNote?: string;
+    mixins?: MixinSchemaUrls;
 };
 
 /**
@@ -1510,8 +1564,85 @@ export type ChatResponse = {
      * Agent message.
      */
     message?: string;
+    /**
+     * Generated images and files. Omitted when the reply has none.
+     */
+    artifacts?: Array<ChatArtifact>;
     mixins?: ProvenanceMixins;
     metadata?: ProvenanceMetadata;
+};
+
+/**
+ * Metadata for one generated image or file.
+ */
+export type ChatArtifact = ChatArtifactReady | ChatArtifactFailed;
+
+/**
+ * A generated file whose bytes are stored. `artifactId` is present.
+ */
+export type ChatArtifactReady = {
+    /**
+     * Media asset id.
+     */
+    artifactId: string;
+    /**
+     * Generated content type.
+     */
+    kind: 'image' | 'file';
+    /**
+     * File name.
+     */
+    filename: string;
+    /**
+     * Media type of the file.
+     */
+    mimeType: string;
+    /**
+     * Size in bytes.
+     */
+    size: number;
+    /**
+     * `ready`.
+     */
+    status: 'ready';
+    /**
+     * Generation identifier.
+     */
+    generationId?: string;
+};
+
+/**
+ * A generated file that was not stored.
+ */
+export type ChatArtifactFailed = {
+    /**
+     * Generated content type.
+     */
+    kind: 'image' | 'file';
+    /**
+     * File name.
+     */
+    filename: string;
+    /**
+     * Media type of the file.
+     */
+    mimeType: string;
+    /**
+     * Size in bytes.
+     */
+    size: number;
+    /**
+     * `failed`.
+     */
+    status: 'failed';
+    /**
+     * Failure code.
+     */
+    errorCode?: string;
+    /**
+     * Generation identifier.
+     */
+    generationId?: string;
 };
 
 /**
@@ -1534,7 +1665,7 @@ export type ProvenanceMixins = {
              */
             generationId: string;
             /**
-             * Date and time when the content was generated.
+             * Date and time when the content was generated. The value is approved as an ISO-8601 representation of an Instant. For example: `2022-04-30T13:18:02.379Z`
              */
             generatedAt: string;
             /**
@@ -1550,9 +1681,15 @@ export type ProvenanceMixins = {
              */
             model?: string;
             /**
-             * Review state of the generated content.
+             * Review state of the generated content. A generation response uses `not_reviewed`.
+             * An entry stored when a person saves applied AI content uses `reviewed`.
              */
             reviewStatus: string;
+            /**
+             * Entity fields this generation wrote. Generation responses omit it.
+             * A client records it when the person applies the generation.
+             */
+            aiGeneratedFields?: Array<string>;
         }>;
     };
 };
@@ -1571,47 +1708,41 @@ export type ProvenanceMetadata = {
  *
  * **The `artifact` event is in preview mode** - some of the features may not be fully operational yet.
  *
- * JSON object in the SSE `data` field when `event` is `artifact`. The agent published one image or file. Bytes stay in Media Service. A `failed` status does not fail the text stream.
- *
- * The agent publishes artifacts only when it has the built-in file generator (`file_generator`) in `nativeTools` and the caller's token includes the `media.asset_manage` scope. Downloading a ready asset requires the `media.asset_read` scope. Only the chat stream sends artifacts. The synchronous chat endpoint and agent jobs do not.
+ * JSON object in the SSE `data` field when `event` is `artifact`.
  */
 export type ChatStreamArtifactData = {
     /**
-     * Media Service asset id. Present when `status` is `ready`. Absent while `status` is `pending`. Download with `GET /media/{tenant}/assets/{artifact_id}/download`.
+     * Media asset id. Present when `status` is `ready`.
      */
-    artifact_id?: string;
+    artifactId?: string;
     /**
-     * Correlates the pending image card with the later ready or failed event. Absent when the artifact was not produced by image generation.
+     * Present for a generated image. Required when `status` is `pending`.
      */
-    generation_id?: string;
+    generationId?: string;
     /**
-     * Image preview or file download.
+     * Generated content type. `pending` is `image` only.
      */
     kind: 'image' | 'file';
     /**
-     * Display name of the artifact.
+     * File name.
      */
     filename: string;
     /**
-     * Media type of the stored asset.
+     * Media type of the file.
      */
-    mime_type: string;
+    mimeType: string;
     /**
-     * Size of the stored asset in bytes. `0` when generation failed before upload.
+     * Size in bytes.
      */
     size: number;
     /**
-     * `pending` means an image is still generating. `ready` means the asset can be downloaded. `failed` means this item failed and the text answer continues.
+     * `pending`, `ready`, or `failed`.
      */
     status: 'pending' | 'ready' | 'failed';
     /**
-     * Stable failure code. Present when `status` is `failed`. Possible values:
-     * * `CAPABILITY_UNAVAILABLE` — the agent's model provider cannot generate images.
-     * * `INVALID_CONTENT` — the requested file content was rejected.
-     * * `OVERSIZED` — the image or file exceeds the size limit.
-     * * `UPLOAD_FAILED` — the asset could not be stored in Media Service.
+     * Failure code. Present when `status` is `failed`.
      */
-    error_code?: 'CAPABILITY_UNAVAILABLE' | 'INVALID_CONTENT' | 'OVERSIZED' | 'UPLOAD_FAILED';
+    errorCode?: string;
 };
 
 /**
@@ -1619,7 +1750,7 @@ export type ChatStreamArtifactData = {
  *
  * JSON object in one SSE `data` field. This is not the HTTP response body. The response body is `text/event-stream` text; each named event carries one of these objects in `data`.
  */
-export type ChatStreamEventData = ChatStreamTokenData | ChatStreamThinkingData | ChatStreamToolMetaData | ChatStreamToolResultData | ChatStreamDoneData | ChatStreamErrorData | ChatStreamArtifactData;
+export type ChatStreamEventData = ChatStreamTokenData | ChatStreamThinkingData | ChatStreamToolMetaData | ChatStreamToolResultData | ChatStreamArtifactData | ChatStreamDoneData | ChatStreamErrorData;
 
 /**
  * Token event data
@@ -2680,7 +2811,7 @@ export type PostAiAgentsChatStreamResponses = {
      * * `tool_result` — `ChatStreamToolResultData`
      * * `artifact` — **The `artifact` event is in preview mode** - some of the features may not be fully operational yet.
      *
-     * One image or file the agent decided to publish. The agent needs the built-in file generator (`file_generator`) in `nativeTools`, and the caller's token must include `media.asset_manage`. The image can come from the configured provider's image generation, and the file can come from the built-in file generator or from a tool result the agent included in its final answer. Download the private asset with `GET /media/{tenant}/assets/{artifact_id}/download`. The event carries no bytes and no URL. Image generation first sends `status` `pending` with `generation_id`. A provider that cannot draw returns `status` `failed` and `error_code` `CAPABILITY_UNAVAILABLE`. That failure does not fail the text stream.
+     * `ChatStreamArtifactData`
      * * `done` — `ChatStreamDoneData`
      * * `error` — **The `error` event is in preview mode** - some of the features may not be fully operational yet.
      *
