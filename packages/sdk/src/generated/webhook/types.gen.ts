@@ -165,11 +165,207 @@ export type ConfigurationGet = {
          */
         excludedFields?: Array<string>;
         /**
-         * Per-endpoint activation switch. Always returned as an explicit boolean; entries created before the flag existed report `true`. When `false`, events for this endpoint are dropped without filter evaluation, delivery, or retries.
+         * Per-endpoint activation switch. Always returned as an explicit boolean; entries created before the flag existed report `true`. When `false`, events for this endpoint are dropped without filter evaluation, delivery, or retries, unless the service switched the entry off after failing deliveries (`suspendedAt` is set). In that case, its events are stored as failed messages.
          */
         active?: boolean;
+        /**
+         * Date and time when the service switched the entry off because its target kept failing. Absent otherwise. Setting `active` to `true` removes it.
+         */
+        readonly suspendedAt?: string;
+        deliveryStatus?: DeliveryStatus;
     }>;
+    deliveryStatus?: DeliveryStatus;
 };
+
+/**
+ * Delivery status of a target. Returned only when the `expand` query parameter contains `deliveryStatus`. The status is returned in the following places:
+ * * on each `eventsConfiguration` entry that has an `id`
+ * * on the HTTP `configuration` for the global destination
+ * * at the top level of `svix` and `svix_shared` configurations
+ */
+export type DeliveryStatus = {
+    /**
+     * * `ACTIVE` – Events are delivered to the target.
+     * * `FAILING` – Deliveries to the target fail. While the number of failed deliveries in a row is below the failure threshold, the service still sends events to the target. When the threshold is reached, the service stops calling the target and stores its events as failed messages until you switch its configuration or entry back on.
+     */
+    status?: 'ACTIVE' | 'FAILING';
+    /**
+     * Number of failed deliveries in a row. Reset to `0` after a successful delivery. A target that never failed returns `ACTIVE` and `0`.
+     */
+    consecutiveFailures?: number;
+    /**
+     * Error message of the last failed delivery.
+     */
+    lastErrorMessage?: string;
+    /**
+     * HTTP status code returned by the target on the last failed delivery, if any.
+     */
+    lastErrorStatusCode?: number;
+    /**
+     * Date and time of the last failed delivery.
+     */
+    lastFailureAt?: string;
+    /**
+     * Date and time when the target became `FAILING`.
+     */
+    failingSince?: string;
+};
+
+/**
+ * Type of the delivery target:
+ * * `ENTRY` – An `eventsConfiguration` entry of an HTTP configuration.
+ * * `HTTP_GLOBAL` – The global `destinationUrl` of an HTTP configuration.
+ * * `SVIX` – A Svix Custom Account configuration.
+ * * `SVIX_SHARED` – A Svix Emporix Shared Account configuration.
+ */
+export type DeliveryTargetType = 'ENTRY' | 'HTTP_GLOBAL' | 'SVIX' | 'SVIX_SHARED';
+
+/**
+ * An event that the service stored instead of delivering it.
+ */
+export type FailedMessage = {
+    /**
+     * Failed message's unique identifier. A failed delivery of the same event to the same target is stored only once.
+     */
+    id?: string;
+    /**
+     * Identifier of the delivery target, in one of the following formats:
+     * * `{configCode}:{entryId}` for an entry
+     * * `{configCode}:global` for the global HTTP destination
+     * * `{configCode}:svix` or `{configCode}:svix_shared` for Svix
+     */
+    targetId?: string;
+    targetType?: DeliveryTargetType;
+    /**
+     * Code of the webhook configuration the target belongs to.
+     */
+    configCode?: string;
+    /**
+     * Identifier of the `eventsConfiguration` entry. Present only for `ENTRY` targets.
+     */
+    entryId?: string;
+    /**
+     * Type of the event, for example `product.created`.
+     */
+    eventType?: string;
+    /**
+     * Identifier of the original event message.
+     */
+    originalMessageId?: string;
+    /**
+     * Date and time when the original event was published.
+     */
+    publishTime?: string;
+    /**
+     * Error message of the failed delivery.
+     */
+    errorMessage?: string;
+    /**
+     * HTTP status code returned by the target, if any.
+     */
+    errorStatusCode?: number;
+    /**
+     * Number of the target's failed deliveries in a row at the time the message was stored.
+     */
+    retryCount?: number;
+    /**
+     * Date and time when the message was stored.
+     */
+    failedAt?: string;
+    /**
+     * Event payload, before excluded fields are removed. Returned only when you retrieve a single failed message.
+     */
+    payload?: {
+        [key: string]: unknown;
+    };
+};
+
+/**
+ * Selection of failed messages. All criteria are optional and are combined with `AND`. An empty selection matches every stored message.
+ */
+export type FailedMessageSelection = {
+    /**
+     * Failed message IDs.
+     */
+    ids?: Array<string>;
+    targetType?: DeliveryTargetType;
+    /**
+     * Code of the webhook configuration.
+     */
+    configCode?: string;
+    /**
+     * Identifier of the `eventsConfiguration` entry.
+     */
+    entryId?: string;
+    /**
+     * Type of the event, for example `product.created`.
+     */
+    eventType?: string;
+};
+
+/**
+ * Identifier of the started job.
+ */
+export type JobId = {
+    /**
+     * Job's unique identifier, generated when the job is started.
+     */
+    id?: string;
+};
+
+/**
+ * A long-running operation, such as a restart of failed messages.
+ */
+export type Job = {
+    /**
+     * Job's unique identifier, generated when the job is started.
+     */
+    id?: string;
+    /**
+     * Type of the job:
+     * * `failed_message_restart` – A restart of failed messages.
+     */
+    type?: 'failed_message_restart';
+    /**
+     * Status of the job:
+     * * `in_progress` – The job is running.
+     * * `success` – The job finished. See `republished` and `skipped` for the result.
+     * * `failure` – The job stopped. The reason is in `response`.
+     */
+    status?: 'in_progress' | 'success' | 'failure';
+    selection?: FailedMessageSelection;
+    /**
+     * Number of failed messages queued for delivery again so far.
+     */
+    republished?: number;
+    /**
+     * Number of failed messages skipped so far. Skipped messages stay stored.
+     */
+    skipped?: number;
+    /**
+     * Summary of the result, or the reason why the job failed.
+     */
+    response?: string;
+    metadata?: {
+        /**
+         * Date and time when the job was started.
+         */
+        createdAt?: string;
+        /**
+         * Date and time when the job was last modified.
+         */
+        modifiedAt?: string;
+        /**
+         * Date and time when the job finished.
+         */
+        finishedAt?: string;
+    };
+};
+
+/**
+ * Date and time when the service switched the configuration off because its global HTTP target or its Svix target kept failing. Absent otherwise. Setting `active` to `true` removes it.
+ */
+export type ConfigSuspendedAt = string;
 
 /**
  * Unique identifier of the webhook configuration type.
@@ -387,6 +583,57 @@ export type WebhookStatistics = {
     webhooksLimit?: number;
 };
 
+export type ConfigurationGetWritable = {
+    /**
+     * Destination URL where event should be sent.
+     */
+    destinationUrl?: string;
+    /**
+     * Information if secret key for securing the messages has been provided.
+     */
+    secretKeyExists?: boolean;
+    /**
+     * List of key-value pairs which can decorate outgoing HTTP POST request as headers.
+     */
+    headers?: HttpHeadersConfig;
+    eventsConfiguration?: Array<{
+        /**
+         * Stable server-generated identifier of this event configuration entry.
+         */
+        id?: string;
+        /**
+         * Type of the event. Multiple entries may share the same `eventType`.
+         */
+        eventType?: string;
+        /**
+         * Destination URL where event should be sent.
+         */
+        destinationUrl?: string;
+        /**
+         * Information if secret key for securing the messages has been provided.
+         */
+        secretKeyExists?: boolean;
+        /**
+         * List of key-value pairs which can decorate outgoing HTTP POST request as headers.
+         */
+        headers?: HttpHeadersConfig;
+        /**
+         * Optional Jayway JsonPath predicate. When omitted, the entry matches every event of the given `eventType`.
+         */
+        filter?: string;
+        /**
+         * Per-entry field exclusion list. Omitted or `null` means inherit the event-subscription exclusions. An empty array `[]` overrides with no exclusions for this target.
+         */
+        excludedFields?: Array<string>;
+        /**
+         * Per-endpoint activation switch. Always returned as an explicit boolean; entries created before the flag existed report `true`. When `false`, events for this endpoint are dropped without filter evaluation, delivery, or retries, unless the service switched the entry off after failing deliveries (`suspendedAt` is set). In that case, its events are stored as failed messages.
+         */
+        active?: boolean;
+        deliveryStatus?: DeliveryStatus;
+    }>;
+    deliveryStatus?: DeliveryStatus;
+};
+
 /**
  * Your Emporix tenant name.
  *
@@ -416,6 +663,91 @@ export type ToMonth = string;
  */
 export type FromMonth = string;
 
+/**
+ * Comma-separated list of additional data to return. Unknown values are ignored. Possible values:
+ * * `deliveryStatus` – Adds the `deliveryStatus` of every delivery target to the response.
+ */
+export type QueryExpand = string;
+
+/**
+ * Failed message's unique identifier, returned in the `id` field of the failed messages list.
+ */
+export type PathFailedMessageId = string;
+
+/**
+ * Job's unique identifier, generated when the job is started.
+ */
+export type PathJobId = string;
+
+/**
+ * Returns only failed messages of this target type.
+ */
+export type QueryTargetType = DeliveryTargetType;
+
+/**
+ * Returns only failed messages of this webhook configuration.
+ */
+export type QueryConfigCode = string;
+
+/**
+ * Returns only failed messages of this `eventsConfiguration` entry.
+ */
+export type QueryEntryId = string;
+
+/**
+ * Returns only failed messages of this event type.
+ */
+export type QueryEventType = string;
+
+/**
+ * Search query in the standard Emporix query syntax. It is combined with the other filters with `AND`. You can query every field of a failed message except `payload`.
+ *
+ * **Note**: Put date values in quotation marks, for example `failedAt:>"2026-11-10T11:30:00.000Z"`.
+ */
+export type QueryQ = string;
+
+/**
+ * List of fields used to sort the results, separated by commas, each in the `{fieldName}:asc` or `{fieldName}:desc` format. The results are sorted by `failedAt` in descending order by default. You cannot sort by `payload`.
+ *
+ * **Note**: When you page with cursors, keep the same `sort` value as in the request that returned the cursor.
+ */
+export type QueryFailedMessagesSort = string;
+
+/**
+ * List of fields used to sort the results, separated by commas, each in the `{fieldName}:asc` or `{fieldName}:desc` format. The newest jobs are returned first by default.
+ */
+export type QueryJobsSort = string;
+
+/**
+ * Comma-separated list of fields to return. `id` is always returned. `payload` is never returned in the list.
+ */
+export type QueryFields = string;
+
+/**
+ * Page number to be retrieved. The number of the first page is 1.
+ */
+export type QueryPageNumber = number;
+
+/**
+ * Number of items to be retrieved per page.
+ */
+export type QueryPageSize = number;
+
+/**
+ * Cursor of the next page, taken from the `X-Next-Cursor` response header. Cannot be combined with `prev`.
+ */
+export type QueryNext = string;
+
+/**
+ * Cursor of the previous page, taken from the `X-Prev-Cursor` response header. Cannot be combined with `next`.
+ */
+export type QueryPrev = string;
+
+/**
+ * Flag indicating whether the total count of retrieved items should be returned.
+ */
+export type HeaderTotalCount = boolean;
+
 export type GetWebhookListConfigsData = {
     body?: never;
     path: {
@@ -427,7 +759,13 @@ export type GetWebhookListConfigsData = {
          */
         tenant: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Comma-separated list of additional data to return. Unknown values are ignored. Possible values:
+         * * `deliveryStatus` – Adds the `deliveryStatus` of every delivery target to the response.
+         */
+        expand?: string;
+    };
     url: '/webhook/{tenant}/config';
 };
 
@@ -462,6 +800,8 @@ export type GetWebhookListConfigsResponses = {
     200: Array<AbstractWebhookConfig & {
         code?: ConfigCode;
         configuration?: ConfigurationGet;
+        suspendedAt?: ConfigSuspendedAt;
+        deliveryStatus?: DeliveryStatus;
     }>;
 };
 
@@ -597,7 +937,13 @@ export type GetWebhookRetrieveConfigData = {
          */
         code: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Comma-separated list of additional data to return. Unknown values are ignored. Possible values:
+         * * `deliveryStatus` – Adds the `deliveryStatus` of every delivery target to the response.
+         */
+        expand?: string;
+    };
     url: '/webhook/{tenant}/config/{code}';
 };
 
@@ -636,6 +982,8 @@ export type GetWebhookRetrieveConfigResponses = {
     200: AbstractWebhookConfig & {
         code?: ConfigCode;
         configuration?: ConfigurationGet;
+        suspendedAt?: ConfigSuspendedAt;
+        deliveryStatus?: DeliveryStatus;
     };
 };
 
@@ -992,3 +1340,519 @@ export type GetWebhookRetrieveStatisticsResponses = {
 };
 
 export type GetWebhookRetrieveStatisticsResponse = GetWebhookRetrieveStatisticsResponses[keyof GetWebhookRetrieveStatisticsResponses];
+
+export type GetWebhookListFailedMessagesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Flag indicating whether the total count of retrieved items should be returned.
+         */
+        'X-Total-Count'?: boolean;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * Returns only failed messages of this target type.
+         */
+        targetType?: DeliveryTargetType;
+        /**
+         * Returns only failed messages of this webhook configuration.
+         */
+        configCode?: string;
+        /**
+         * Returns only failed messages of this `eventsConfiguration` entry.
+         */
+        entryId?: string;
+        /**
+         * Returns only failed messages of this event type.
+         */
+        eventType?: string;
+        /**
+         * Search query in the standard Emporix query syntax. It is combined with the other filters with `AND`. You can query every field of a failed message except `payload`.
+         *
+         * **Note**: Put date values in quotation marks, for example `failedAt:>"2026-11-10T11:30:00.000Z"`.
+         */
+        q?: string;
+        /**
+         * List of fields used to sort the results, separated by commas, each in the `{fieldName}:asc` or `{fieldName}:desc` format. The results are sorted by `failedAt` in descending order by default. You cannot sort by `payload`.
+         *
+         * **Note**: When you page with cursors, keep the same `sort` value as in the request that returned the cursor.
+         */
+        sort?: string;
+        /**
+         * Comma-separated list of fields to return. `id` is always returned. `payload` is never returned in the list.
+         */
+        fields?: string;
+        /**
+         * Page number to be retrieved. The number of the first page is 1.
+         */
+        pageNumber?: number;
+        /**
+         * Number of items to be retrieved per page.
+         */
+        pageSize?: number;
+        /**
+         * Cursor of the next page, taken from the `X-Next-Cursor` response header. Cannot be combined with `prev`.
+         */
+        next?: string;
+        /**
+         * Cursor of the previous page, taken from the `X-Prev-Cursor` response header. Cannot be combined with `next`.
+         */
+        prev?: string;
+    };
+    url: '/webhook/{tenant}/failed-messages';
+};
+
+export type GetWebhookListFailedMessagesErrors = {
+    /**
+     * Request was syntactically incorrect. Details are provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Some server-side error occurred. Details are provided in the response payload.
+     */
+    500: ErrorMessage;
+};
+
+export type GetWebhookListFailedMessagesError = GetWebhookListFailedMessagesErrors[keyof GetWebhookListFailedMessagesErrors];
+
+export type GetWebhookListFailedMessagesResponses = {
+    /**
+     * The request was successful. A list of failed messages is returned.
+     */
+    200: Array<FailedMessage>;
+};
+
+export type GetWebhookListFailedMessagesResponse = GetWebhookListFailedMessagesResponses[keyof GetWebhookListFailedMessagesResponses];
+
+export type DeleteWebhookRemoveFailedMessageData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Failed message's unique identifier, returned in the `id` field of the failed messages list.
+         */
+        failedMessageId: string;
+    };
+    query?: never;
+    url: '/webhook/{tenant}/failed-messages/{failedMessageId}';
+};
+
+export type DeleteWebhookRemoveFailedMessageErrors = {
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The failed message does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * Some server-side error occurred. Details are provided in the response payload.
+     */
+    500: ErrorMessage;
+};
+
+export type DeleteWebhookRemoveFailedMessageError = DeleteWebhookRemoveFailedMessageErrors[keyof DeleteWebhookRemoveFailedMessageErrors];
+
+export type DeleteWebhookRemoveFailedMessageResponses = {
+    /**
+     * The failed message has been deleted.
+     */
+    204: void;
+};
+
+export type DeleteWebhookRemoveFailedMessageResponse = DeleteWebhookRemoveFailedMessageResponses[keyof DeleteWebhookRemoveFailedMessageResponses];
+
+export type GetWebhookRetrieveFailedMessageData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Failed message's unique identifier, returned in the `id` field of the failed messages list.
+         */
+        failedMessageId: string;
+    };
+    query?: never;
+    url: '/webhook/{tenant}/failed-messages/{failedMessageId}';
+};
+
+export type GetWebhookRetrieveFailedMessageErrors = {
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The failed message does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * Some server-side error occurred. Details are provided in the response payload.
+     */
+    500: ErrorMessage;
+};
+
+export type GetWebhookRetrieveFailedMessageError = GetWebhookRetrieveFailedMessageErrors[keyof GetWebhookRetrieveFailedMessageErrors];
+
+export type GetWebhookRetrieveFailedMessageResponses = {
+    /**
+     * The request was successful. The failed message is returned.
+     */
+    200: FailedMessage;
+};
+
+export type GetWebhookRetrieveFailedMessageResponse = GetWebhookRetrieveFailedMessageResponses[keyof GetWebhookRetrieveFailedMessageResponses];
+
+export type PostWebhookResendFailedMessageData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Failed message's unique identifier, returned in the `id` field of the failed messages list.
+         */
+        failedMessageId: string;
+    };
+    query?: never;
+    url: '/webhook/{tenant}/failed-messages/{failedMessageId}/resend';
+};
+
+export type PostWebhookResendFailedMessageErrors = {
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The failed message does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * The failed message cannot be delivered now. Possible reasons:
+     * * The configuration or the entry no longer exists.
+     * * The configuration or the entry is not active.
+     * * The configuration's provider no longer matches the target type.
+     * * The configuration no longer delivers the event type to this target.
+     */
+    409: ErrorMessage;
+    /**
+     * Some server-side error occurred. Details are provided in the response payload.
+     */
+    500: ErrorMessage;
+};
+
+export type PostWebhookResendFailedMessageError = PostWebhookResendFailedMessageErrors[keyof PostWebhookResendFailedMessageErrors];
+
+export type PostWebhookResendFailedMessageResponses = {
+    /**
+     * The failed message has been accepted for delivery.
+     */
+    202: unknown;
+};
+
+export type PostWebhookRestartFailedMessagesData = {
+    body?: FailedMessageSelection;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/webhook/{tenant}/failed-messages/restart';
+};
+
+export type PostWebhookRestartFailedMessagesErrors = {
+    /**
+     * Request was syntactically incorrect. Details are provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Another restart job of the tenant is in progress.
+     */
+    409: ErrorMessage;
+    /**
+     * Some server-side error occurred. Details are provided in the response payload.
+     */
+    500: ErrorMessage;
+};
+
+export type PostWebhookRestartFailedMessagesError = PostWebhookRestartFailedMessagesErrors[keyof PostWebhookRestartFailedMessagesErrors];
+
+export type PostWebhookRestartFailedMessagesResponses = {
+    /**
+     * The restart job has been started.
+     */
+    202: JobId;
+};
+
+export type PostWebhookRestartFailedMessagesResponse = PostWebhookRestartFailedMessagesResponses[keyof PostWebhookRestartFailedMessagesResponses];
+
+export type PostWebhookRemoveFailedMessagesData = {
+    body?: FailedMessageSelection;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/webhook/{tenant}/failed-messages/delete';
+};
+
+export type PostWebhookRemoveFailedMessagesErrors = {
+    /**
+     * Request was syntactically incorrect. Details are provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Some server-side error occurred. Details are provided in the response payload.
+     */
+    500: ErrorMessage;
+};
+
+export type PostWebhookRemoveFailedMessagesError = PostWebhookRemoveFailedMessagesErrors[keyof PostWebhookRemoveFailedMessagesErrors];
+
+export type PostWebhookRemoveFailedMessagesResponses = {
+    /**
+     * The matching failed messages have been deleted.
+     */
+    204: void;
+};
+
+export type PostWebhookRemoveFailedMessagesResponse = PostWebhookRemoveFailedMessagesResponses[keyof PostWebhookRemoveFailedMessagesResponses];
+
+export type GetWebhookListJobsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Flag indicating whether the total count of retrieved items should be returned.
+         */
+        'X-Total-Count'?: boolean;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * Page number to be retrieved. The number of the first page is 1.
+         */
+        pageNumber?: number;
+        /**
+         * Number of items to be retrieved per page.
+         */
+        pageSize?: number;
+        /**
+         * List of fields used to sort the results, separated by commas, each in the `{fieldName}:asc` or `{fieldName}:desc` format. The newest jobs are returned first by default.
+         */
+        sort?: string;
+    };
+    url: '/webhook/{tenant}/jobs';
+};
+
+export type GetWebhookListJobsErrors = {
+    /**
+     * Request was syntactically incorrect. Details are provided in the response payload.
+     */
+    400: ErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Some server-side error occurred. Details are provided in the response payload.
+     */
+    500: ErrorMessage;
+};
+
+export type GetWebhookListJobsError = GetWebhookListJobsErrors[keyof GetWebhookListJobsErrors];
+
+export type GetWebhookListJobsResponses = {
+    /**
+     * The request was successful. A list of jobs is returned.
+     */
+    200: Array<Job>;
+};
+
+export type GetWebhookListJobsResponse = GetWebhookListJobsResponses[keyof GetWebhookListJobsResponses];
+
+export type GetWebhookRetrieveJobData = {
+    body?: never;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Job's unique identifier, generated when the job is started.
+         */
+        jobId: string;
+    };
+    query?: never;
+    url: '/webhook/{tenant}/jobs/{jobId}';
+};
+
+export type GetWebhookRetrieveJobErrors = {
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match the scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * The job does not exist.
+     */
+    404: ErrorMessage;
+    /**
+     * Some server-side error occurred. Details are provided in the response payload.
+     */
+    500: ErrorMessage;
+};
+
+export type GetWebhookRetrieveJobError = GetWebhookRetrieveJobErrors[keyof GetWebhookRetrieveJobErrors];
+
+export type GetWebhookRetrieveJobResponses = {
+    /**
+     * The request was successful. The job is returned.
+     */
+    200: Job;
+};
+
+export type GetWebhookRetrieveJobResponse = GetWebhookRetrieveJobResponses[keyof GetWebhookRetrieveJobResponses];
