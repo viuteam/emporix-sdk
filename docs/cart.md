@@ -2,8 +2,9 @@
 
 Most cart operations are documented where they are used: the storefront flow in
 [checkout.md](./checkout.md), the React hooks in [react.md](./react.md), the
-Angular bindings in [angular.md](./angular.md). This page covers the one cart
-feature with enough behaviour of its own to need a page: command chains.
+Angular bindings in [angular.md](./angular.md). This page covers the cart
+features with enough behaviour of their own to need a page: command chains and
+external items.
 
 ## Command chains (`carts.execute`)
 
@@ -95,3 +96,35 @@ A customer or anonymous token works on the shopper's own cart. A service token
 works on any cart and needs `cart.cart_manage`; a command carrying an external
 price, product, fee or discount additionally needs
 `cart.cart_manage_external_prices`.
+
+## External items
+
+A product Emporix does not hold, or an Emporix product at a price from your own
+engine, goes into the cart with `itemType: "EXTERNAL"` and brings its own name,
+price and tax ([Emporix guide](https://developer.emporix.io/user-guides/extensibility-and-integrations/extensibility-cases/external-pricing-and-products)):
+
+```ts
+await client.carts.addItem(
+  cartId,
+  {
+    itemType: "EXTERNAL",
+    product: { id: "service-1", name: "Onboarding workshop" },
+    price: { effectiveAmount: 2, originalAmount: 2, currency: "EUR" },
+    tax: { name: "STANDARD", rate: 10, grossValue: 2, netValue: 1.82 },
+    quantity: 1,
+  },
+  auth.service("externalCart"), // a `credentials.custom` entry
+);
+```
+
+- **Server side only.** The call needs a key with `cart.cart_manage` and
+  `cart.cart_manage_external_prices`, and the tenant setting
+  `enableExternalPrices`. Emporix does not validate an external price, so a
+  browser that could send one could set its own price. Customer and anonymous
+  tokens do not carry the scope.
+- **No `priceId`.** The price comes from the body. Leave `itemYrn` out for a
+  product Emporix does not have; set it to put an external price on an Emporix
+  product.
+- **Behind a Backend for Frontend,** make this a BFF route that reads name and
+  price from your own system and checks that the cart belongs to the session's
+  customer. See [bff.md](./bff.md).
