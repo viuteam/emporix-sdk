@@ -1,5 +1,13 @@
 # @viu/emporix-sdk
 
+## 4.11.4
+
+### Patch Changes
+
+- [#461](https://github.com/viuteam/emporix-sdk/pull/461) [`ca36436`](https://github.com/viuteam/emporix-sdk/commit/ca3643635157de5b3c5d9c5b35e8ad216ef8a18b) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: ai-service,webhook
+
 ## 4.11.3
 
 ### Patch Changes
