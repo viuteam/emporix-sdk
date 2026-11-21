@@ -1,8 +1,9 @@
 # Webhook Service
 
 Bindings for the Emporix **Webhook Service** (`/webhook/{tenant}/…`): the
-event-subscription catalog, delivery configurations, statistics, and Svix
-dashboard access.
+event-subscription catalog, delivery configurations and their delivery status,
+failed messages and the jobs that restart them, statistics, and Svix dashboard
+access.
 
 > **Server-side only.** Every endpoint requires the backend
 > `webhook.subscription_read` / `webhook.subscription_manage` scopes, served by
@@ -66,6 +67,80 @@ await client.webhooks.deleteConfig("cfg_active", { force: true }); // active
 
 `secretKey` is **write-only**: `getConfig` never returns it, only
 `secretKeyExists: boolean`. Re-send `secretKey` only when rotating it.
+
+### Delivery status
+
+`{ expand: "deliveryStatus" }` adds the health of every delivery target: the
+config's own target and each `eventsConfiguration` entry.
+
+```ts
+const cfg = await client.webhooks.getConfig("my-hooks", { expand: "deliveryStatus" });
+const failing = (cfg.configuration?.eventsConfiguration ?? []).filter(
+  (entry) => entry.deliveryStatus?.status === "FAILING",
+);
+// consecutiveFailures, lastErrorStatusCode, lastErrorMessage, failingSince
+```
+
+The calls without options, `listConfigs(auth)` and `getConfig(code, auth)`,
+still work.
+
+## Failed messages
+
+When a target fails too many times in a row (100 by default; the
+Configuration Service key `webhookFailureThreshold` takes 10 to 1000), the
+service switches it off and stores its events instead of delivering them. Stored
+events are kept for 14 days on production and 1 day on preprod.
+
+```ts
+// newest failure first; the list never carries `payload`
+const page = await client.webhooks.listFailedMessages({ configCode: "my-hooks", pageSize: 100 });
+
+// the payload comes with the single read
+const first = page.items[0];
+if (first?.id) {
+  const msg = await client.webhooks.getFailedMessage(first.id);
+  console.log(msg.payload);
+}
+
+// page by cursor: pass the cursor back, and keep the same sort
+if (page.nextCursor) {
+  await client.webhooks.listFailedMessages({ configCode: "my-hooks", next: page.nextCursor });
+}
+```
+
+Resending needs the target active again. Switch the config or entry back on
+first, then resend one message or restart a selection as a job:
+
+```ts
+await client.webhooks.patchConfig("my-hooks", [{ op: "UPSERT", path: "/active", value: true }]);
+
+await client.webhooks.resendFailedMessage(messageId); // 202, delivered after the response
+
+const job = await client.webhooks.restartFailedMessages({ configCode: "my-hooks" });
+if (job.id) {
+  const progress = await client.webhooks.getJob(job.id); // in_progress | success | failure
+}
+
+// give up on them instead
+await client.webhooks.deleteFailedMessages({ configCode: "my-hooks", eventType: "product.created" });
+```
+
+| Trap | What to do |
+|---|---|
+| `restartFailedMessages({})` and `deleteFailedMessages({})` select **every** stored message | Both take the selection without a default, so an empty one is always written out. Narrow it with `configCode`, `entryId`, `eventType`, `targetType` or `ids` (up to 100) |
+| `resendFailedMessage` answers `EmporixConflictError` (409) | The config or entry is gone, inactive, on another provider, or no longer delivers the event type. Activate it first |
+| A second restart answers `EmporixConflictError` (409) | One restart job per tenant at a time. Wait for the running one with `getJob` |
+| A restart leaves some messages stored | It skips what it cannot resend and covers only messages stored before it started. Check `skipped` on the job |
+| `next` and `prev` together answer 400; a cursor page has no `totalCount` | Send one cursor, with the `sort` of the request that returned it. The SDK leaves `pageNumber` out in cursor mode |
+
+## Jobs
+
+```ts
+const jobs = await client.webhooks.listJobs({ pageSize: 20 }); // newest first
+for (const job of jobs.items) {
+  console.log(job.type, job.status, job.republished, job.skipped);
+}
+```
 
 ## Statistics & dashboard
 

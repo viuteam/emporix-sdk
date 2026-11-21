@@ -5,6 +5,65 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-11-21 — webhook: failed messages, jobs, delivery status; AI artifacts and provenance; indexing, import, price, cart
+
+Vendored by the daily sync in viuteam/emporix-sdk#455, #457, #459 and #461
+(`price`, `import-service`, `ai-service`, `cart`, `indexing-service`, `order-v2`,
+`product`, `webhook`). **8 new endpoints, 0 removed, 0 newly deprecated** —
+measured by mapping operations on path literal (`coverage.mjs`), and by
+diffing the specs' path keys and methods between the two syncs.
+
+### Endpoints
+
+- **webhook** — failed messages and jobs
+  ([emporix/api-references#657](https://github.com/emporix/api-references/pull/657),
+  [#659](https://github.com/emporix/api-references/pull/659)). SDK: added
+  `listFailedMessages`, `getFailedMessage`, `deleteFailedMessage`,
+  `resendFailedMessage`, `restartFailedMessages`, `deleteFailedMessages`,
+  `listJobs` and `getJob` on `client.webhooks`. The facade now covers all 18
+  operations. See [webhook.md](./webhook.md#failed-messages).
+
+### Fields
+
+Nothing to build: the facade types alias the generated ones, so these arrived
+with the sync. They did need documenting:
+
+| Where | Field | Note |
+|---|---|---|
+| webhook `GET /config`, `GET /config/{code}` | `expand=deliveryStatus` → `deliveryStatus` on the config and each entry; `suspendedAt` on an entry | a query parameter the facade did not send; `listConfigs` / `getConfig` now take `{ expand }` |
+| ai-service chat and generation responses | `artifacts` (`ChatArtifact`), stream events for ready and failed artifacts, provenance in `mixins` / `metadata` | [#629](https://github.com/emporix/api-references/pull/629), [#646](https://github.com/emporix/api-references/pull/646), [#648](https://github.com/emporix/api-references/pull/648), [#651](https://github.com/emporix/api-references/pull/651) |
+| ai-service agent and template responses | built-in file generator (`type: file`, `FileNativeToolConfig`) | not a creatable tool: enable it with the reserved id `file_generator` in the agent's `nativeTools`; [#629](https://github.com/emporix/api-references/pull/629) |
+| ai-service agents and custom / dynamic MCP servers | `metadata.mixins` + `mixins` | [#656](https://github.com/emporix/api-references/pull/656) |
+| indexing-service config | `enrichments` (`AVAILABILITY`, `PRICE`), `siteAwareMixinsStrategy` (`FAN_OUT`, `INHERITANCE`) | BatteryIncluded only, see below; [#644](https://github.com/emporix/api-references/pull/644), [#649](https://github.com/emporix/api-references/pull/649) |
+| import-service product streams | `variantRole`, `variantModel`, `templateId` | parents and variants, up to four levels with `DYNAMIC`; [#643](https://github.com/emporix/api-references/pull/643) |
+
+### Behaviour
+
+- **webhook**: a target is switched off after 100 failed deliveries in a row
+  (`webhookFailureThreshold`, 10–1000) and its events are stored for 14 days on
+  production, 1 day on preprod. Resending needs the target active again (409
+  otherwise), and only one restart job runs per tenant (409).
+- **ai-service**: chat attachment uploads accept jpg/jpeg, png, pdf, csv,
+  text/txt, json, xml, html/htm and xlsx, and the file extension must match the
+  part's content type ([#660](https://github.com/emporix/api-references/pull/660)).
+- **indexing-service**: `enrichments` or `siteAwareMixinsStrategy` sent for a
+  provider other than BatteryIncluded answer `400`, even as an empty list; so
+  does an unknown value.
+- **price**: matching now documents its price-list ranking — customer, then
+  country, then region match; only the highest rank with a price for the item
+  is used, and price lists beat catalog prices
+  ([#641](https://github.com/emporix/api-references/pull/641)).
+- **cart, product, order-v2**: `allOf` wrappers whose `type: object` member made
+  a string type unsatisfiable were removed
+  ([#645](https://github.com/emporix/api-references/pull/645), reported as
+  [#642](https://github.com/emporix/api-references/issues/642)). An external cart
+  item (`itemType: "EXTERNAL"`, no `priceId`) now type-checks.
+
+Not vendored yet: bulk media, availability and category writes
+([#653](https://github.com/emporix/api-references/pull/653)–[#655](https://github.com/emporix/api-references/pull/655)).
+They were merged into a feature branch, not `main`, and arrive with the sync
+that follows their merge.
+
 ## 2026-11-09 — returns: sites; schema and product: localized OBJECT mixins; language codes
 
 Three entries of the [changelog](https://developer.emporix.io/changelog). The specs
