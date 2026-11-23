@@ -1,4 +1,12 @@
-import { inject, makeEnvironmentProviders, type EnvironmentProviders } from "@angular/core";
+import {
+  inject,
+  InjectionToken,
+  makeEnvironmentProviders,
+  PLATFORM_ID,
+  provideEnvironmentInitializer,
+  type EnvironmentProviders,
+} from "@angular/core";
+import { isPlatformServer } from "@angular/common";
 import { provideTanStackQuery, QueryClient } from "@tanstack/angular-query-experimental";
 import {
   createMemoryStorage,
@@ -17,16 +25,33 @@ import {
   EMPORIX_STORAGE,
   type EmporixProxySession,
 } from "./tokens";
-import { createSiteState } from "./site";
-import { createCompanyState } from "./company";
+import { createSiteState, type EmporixSiteInternal } from "./site";
+import { createCompanyState, type EmporixCompanyInternal } from "./company";
 import { createRescope } from "./company-switch";
 
 export interface EmporixConfig {
-  client: EmporixClient;
-  /** Defaults to an in-memory storage: SSR-safe, no persistence. */
-  storage?: EmporixStorage;
-  /** Bring your own to share one cache with the host application. */
-  queryClient?: QueryClient;
+  /**
+   * The SDK client, or a factory for one. A factory runs once per application
+   * injector, in its injection context.
+   *
+   * Under server-side rendering, pass a factory. Every request bootstraps its own
+   * application, and the guest (anonymous) session lives on the client, so one
+   * instance serving every request gives every guest the same cart. On the server
+   * an instance that already serves another application throws.
+   */
+  client: EmporixClient | (() => EmporixClient);
+  /**
+   * Defaults to an in-memory storage, a new one per application injector, with
+   * no persistence. A factory runs like `client`'s — so it can `inject(REQUEST)`
+   * to read the request's cookies — and the same server rule applies.
+   */
+  storage?: EmporixStorage | (() => EmporixStorage);
+  /**
+   * Bring your own to share one cache with the host application. A factory runs
+   * like `client`'s, and the same server rule applies: query keys carry no user
+   * id, so a cache shared across requests serves one customer's data to the next.
+   */
+  queryClient?: QueryClient | (() => QueryClient);
   /** Initial site code. Order: this → storage → client config → null. */
   initialSiteCode?: string;
   /** Initial language. Order: this → storage → client config → null. */
@@ -72,9 +97,9 @@ const DEFAULT_QUERY_OPTIONS = {
  * both are spread after ours. Host-application queries outside the namespace
  * are untouched.
  *
- * Called once from `provideEmporix`. React needs a ref guard here because its
- * provider re-renders; an `EnvironmentProviders` factory runs once per injector,
- * so there is nothing to guard against.
+ * Called by `provideEmporix` once per application injector. React needs a ref
+ * guard here because its provider re-renders; a provider factory runs once per
+ * injector, and a second run on the same client is idempotent.
  */
 export function applyEmporixQueryDefaults(qc: QueryClient): void {
   qc.setQueryDefaults(["emporix"], {
@@ -91,29 +116,76 @@ export function applyEmporixQueryDefaults(qc: QueryClient): void {
  * `EmporixProvider` renders `QueryClientProvider` itself — one call, one
  * ownership model, no second thing for the consumer to remember.
  *
+ * Everything per-session — storage, query cache, site and company state — is
+ * built by provider factories, once per application injector. A module-level
+ * `appConfig` is therefore safe under server-side rendering, where every request
+ * bootstraps its own application from it.
+ *
  * @example
  * ```ts
  * bootstrapApplication(AppComponent, {
- *   providers: [provideEmporix({ client: createEmporixClient({ ... }) })],
+ *   providers: [provideEmporix({ client: () => new EmporixClient({ ... }) })],
  * })
  * ```
  */
 export function provideEmporix(config: EmporixConfig): EnvironmentProviders {
-  // `?.` because test doubles often carry no config at all.
-  const proxied = config.client.config?.proxy !== undefined;
-  if (config.proxySession !== undefined && !proxied) {
-    throw new Error(
-      "provideEmporix: proxySession needs a client built with `proxy` — without it the SDK " +
-        "requests tokens itself. See docs/bff.md.",
-    );
-  }
-  const baseStorage = config.storage ?? createMemoryStorage();
+  // A client value is checked now, so the misconfiguration fails at startup; a
+  // factory's client is checked when the factory runs.
+  if (typeof config.client !== "function") assertProxyPairing(config.client, config.proxySession);
+  const rt = (): EmporixRuntime => inject(EMPORIX_RUNTIME);
+  return makeEnvironmentProviders([
+    { provide: EMPORIX_RUNTIME, useFactory: () => createRuntime(config) },
+    { provide: EMPORIX_CLIENT, useFactory: () => rt().client },
+    { provide: EMPORIX_STORAGE, useFactory: () => rt().storage },
+    { provide: EMPORIX_PROXY_SESSION, useFactory: () => rt().proxySession },
+    { provide: EMPORIX_SITE, useFactory: () => rt().site },
+    { provide: EMPORIX_SITE_INTERNAL, useFactory: () => rt().site.internal },
+    { provide: EMPORIX_COMPANY, useFactory: () => rt().company },
+    { provide: EMPORIX_COMPANY_INTERNAL, useFactory: () => rt().company },
+    { provide: EMPORIX_QUERY_CLIENT, useFactory: () => rt().queryClient },
+    provideTanStackQuery(EMPORIX_QUERY_CLIENT),
+    // Built at bootstrap rather than on first use: the site fetch and the
+    // company bootstrap must already be running when a component logs in.
+    provideEnvironmentInitializer(() => inject(EMPORIX_RUNTIME)),
+  ]);
+}
+
+/** What `provideEmporix` builds, once per application injector. */
+interface EmporixRuntime {
+  client: EmporixClient;
+  storage: EmporixStorage;
+  queryClient: QueryClient;
+  site: EmporixSiteInternal;
+  company: EmporixCompanyInternal;
+  proxySession: EmporixProxySession | null;
+}
+
+const EMPORIX_RUNTIME = new InjectionToken<EmporixRuntime>("EMPORIX_RUNTIME");
+const EMPORIX_QUERY_CLIENT = new InjectionToken<QueryClient>("EMPORIX_QUERY_CLIENT");
+
+function createRuntime(config: EmporixConfig): EmporixRuntime {
+  const onServer = isPlatformServer(inject(PLATFORM_ID));
+  const client = own(config.client, "client", onServer);
+  const proxied = assertProxyPairing(client, config.proxySession);
+  const baseStorage =
+    config.storage === undefined ? createMemoryStorage() : own(config.storage, "storage", onServer);
   const storage = proxied
     ? createProxySessionStorage(baseStorage, config.proxySession?.authenticated ?? false)
     : baseStorage;
-  const queryClient = config.queryClient ?? new QueryClient();
+  const queryClient =
+    config.queryClient === undefined
+      ? new QueryClient()
+      : own(config.queryClient, "queryClient", onServer);
   applyEmporixQueryDefaults(queryClient);
-  const site = createSiteState(config.client, storage, {
+  // The guest session lives on the client. Keeping it in the storage is what lets
+  // a guest's cart survive a reload — the wiring React's provider does too. Safe
+  // because on the server this client serves this application only (see `own`).
+  // `?.` because a proxy client has no anonymous store, and test doubles no provider.
+  client.tokenProvider?.attachAnonymousStore?.({
+    read: () => storage.getAnonymousSession(),
+    write: (session) => storage.setAnonymousSession(session),
+  });
+  const site = createSiteState(client, storage, {
     ...(config.initialSiteCode !== undefined ? { siteCode: config.initialSiteCode } : {}),
     ...(config.initialLanguage !== undefined ? { language: config.initialLanguage } : {}),
   });
@@ -121,7 +193,7 @@ export function provideEmporix(config: EmporixConfig): EnvironmentProviders {
   // `injectCompanySwitch`, so the bootstrap's auto-pick and every user click
   // serialize against each other. See `createRescope`.
   const company = createCompanyState(
-    config.client,
+    client,
     storage,
     {
       ...(config.initialLegalEntityId !== undefined
@@ -129,18 +201,56 @@ export function provideEmporix(config: EmporixConfig): EnvironmentProviders {
         : {}),
       ...(proxied ? { proxied } : {}),
     },
-    createRescope(config.client, storage, queryClient, proxied),
+    createRescope(client, storage, queryClient, proxied),
   );
-  return makeEnvironmentProviders([
-    { provide: EMPORIX_CLIENT, useValue: config.client },
-    { provide: EMPORIX_STORAGE, useValue: storage },
-    { provide: EMPORIX_PROXY_SESSION, useValue: proxied ? (config.proxySession ?? {}) : null },
-    { provide: EMPORIX_SITE, useValue: site },
-    { provide: EMPORIX_SITE_INTERNAL, useValue: site.internal },
-    { provide: EMPORIX_COMPANY, useValue: company },
-    { provide: EMPORIX_COMPANY_INTERNAL, useValue: company },
-    provideTanStackQuery(queryClient),
-  ]);
+  return {
+    client,
+    storage,
+    queryClient,
+    site,
+    company,
+    proxySession: proxied ? (config.proxySession ?? {}) : null,
+  };
+}
+
+/** Throws on a `proxySession` without a proxy-mode client; returns whether the client is one. */
+function assertProxyPairing(
+  client: EmporixClient,
+  proxySession: EmporixProxySession | undefined,
+): boolean {
+  // `?.` because test doubles often carry no config at all.
+  const proxied = client.config?.proxy !== undefined;
+  if (proxySession !== undefined && !proxied) {
+    throw new Error(
+      "provideEmporix: proxySession needs a client built with `proxy` — without it the SDK " +
+        "requests tokens itself. See docs/bff.md.",
+    );
+  }
+  return proxied;
+}
+
+/**
+ * Instances serving an application on the server. Never released: the guest
+ * session and the cache outlive the application, so a second application on the
+ * same instance is a second request reading the first one's session.
+ */
+const servingOnServer = new WeakSet<object>();
+
+/** Resolves a value or factory; on the server, refuses an instance another application uses. */
+function own<T extends object>(source: T | (() => T), name: string, onServer: boolean): T {
+  const value = typeof source === "function" ? (source as () => T)() : source;
+  if (onServer) {
+    if (servingOnServer.has(value)) {
+      throw new Error(
+        `provideEmporix: this ${name} already serves another application. Under server-side ` +
+          `rendering every request bootstraps its own application, and a shared ${name} hands ` +
+          `one visitor's session to the next. Pass a factory that builds a new one ` +
+          `(\`${name}: () => ...\`). See docs/angular.md#server-side-rendering.`,
+      );
+    }
+    servingOnServer.add(value);
+  }
+  return value;
 }
 
 /** The SDK client and session storage. Must be called in an injection context. */

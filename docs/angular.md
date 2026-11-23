@@ -40,23 +40,24 @@ import { EmporixClient } from "@viu/emporix-sdk";
 import { provideEmporix } from "@viu/emporix-sdk-angular";
 import { createLocalStorage } from "@viu/emporix-sdk-angular/storage";
 
-const client = new EmporixClient({
-  tenant: "your-tenant",
-  credentials: {
-    storefront: {
-      clientId: "your-storefront-client-id",
-      context: { currency: "CHF", siteCode: "main", targetLocation: "CH" },
-    },
-  },
-});
-
 export const appConfig: ApplicationConfig = {
   providers: [
     provideEmporix({
-      client,
-      storage: createLocalStorage(),
+      // Factories: each runs once per application, so this config stays safe
+      // under server-side rendering. See "Server-side rendering" below.
+      client: () =>
+        new EmporixClient({
+          tenant: "your-tenant",
+          credentials: {
+            storefront: {
+              clientId: "your-storefront-client-id",
+              context: { currency: "CHF", siteCode: "main", targetLocation: "CH" },
+            },
+          },
+        }),
+      storage: () => createLocalStorage(),
       // Optional: share one cache with the host application.
-      // queryClient: myQueryClient,
+      // queryClient: () => myQueryClient,
       // Optional: initialSiteCode, initialLanguage
     }),
   ],
@@ -64,8 +65,12 @@ export const appConfig: ApplicationConfig = {
 ```
 
 `provideEmporix` calls `provideTanStackQuery` internally, so there is no second
-thing to remember. Without a `storage` it falls back to an in-memory one, which
-is SSR-safe but does not survive a reload.
+thing to remember. Without a `storage` it falls back to an in-memory one, a new
+one per application, which does not survive a reload.
+
+`client`, `storage` and `queryClient` each take an instance or a factory. A
+browser-only application may pass instances; an application rendered on the
+server must pass factories.
 
 It also applies balanced defaults scoped to the `["emporix"]` key namespace:
 `staleTime: 30s`, no window-focus refetch, and **no retry on a 404**. A 404 is an
@@ -374,6 +379,56 @@ is nothing stale to drop. `changeEmail` refetches the profile, because Emporix
 sends a confirmation first and the profile carries the pending state.
 
 ## Server-side rendering
+
+Under `@angular/ssr` the server imports `appConfig` once and bootstraps a new
+application from it for every request. `provideEmporix` therefore builds
+everything that belongs to one visitor inside provider factories, once per
+application:
+
+- the storage fallback
+- the query cache
+- the site and company state
+- the `client`, `storage` and `queryClient` factories you pass
+
+Instances you pass instead would be shared by every request, and each one
+carries a visitor's state:
+
+- **The query cache.** Query keys carry no user id, so a cached profile is
+  served to the next customer.
+- **The storage.** It holds the customer token and the cart id.
+- **The client.** It holds the guest's anonymous session, and Emporix binds a
+  guest cart to that session.
+
+On the server, `provideEmporix` therefore throws when a `client`, `storage` or
+`queryClient` instance — from a value or from a factory — already serves another
+application. In the browser there is one application and instances stay allowed.
+
+`createLocalStorage()` falls back to memory on the server, so the factory form
+above renders every request as a guest. To render a signed-in customer, build the
+storage from the request in the factory:
+
+```ts
+import { REQUEST, inject } from "@angular/core";
+
+provideEmporix({
+  client: () => new EmporixClient({ /* … */ }),
+  storage: () => {
+    const request = inject(REQUEST, { optional: true }); // null in the browser
+    return request === null
+      ? createLocalStorage()
+      : createMemoryStorage({ initial: customerTokenFrom(request) }); // your cookie parsing
+  },
+});
+```
+
+That needs the browser side to keep the token where the server can read it, in
+a cookie (`createCookieStorage`).
+
+Emporix bills these calls on every server render:
+
+- **The active site** is fetched once, because the site state is per application.
+- **An anonymous login** happens when the request's storage carries neither a
+  customer token nor a guest session.
 
 `@viu/emporix-sdk-angular/ssr` re-exports `TransferState` and `makeStateKey`.
 There is no cache-tag layer here and there will not be one: tags and

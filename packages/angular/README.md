@@ -35,25 +35,33 @@ import { EmporixClient } from "@viu/emporix-sdk";
 import { provideEmporix } from "@viu/emporix-sdk-angular";
 import { createLocalStorage } from "@viu/emporix-sdk-angular/storage";
 
-const client = new EmporixClient({
-  tenant: "mytenant",
-  credentials: {
-    storefront: {
-      clientId: "your-storefront-client-id",
-      context: { currency: "CHF", siteCode: "main", targetLocation: "CH" },
-    },
-  },
-});
-
 export const appConfig: ApplicationConfig = {
-  providers: [provideEmporix({ client, storage: createLocalStorage() })],
+  providers: [
+    provideEmporix({
+      client: () =>
+        new EmporixClient({
+          tenant: "mytenant",
+          credentials: {
+            storefront: {
+              clientId: "your-storefront-client-id",
+              context: { currency: "CHF", siteCode: "main", targetLocation: "CH" },
+            },
+          },
+        }),
+      storage: () => createLocalStorage(),
+    }),
+  ],
 };
 ```
 
 `provideEmporix` composes `provideTanStackQuery` itself — one call, one ownership
 model. Pass your own `queryClient` to share one cache with the host application.
 
-Create the `EmporixClient` **once** per application, never per component.
+`client`, `storage` and `queryClient` take an instance or a factory. A factory
+runs once per application, never per component. Under server-side rendering every
+request is its own application, so pass factories there: on the server,
+`provideEmporix` throws when an instance already serves another application. See
+[Server-side rendering](../../docs/angular.md#server-side-rendering).
 
 For a Backend for Frontend that keeps every token out of the browser, build the
 client with `proxy` and pass `proxySession: { authenticated, login, logout }`
