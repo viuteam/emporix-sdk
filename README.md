@@ -91,9 +91,9 @@ pnpm test        # library packages + the md-module and next-server-first suites
 ```
 
 CI exercises Node 20, 22, and 24 in the PR-check matrix; release + e2e run on
-Node 24 LTS (`.github/workflows/*.yml`). The published packages'
-runtime floor is `engines.node: ">=20.19.0"` — that's the support contract for
-consumers, not a development requirement.
+Node 24 LTS (`.github/workflows/*.yml`). The published packages support the
+Node LTS lines 22, 24 and 26: `engines.node: "^22.12.0 || ^24.0.0 || >=26.0.0"`
+— that's the support contract for consumers, not a development requirement.
 
 Root `build`/`lint` are scoped to `./packages/*` (the publishable libraries);
 root `test` adds the two examples with real suites, `md-module` and

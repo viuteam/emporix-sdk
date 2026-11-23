@@ -463,9 +463,11 @@ your application, or in a separate package that does use `ng-packagr`.
 
 ## Version notes
 
-- **Node.** Angular 22 declares `engines.node: ^22.22.3 || ^24.15.0 || >=26.0.0`
-  and the Angular CLI enforces it itself — it exits rather than warning. Unit
-  tests and `tsc` do not care; `ng build` does.
+- **Node.** This package supports Node 22.12+, 24 and 26
+  (`^22.12.0 || ^24.0.0 || >=26.0.0`), the same as the other packages, because
+  Angular 20 and 21 run on Node 22.12. Angular 22 declares the stricter
+  `^22.22.3 || ^24.15.0 || >=26.0.0`, and the Angular CLI enforces it itself — it
+  exits rather than warning. Unit tests and `tsc` do not care; `ng build` does.
 - **TypeScript.** `@angular/compiler-cli@22` peers `typescript >=6.0 <6.1`. That
   binds anything compiled by the Angular CLI, not this package, which builds
   with the workspace's TypeScript.
