@@ -264,6 +264,10 @@ stays disabled instead); the other reads resolve auth themselves.
 `createLocalStorage`. Trade-offs and CSRF notes in
 [`../../docs/react.md`](../../docs/react.md).
 
+`createLocalStorage` and `createSessionStorage` use Web Storage only where there
+is a `document`. On a server they fall back to memory, Node 26 included, whose
+built-in `sessionStorage` would otherwise be one store for every request.
+
 ## Errors & SSR
 
 `<EmporixErrorBoundary>` and `useEmporixErrorHandler` for error coordination.
