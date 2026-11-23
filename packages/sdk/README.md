@@ -5,7 +5,7 @@
 [![bundle size](https://img.shields.io/bundlephobia/minzip/@viu/emporix-sdk)](https://bundlephobia.com/package/@viu/emporix-sdk)
 
 Framework-agnostic TypeScript SDK for the Emporix Commerce Engine. Native
-`fetch` only (Node 20.19+), zero runtime dependencies.
+`fetch` only (Node 22.12+, 24 or 26), zero runtime dependencies.
 
 ## Install
 

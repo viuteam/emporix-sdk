@@ -83,17 +83,18 @@ See [`packages/sdk/README.md`](./packages/sdk/README.md),
 ## Development
 
 ```bash
-nvm use          # picks Node 24 from .nvmrc (matches CI primary)
+nvm use          # picks Node 26 from .nvmrc (matches CI primary)
 pnpm install
 pnpm build       # library packages — before typecheck: examples check against dist/
 pnpm typecheck   # repo-wide (packages + examples)
 pnpm test        # library packages + the md-module and next-server-first suites
 ```
 
-CI exercises Node 20, 22, and 24 in the PR-check matrix; release + e2e run on
-Node 24 LTS (`.github/workflows/*.yml`). The published packages'
-runtime floor is `engines.node: ">=20.19.0"` — that's the support contract for
-consumers, not a development requirement.
+CI exercises Node 22, 24 and 26 in the PR-check matrix; release, e2e and the
+other single-version workflows run the version in `.nvmrc` (Node 26, the
+active LTS). The published packages support the
+Node LTS lines 22, 24 and 26: `engines.node: "^22.12.0 || ^24.0.0 || >=26.0.0"`
+— that's the support contract for consumers, not a development requirement.
 
 Root `build`/`lint` are scoped to `./packages/*` (the publishable libraries);
 root `test` adds the two examples with real suites, `md-module` and

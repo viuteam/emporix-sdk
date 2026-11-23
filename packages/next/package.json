@@ -28,7 +28,7 @@
   "type": "module",
   "sideEffects": false,
   "engines": {
-    "node": ">=20.19.0"
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
   },
   "files": [
     "dist",
@@ -89,7 +89,7 @@
     "next": "^16.0.0"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^4.1.12",

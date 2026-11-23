@@ -30,8 +30,8 @@ not only the way `tsc` does.
 
 - **Node.** The Angular CLI enforces `^22.22.3 || ^24.15.0 || >=26.0.0` itself and
   exits before building on anything older — a warning is not enough here, unlike
-  `pnpm install`. The CI matrix skips this build on its Node 20 row for that
-  reason.
+  `pnpm install`. CI runs this build on every row of its 22/24/26 matrix: the
+  newest 22.x and 24.x meet that floor.
 - **TypeScript.** `@angular/compiler-cli@22` peers `typescript >=6.0 <6.1`, so
   this example declares TypeScript 6 while the rest of the workspace is on 5.9.
   It is contained to the two Angular examples (`angular-storefront-demo` pins

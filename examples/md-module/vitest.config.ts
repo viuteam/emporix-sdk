@@ -46,6 +46,9 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Node 26's own localStorage/sessionStorage would shadow jsdom's; this flag
+    // turns them off and is valid on Node 22, 24 and 26.
+    execArgv: ["--no-experimental-webstorage"],
     // Node export conditions so MSW v2 and undici share one fetch realm —
     // without it, an intercepted request fails on "instance of AbortSignal".
     environmentOptions: {
