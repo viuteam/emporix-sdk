@@ -1,5 +1,24 @@
 # @viu/emporix-sdk
 
+## 5.1.0
+
+### Minor Changes
+
+- [#474](https://github.com/viuteam/emporix-sdk/pull/474) [`18e4dc4`](https://github.com/viuteam/emporix-sdk/commit/18e4dc4c8bf1aec3324771a5b470191a691e30da) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - feat(sdk): add bulk writes for categories, media, availability and products
+  
+  Wraps the nine endpoints Emporix added on 2026-11-23:
+  
+  - `categories.bulkCreate`, `categories.bulkPatch` and `categories.assignments.bulkRemoveByReference`;
+  - `media.bulkCreate` (a JSON array for LINK assets, multipart with one file per item for BLOB assets), `media.bulkPatch` and `media.bulkRemove`;
+  - `availability.patch` and `availability.bulkPatch` (JSON-Patch with upper-case `op`);
+  - `products.bulkPatch`.
+  
+  Every bulk call takes up to 200 entries and resolves with one result per entry (`207` Multi-Status) instead of throwing for a failed entry. None of the partial updates creates a missing record. The methods are not yet verified against a live tenant.
+
+- [#474](https://github.com/viuteam/emporix-sdk/pull/474) [`afdd51d`](https://github.com/viuteam/emporix-sdk/commit/afdd51dc60de97c60b04a56408cda2bd00a6e979) Thanks [@viu-release-bot](https://github.com/apps/viu-release-bot)! - chore(sdk): sync generated types with upstream Emporix API specs
+  
+  Updated services: availability,category,media,product
+
 ## 5.0.0
 
 ### Major Changes
