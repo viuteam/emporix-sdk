@@ -51,7 +51,11 @@ function assertIntact(repoDir) {
   const problems = [];
   if (!lstatSync(dotGit).isDirectory()) problems.push(".git is not a directory");
   else {
-    if (existsSync(join(dotGit, "commondir"))) problems.push(".git/commondir exists");
+    // Claude Code's Linux sandbox protects .git/commondir with a one-byte "."
+    // placeholder and leaves it behind (anthropics/claude-code#105401); git
+    // reads "." as .git itself. Anything else redirects git or breaks it.
+    const commondir = join(dotGit, "commondir");
+    if (existsSync(commondir) && readFileSync(commondir, "utf8").trim() !== ".") problems.push(".git/commondir points elsewhere");
     if (!lstatSync(join(dotGit, "config")).isFile()) problems.push(".git/config is not a regular file");
   }
   if (problems.length) throw new Error(`repository tampered: ${problems.join(", ")}`);

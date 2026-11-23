@@ -76,10 +76,27 @@ test("repo config cannot make the post-Claude git run a command", () => {
 });
 
 test("a tampered .git (commondir) is refused", () => {
-  const { dir, base } = repo();
-  writeFileSync(join(dir, ".git", "commondir"), "/tmp/elsewhere\n");
+  for (const content of ["/tmp/elsewhere\n", "../other/.git", ""]) {
+    const { dir, base } = repo();
+    writeFileSync(join(dir, ".git", "commondir"), content);
+    const { outDir, pkgDir } = dirs();
+    assert.throws(
+      () => packageResult({ repoDir: dir, base, outDir, pkgDir, mode: "dry", executionFile: "", token: TOKEN }),
+      /tampered/,
+      JSON.stringify(content),
+    );
+  }
+});
+
+test("the commondir the Linux sandbox leaves behind (\".\") is accepted", () => {
+  // Claude Code's Linux sandbox protects .git/commondir with a one-byte "."
+  // placeholder and leaves it on disk (anthropics/claude-code#105401). Git
+  // reads "." as .git itself, so it redirects nothing.
+  const { dir, git, base } = repo();
+  writeFileSync(join(dir, ".git", "commondir"), ".");
+  assert.equal(git("rev-parse", "HEAD"), base, "git still works with it");
   const { outDir, pkgDir } = dirs();
-  assert.throws(() => packageResult({ repoDir: dir, base, outDir, pkgDir, mode: "dry", executionFile: "", token: TOKEN }), /tampered/);
+  assert.doesNotThrow(() => packageResult({ repoDir: dir, base, outDir, pkgDir, mode: "dry", executionFile: "", token: TOKEN }));
 });
 
 test("a clean run bundles the commits and copies the outputs", () => {
