@@ -238,9 +238,13 @@ jobs:
         run: pnpm build
 
       # Claude Code's Bash sandbox needs bubblewrap and socat, and Ubuntu 24.04
-      # restricts the unprivileged user namespaces bubblewrap uses. The action
-      # does this itself only for allowed_non_write_users; here a failure must
-      # stop the run instead of letting it continue unsandboxed.
+      # restricts the unprivileged user namespaces bubblewrap uses. Ubuntu 26.04
+      # also ships the AppArmor profile bwrap-userns-restrict, which runs
+      # bwrap's children without capabilities, so the sandbox's nested user
+      # namespace fails and every Bash call with it (anthropics/claude-code#105194).
+      # Unloading it on this throwaway runner lets the sandbox start. The action
+      # does the first part itself only for allowed_non_write_users; here a
+      # failure must stop the run instead of letting it continue unsandboxed.
       - name: Install sandbox dependencies
         if: steps.gate.outputs.run == 'true'
         run: |
@@ -248,6 +252,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends bubblewrap socat
           if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
             sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if [ -f /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo apparmor_parser -R /etc/apparmor.d/bwrap-userns-restrict
           fi
 
       # The code Claude runs can write the checkout, .git/config included, and a

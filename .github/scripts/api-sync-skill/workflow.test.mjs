@@ -38,6 +38,14 @@ test("post-Claude git runs on the restored config through the protected script",
   assert.equal(/\bgit (diff|log)\b/.test(pkg), false, "no porcelain git after Claude");
 });
 
+test("the sandbox step unloads Ubuntu's bwrap-userns-restrict AppArmor profile", () => {
+  // Ubuntu 26.04 confines bwrap's children to a profile without capabilities,
+  // so the sandbox's nested user namespace fails (anthropics/claude-code#105194).
+  const deps = step("Install sandbox dependencies");
+  assert.match(deps, /apparmor_parser -R \/etc\/apparmor\.d\/bwrap-userns-restrict/);
+  assert.match(deps, /kernel\.apparmor_restrict_unprivileged_userns=0/);
+});
+
 test("the upload is gated on the package step", () =>
   assert.match(skillJob, /if: always\(\) && steps\.gate\.outputs\.run == 'true' && steps\.package\.outcome == 'success'/));
 

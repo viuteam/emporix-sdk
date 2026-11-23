@@ -167,7 +167,7 @@ Settings:
 2. **Skill overlay:** `.claude/skills/emporix-api-sync` is restored from `github.sha`, so a dry run on a feature branch uses that branch's skill. On `main` the files are identical and nothing changes.
 3. pnpm, Node from `.nvmrc`, `pnpm install --frozen-lockfile`, `pnpm build`. The examples typecheck against `dist/`, and the pre-commit hook needs that. No pnpm cache: `setup-node` would save the store after Claude ran, and `release.yml` restores that cache with an OIDC token.
 4. `git switch -c skill-work`, and a fixed commit identity for the skill's commits.
-5. **Isolation dependencies:** install `bubblewrap` and `socat`, and set `kernel.apparmor_restrict_unprivileged_userns=0`, as the action does for `allowed_non_write_users`. Unlike there, a failure fails the job.
+5. **Isolation dependencies:** install `bubblewrap` and `socat`, and set `kernel.apparmor_restrict_unprivileged_userns=0`, as the action does for `allowed_non_write_users`. On Ubuntu 26.04 (today's `ubuntu-latest`), also unload the AppArmor profile `bwrap-userns-restrict`: it runs bwrap's children without capabilities, so the sandbox's nested user namespace fails (anthropics/claude-code#105194; seen in the first dry runs). Unlike there, a failure fails the job.
 6. `anthropics/claude-code-action@v1`:
    - `claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}`;
    - `github_token: ${{ github.token }}`, the read-only token;
