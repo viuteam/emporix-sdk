@@ -289,7 +289,7 @@ jobs:
             Context file: ${{ runner.temp }}/api-sync-skill/context.json
             Output directory: ${{ runner.temp }}/api-sync-skill
           claude_args: >-
-            --permission-mode default --model opus --max-turns 80
+            --permission-mode default --model opus --max-turns 200
             --add-dir ${{ runner.temp }}/api-sync-skill
             --allowedTools "Read,Glob,Grep,Skill,Edit(packages/sdk/**),Edit(docs/**),Edit(.changeset/**),Edit(/${{ runner.temp }}/api-sync-skill/**),Write(packages/sdk/**),Write(docs/**),Write(.changeset/**),Write(/${{ runner.temp }}/api-sync-skill/**),Bash(pnpm build:*),Bash(pnpm typecheck:*),Bash(pnpm lint:*),Bash(pnpm test:*),Bash(pnpm -F @viu/emporix-sdk:*),Bash(pnpm changeset status:*),Bash(node .claude/skills/emporix-api-sync/scripts/coverage.mjs:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),WebFetch(domain:developer.emporix.io),WebFetch(domain:github.com),WebFetch(domain:raw.githubusercontent.com)"
 

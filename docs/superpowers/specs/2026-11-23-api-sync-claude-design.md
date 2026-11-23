@@ -177,7 +177,7 @@ Settings:
    - `claude_args`:
      - `--permission-mode default`, so nothing outside the allowlist runs;
      - `--model opus`;
-     - `--max-turns 80`;
+     - `--max-turns 200`. The action fails the step when the result's turn count exceeds it, and that count includes subagent turns: the first rehearsal (#472) finished in 113 turns under a cap of 80 and was reported as a failure. The 45-minute step timeout is the real bound;
      - `--add-dir` for the output directory under `$RUNNER_TEMP`;
      - `--allowedTools`: the list below.
 7. **Package and secret check** (deterministic, `if: always()` after the action). The step:

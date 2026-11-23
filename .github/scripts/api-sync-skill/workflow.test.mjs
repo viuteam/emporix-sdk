@@ -56,6 +56,14 @@ test("the sandbox's placeholder files are excluded from git before Claude runs",
   assert.match(checkout, />> \.git\/info\/exclude/);
 });
 
+test("the turn cap leaves room for subagent turns", () => {
+  // The action fails the step when the result's num_turns exceeds --max-turns,
+  // and that count includes subagent turns: the first rehearsal finished its
+  // work in 113 turns under a cap of 80 and was reported as a failure.
+  const turns = Number(step("Run the skill").match(/--max-turns (\d+)/)[1]);
+  assert.ok(turns >= 200, `--max-turns ${turns}`);
+});
+
 test("the upload is gated on the package step", () =>
   assert.match(skillJob, /if: always\(\) && steps\.gate\.outputs\.run == 'true' && steps\.package\.outcome == 'success'/));
 
