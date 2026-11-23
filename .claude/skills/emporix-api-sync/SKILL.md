@@ -259,7 +259,13 @@ not you, publishes the result.
 - **Scope.** Change only `packages/sdk/` (not its `package.json`), `docs/` and
   `.changeset/`. The workflow rejects a result that touches anything else.
 - **Commits.** Commit on the checked-out branch `skill-work`, with commitlint
-  subjects; the hooks run. Do not rewrite the sync PR's commits.
+  subjects; the hooks run. Stage the files you changed by path, not with
+  `git add -A`: the sandbox's mount points (`.bashrc`, `.gitconfig`, …) appear in
+  the repo root while a command runs. Do not rewrite the sync PR's commits.
+- **Shell.** Keep Bash commands simple: one allowed command, pipes into
+  `tail`/`head` at most. Subshells, `$?`, variables and command substitution
+  need an approval nobody can give here, so they are refused. Write logs to the
+  output directory if you need them.
 - **Bumps.** Raise the bot's `patch` changeset to `minor` when you add API
   surface, and write a changeset for every published package you touch.
 - **No live checks.** Mark every new method as unverified against a live tenant.

@@ -223,6 +223,10 @@ jobs:
           git reset -q -- "$SKILL_DIR"
           git ls-files -m -- "$SKILL_DIR" | xargs -r git update-index --skip-worktree
           git ls-files -o --exclude-standard -- "$SKILL_DIR" >> .git/info/exclude
+          # The sandbox's bubblewrap mount points show up in the repo root during
+          # each sandboxed command; a `git add -A` there must not pick them up.
+          printf '%s\n' /.bashrc /.bash_profile /.zshrc /.zprofile /.profile /.gitconfig \
+            /.gitmodules /.ripgreprc /.mcp.json /.vscode/ /.idea/ /scripts/ >> .git/info/exclude
           test -z "$(git status --porcelain)"
           git switch -q -c skill-work
           git config user.name "emporix-api-sync-skill"

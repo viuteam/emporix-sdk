@@ -46,6 +46,16 @@ test("the sandbox step unloads Ubuntu's bwrap-userns-restrict AppArmor profile",
   assert.match(deps, /kernel\.apparmor_restrict_unprivileged_userns=0/);
 });
 
+test("the sandbox's placeholder files are excluded from git before Claude runs", () => {
+  // During a sandboxed command, bubblewrap's mount points (.bashrc, .gitconfig,
+  // .mcp.json, …) sit in the repo root as untracked files; seen in dry run 3.
+  const checkout = step("Check out the sync PR with the workflow's skill");
+  for (const name of ["/.bashrc", "/.gitconfig", "/.mcp.json", "/.vscode/", "/scripts/"]) {
+    assert.ok(checkout.includes(name), name);
+  }
+  assert.match(checkout, />> \.git\/info\/exclude/);
+});
+
 test("the upload is gated on the package step", () =>
   assert.match(skillJob, /if: always\(\) && steps\.gate\.outputs\.run == 'true' && steps\.package\.outcome == 'success'/));
 
