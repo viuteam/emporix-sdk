@@ -84,7 +84,7 @@
     "@tanstack/react-query": "^5.51.0",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^16.0.0",
-    "@types/node": "^24.0.0",
+    "@types/node": "^22.0.0",
     "@types/react": "^19.2.16",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",

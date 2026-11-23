@@ -132,7 +132,7 @@
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.97.3",
-    "@types/node": "^24.0.0",
+    "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^4.1.12",
