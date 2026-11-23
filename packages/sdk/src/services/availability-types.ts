@@ -14,6 +14,8 @@ import type {
   AvailabilityDeleteBulkDto,
   IdResponse,
   BulkResponse,
+  AvailabilityPatchOperation as GeneratedAvailabilityPatchOperation,
+  AvailabilityPatchBulkDto,
 } from "../generated/availability";
 
 /** A product's availability record (bundle-aware). */
@@ -33,3 +35,12 @@ export type AvailabilityBulkDeleteInput = AvailabilityDeleteBulkDto;
 
 /** Per-entry result of a bulk availability operation (207 Multi-Status). */
 export type AvailabilityBulkResult = BulkResponse;
+
+/**
+ * One JSON-Patch operation on a stored availability. Unlike the media asset
+ * patch, `op` is upper case here and has no `add`: `"REPLACE"` or `"REMOVE"`.
+ */
+export type AvailabilityPatchOperation = GeneratedAvailabilityPatchOperation;
+
+/** One entry of a bulk partial-update request: `productId`, `site` and the `data` operations. */
+export type AvailabilityBulkPatchInput = AvailabilityPatchBulkDto;

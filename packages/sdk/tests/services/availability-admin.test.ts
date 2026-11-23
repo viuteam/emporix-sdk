@@ -63,6 +63,20 @@ describe("AvailabilityService per-product writes", () => {
     );
   });
 
+  it("patch PATCHes the per-product path with the operation array and SERVICE default", async () => {
+    const p = vi.fn().mockResolvedValue(undefined);
+    const ops = [{ op: "REPLACE" as const, path: "/stockLevel", value: 42 }];
+    await expect(svc(p).patch("p/1", "main", ops)).resolves.toBeUndefined();
+    expect(p).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "PATCH",
+        path: `${A}/p%2F1/main`,
+        body: [{ op: "REPLACE", path: "/stockLevel", value: 42 }],
+        auth: { kind: "service" },
+      }),
+    );
+  });
+
   it("escapes path segments and honors an explicit auth override", async () => {
     const c = vi.fn().mockResolvedValue({ id: "x" });
     await svc(c).create("p/1", "main", {} as never, { kind: "raw", token: "X" });
@@ -101,6 +115,27 @@ describe("AvailabilityService bulk", () => {
         auth: { kind: "service" },
       }),
     );
+  });
+
+  it("bulkPatch PATCHes /availability/bulk and returns the per-entry results", async () => {
+    const results = [
+      { id: "main:p1", index: 0, code: 204, status: "No Content" },
+      { index: 1, code: 404, status: "Not Found" },
+    ];
+    const p = vi.fn().mockResolvedValue(results);
+    const input = [
+      { productId: "p1", site: "main", data: [{ op: "REPLACE" as const, path: "/stockLevel", value: 42 }] },
+      { productId: "p2", site: "main", data: [{ op: "REMOVE" as const, path: "/stockLevel" }] },
+    ];
+    await expect(svc(p).bulkPatch(input)).resolves.toEqual(results);
+    expect(p).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "PATCH", path: `${A}/bulk`, body: input, auth: { kind: "service" } }),
+    );
+    expect(p.mock.calls[0]?.[0]).not.toHaveProperty("headers");
+
+    const v = vi.fn().mockResolvedValue([]);
+    await svc(v).bulkPatch([], { vendorId: "v1" });
+    expect(v).toHaveBeenCalledWith(expect.objectContaining({ headers: { "vendor-id": "v1" } }));
   });
 
   it("sends the vendor-id header only when vendorId is given", async () => {

@@ -63,6 +63,8 @@ describe("CategoryService admin core CRUD", () => {
     ["create", (s, o) => s.create({} as never, o)],
     ["update", (s, o) => s.update("c1", {} as never, o)],
     ["patch", (s, o) => s.patch("c1", {} as never, o)],
+    ["bulkCreate", (s, o) => s.bulkCreate([], o)],
+    ["bulkPatch", (s, o) => s.bulkPatch([], o)],
   ];
 
   it.each(writes)("%s sends contentLanguage as the Content-Language header", async (_, call) => {
@@ -82,6 +84,40 @@ describe("CategoryService admin core CRUD", () => {
     const r = vi.fn().mockResolvedValue(undefined);
     await call(svc(r), {});
     expect(r.mock.calls[0]?.[0]).not.toHaveProperty("headers");
+  });
+});
+
+describe("CategoryService bulk writes", () => {
+  it("bulkCreate POSTs /categories/bulk with the array body and returns the per-entry results", async () => {
+    const results = [
+      { index: 0, id: "beverages", code: 201, status: "Created" },
+      { index: 1, code: 400, status: "Bad Request", details: [{ message: "localizedName: must not be empty" }] },
+    ];
+    const c = vi.fn().mockResolvedValue(results);
+    const input = [
+      { id: "beverages", localizedName: { en: "Beverages" }, published: true },
+      { localizedName: {}, published: true },
+    ];
+    await expect(svc(c).bulkCreate(input)).resolves.toEqual(results);
+    expect(c).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "POST", path: `${B}/bulk`, body: input, auth: { kind: "service" } }),
+    );
+    expect(c.mock.calls[0]?.[0]).not.toHaveProperty("query");
+  });
+
+  it("bulkPatch PATCHes /categories/bulk and forwards publish=false", async () => {
+    const p = vi.fn().mockResolvedValue([{ index: 0, id: "snacks", code: 204, status: "No Content" }]);
+    const input = [{ id: "snacks", published: false, metadata: { version: 3 } }];
+    await svc(p).bulkPatch(input, { publish: false });
+    expect(p).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "PATCH",
+        path: `${B}/bulk`,
+        query: { publish: "false" },
+        body: input,
+        auth: { kind: "service" },
+      }),
+    );
   });
 });
 
@@ -161,6 +197,23 @@ describe("CategoryService.assignments", () => {
     const bu = vi.fn().mockResolvedValue([{ status: "200" }]);
     await svc(bu).assignments.bulkUpsertByReference("c1", [{ ref: { id: "p1" } }]);
     expect(bu).toHaveBeenCalledWith(expect.objectContaining({ method: "PUT", path: `${B}/c1/assignments/references/bulk`, auth: { kind: "service" } }));
+  });
+
+  it("bulkRemoveByReference DELETEs …/references/bulk with the reference ids as body", async () => {
+    const results = [
+      { index: 0, id: "1639265", code: 204, status: "No Content" },
+      { index: 1, code: 404, status: "Not Found" },
+    ];
+    const br = vi.fn().mockResolvedValue(results);
+    await expect(svc(br).assignments.bulkRemoveByReference("c/1", ["1639265", "1639266"])).resolves.toEqual(results);
+    expect(br).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "DELETE",
+        path: `${B}/c%2F1/assignments/references/bulk`,
+        body: ["1639265", "1639266"],
+        auth: { kind: "service" },
+      }),
+    );
   });
 
   it("tenant-level reference ops target /assignments/references/{id}", async () => {

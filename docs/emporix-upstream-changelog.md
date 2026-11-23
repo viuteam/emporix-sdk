@@ -5,6 +5,61 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-11-23 — category, media, availability, product: bulk writes
+
+Vendored by the daily sync in viuteam/emporix-sdk#472 (`availability`,
+`category`, `media`, `product`). **9 new endpoints, 0 removed, 0 newly
+deprecated** — measured by mapping operations on path literal
+(`node .claude/skills/emporix-api-sync/scripts/coverage.mjs`): the four specs
+went from 9 uncovered to 0, and the remaining uncovered list is exactly the
+documented exclusions.
+
+### Endpoints
+
+All announced in the [Emporix changelog](https://developer.emporix.io/changelog)
+on 2026-11-23. None of the new methods is verified against a live tenant yet,
+and none has a React or Angular hook.
+
+- **category** — `POST` and `PATCH /category/{tenant}/categories/bulk`,
+  `DELETE …/categories/{categoryId}/assignments/references/bulk`. SDK: added
+  `categories.bulkCreate`, `categories.bulkPatch` and
+  `categories.assignments.bulkRemoveByReference`. See
+  [categories.md](./categories.md#bulk-writes).
+- **media** — `POST`, `PATCH` and `DELETE /media/{tenant}/assets/bulk`. SDK:
+  added `media.bulkCreate` (JSON for LINK, multipart for BLOB), `media.bulkPatch`
+  and `media.bulkRemove`. See [media.md](./media.md#bulk-create-patch-and-delete).
+- **availability** — `PATCH /availability/{tenant}/availability/{productId}/{site}`
+  and `PATCH …/availability/bulk`. SDK: added `availability.patch` and
+  `availability.bulkPatch`. See [availability.md](./availability.md#admin-writes).
+- **product** — `PATCH /product/{tenant}/products/bulk`. SDK: added
+  `products.bulkPatch`. See [products.md](./products.md#bulk-partial-update).
+
+### Fields
+
+No new fields on existing schemas. The new request and result schemas are
+aliased: `CategoryBulkCreateInput`, `CategoryBulkPatchInput`,
+`CategoryBulkResult`, `CategoryAssignmentRefBulkDeleteInput`,
+`AssetBulkCreateInput`, `AssetBulkPatchItem`, `AssetBulkRemoveInput`,
+`AssetBulkResult`, `AssetBulkOptions`, `AvailabilityPatchOperation`,
+`AvailabilityBulkPatchInput`, `ProductBulkPatchInput`. The media spec adds an
+optional `vendor-id` header on the bulk path, without describing its effect.
+
+### Behaviour
+
+- Every bulk call answers `207` with one result per entry and caps at 200
+  entries; more is a whole-call `400`. An empty array answers `207` with `[]`.
+- None of the partial updates creates a missing record (`404`), unlike the
+  `PUT` upserts next to them.
+- Availability JSON-Patch uses upper-case `op` (`REPLACE`, `REMOVE`); media uses
+  lower-case RFC-6902 ops.
+- Category `bulkPatch` requires `metadata.version` per entry (optimistic
+  locking), and the `publish` query flag must agree with `published` on the
+  entries.
+- Media bulk delete is idempotent: an asset that is already gone still answers
+  `204` for its item (Emporix media guide).
+- `docs/media.md` used to say Media has no batch endpoint, and the JSDoc on
+  `availability.update` said there is no `PATCH`; both are corrected.
+
 ## 2026-11-21 — webhook: failed messages, jobs, delivery status; AI artifacts and provenance; indexing, import, price, cart
 
 Vendored by the daily sync in viuteam/emporix-sdk#455, #457, #459 and #461

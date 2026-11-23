@@ -88,8 +88,9 @@ const admin = new EmporixClient({
 await admin.products.create(product); // `name: { de: "Stuhl", en: "Chair" }` and friends
 ```
 
-The product writes (`create`, `update`, `replace`, `bulkCreate`, `bulkUpdate`)
-and the category writes (`create`, `update`, `patch`) override it per call:
+The product writes (`create`, `update`, `replace`, `bulkCreate`, `bulkUpdate`,
+`bulkPatch`) and the category writes (`create`, `update`, `patch`, `bulkCreate`,
+`bulkPatch`) override it per call:
 
 ```ts
 // One plain German string, on a client whose default is "*"
@@ -123,6 +124,34 @@ await german.currencies.updateCurrency("CHF", { name: "Schweizer Franken", metad
   (`client.setStorefrontContext({ language: "*" })`). A read in one language
   returns plain strings, so an editor built on it never sees the other
   translations.
+
+## Bulk partial update
+
+`bulkPatch` (`PATCH /products/bulk`, added upstream on 2026-11-23) is the bulk
+counterpart of `update`: up to 200 partial product documents, each with its
+`id`; omitted fields stay as they are.
+
+```ts
+const results = await admin.products.bulkPatch([
+  { id: "62d65a15088ed94ebf093d7d", code: "SM-X2-2024", metadata: { version: 1 } },
+  { id: "62d65a15088ed94ebf093d8d", published: true },
+]);
+const missing = results.filter((r) => r.code === 404);
+```
+
+- It answers `207` with one result per entry at the entry's index and does not
+  throw for a failed entry.
+- Unlike `bulkUpdate` (`PUT`), it never creates: an unknown `id` is a `404`
+  entry.
+- Like `update`, it takes a document, not a JSON-Patch op-array. The entry type
+  is closed upstream (`additionalProperties: false`) and narrower than
+  `ProductPatchInput`.
+- Publishing or unpublishing through `published` needs
+  `product.product_publish` / `product.product_unpublish` as well.
+- It takes the same write options as the other writes (`doIndex`,
+  `skipVariantGeneration`, `skipRelatedItemsValidation`, `contentLanguage`).
+
+Not verified against a live tenant yet.
 
 ## React
 

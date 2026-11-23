@@ -69,6 +69,7 @@ describe("ProductService write options: contentLanguage", () => {
     ["replace", (s, o) => s.replace("p1", {} as never, o)],
     ["bulkCreate", (s, o) => s.bulkCreate([] as never, o)],
     ["bulkUpdate", (s, o) => s.bulkUpdate([] as never, o)],
+    ["bulkPatch", (s, o) => s.bulkPatch([] as never, o)],
   ];
 
   it.each(writes)("%s sends it as the Content-Language header", async (_, call) => {
@@ -97,6 +98,30 @@ describe("ProductService bulk + recalculation", () => {
     const bu = vi.fn().mockResolvedValue([{ status: 200 }]);
     await svc(bu).bulkUpdate([] as never);
     expect(bu).toHaveBeenCalledWith(expect.objectContaining({ method: "PUT", path: `${B}/bulk`, body: [], auth: { kind: "service" } }));
+  });
+
+  it("bulkPatch PATCHes /products/bulk with the partial documents and returns the per-entry results", async () => {
+    const results = [
+      { index: 0, id: "p1", code: 204, status: "NO_CONTENT" },
+      { index: 1, id: "p2", code: 404, status: "NOT_FOUND" },
+    ];
+    const bp = vi.fn().mockResolvedValue(results);
+    const input = [{ id: "p1", code: "SM-X2", metadata: { version: 1 } }, { id: "p2", published: true }];
+    await expect(svc(bp).bulkPatch(input)).resolves.toEqual(results);
+    expect(bp).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "PATCH", path: `${B}/bulk`, body: input, auth: { kind: "service" } }),
+    );
+    expect(bp.mock.calls[0]?.[0]).not.toHaveProperty("query");
+  });
+
+  it("bulkPatch forwards the write flags as query parameters", async () => {
+    const bp = vi.fn().mockResolvedValue([]);
+    await svc(bp).bulkPatch([], { doIndex: false, skipVariantGeneration: true, skipRelatedItemsValidation: true });
+    expect(bp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: { doIndex: "false", skipVariantGeneration: "true", skipRelatedItemsValidation: "true" },
+      }),
+    );
   });
 
   it("recalculate POSTs /products/recalculate with the productIds body", async () => {
