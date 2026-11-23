@@ -30,8 +30,10 @@ const client = new EmporixClient({
 </EmporixProvider>;
 ```
 
-Create `EmporixClient` **once** (per app, or once per server for SSR) — never
-per request/render.
+Create the `EmporixClient` you pass to the provider once per app in the browser and
+once per request on the server — `useState(() => new EmporixClient(…))` gives you
+both — never per render. A module-level client on the server would share one
+guest session, and with it one guest cart, between every visitor.
 
 ### No token in the browser (BFF)
 
