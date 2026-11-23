@@ -9,6 +9,8 @@ import type {
   AvailabilityBulkInput,
   AvailabilityBulkDeleteInput,
   AvailabilityBulkResult,
+  AvailabilityPatchOperation,
+  AvailabilityBulkPatchInput,
 } from "./availability-types";
 
 export type {
@@ -18,6 +20,8 @@ export type {
   AvailabilityBulkInput,
   AvailabilityBulkDeleteInput,
   AvailabilityBulkResult,
+  AvailabilityPatchOperation,
+  AvailabilityBulkPatchInput,
 } from "./availability-types";
 
 /** Shared options for {@link AvailabilityService} reads. */
@@ -162,8 +166,8 @@ export class AvailabilityService {
   /**
    * Upserts a product's availability on a site
    * (`PUT /availability/{productId}/{site}`). Returns the created record's id
-   * on 201 and nothing on 204. This endpoint has no PATCH counterpart.
-   * Default auth: service.
+   * on 201 and nothing on 204. To change single fields without sending the
+   * whole record, use {@link patch}. Default auth: service.
    */
   async update(
     productId: string,
@@ -177,6 +181,42 @@ export class AvailabilityService {
         productId,
       )}/${encodeURIComponent(siteCode)}`,
       body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Partially updates a stored availability
+   * (`PATCH /availability/{productId}/{site}`) with JSON-Patch operations —
+   * fields the patch does not name stay as they are. `op` is upper case
+   * (`"REPLACE"` / `"REMOVE"`). Resolves with nothing on `204`.
+   *
+   * Unlike {@link update}, this never creates a record: a missing availability,
+   * including a calculated bundle availability, answers `404`
+   * (`EmporixNotFoundError`). A `400` covers more than a malformed patch — a
+   * missing product or site, a vendor that does not own the product, or mixin
+   * metadata that fails validation; the stored record stays unchanged.
+   *
+   * ```ts
+   * await client.availability.patch("PRODUCT-1", "main", [
+   *   { op: "REPLACE", path: "/stockLevel", value: 42 },
+   * ]);
+   * ```
+   *
+   * Default auth: service (`availability.availability_manage`).
+   */
+  async patch(
+    productId: string,
+    siteCode: string,
+    operations: AvailabilityPatchOperation[],
+    auth: AuthContext = SERVICE,
+  ): Promise<void> {
+    await this.ctx.http.request<void>({
+      method: "PATCH",
+      path: `/availability/${this.ctx.tenant}/availability/${encodeURIComponent(
+        productId,
+      )}/${encodeURIComponent(siteCode)}`,
+      body: operations,
       auth,
     });
   }
@@ -234,6 +274,33 @@ export class AvailabilityService {
   ): Promise<AvailabilityBulkResult[]> {
     return this.ctx.http.request<AvailabilityBulkResult[]>({
       method: "PUT",
+      path: `/availability/${this.ctx.tenant}/availability/bulk`,
+      ...(options.vendorId === undefined ? {} : { headers: { "vendor-id": options.vendorId } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Bulk partial update (`PATCH /availability/bulk`): each entry names one
+   * availability by `productId` and `site` and carries its JSON-Patch
+   * operations in `data`. At most 200 entries — a longer array is rejected
+   * whole with `400`; an empty one resolves to `[]`.
+   *
+   * Responds 207 Multi-Status and does **not** throw for a failed entry —
+   * inspect each `code`. A patched entry is `204` with `id` `"{site}:{productId}"`;
+   * a missing availability is `404` without an `id` and is **not** created
+   * (unlike {@link bulkUpdate}); an inapplicable operation is `400` and leaves
+   * that record unchanged. See {@link bulkCreate} for the `vendorId` header
+   * caveat. Default auth: service.
+   */
+  async bulkPatch(
+    input: AvailabilityBulkPatchInput[],
+    options: { vendorId?: string } = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<AvailabilityBulkResult[]> {
+    return this.ctx.http.request<AvailabilityBulkResult[]>({
+      method: "PATCH",
       path: `/availability/${this.ctx.tenant}/availability/bulk`,
       ...(options.vendorId === undefined ? {} : { headers: { "vendor-id": options.vendorId } }),
       body: input,

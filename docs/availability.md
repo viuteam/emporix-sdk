@@ -36,6 +36,36 @@ const list = await client.availability.getMany(["P1", "P2", "P3"], "main");
 `getMany` issues a single `POST /availability/{tenant}/availability/search`. The
 result always has the same length and order as `productIds`.
 
+## Admin writes
+
+Writes default to the service token and need `availability.availability_manage`.
+`create` (`POST`), `update` (`PUT`, an upsert) and `delete` work on one
+product/site; `bulkCreate`, `bulkUpdate` and `bulkDelete` take arrays and answer
+`207` with one result per entry.
+
+`patch` and `bulkPatch` (added upstream on 2026-11-23) change only the fields a
+JSON-Patch names:
+
+```ts
+await client.availability.patch("PRODUCT-1", "main", [
+  { op: "REPLACE", path: "/stockLevel", value: 42 },
+]);
+
+const results = await client.availability.bulkPatch([
+  { productId: "P1", site: "main", data: [{ op: "REPLACE", path: "/stockLevel", value: 42 }] },
+  { productId: "P2", site: "main", data: [{ op: "REMOVE", path: "/stockLevel" }] },
+]);
+```
+
+| Trap | Detail |
+| --- | --- |
+| Upper-case `op` | `"REPLACE"` or `"REMOVE"` — unlike the lower-case media JSON-Patch, and there is no `add`. |
+| Patch never creates | A missing availability, including a calculated bundle, is `404` (thrown by `patch`, an entry in `bulkPatch`). Use `update` to upsert. |
+| `400` is not only a bad patch | A missing product or site, a vendor that does not own the product, or mixin metadata that fails validation also answer `400`; the record stays unchanged. |
+| Bulk limits | At most 200 entries — more is a whole-call `400`; an empty array resolves to `[]`. A patched entry's `id` is `"{site}:{productId}"`. |
+
+Neither method has been verified against a live tenant yet.
+
 ## React
 
 ```tsx

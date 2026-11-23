@@ -260,10 +260,50 @@ Reference types are `BRAND`, `CATEGORY`, `LABEL`, `PRODUCT`, `MODULE`, `AGENT`
 or any custom schema type. `AGENT` is what links a `PRIVATE` asset to an AI
 agent — see [`ai.md`](./ai.md).
 
+## Bulk create, patch and delete
+
+`bulkCreate`, `bulkPatch` and `bulkRemove` wrap `/media/{tenant}/assets/bulk`
+(added upstream on 2026-11-23). Each takes up to 200 items and answers `207`
+Multi-Status with one result per item, in request order — a failed item does
+**not** throw, so check every `code`:
+
+```ts
+// LINK assets travel as a JSON array
+const created = await client.media.bulkCreate({
+  kind: "link",
+  items: [{ type: "LINK", access: "PUBLIC", url: "https://example.com/banner.html" }],
+});
+
+// BLOB assets travel as multipart: each item pairs its file with its body
+await client.media.bulkCreate({
+  kind: "blob",
+  items: [
+    { file: heroJpg, body: { type: "BLOB", access: "PUBLIC", details: { filename: "hero" } } },
+    { file: specPdf, body: { type: "BLOB", access: "PRIVATE", details: { filename: "spec" } } },
+  ],
+});
+
+// Same JSON-Patch op-arrays as `patch`, one per asset
+await client.media.bulkPatch([
+  { id: "a1", data: [{ op: "replace", path: "/url", value: "https://example.com/v2.html" }] },
+]);
+
+const removed = await client.media.bulkRemove(["a1", "a2"]);
+const failed = removed.filter((r) => r.code >= 300);
+```
+
+| Trap | Detail |
+| --- | --- |
+| One asset type per create call | BLOBs only through multipart, LINKs only through JSON. A BLOB sent as JSON fails *per item* with `400`, not for the whole call. |
+| Whole-call `400` | More than 200 items, a non-array body, a file count that differs from the body count, or a patch item without `id` — nothing is stored or changed. |
+| A rejected create loses its `id` | A supplied `id` is only echoed back for items that were created. |
+| Delete is idempotent | An asset that is already gone still answers `204` for its item, so `204` does not prove the id existed. |
+| `vendorId` option | Sent as the `vendor-id` header, which the spec declares on the bulk path only and does not describe further. |
+
+None of the three has been verified against a live tenant yet.
+
 ## Out of scope
 
 - Browser-side uploads through the Media API — they need a server-side
   token-exchange step (in Next, see `@viu/emporix-sdk-next/session`). A [direct
   upload](#direct-upload) needs only the session the server starts.
-- Bulk operations — Emporix Media has no batch endpoint (unlike
-  `cart.itemsBatch`). Loops over `create` / `update` are the only path.

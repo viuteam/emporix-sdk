@@ -15,6 +15,7 @@ import type {
   ProductPartialUpdateBody,
   ProductBulkCreateBody,
   ProductBulkUpdateBody,
+  ProductBulkPartialUpdateBody,
   BulkResponse,
   ResourceLocation,
   DynamicVariantRecalculationRequest,
@@ -63,6 +64,12 @@ export type ProductBulkCreateInput = ProductBulkCreateBody;
 
 /** Body for bulk-updating products (`PUT /products/bulk`). */
 export type ProductBulkUpdateInput = ProductBulkUpdateBody;
+
+/**
+ * Body for partially updating products in bulk (`PATCH /products/bulk`): an
+ * array of partial product documents, each identified by its required `id`.
+ */
+export type ProductBulkPatchInput = ProductBulkPartialUpdateBody;
 
 /** Per-entry result of a bulk product operation (207 Multi-Status). */
 export type ProductBulkResult = BulkResponse;
@@ -533,6 +540,46 @@ export class ProductService {
     };
     return this.ctx.http.request<ProductBulkResult[]>({
       method: "PUT",
+      path: `/product/${this.ctx.tenant}/products/bulk`,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Partially updates products in bulk (`PATCH /products/bulk`) — the bulk
+   * counterpart of {@link update}. Each entry is a partial product document
+   * with a required `id`; omitted fields stay as they are. At most 200 entries.
+   *
+   * Responds 207 Multi-Status and does **not** throw for a failed entry —
+   * inspect each `code`; results sit at the same index as their entry. Unlike
+   * {@link bulkUpdate}, a product that does not exist is **not** created: its
+   * entry comes back `404`.
+   *
+   * Like {@link update}, this takes a document, not a JSON-Patch op-array. The
+   * entry type is narrower than {@link ProductPatchInput} (`additionalProperties:
+   * false` upstream), so the server rejects fields outside it.
+   *
+   * Publishing or unpublishing through `published` needs the
+   * `product.product_publish` / `product.product_unpublish` scope on top of
+   * `product.product_manage`. Default auth: service.
+   */
+  async bulkPatch(
+    input: ProductBulkPatchInput,
+    options: ProductWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<ProductBulkResult[]> {
+    const query = {
+      ...(options.skipVariantGeneration === undefined ? {} : { skipVariantGeneration: String(options.skipVariantGeneration) }),
+      ...(options.doIndex === undefined ? {} : { doIndex: String(options.doIndex) }),
+      ...(options.skipRelatedItemsValidation === undefined ? {} : { skipRelatedItemsValidation: String(options.skipRelatedItemsValidation) }),
+    };
+    return this.ctx.http.request<ProductBulkResult[]>({
+      method: "PATCH",
       path: `/product/${this.ctx.tenant}/products/bulk`,
       ...(Object.keys(query).length > 0 ? { query } : {}),
       ...(options.contentLanguage === undefined

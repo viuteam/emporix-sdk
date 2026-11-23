@@ -19,6 +19,10 @@ import type {
   BulkAssignmentUpsertRequest,
   BulkAssignmentResponse,
   AssignmentIdResponse,
+  CategoryBulkCreateRequest,
+  CategoryBulkPatchRequest,
+  CategoryBulkItemList,
+  AssignmentReferenceBulkDeleteRequest,
 } from "../generated/category";
 
 const ANON: AuthContext = { kind: "anonymous" };
@@ -66,7 +70,26 @@ export type CategoryAssignmentBulkResult = BulkAssignmentResponse;
 /** Id envelope returned when an assignment is created. */
 export type CategoryAssignmentCreated = AssignmentIdResponse;
 
-/** Options shared by the category write endpoints (create, update, patch). */
+/** Body for creating categories in bulk (`POST /categories/bulk`) — at most 200 entries. */
+export type CategoryBulkCreateInput = CategoryBulkCreateRequest;
+
+/**
+ * Body for partially updating categories in bulk (`PATCH /categories/bulk`) —
+ * at most 200 entries, each with a required `id` and `metadata.version`.
+ */
+export type CategoryBulkPatchInput = CategoryBulkPatchRequest;
+
+/**
+ * Per-entry result of a bulk category operation (207 Multi-Status): `index`
+ * into the request, `code`/`status`, and `id` (category id, or the reference
+ * id for assignment deletes) when the entry succeeded.
+ */
+export type CategoryBulkResult = CategoryBulkItemList[number];
+
+/** Body for deleting a category's assignments by reference id in bulk — the reference ids. */
+export type CategoryAssignmentRefBulkDeleteInput = AssignmentReferenceBulkDeleteRequest;
+
+/** Options shared by the category write endpoints (create, update, patch, bulkCreate, bulkPatch). */
 export interface CategoryWriteOptions {
   /** Sets the `publish` query flag (needs the `category.category_publish` scope). */
   publish?: boolean;
@@ -421,6 +444,65 @@ export class CategoryService {
     });
   }
 
+  /**
+   * Creates categories in bulk (`POST /categories/bulk`). At most 200 entries —
+   * a longer array is rejected whole with `400`; an empty one resolves to `[]`.
+   * A supplied `id` is kept, otherwise the service generates one.
+   *
+   * Responds 207 Multi-Status and does **not** throw for a failed entry —
+   * inspect each `code` (`201` created, `400` with `details` for a validation
+   * error). `options.publish` must agree with `published` on **every** entry:
+   * with `publish: true` the entries marked `published` are published (needs
+   * `category.category_publish`), with `false` they are stored unpublished.
+   * Default auth: service.
+   */
+  async bulkCreate(
+    input: CategoryBulkCreateInput,
+    options: CategoryWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<CategoryBulkResult[]> {
+    return this.ctx.http.request<CategoryBulkResult[]>({
+      method: "POST",
+      path: `/category/${this.ctx.tenant}/categories/bulk`,
+      ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
+      body: input,
+      auth,
+    });
+  }
+
+  /**
+   * Partially updates categories in bulk (`PATCH /categories/bulk`) — the bulk
+   * counterpart of {@link patch}. Omitted fields stay as they are; a category
+   * that does not exist is **not** created. At most 200 entries.
+   *
+   * Every entry needs `metadata.version`, and it must match the stored
+   * category — optimistic locking per entry, so read before you patch.
+   *
+   * Responds 207 Multi-Status and does **not** throw for a failed entry —
+   * inspect each `code` (`204` on success). `options.publish` must agree with
+   * `published` on each entry that sets it; unpublishing needs
+   * `category.category_unpublish`. Default auth: service.
+   */
+  async bulkPatch(
+    input: CategoryBulkPatchInput,
+    options: CategoryWriteOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<CategoryBulkResult[]> {
+    return this.ctx.http.request<CategoryBulkResult[]>({
+      method: "PATCH",
+      path: `/category/${this.ctx.tenant}/categories/bulk`,
+      ...(options.publish === undefined ? {} : { query: { publish: String(options.publish) } }),
+      ...(options.contentLanguage === undefined
+        ? {}
+        : { headers: { "Content-Language": options.contentLanguage } }),
+      body: input,
+      auth,
+    });
+  }
+
   /** Deletes a category (`DELETE /categories/{categoryId}`). Default auth: service. */
   async delete(categoryId: string, auth: AuthContext = SERVICE): Promise<void> {
     await this.ctx.http.request<void>({
@@ -574,6 +656,29 @@ export class CategoryService {
         method: "PUT",
         path: `/category/${this.ctx.tenant}/categories/${categoryId}/assignments/references/bulk`,
         body: input,
+        auth,
+      }),
+
+    /**
+     * Removes one category's assignments by reference id in bulk
+     * (`DELETE …/assignments/references/bulk`); the body is the list of
+     * reference ids. Scoped to `categoryId` — the same reference on another
+     * category stays (use {@link removeAllByReference} for tenant-wide).
+     * At most 200 ids.
+     *
+     * Responds 207 Multi-Status and does **not** throw for a failed entry: an
+     * unknown reference comes back `404` in its entry. An empty list resolves
+     * to `[]`. Default auth: service.
+     */
+    bulkRemoveByReference: async (
+      categoryId: string,
+      referenceIds: CategoryAssignmentRefBulkDeleteInput,
+      auth: AuthContext = SERVICE,
+    ): Promise<CategoryBulkResult[]> =>
+      this.ctx.http.request<CategoryBulkResult[]>({
+        method: "DELETE",
+        path: `/category/${this.ctx.tenant}/categories/${encodeURIComponent(categoryId)}/assignments/references/bulk`,
+        body: referenceIds,
         auth,
       }),
 

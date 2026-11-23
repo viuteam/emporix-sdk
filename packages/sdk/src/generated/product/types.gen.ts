@@ -1174,6 +1174,48 @@ export type ProductPartialUpdate = ProductCore & {
     metadata?: ProductMetadataWithVersion;
 };
 
+/**
+ * Partially updating an existing product in bulk.
+ */
+export type ProductBulkPartialUpdate = {
+    id: Id;
+    name?: LocalizedValue;
+    /**
+     * Unique product identifier, defined by the user.
+     */
+    code?: string;
+    description?: LocalizedValue;
+    vendor?: Vendor;
+    taxClasses?: TaxClasses;
+    published?: Published;
+    /**
+     * Mark the product as weight-dependent if the line item price could change after packaging, as this is necessary to ensure that credit card payments can be authorized.
+     */
+    weightDependent?: boolean;
+    mixins?: ProductMixins;
+    /**
+     * List of items in a relationship with the main product. Assuming that in the system the following relation types are defined: `ACCESSORY` and `CONSUMABLE`, the two products: `Printer` and `Ink` exist, then the `Ink` product can be used as a related item with type `CONSUMABLE` for the Printer product.
+     * In order to find all printers for which the ink is defined as a `CONSUMABLE` then `q-param` can be used:
+     * `products?q=relatedItems.type:CONSUMABLE relatedItems.refId:Ink_Id`
+     *
+     */
+    relatedItems?: Array<RelatedItem>;
+    /**
+     * ID of brand.
+     */
+    brandId?: string;
+    brand?: Brand;
+    /**
+     * Collection of label IDs.
+     */
+    labelIds?: Array<string>;
+    labels?: Array<Label>;
+    template?: Template;
+    bundledProducts?: BundledProducts;
+    variantAttributes?: VariantAttributes;
+    metadata?: ProductMetadataWithVersion;
+};
+
 export type Vendor = {
     /**
      * An identifier of a vendor to whom the product belongs.
@@ -1235,7 +1277,7 @@ export type RelatedItem = {
  */
 export type BulkResponse = {
     /**
-     * Index of the processed product, matching the price position in request body.
+     * Index of the processed product, matching the product position in the request body.
      *
      */
     index?: number;
@@ -1484,6 +1526,8 @@ export type ProductUpdateBody = BasicProductUpdate | BundleProductUpdate | Paren
 export type ProductPartialUpdateBody = ProductPartialUpdate;
 
 export type ProductBulkUpdateBody = Array<BasicProductBulkUpdate | BundleProductBulkUpdate | ParentVariantProductBulkUpdate | VariantProductBulkUpdate | DynamicVariantProductBulkUpdate>;
+
+export type ProductBulkPartialUpdateBody = Array<ProductBulkPartialUpdate>;
 
 /**
  * A list of product create requests
@@ -1857,6 +1901,89 @@ export type PostProductCreateProductResponses = {
 };
 
 export type PostProductCreateProductResponse = PostProductCreateProductResponses[keyof PostProductCreateProductResponses];
+
+export type PatchProductUpdateBulkProductsData = {
+    body: ProductBulkPartialUpdateBody;
+    headers?: {
+        /**
+         * The Content-Language request HTTP header defines a language or multiple languages of the request body.
+         *
+         * * If the `Content-Language` header is set to `*`, the localized fields should be provided as maps of translations, where the keys are language codes and values are the fields in their respective languages.
+         * * If the `Content-Language` header is set to a specific language, the localized fields should be provided as strings.
+         * * If the `Content-Language` header is empty, the endpoint interprets the localized fields as being provided in the default language or the languages defined in the Configuration Service.
+         *
+         * **Note**: You can provide the localized fields only in languages defined in the Configuration Service. In case the fields are provided in languages that are not defined in the Configuration Service, the request is rejected.
+         *
+         * Language codes are matched to the languages defined in the Configuration Service regardless of letter case and are resolved to the configured letter case. For example, if `de-DE` is configured, `de-de` is treated as `de-DE`. When you update a localized field, a translation that is already stored keeps the letter case of its key. For example, sending `de-de` updates the stored `de-DE` translation. If the `Content-Language` header is set to `*`, the keys in the maps of translations must match the configured letter case exactly.
+         *
+         * The request is rejected with the `400` status in the following cases:
+         * * A language code has an invalid format. A valid code is a language code of 2 or 3 letters, optionally followed by hyphen-separated subtags of 2 to 8 letters or digits, for example `en`, `en-US`, or `zh-Hant`.
+         * * A localized field contains the same language more than once in different letter case, for example both `de-DE` and `de-de`.
+         *
+         * For more information, see [Translations](https://developer.emporix.io/api-documentation/standard-practices/translations).
+         *
+         */
+        'Content-Language'?: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant's name.**Note**: The tenant should always be written in lowercase.
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * The parameter is valid only for `PARENT_VARIANT` type. If true then variants are not automatically generated for the parent variant configuration.
+         */
+        skipVariantGeneration?: boolean;
+        /**
+         * Allows to control whether the change of the state should cause reindexing or not.
+         */
+        doIndex?: boolean;
+        /**
+         * If set to `true`, the validation that checks whether related products exist is skipped. This is useful during data loading, where related products may not yet exist and will be created later. This parameter is only respected when the `allowToSkipRelatedProductsValidation` system setting is set to `true`. Otherwise, it is disregarded.
+         */
+        skipRelatedItemsValidation?: boolean;
+    };
+    url: '/product/{tenant}/products/bulk';
+};
+
+export type PatchProductUpdateBulkProductsErrors = {
+    /**
+     * Bad request due to validation, incorrect parameters, etc.
+     */
+    400: CoreErrorMessage;
+    /**
+     * Unauthorized
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Access forbidden. The caller is not allowed to access this resource.
+     */
+    403: CoreErrorMessage;
+    /**
+     * Internal Server Error.
+     */
+    500: CoreErrorMessage;
+};
+
+export type PatchProductUpdateBulkProductsError = PatchProductUpdateBulkProductsErrors[keyof PatchProductUpdateBulkProductsErrors];
+
+export type PatchProductUpdateBulkProductsResponses = {
+    /**
+     * Example response
+     */
+    207: Array<BulkResponse>;
+};
+
+export type PatchProductUpdateBulkProductsResponse = PatchProductUpdateBulkProductsResponses[keyof PatchProductUpdateBulkProductsResponses];
 
 export type PostProductCreateBulkProductsData = {
     /**

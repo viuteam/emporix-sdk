@@ -3,6 +3,9 @@ import { requestPage } from "../core/paged";
 import type { AuthContext } from "../core/auth";
 import { EmporixError, errorFromResponse } from "../core/errors";
 import type {
+  AssetBulkDeleteRequest,
+  AssetBulkItemList,
+  AssetBulkPatchRequest,
   AssetCreateBlob,
   AssetCreateLink,
   AssetUpdateBlob,
@@ -47,6 +50,31 @@ export type AssetDownloadUrlQuery = NonNullable<GetMediaRetrieveDownloadUrlData[
 export type AssetUploadSessionInput = UploadSessionRequest;
 /** The storage instruction {@link MediaService.startUploadSession} returns. */
 export type AssetUploadSession = UploadSession;
+/**
+ * Per-item result of a bulk asset operation (207 Multi-Status): `index` into
+ * the request, `code`/`status`, `id` and, for a failed item, `message`/`details`.
+ */
+export type AssetBulkResult = AssetBulkItemList[number];
+/** One entry of {@link MediaService.bulkPatch}: the asset `id` and its JSON-Patch `data`. */
+export type AssetBulkPatchItem = AssetBulkPatchRequest[number];
+/** Body of {@link MediaService.bulkRemove}: the asset ids. */
+export type AssetBulkRemoveInput = AssetBulkDeleteRequest;
+/**
+ * Input for {@link MediaService.bulkCreate}. One call creates either BLOB or
+ * LINK assets, never both: BLOBs travel as multipart, LINKs as JSON. Each BLOB
+ * item pairs its file with its body, so the two cannot drift out of order.
+ */
+export type AssetBulkCreateInput =
+  | { kind: "blob"; items: { file: Blob; body: AssetCreateBlobInput }[] }
+  | { kind: "link"; items: AssetCreateLinkInput[] };
+/** Options of the bulk asset operations. */
+export interface AssetBulkOptions {
+  /**
+   * Sent as the `vendor-id` header. The spec declares it on the bulk path
+   * only and does not describe its effect yet.
+   */
+  vendorId?: string;
+}
 
 /**
  * Filter / pagination options for {@link MediaService.list}. The explicit
@@ -244,6 +272,104 @@ export class MediaService {
       method: "DELETE",
       path: `${this.base()}/${assetId}`,
       auth,
+    });
+  }
+
+  /**
+   * Create up to 200 assets in one call (`POST /assets/bulk`).
+   *
+   * - `{ kind: "link", items }` — LINK assets, sent as `application/json`.
+   * - `{ kind: "blob", items: [{ file, body }] }` — BLOB assets, sent as
+   *   `multipart/form-data`: one `body` part holding the JSON array of bodies
+   *   and one `file` part per item, in the same order (max 30 MB per file).
+   *
+   * Responds 207 Multi-Status and does **not** throw for a failed item —
+   * inspect each `code` (`201` with the `id` on success). A rejected create
+   * does not keep a supplied `id`. The whole call fails with `400` before
+   * anything is stored when there are more than 200 items, or the file count
+   * does not match the body count. A BLOB sent as JSON is rejected per item.
+   *
+   * ```ts
+   * const results = await client.media.bulkCreate({
+   *   kind: "link",
+   *   items: [{ type: "LINK", access: "PUBLIC", url: "https://example.com/banner.html" }],
+   * });
+   * const failed = results.filter((r) => r.code >= 300);
+   * ```
+   */
+  async bulkCreate(
+    input: AssetBulkCreateInput,
+    options: AssetBulkOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<AssetBulkResult[]> {
+    const headers = options.vendorId === undefined ? {} : { headers: { "vendor-id": options.vendorId } };
+    if (input.kind === "blob") {
+      const fd = new FormData();
+      fd.set("body", JSON.stringify(input.items.map((i) => i.body)));
+      for (const item of input.items) fd.append("file", item.file);
+      return this.ctx.http.request<AssetBulkResult[]>({
+        method: "POST",
+        path: `${this.base()}/bulk`,
+        ...headers,
+        auth,
+        body: fd,
+      });
+    }
+    return this.ctx.http.request<AssetBulkResult[]>({
+      method: "POST",
+      path: `${this.base()}/bulk`,
+      ...headers,
+      auth,
+      body: input.items,
+    });
+  }
+
+  /**
+   * Partially update up to 200 assets in one call (`PATCH /assets/bulk`). Each
+   * item is `{ id, data }`, where `data` is the same JSON-Patch op-array
+   * {@link patch} takes — so the same rules hold per item: `type` and `access`
+   * are immutable, `op` is `add` / `remove` / `replace`.
+   *
+   * Responds 207 Multi-Status and does **not** throw for a failed item —
+   * inspect each `code` (`204` on success, `404` for an unknown id). The whole
+   * call fails with `400` before anything changes when there are more than
+   * 200 items or an item has no `id`.
+   */
+  async bulkPatch(
+    items: AssetBulkPatchItem[],
+    options: AssetBulkOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<AssetBulkResult[]> {
+    return this.ctx.http.request<AssetBulkResult[]>({
+      method: "PATCH",
+      path: `${this.base()}/bulk`,
+      ...(options.vendorId === undefined ? {} : { headers: { "vendor-id": options.vendorId } }),
+      auth,
+      body: items,
+    });
+  }
+
+  /**
+   * Delete up to 200 assets in one call (`DELETE /assets/bulk`). Unusually for
+   * a DELETE, the ids travel in the request body.
+   *
+   * Responds 207 Multi-Status and does **not** throw for a failed id —
+   * inspect each `code` (`204` on success). Idempotent per id: an asset that
+   * is already gone still answers `204` for its item (per the Emporix guide),
+   * so `204` does not prove the id ever existed. More than 200 ids fail the
+   * whole call with `400` before anything is deleted.
+   */
+  async bulkRemove(
+    assetIds: AssetBulkRemoveInput,
+    options: AssetBulkOptions = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<AssetBulkResult[]> {
+    return this.ctx.http.request<AssetBulkResult[]>({
+      method: "DELETE",
+      path: `${this.base()}/bulk`,
+      ...(options.vendorId === undefined ? {} : { headers: { "vendor-id": options.vendorId } }),
+      auth,
+      body: assetIds,
     });
   }
 

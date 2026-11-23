@@ -92,6 +92,79 @@ export type PatchOperation = {
 };
 
 /**
+ * One result for each item in the request, in request order.
+ */
+export type AssetBulkItemList = Array<{
+    /**
+     * Position of the item in the request array. The first item has index 0.
+     */
+    index: number;
+    /**
+     * Unique identifier of the asset. A rejected create does not keep this identifier.
+     */
+    id?: string;
+    /**
+     * HTTP status code for this item.
+     */
+    code: number;
+    /**
+     * HTTP status for this item.
+     */
+    status: string;
+    /**
+     * Error message. Present when the item fails.
+     */
+    message?: string;
+    /**
+     * Problems that caused the item to fail. Present when the item fails with details.
+     */
+    details?: Array<{
+        /**
+         * Description of one problem.
+         */
+        message?: string;
+    }>;
+}>;
+
+/**
+ * Link assets to create. The maximum batch size is 200.
+ */
+export type AssetBulkCreateLinkRequest = Array<AssetCreateLink>;
+
+/**
+ * Asset Bulk Create Multipart Payload
+ */
+export type AssetBulkCreateMultipart = {
+    /**
+     * Blob create objects. One object for each file, in the same order.
+     */
+    body: Array<AssetCreateBlob>;
+    /**
+     * File parts. One file for each object in `body`, in the same order. The max file size is 30 MB.
+     */
+    file: Array<Blob | File>;
+};
+
+/**
+ * Assets to patch. The maximum batch size is 200.
+ */
+export type AssetBulkPatchRequest = Array<{
+    /**
+     * Unique identifier of the asset to patch.
+     */
+    id: string;
+    /**
+     * JSON Patch operations to apply to this asset. The operations are the same as for a single asset patch.
+     */
+    data: Array<PatchOperation>;
+}>;
+
+/**
+ * Unique identifiers of the assets to delete. The maximum batch size is 200.
+ */
+export type AssetBulkDeleteRequest = Array<string>;
+
+/**
  * Asset
  */
 export type Asset = {
@@ -463,6 +536,12 @@ export type TraitXTotalCountHeader = boolean;
 export type TraitAssetIdPath = string;
 
 /**
+ * Optional vendor id for this call. Each operation describes the result when the asset or product belongs to another vendor.
+ *
+ */
+export type HeaderVendorId = string;
+
+/**
  * Content disposition for a private Google Cloud Storage signed URL. The default is `attachment`.
  * The value does not change public Cloudinary or `LINK` URLs.
  *
@@ -645,6 +724,183 @@ export type PostMediaCreateAssetResponses = {
 };
 
 export type PostMediaCreateAssetResponse = PostMediaCreateAssetResponses[keyof PostMediaCreateAssetResponses];
+
+export type DeleteMediaDeleteAssetsBulkData = {
+    body: AssetBulkDeleteRequest;
+    headers?: {
+        /**
+         * Optional vendor id for this call. Each operation describes the result when the asset or product belongs to another vendor.
+         *
+         */
+        'vendor-id'?: string;
+    };
+    path: {
+        /**
+         * The tenant that the caller is acting upon.
+         *
+         * **Note**: The tenant name should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/media/{tenant}/assets/bulk';
+};
+
+export type DeleteMediaDeleteAssetsBulkErrors = {
+    /**
+     * The request was rejected before any asset was deleted.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type DeleteMediaDeleteAssetsBulkError = DeleteMediaDeleteAssetsBulkErrors[keyof DeleteMediaDeleteAssetsBulkErrors];
+
+export type DeleteMediaDeleteAssetsBulkResponses = {
+    /**
+     * Multi-status. One result is returned for each id.
+     */
+    207: AssetBulkItemList;
+};
+
+export type DeleteMediaDeleteAssetsBulkResponse = DeleteMediaDeleteAssetsBulkResponses[keyof DeleteMediaDeleteAssetsBulkResponses];
+
+export type PatchMediaPatchAssetsBulkData = {
+    body: AssetBulkPatchRequest;
+    headers?: {
+        /**
+         * Optional vendor id for this call. Each operation describes the result when the asset or product belongs to another vendor.
+         *
+         */
+        'vendor-id'?: string;
+    };
+    path: {
+        /**
+         * The tenant that the caller is acting upon.
+         *
+         * **Note**: The tenant name should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/media/{tenant}/assets/bulk';
+};
+
+export type PatchMediaPatchAssetsBulkErrors = {
+    /**
+     * The request was rejected before any asset was changed.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PatchMediaPatchAssetsBulkError = PatchMediaPatchAssetsBulkErrors[keyof PatchMediaPatchAssetsBulkErrors];
+
+export type PatchMediaPatchAssetsBulkResponses = {
+    /**
+     * Multi-status. One result is returned for each asset.
+     */
+    207: AssetBulkItemList;
+};
+
+export type PatchMediaPatchAssetsBulkResponse = PatchMediaPatchAssetsBulkResponses[keyof PatchMediaPatchAssetsBulkResponses];
+
+export type PostMediaCreateAssetsBulkData = {
+    body: AssetBulkCreateLinkRequest;
+    headers?: {
+        /**
+         * Optional vendor id for this call. Each operation describes the result when the asset or product belongs to another vendor.
+         *
+         */
+        'vendor-id'?: string;
+    };
+    path: {
+        /**
+         * The tenant that the caller is acting upon.
+         *
+         * **Note**: The tenant name should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/media/{tenant}/assets/bulk';
+};
+
+export type PostMediaCreateAssetsBulkErrors = {
+    /**
+     * The request was rejected before any asset was stored.
+     */
+    400: ErrorMessage;
+    /**
+     * Given request is unauthorized - the authorization token is invalid or has expired. Details will be provided in the response payload.
+     */
+    401: {
+        fault?: {
+            faultstring?: string;
+            detail?: {
+                errorcode?: string;
+            };
+        };
+    };
+    /**
+     * Given authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: ErrorMessage;
+    /**
+     * Internal Service Error occurred.
+     */
+    500: ErrorMessage;
+};
+
+export type PostMediaCreateAssetsBulkError = PostMediaCreateAssetsBulkErrors[keyof PostMediaCreateAssetsBulkErrors];
+
+export type PostMediaCreateAssetsBulkResponses = {
+    /**
+     * Multi-status. One result is returned for each asset.
+     */
+    207: AssetBulkItemList;
+};
+
+export type PostMediaCreateAssetsBulkResponse = PostMediaCreateAssetsBulkResponses[keyof PostMediaCreateAssetsBulkResponses];
 
 export type DeleteMediaRemoveAssetData = {
     body?: never;

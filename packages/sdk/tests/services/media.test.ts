@@ -336,6 +336,100 @@ describe("MediaService CRUD", () => {
   });
 });
 
+describe("MediaService bulk", () => {
+  const BULK = "https://api.emporix.io/media/acme/assets/bulk";
+
+  it("bulkCreate LINK: posts the items as a JSON array and returns the per-item results", async () => {
+    let seenCT: string | null = null;
+    let seenBody: unknown = null;
+    let seenVendor: string | null = "unset";
+    server.use(
+      http.post(BULK, async ({ request }) => {
+        seenCT = request.headers.get("content-type");
+        seenVendor = request.headers.get("vendor-id");
+        seenBody = await request.json();
+        return HttpResponse.json([{ index: 0, id: "a1", code: 201, status: "Created" }], { status: 207 });
+      }),
+    );
+    const res = await svc().bulkCreate({
+      kind: "link",
+      items: [{ id: "a1", type: "LINK", access: "PUBLIC", url: "https://example.com/a.html" }],
+    });
+    expect(res).toEqual([{ index: 0, id: "a1", code: 201, status: "Created" }]);
+    expect(seenCT).toBe("application/json");
+    expect(seenVendor).toBeNull();
+    expect(seenBody).toEqual([{ id: "a1", type: "LINK", access: "PUBLIC", url: "https://example.com/a.html" }]);
+  });
+
+  it("bulkCreate BLOB: one body part with the array and one file part per item, in order", async () => {
+    let seenCT: string | null = null;
+    let bodies: unknown = null;
+    const fileNames: string[] = [];
+    server.use(
+      http.post(BULK, async ({ request }) => {
+        seenCT = request.headers.get("content-type");
+        const fd = await request.formData();
+        const b: unknown = fd.get("body");
+        if (typeof b === "string") bodies = JSON.parse(b);
+        for (const f of fd.getAll("file") as unknown[]) if (f instanceof File) fileNames.push(f.name);
+        return HttpResponse.json([], { status: 207 });
+      }),
+    );
+    await svc().bulkCreate({
+      kind: "blob",
+      items: [
+        { file: new File(["a"], "one.jpg"), body: { type: "BLOB", access: "PUBLIC", details: { filename: "one" } } },
+        { file: new File(["b"], "two.pdf"), body: { type: "BLOB", access: "PRIVATE", details: { filename: "two" } } },
+      ],
+    });
+    expect(seenCT).toMatch(/^multipart\/form-data; boundary=/);
+    expect(fileNames).toEqual(["one.jpg", "two.pdf"]);
+    expect(bodies).toEqual([
+      { type: "BLOB", access: "PUBLIC", details: { filename: "one" } },
+      { type: "BLOB", access: "PRIVATE", details: { filename: "two" } },
+    ]);
+  });
+
+  it("bulkPatch PATCHes the {id, data} items and forwards vendor-id when given", async () => {
+    let seenBody: unknown = null;
+    let seenVendor: string | null = null;
+    server.use(
+      http.patch(BULK, async ({ request }) => {
+        seenVendor = request.headers.get("vendor-id");
+        seenBody = await request.json();
+        return HttpResponse.json(
+          [{ index: 0, id: "a1", code: 404, status: "Not Found", message: "Error while getting asset" }],
+          { status: 207 },
+        );
+      }),
+    );
+    const items = [{ id: "a1", data: [{ op: "replace" as const, path: "/url", value: "https://example.com/b.html" }] }];
+    const res = await svc().bulkPatch(items, { vendorId: "v1" });
+    expect(res[0]?.code).toBe(404);
+    expect(seenVendor).toBe("v1");
+    expect(seenBody).toEqual(items);
+  });
+
+  it("bulkRemove DELETEs with the ids as the JSON body", async () => {
+    let seenBody: unknown = null;
+    server.use(
+      http.delete(BULK, async ({ request }) => {
+        seenBody = await request.json();
+        return HttpResponse.json(
+          [
+            { index: 0, id: "a1", code: 204, status: "No Content" },
+            { index: 1, id: "a2", code: 204, status: "No Content" },
+          ],
+          { status: 207 },
+        );
+      }),
+    );
+    const res = await svc().bulkRemove(["a1", "a2"]);
+    expect(res.map((r) => r.code)).toEqual([204, 204]);
+    expect(seenBody).toEqual(["a1", "a2"]);
+  });
+});
+
 describe("MediaService convenience", () => {
   it("uploadFile builds an AssetCreateBlob with refIds + details from the input", async () => {
     let parsedBody: Record<string, unknown> | null = null;

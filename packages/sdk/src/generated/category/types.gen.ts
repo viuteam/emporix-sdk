@@ -467,6 +467,121 @@ export type CategoryPartialUpdateRequest = {
 };
 
 /**
+ * One result for each item in the request, in request order.
+ */
+export type CategoryBulkItemList = Array<{
+    /**
+     * Position of the item in the request array. The first item has index 0.
+     */
+    index: number;
+    /**
+     * Category id or assignment reference id. Present when the item succeeds.
+     */
+    id?: string;
+    /**
+     * HTTP status code for this item.
+     */
+    code: number;
+    /**
+     * HTTP status for this item.
+     */
+    status: string;
+    /**
+     * Error message. Present only when the item fails.
+     */
+    message?: string;
+    /**
+     * Problems that caused the item to fail. Present only when the item fails.
+     */
+    details?: Array<{
+        /**
+         * Description of one problem.
+         */
+        message?: string;
+    }>;
+}>;
+
+/**
+ * Categories to create. The maximum batch size is 200.
+ */
+export type CategoryBulkCreateRequest = Array<CategoryCreateRequest>;
+
+/**
+ * Partial updates for existing categories. The maximum batch size is 200.
+ */
+export type CategoryBulkPatchRequest = Array<{
+    /**
+     * Category unique identifier generated when the category is created.
+     */
+    id: string;
+    /**
+     * Localized category name in a form of a map of translations.
+     */
+    localizedName?: {
+        [key: string]: string;
+    };
+    /**
+     * Localized category description in a form of a map of translations.
+     */
+    localizedDescription?: {
+        [key: string]: string;
+    };
+    /**
+     * Unique identifier of the parent category.
+     */
+    parentId?: string | null;
+    /**
+     * Provides localized category name or code without diacritics for the URL.
+     */
+    localizedSlug?: {
+        [key: string]: string;
+    };
+    /**
+     * List of external category numbers (ECNs) unique for every category.
+     */
+    ecn?: Array<string> | null;
+    /**
+     * Unique category identifier, defined by the tenant.
+     */
+    code?: string | null;
+    /**
+     * Category validity.
+     */
+    validity?: {
+        [key: string]: string;
+    };
+    /**
+     * Category position, set in relation to the categories on the same level (sharing the same parent) in the tree.
+     */
+    position?: number | null;
+    /**
+     * Flag indicating whether the category has been published or not.
+     */
+    published?: boolean | null;
+    /**
+     * List of classification mixins defined by this category.
+     */
+    ownClassificationMixins?: Array<OwnClassificationMixin>;
+    /**
+     * Custom category attributes that need to be included directly in the mixins object.
+     */
+    mixins?: {
+        [key: string]: unknown;
+    };
+    metadata: MetadataUpdate & {
+        /**
+         * Category version. Must match the stored category.
+         */
+        version: number;
+    };
+}>;
+
+/**
+ * Assignment reference ids to delete for the category. The maximum batch size is 200.
+ */
+export type AssignmentReferenceBulkDeleteRequest = Array<string>;
+
+/**
  * Definition of category tree
  */
 export type CategoryTree = {
@@ -780,6 +895,24 @@ export type Validity = {
     to?: string;
 };
 
+/**
+ * Your Emporix tenant name.
+ *
+ * **Note**: The tenant should always be written in lowercase.
+ *
+ */
+export type PathTenant = string;
+
+/**
+ * The Content-Language request HTTP header defines language(s) that can be used in the payload. Request body may contain only translations that are matching the languages specified in the header. Possible values:
+ * * `*` - request body may contain translations for all languages specified in tenant configuration. This is also the default behaviour if the header is not set.
+ * * `en`, `en,de`, `fr-CH, fr;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5` - request body may contain only translations for languages specified in the header (if they are available in tenant configuration).
+ *
+ * **Note**: For category requests, localized fields (such as `localizedName`, `localizedDescription`, `localizedSlug`) must always be provided as maps of language codes to values, regardless of the Content-Language header value.
+ *
+ */
+export type HeaderContentLanguage = string;
+
 export type DeleteCategoryTreeRemoveAllAssignmentsData = {
     body?: never;
     path: {
@@ -929,6 +1062,56 @@ export type GetCategoryTreeListCategoriesByReferenceIdResponses = {
 
 export type GetCategoryTreeListCategoriesByReferenceIdResponse = GetCategoryTreeListCategoriesByReferenceIdResponses[keyof GetCategoryTreeListCategoriesByReferenceIdResponses];
 
+export type DeleteCategoryTreeDeleteAssignmentsByReferenceBulkData = {
+    body: AssignmentReferenceBulkDeleteRequest;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Category unique identifier generated when the category is created.
+         *
+         */
+        categoryId: string;
+    };
+    query?: never;
+    url: '/category/{tenant}/categories/{categoryId}/assignments/references/bulk';
+};
+
+export type DeleteCategoryTreeDeleteAssignmentsByReferenceBulkErrors = {
+    /**
+     * The request was rejected before any assignment was deleted.
+     */
+    400: ErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Permission denied due to insufficient rights.
+     */
+    403: ErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteCategoryTreeDeleteAssignmentsByReferenceBulkError = DeleteCategoryTreeDeleteAssignmentsByReferenceBulkErrors[keyof DeleteCategoryTreeDeleteAssignmentsByReferenceBulkErrors];
+
+export type DeleteCategoryTreeDeleteAssignmentsByReferenceBulkResponses = {
+    /**
+     * Multi-status. One result is returned for each reference id.
+     */
+    207: CategoryBulkItemList;
+};
+
+export type DeleteCategoryTreeDeleteAssignmentsByReferenceBulkResponse = DeleteCategoryTreeDeleteAssignmentsByReferenceBulkResponses[keyof DeleteCategoryTreeDeleteAssignmentsByReferenceBulkResponses];
+
 export type PutCategoryTreeUpdateCategoryAssignmentsData = {
     body: BulkAssignmentUpsertRequest;
     path: {
@@ -974,6 +1157,141 @@ export type PutCategoryTreeUpdateCategoryAssignmentsResponses = {
 };
 
 export type PutCategoryTreeUpdateCategoryAssignmentsResponse = PutCategoryTreeUpdateCategoryAssignmentsResponses[keyof PutCategoryTreeUpdateCategoryAssignmentsResponses];
+
+export type PatchCategoryTreePatchCategoriesBulkData = {
+    body: CategoryBulkPatchRequest;
+    headers?: {
+        /**
+         * The Content-Language request HTTP header defines language(s) that can be used in the payload. Request body may contain only translations that are matching the languages specified in the header. Possible values:
+         * * `*` - request body may contain translations for all languages specified in tenant configuration. This is also the default behaviour if the header is not set.
+         * * `en`, `en,de`, `fr-CH, fr;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5` - request body may contain only translations for languages specified in the header (if they are available in tenant configuration).
+         *
+         * **Note**: For category requests, localized fields (such as `localizedName`, `localizedDescription`, `localizedSlug`) must always be provided as maps of language codes to values, regardless of the Content-Language header value.
+         *
+         */
+        'Content-Language'?: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * When `true`, a category whose `published` field is `true` is published. When `false`, a category whose `published` field is `false` is unpublished. The value must match the `published` field of each item that sets it.
+         * Possible values:
+         * * `true`
+         * * `false`
+         *
+         * **Note**: To publish a category you need to have `category.category_publish` scope.
+         * **Note**: To unpublish a category you need to have `category.category_unpublish` scope.
+         *
+         */
+        publish?: boolean;
+    };
+    url: '/category/{tenant}/categories/bulk';
+};
+
+export type PatchCategoryTreePatchCategoriesBulkErrors = {
+    /**
+     * The request was rejected before any category was updated.
+     */
+    400: ErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Permission denied due to insufficient rights.
+     */
+    403: ErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ErrorResponse;
+};
+
+export type PatchCategoryTreePatchCategoriesBulkError = PatchCategoryTreePatchCategoriesBulkErrors[keyof PatchCategoryTreePatchCategoriesBulkErrors];
+
+export type PatchCategoryTreePatchCategoriesBulkResponses = {
+    /**
+     * Multi-status. One result is returned for each category.
+     */
+    207: CategoryBulkItemList;
+};
+
+export type PatchCategoryTreePatchCategoriesBulkResponse = PatchCategoryTreePatchCategoriesBulkResponses[keyof PatchCategoryTreePatchCategoriesBulkResponses];
+
+export type PostCategoryTreeCreateCategoriesBulkData = {
+    body: CategoryBulkCreateRequest;
+    headers?: {
+        /**
+         * The Content-Language request HTTP header defines language(s) that can be used in the payload. Request body may contain only translations that are matching the languages specified in the header. Possible values:
+         * * `*` - request body may contain translations for all languages specified in tenant configuration. This is also the default behaviour if the header is not set.
+         * * `en`, `en,de`, `fr-CH, fr;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5` - request body may contain only translations for languages specified in the header (if they are available in tenant configuration).
+         *
+         * **Note**: For category requests, localized fields (such as `localizedName`, `localizedDescription`, `localizedSlug`) must always be provided as maps of language codes to values, regardless of the Content-Language header value.
+         *
+         */
+        'Content-Language'?: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant should always be written in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: {
+        /**
+         * When `true`, a category whose `published` field is `true` is published. When `false`, the category is stored and is not published. The query value must match `published` on every item.
+         * Possible values:
+         * * `true`
+         * * `false`
+         *
+         * **Note**: To publish a category you need to have `category.category_publish` scope.
+         *
+         */
+        publish?: boolean;
+    };
+    url: '/category/{tenant}/categories/bulk';
+};
+
+export type PostCategoryTreeCreateCategoriesBulkErrors = {
+    /**
+     * The request was rejected before any category was stored.
+     */
+    400: ErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ErrorResponse;
+    /**
+     * Permission denied due to insufficient rights.
+     */
+    403: ErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ErrorResponse;
+};
+
+export type PostCategoryTreeCreateCategoriesBulkError = PostCategoryTreeCreateCategoriesBulkErrors[keyof PostCategoryTreeCreateCategoriesBulkErrors];
+
+export type PostCategoryTreeCreateCategoriesBulkResponses = {
+    /**
+     * Multi-status. One result is returned for each category.
+     */
+    207: CategoryBulkItemList;
+};
+
+export type PostCategoryTreeCreateCategoriesBulkResponse = PostCategoryTreeCreateCategoriesBulkResponses[keyof PostCategoryTreeCreateCategoriesBulkResponses];
 
 export type GetCategoryTreeListCategoriesData = {
     body?: never;
