@@ -4,10 +4,41 @@ name: Emporix API Sync
 # specs drift from `emporix/api-references`, regenerate the SDK types, smoke-test
 # the bundle (check:treeshake), and open/update a single PR against main. The
 # full quality gate (typecheck/lint/test) runs via pr-check.yml on that PR.
+#
+# After the vendoring, two jobs run the `emporix-api-sync` skill with Claude
+# (design: docs/superpowers/specs/2026-11-23-api-sync-claude-design.md):
+#
+# - `skill` gates first (mode, sync PR, a fingerprint of the spec content, so
+#   the same content never runs twice on a schedule), then runs Claude on the
+#   sync PR's head. It holds only the read-only GITHUB_TOKEN and the Claude
+#   OAuth token, no OIDC token permission and no release App key, because the
+#   tests and hooks Claude runs execute code it just wrote. Bash runs in Claude
+#   Code's sandbox without network, the token is scrubbed from subprocesses,
+#   and the result is searched for the token before it is uploaded.
+# - `publish` holds the release App token and runs no LLM. It validates the
+#   hand-over (a git bundle plus report.md and outcome.json) and pushes
+#   chore/emporix-api-sync-skill and opens or edits its PR, or comments on the
+#   sync PR. It never pushes over a review or a push it did not make.
+#
+# Modes: scheduled runs read the repository variable API_SYNC_SKILL
+# (off | rehearsal | live; unset is off). A manual run takes the input
+# skill_mode (off | dry | rehearsal | live; default off, so a manual re-run of
+# the vendoring stays as it was). `dry` publishes nothing and writes the report
+# to the job summary.
+#
+# `sync` runs on main only, so a dry run dispatched on a feature branch never
+# opens the sync PR against that branch.
 on:
   schedule:
     - cron: "0 6 * * *" # daily at 06:00 UTC
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      skill_mode:
+        description: "Run the emporix-api-sync skill with Claude after the sync"
+        type: choice
+        # Quoted: a YAML 1.1 parser reads a bare off as the boolean false.
+        options: ["off", "dry", "rehearsal", "live"]
+        default: "off"
 
 concurrency:
   group: api-sync
@@ -15,11 +46,14 @@ concurrency:
 
 jobs:
   sync:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      has_changes: ${{ steps.detect.outputs.has_changes }}
     steps:
       # Mint a short-lived GitHub App token (same app as release.yml) so the PR
       # this job opens is attributed to the app — PRs opened with GITHUB_TOKEN
@@ -129,3 +163,202 @@ jobs:
             packages/sdk/specs
             packages/sdk/src/generated
             .changeset/emporix-api-sync.md
+
+  skill:
+    needs: sync
+    if: ${{ !cancelled() && (needs.sync.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      mode: ${{ steps.gate.outputs.mode }}
+      base_sha: ${{ steps.gate.outputs.base_sha }}
+      bot_pr: ${{ steps.gate.outputs.bot_pr }}
+      fingerprint: ${{ steps.gate.outputs.fingerprint }}
+    # Directories under $RUNNER_TEMP (the `runner` context is not available at
+    # job level): api-sync-skill holds context.json and Claude's report and
+    # outcome; api-sync-skill-artifact is what gets uploaded. Everything that
+    # runs after Claude with the token lives in root-owned /opt/api-sync-skill.
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      # No pnpm cache: setup-node would save the store after Claude ran, and
+      # release.yml restores that cache with an OIDC token.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Gate
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          API_SYNC_SKILL: ${{ vars.API_SYNC_SKILL }}
+          SKILL_MODE: ${{ inputs.skill_mode }}
+          OUT_DIR: ${{ runner.temp }}/api-sync-skill
+        run: node .github/scripts/api-sync-skill/gate.mjs
+
+      # The skill comes from the workflow's own commit, so a dry run on a feature
+      # branch uses that branch's skill. Git must not see the overlay, or Claude
+      # would commit it; on main the files are identical and nothing changes.
+      - name: Check out the sync PR with the workflow's skill
+        if: steps.gate.outputs.run == 'true'
+        env:
+          BASE_SHA: ${{ steps.gate.outputs.base_sha }}
+          SKILL_DIR: .claude/skills/emporix-api-sync
+        run: |
+          mkdir -p "$RUNNER_TEMP/api-sync-skill-artifact"
+          sudo install -d -m 755 /opt/api-sync-skill
+          sudo install -m 644 .github/scripts/api-sync-skill/claude-settings.json /opt/api-sync-skill/claude-settings.json
+          sudo install -m 644 .github/scripts/api-sync-skill/package.mjs /opt/api-sync-skill/package.mjs
+          git checkout -q --detach "$BASE_SHA"
+          git checkout -q "$GITHUB_SHA" -- "$SKILL_DIR"
+          git reset -q -- "$SKILL_DIR"
+          git ls-files -m -- "$SKILL_DIR" | xargs -r git update-index --skip-worktree
+          git ls-files -o --exclude-standard -- "$SKILL_DIR" >> .git/info/exclude
+          # The sandbox's bubblewrap mount points show up in the repo root during
+          # each sandboxed command; a `git add -A` there must not pick them up.
+          printf '%s\n' /.bashrc /.bash_profile /.zshrc /.zprofile /.profile /.gitconfig \
+            /.gitmodules /.ripgreprc /.mcp.json /.vscode/ /.idea/ /scripts/ >> .git/info/exclude
+          test -z "$(git status --porcelain)"
+          git switch -q -c skill-work
+          git config user.name "emporix-api-sync-skill"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+
+      # The examples typecheck against dist/, and the pre-commit hook runs that typecheck.
+      - name: Build packages
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm build
+
+      # Claude Code's Bash sandbox needs bubblewrap and socat, and Ubuntu 24.04
+      # restricts the unprivileged user namespaces bubblewrap uses. Ubuntu 26.04
+      # also ships the AppArmor profile bwrap-userns-restrict, which runs
+      # bwrap's children without capabilities, so the sandbox's nested user
+      # namespace fails and every Bash call with it (anthropics/claude-code#105194).
+      # Unloading it on this throwaway runner lets the sandbox start. The action
+      # does the first part itself only for allowed_non_write_users; here a
+      # failure must stop the run instead of letting it continue unsandboxed.
+      - name: Install sandbox dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bubblewrap socat
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if [ -f /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo apparmor_parser -R /etc/apparmor.d/bwrap-userns-restrict
+          fi
+
+      # The code Claude runs can write the checkout, .git/config included, and a
+      # config key such as diff.external or core.fsmonitor makes git run a
+      # command. The steps after Claude hold the token, so they restore this copy
+      # first. Taken after install and build, which set core.hooksPath.
+      - name: Keep a copy of the git config
+        if: steps.gate.outputs.run == 'true'
+        run: sudo install -m 644 .git/config /opt/api-sync-skill/git-config
+
+      - name: Run the skill
+        id: claude
+        if: steps.gate.outputs.run == 'true'
+        # Inside the job's 60 minutes, so a slow run is a step failure and the
+        # packaging still gets its turn.
+        timeout-minutes: 45
+        uses: anthropics/claude-code-action@v1
+        env:
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          settings: /opt/api-sync-skill/claude-settings.json
+          prompt: |
+            /emporix-api-sync
+            CI mode: follow "Running unattended in CI" in the skill.
+            Mode: ${{ steps.gate.outputs.mode }}
+            Context file: ${{ runner.temp }}/api-sync-skill/context.json
+            Output directory: ${{ runner.temp }}/api-sync-skill
+          claude_args: >-
+            --permission-mode default --model opus --max-turns 80
+            --add-dir ${{ runner.temp }}/api-sync-skill
+            --allowedTools "Read,Glob,Grep,Skill,Edit(packages/sdk/**),Edit(docs/**),Edit(.changeset/**),Edit(/${{ runner.temp }}/api-sync-skill/**),Write(packages/sdk/**),Write(docs/**),Write(.changeset/**),Write(/${{ runner.temp }}/api-sync-skill/**),Bash(pnpm build:*),Bash(pnpm typecheck:*),Bash(pnpm lint:*),Bash(pnpm test:*),Bash(pnpm -F @viu/emporix-sdk:*),Bash(pnpm changeset status:*),Bash(node .claude/skills/emporix-api-sync/scripts/coverage.mjs:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),WebFetch(domain:developer.emporix.io),WebFetch(domain:github.com),WebFetch(domain:raw.githubusercontent.com)"
+
+      # The repository is public and GitHub masks secrets in logs only, so the
+      # token must not reach a commit, the report or the artifact. The protected
+      # script bundles the commits, then searches every object the bundle carries
+      # and the report files for the token; it fails closed on an empty token.
+      # `rm` fails if .git is no longer a directory, which stops the step.
+      - name: Package and check the result
+        id: package
+        if: always() && steps.gate.outputs.run == 'true'
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          BASE_SHA: ${{ steps.gate.outputs.base_sha }}
+          MODE: ${{ steps.gate.outputs.mode }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          rm -f .git/config
+          sudo cat /opt/api-sync-skill/git-config > .git/config
+          node /opt/api-sync-skill/package.mjs
+
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.gate.outputs.run == 'true' && steps.package.outcome == 'success'
+        with:
+          name: api-sync-skill
+          path: ${{ runner.temp }}/api-sync-skill-artifact
+          retention-days: 7
+          if-no-files-found: ignore
+
+  publish:
+    needs: skill
+    if: ${{ !cancelled() && needs.skill.outputs.run == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      # The workflow's own commit: only its publish script runs. The bundle is
+      # fetched into a ref and inspected, never checked out or executed.
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: api-sync-skill
+          path: ${{ runner.temp }}/api-sync-skill-artifact
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HUSKY: "0"
+          MODE: ${{ needs.skill.outputs.mode }}
+          BASE_SHA: ${{ needs.skill.outputs.base_sha }}
+          BOT_PR: ${{ needs.skill.outputs.bot_pr }}
+          FINGERPRINT: ${{ needs.skill.outputs.fingerprint }}
+          SKILL_RESULT: ${{ needs.skill.result }}
+          ARTIFACT_DIR: ${{ runner.temp }}/api-sync-skill-artifact
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/api-sync-skill/publish.mjs
