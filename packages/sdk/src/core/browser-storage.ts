@@ -217,9 +217,16 @@ export function fromWebStorage(
  * define these globals too: on Node 26 `sessionStorage` is one store for the
  * whole process, so every request would share a customer's token. `document`
  * is read first because on Node 26 reading `localStorage` itself warns.
+ * A browser with storage switched off answers `null` (WebView) or throws on
+ * access (blocked storage); both count as unavailable.
  */
 function documentStorage(name: "localStorage" | "sessionStorage"): WebStorageLike | undefined {
-  return browser.document === undefined ? undefined : browser[name];
+  if (browser.document === undefined) return undefined;
+  try {
+    return browser[name] ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

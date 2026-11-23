@@ -91,6 +91,37 @@ describe("web storage in a browser (document present)", () => {
     expect(console.warn).not.toHaveBeenCalled();
   });
 
+  it.each(NAMES)("%s: storage switched off (null, as in a WebView), falls back to memory", (name) => {
+    vi.stubGlobal(name, null);
+    vi.stubGlobal("document", { cookie: "" });
+
+    const store = factory(name)();
+    store.setCustomerToken("tok");
+
+    expect(store.getCustomerToken()).toBe("tok");
+    expect(console.warn).toHaveBeenCalledWith(
+      `[emporix] ${name} unavailable; falling back to in-memory storage`,
+    );
+  });
+
+  it.each(NAMES)("%s: storage that throws on access (blocked), falls back to memory", (name) => {
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      get: () => {
+        throw new Error("SecurityError: access denied");
+      },
+    });
+    vi.stubGlobal("document", { cookie: "" });
+
+    const store = factory(name)();
+    store.setCartId("cart-1");
+
+    expect(store.getCartId()).toBe("cart-1");
+    expect(console.warn).toHaveBeenCalledWith(
+      `[emporix] ${name} unavailable; falling back to in-memory storage`,
+    );
+  });
+
   it.each(NAMES)("%s: without the storage itself, falls back to memory", (name) => {
     vi.stubGlobal(name, undefined);
     vi.stubGlobal("document", { cookie: "" });
