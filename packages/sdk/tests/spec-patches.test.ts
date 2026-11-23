@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { applyPatches, SPEC_PATCHES } from "../scripts/spec-patches";
-import { SPECS } from "../scripts/fetch-specs";
+import { SPECS } from "../scripts/specs";
 
 describe("spec-patches", () => {
   it("returns the spec unchanged, with no results, for a spec with no patches", () => {

@@ -43,7 +43,7 @@ it — no sync, no unrelated facade work. Everything the service touches:
 
 | Where | What goes |
 |---|---|
-| `packages/sdk/scripts/fetch-specs.ts` | the `SPECS` entry |
+| `packages/sdk/scripts/specs.ts` | the `SPECS` entry |
 | `packages/sdk/specs/` | `<svc>.yml`, and its entry in `.sync-manifest.json` |
 | `packages/sdk/src/generated/<svc>/` | the whole directory |
 | `packages/sdk/src/services/` | `<svc>.ts` and `<svc>-types.ts` |
