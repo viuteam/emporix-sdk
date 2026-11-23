@@ -84,6 +84,36 @@ export type AvailabilityDeleteBulkDto = {
     site?: string;
 };
 
+export type AvailabilityPatchOperation = {
+    /**
+     * Patch operation. `REPLACE` sets the field. `REMOVE` removes the field.
+     */
+    op: 'REPLACE' | 'REMOVE';
+    /**
+     * Path of the field to change. The path starts with `/`.
+     */
+    path: string;
+    /**
+     * New value for a `REPLACE` operation.
+     */
+    value?: unknown;
+};
+
+export type AvailabilityPatchBulkDto = {
+    /**
+     * Unique identifier of the product.
+     */
+    productId: string;
+    /**
+     * Site code, defined when the site is created.
+     */
+    site: string;
+    /**
+     * JSON Patch operations applied to the stored availability.
+     */
+    data: Array<AvailabilityPatchOperation>;
+};
+
 /**
  * Availability details.
  */
@@ -1029,6 +1059,63 @@ export type GetAvailabilityRetrieveProductResponses = {
 
 export type GetAvailabilityRetrieveProductResponse = GetAvailabilityRetrieveProductResponses[keyof GetAvailabilityRetrieveProductResponses];
 
+export type PatchAvailabilityUpdateProductData = {
+    body?: Array<AvailabilityPatchOperation>;
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+        /**
+         * Product unique identifier, generated when the product is created through the Product Service.
+         */
+        productId: string;
+        /**
+         * Site code, defined when the site is created.
+         */
+        site: string;
+    };
+    query?: never;
+    url: '/availability/{tenant}/availability/{productId}/{site}';
+};
+
+export type PatchAvailabilityUpdateProductErrors = {
+    /**
+     * The request was syntactically incorrect. Details are provided in the response.
+     */
+    400: BadRequest400;
+    /**
+     * The authorization token is invalid or has expired. Details are provided in the response.
+     */
+    401: Unauthorized401;
+    /**
+     * Provided authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: Forbidden403;
+    /**
+     * The requested resource was not found.
+     */
+    404: NotFound404;
+    /**
+     * Some server-side error occurred. Details are provided in the response.
+     */
+    500: UnexpectedError;
+};
+
+export type PatchAvailabilityUpdateProductError = PatchAvailabilityUpdateProductErrors[keyof PatchAvailabilityUpdateProductErrors];
+
+export type PatchAvailabilityUpdateProductResponses = {
+    /**
+     * The request was successful. The availability has been updated.
+     */
+    204: void;
+};
+
+export type PatchAvailabilityUpdateProductResponse = PatchAvailabilityUpdateProductResponses[keyof PatchAvailabilityUpdateProductResponses];
+
 export type PostAvailabilityAddProductData = {
     body?: AvailabilityDto;
     path: {
@@ -1197,6 +1284,57 @@ export type DeleteAvailabilityTenantAvailabilityBulkResponses = {
 };
 
 export type DeleteAvailabilityTenantAvailabilityBulkResponse = DeleteAvailabilityTenantAvailabilityBulkResponses[keyof DeleteAvailabilityTenantAvailabilityBulkResponses];
+
+export type PatchAvailabilityTenantAvailabilityBulkData = {
+    body?: Array<AvailabilityPatchBulkDto>;
+    headers?: {
+        /**
+         * Unique identifier of the vendor. The presence of this header will limit the operation to products assigned to the provided vendor.
+         */
+        'venodr-id'?: string;
+    };
+    path: {
+        /**
+         * Your Emporix tenant name.
+         *
+         * **Note**: The tenant name should always be provided in lowercase.
+         *
+         */
+        tenant: string;
+    };
+    query?: never;
+    url: '/availability/{tenant}/availability/bulk';
+};
+
+export type PatchAvailabilityTenantAvailabilityBulkErrors = {
+    /**
+     * The request was syntactically incorrect. Details are provided in the response.
+     */
+    400: BadRequest400;
+    /**
+     * The authorization token is invalid or has expired. Details are provided in the response.
+     */
+    401: Unauthorized401;
+    /**
+     * Provided authorization scopes are not sufficient and do not match scopes required by the endpoint.
+     */
+    403: Forbidden403;
+    /**
+     * Some server-side error occurred. Details are provided in the response.
+     */
+    500: UnexpectedError;
+};
+
+export type PatchAvailabilityTenantAvailabilityBulkError = PatchAvailabilityTenantAvailabilityBulkErrors[keyof PatchAvailabilityTenantAvailabilityBulkErrors];
+
+export type PatchAvailabilityTenantAvailabilityBulkResponses = {
+    /**
+     * Multi-status response.
+     */
+    207: Array<BulkResponse>;
+};
+
+export type PatchAvailabilityTenantAvailabilityBulkResponse = PatchAvailabilityTenantAvailabilityBulkResponses[keyof PatchAvailabilityTenantAvailabilityBulkResponses];
 
 export type PostAvailabilityTenantAvailabilityBulkData = {
     body?: Array<AvailabilityBulkDto>;
