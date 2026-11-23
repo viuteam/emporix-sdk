@@ -263,7 +263,7 @@ test("failed skill job", async () => {
   assert.equal(w.length, 1);
   assert.match(w[0], /^gh pr comment 461 /);
   const body = bodyOf(w[0]);
-  assert.ok(body.includes(RUN_URL));
+  assert.ok(body.split("\n").includes(`Run: ${RUN_URL}`), "the run link on its own line");
   assert.ok(body.includes("skill_mode: live"));
   assert.ok(body.includes(formatMarker({ fingerprint: F })));
 });
