@@ -5,21 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveMode, fingerprint, changedServices, decide, main } from "./gate.mjs";
 import { formatMarker } from "./shared.mjs";
+import { fakeRunner } from "./test-helpers.mjs";
 
 const F = "a".repeat(64);
-
-/** Answers the first entry whose key prefixes the command line; records every call. */
-function fakeRunner(table) {
-  const run = (cmd, args) => {
-    const line = [cmd, ...args].join(" ");
-    run.calls.push(line);
-    const hit = table.find(([key]) => line.startsWith(key));
-    if (!hit) throw new Error(`unexpected command: ${line}`);
-    return typeof hit[1] === "function" ? hit[1](line) : hit[1];
-  };
-  run.calls = [];
-  return run;
-}
 
 test("resolveMode", () => {
   const c = (eventName, variable, input) => resolveMode({ eventName, variable, input });
