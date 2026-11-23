@@ -24,7 +24,7 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
-        with: { node-version: 24, cache: pnpm }
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       # The changesets release PR consumes all changesets, so it legitimately
       # has none. Skip the gate there instead of failing every release PR.
