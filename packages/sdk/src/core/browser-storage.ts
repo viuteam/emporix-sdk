@@ -213,11 +213,31 @@ export function fromWebStorage(
 }
 
 /**
+ * The named Web Storage, but only where there is a `document`. A server can
+ * define these globals too: on Node 26 `sessionStorage` is one store for the
+ * whole process, so every request would share a customer's token. `document`
+ * is read first because on Node 26 reading `localStorage` itself warns.
+ * A browser with storage switched off answers `null` (WebView) or throws on
+ * access (blocked storage); both count as unavailable.
+ */
+function documentStorage(name: "localStorage" | "sessionStorage"): WebStorageLike | undefined {
+  if (browser.document === undefined) return undefined;
+  try {
+    return browser[name] ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Browser `localStorage`-backed store: persistent and shared across tabs.
- * Falls back to memory on the server (or when localStorage is unavailable).
+ * Falls back to memory wherever there is no `document` — on a server such as
+ * Node 26, whose built-in `localStorage` would be shared by every request — or
+ * when localStorage is unavailable. A server that shims a global `document`
+ * defeats this check.
  */
 export function createLocalStorage(opts: { key?: string } = {}): EmporixStorage {
-  const store = browser.localStorage;
+  const store = documentStorage("localStorage");
   if (store === undefined) {
     // eslint-disable-next-line no-console
     console.warn("[emporix] localStorage unavailable; falling back to in-memory storage");
@@ -232,10 +252,13 @@ export const createLocalStorageStorage = createLocalStorage;
 /**
  * Browser `sessionStorage`-backed store: per-tab persistence that survives a
  * reload but is cleared when the tab closes and is not shared across tabs.
- * Falls back to memory on the server (or when sessionStorage is unavailable).
+ * Falls back to memory wherever there is no `document` — on a server such as
+ * Node 26, whose built-in `sessionStorage` is one store for the whole process —
+ * or when sessionStorage is unavailable. A server that shims a global
+ * `document` defeats this check.
  */
 export function createSessionStorage(opts: { key?: string } = {}): EmporixStorage {
-  const store = browser.sessionStorage;
+  const store = documentStorage("sessionStorage");
   if (store === undefined) {
     // eslint-disable-next-line no-console
     console.warn("[emporix] sessionStorage unavailable; falling back to in-memory storage");
