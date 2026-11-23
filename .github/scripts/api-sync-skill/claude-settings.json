@@ -14,5 +14,21 @@
       ]
     }
   },
-  "permissions": { "deny": ["Read(//proc/**)"] }
+  "permissions": {
+    "deny": [
+      "Read(//proc/**)",
+      "Edit(.git/config)",
+      "Edit(.git/hooks/**)",
+      "Edit(.git/info/**)",
+      "Edit(.claude/**)",
+      "Edit(.github/**)",
+      "Edit(.husky/**)",
+      "Write(.git/config)",
+      "Write(.git/hooks/**)",
+      "Write(.git/info/**)",
+      "Write(.claude/**)",
+      "Write(.github/**)",
+      "Write(.husky/**)"
+    ]
+  }
 }

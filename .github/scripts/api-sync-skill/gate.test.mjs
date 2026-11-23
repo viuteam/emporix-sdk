@@ -119,15 +119,32 @@ test("scheduled run already handled", async () => {
   assert.equal(existsSync(join(dir, "context.json")), false);
 });
 
+const BOT = { login: "app/viu-release-bot" };
+
 test("scheduled run already handled through the skill PR body", async () => {
-  const skillPrs = [{ body: `report\n${formatMarker({ fingerprint: FP, head: PR_HEAD })}`, comments: [] }];
+  const skillPrs = [{ author: BOT, body: `report\n${formatMarker({ fingerprint: FP, head: PR_HEAD })}`, comments: [] }];
   const out = await main({ env: env(), run: fakeRunner(table({ skillPrs })), outDir: outDir() });
+  assert.equal(out.run, "false");
+});
+
+test("a foreign PR on the skill branch name does not suppress", async () => {
+  // Anyone can open a fork PR whose head is named chore/emporix-api-sync-skill.
+  const forged = { author: { login: "mallory" }, body: formatMarker({ fingerprint: FP }), comments: [] };
+  const run = fakeRunner(table({ skillPrs: [forged] }));
+  const out = await main({ env: env(), run, outDir: outDir() });
+  assert.equal(out.run, "true");
+});
+
+test("a foreign PR does not hide the release bot's PR behind it", async () => {
+  const forged = { author: { login: "mallory" }, body: "", comments: [] };
+  const ours = { author: BOT, body: formatMarker({ fingerprint: FP, head: PR_HEAD }), comments: [] };
+  const out = await main({ env: env(), run: fakeRunner(table({ skillPrs: [forged, ours] })), outDir: outDir() });
   assert.equal(out.run, "false");
 });
 
 test("human marker does not suppress", async () => {
   const botComments = [{ author: { login: "dominic" }, body: formatMarker({ fingerprint: FP }) }];
-  const skillPrs = [{ body: "", comments: [{ author: { login: "dominic" }, body: formatMarker({ fingerprint: FP }) }] }];
+  const skillPrs = [{ author: BOT, body: "", comments: [{ author: { login: "dominic" }, body: formatMarker({ fingerprint: FP }) }] }];
   const out = await main({ env: env(), run: fakeRunner(table({ botComments, skillPrs })), outDir: outDir() });
   assert.equal(out.run, "true");
 });

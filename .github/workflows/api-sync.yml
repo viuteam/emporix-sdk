@@ -180,8 +180,8 @@ jobs:
       fingerprint: ${{ steps.gate.outputs.fingerprint }}
     # Directories under $RUNNER_TEMP (the `runner` context is not available at
     # job level): api-sync-skill holds context.json and Claude's report and
-    # outcome; api-sync-skill-artifact is what gets uploaded;
-    # api-sync-skill-config holds the Claude Code settings.
+    # outcome; api-sync-skill-artifact is what gets uploaded. Everything that
+    # runs after Claude with the token lives in root-owned /opt/api-sync-skill.
     steps:
       - uses: actions/checkout@v7
         with:
@@ -190,10 +190,11 @@ jobs:
 
       - uses: pnpm/action-setup@v6
 
+      # No pnpm cache: setup-node would save the store after Claude ran, and
+      # release.yml restores that cache with an OIDC token.
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: pnpm
 
       - name: Gate
         id: gate
@@ -213,8 +214,10 @@ jobs:
           BASE_SHA: ${{ steps.gate.outputs.base_sha }}
           SKILL_DIR: .claude/skills/emporix-api-sync
         run: |
-          mkdir -p "$RUNNER_TEMP/api-sync-skill-artifact" "$RUNNER_TEMP/api-sync-skill-config"
-          cp .github/scripts/api-sync-skill/claude-settings.json "$RUNNER_TEMP/api-sync-skill-config/"
+          mkdir -p "$RUNNER_TEMP/api-sync-skill-artifact"
+          sudo install -d -m 755 /opt/api-sync-skill
+          sudo install -m 644 .github/scripts/api-sync-skill/claude-settings.json /opt/api-sync-skill/claude-settings.json
+          sudo install -m 644 .github/scripts/api-sync-skill/package.mjs /opt/api-sync-skill/package.mjs
           git checkout -q --detach "$BASE_SHA"
           git checkout -q "$GITHUB_SHA" -- "$SKILL_DIR"
           git reset -q -- "$SKILL_DIR"
@@ -247,16 +250,27 @@ jobs:
             sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
 
+      # The code Claude runs can write the checkout, .git/config included, and a
+      # config key such as diff.external or core.fsmonitor makes git run a
+      # command. The steps after Claude hold the token, so they restore this copy
+      # first. Taken after install and build, which set core.hooksPath.
+      - name: Keep a copy of the git config
+        if: steps.gate.outputs.run == 'true'
+        run: sudo install -m 644 .git/config /opt/api-sync-skill/git-config
+
       - name: Run the skill
         id: claude
         if: steps.gate.outputs.run == 'true'
+        # Inside the job's 60 minutes, so a slow run is a step failure and the
+        # packaging still gets its turn.
+        timeout-minutes: 45
         uses: anthropics/claude-code-action@v1
         env:
           CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
-          settings: ${{ runner.temp }}/api-sync-skill-config/claude-settings.json
+          settings: /opt/api-sync-skill/claude-settings.json
           prompt: |
             /emporix-api-sync
             CI mode: follow "Running unattended in CI" in the skill.
@@ -266,55 +280,28 @@ jobs:
           claude_args: >-
             --permission-mode default --model opus --max-turns 80
             --add-dir ${{ runner.temp }}/api-sync-skill
-            --allowedTools "Read,Edit,Write,Glob,Grep,Skill,Bash(pnpm build:*),Bash(pnpm typecheck:*),Bash(pnpm lint:*),Bash(pnpm test:*),Bash(pnpm -F @viu/emporix-sdk:*),Bash(pnpm changeset status:*),Bash(node .claude/skills/emporix-api-sync/scripts/coverage.mjs:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),WebFetch(domain:developer.emporix.io),WebFetch(domain:github.com),WebFetch(domain:raw.githubusercontent.com)"
-
-      - name: Package the result
-        if: always() && steps.gate.outputs.run == 'true'
-        env:
-          BASE_SHA: ${{ steps.gate.outputs.base_sha }}
-          MODE: ${{ steps.gate.outputs.mode }}
-          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-          OUT_DIR: ${{ runner.temp }}/api-sync-skill
-          PKG_DIR: ${{ runner.temp }}/api-sync-skill-artifact
-        run: |
-          if [ "$(git rev-list --count "$BASE_SHA..skill-work")" -gt 0 ]; then
-            git bundle create "$PKG_DIR/work.bundle" "$BASE_SHA..skill-work"
-          fi
-          for f in report.md outcome.json; do
-            if [ -f "$OUT_DIR/$f" ]; then cp "$OUT_DIR/$f" "$PKG_DIR/"; fi
-          done
-          if [ "$MODE" = dry ] && [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
-            cp "$EXECUTION_FILE" "$PKG_DIR/execution.json"
-          fi
+            --allowedTools "Read,Glob,Grep,Skill,Edit(packages/sdk/**),Edit(docs/**),Edit(.changeset/**),Edit(/${{ runner.temp }}/api-sync-skill/**),Write(packages/sdk/**),Write(docs/**),Write(.changeset/**),Write(/${{ runner.temp }}/api-sync-skill/**),Bash(pnpm build:*),Bash(pnpm typecheck:*),Bash(pnpm lint:*),Bash(pnpm test:*),Bash(pnpm -F @viu/emporix-sdk:*),Bash(pnpm changeset status:*),Bash(node .claude/skills/emporix-api-sync/scripts/coverage.mjs:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),WebFetch(domain:developer.emporix.io),WebFetch(domain:github.com),WebFetch(domain:raw.githubusercontent.com)"
 
       # The repository is public and GitHub masks secrets in logs only, so the
-      # token must not reach a commit, the report or the artifact. An empty
-      # token matches everything and fails the step: it fails closed.
-      - name: Check the result for the token
-        id: secret
+      # token must not reach a commit, the report or the artifact. The protected
+      # script bundles the commits, then searches every object the bundle carries
+      # and the report files for the token; it fails closed on an empty token.
+      # `rm` fails if .git is no longer a directory, which stops the step.
+      - name: Package and check the result
+        id: package
         if: always() && steps.gate.outputs.run == 'true'
         env:
           TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           BASE_SHA: ${{ steps.gate.outputs.base_sha }}
-          PKG_DIR: ${{ runner.temp }}/api-sync-skill-artifact
+          MODE: ${{ steps.gate.outputs.mode }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
-          haystack="$RUNNER_TEMP/haystack"
-          {
-            git log --format=%B "$BASE_SHA..skill-work"
-            git diff --text "$BASE_SHA" skill-work
-            for f in report.md outcome.json execution.json; do
-              if [ -f "$PKG_DIR/$f" ]; then cat "$PKG_DIR/$f"; fi
-            done
-          } > "$haystack"
-          if grep -qF -e "$TOKEN" "$haystack"; then
-            rm -f "$haystack"
-            echo "::error::The result contains the OAuth token; nothing is uploaded."
-            exit 1
-          fi
-          rm -f "$haystack"
+          rm -f .git/config
+          sudo cat /opt/api-sync-skill/git-config > .git/config
+          node /opt/api-sync-skill/package.mjs
 
       - uses: actions/upload-artifact@v7
-        if: always() && steps.gate.outputs.run == 'true' && steps.secret.outcome == 'success'
+        if: always() && steps.gate.outputs.run == 'true' && steps.package.outcome == 'success'
         with:
           name: api-sync-skill
           path: ${{ runner.temp }}/api-sync-skill-artifact

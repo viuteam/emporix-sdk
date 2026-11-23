@@ -165,7 +165,7 @@ Settings:
 
 1. `actions/checkout@v7` at `base_sha`, `fetch-depth: 0`.
 2. **Skill overlay:** `.claude/skills/emporix-api-sync` is restored from `github.sha`, so a dry run on a feature branch uses that branch's skill. On `main` the files are identical and nothing changes.
-3. pnpm, Node from `.nvmrc`, `pnpm install --frozen-lockfile`, `pnpm build`. The examples typecheck against `dist/`, and the pre-commit hook needs that.
+3. pnpm, Node from `.nvmrc`, `pnpm install --frozen-lockfile`, `pnpm build`. The examples typecheck against `dist/`, and the pre-commit hook needs that. No pnpm cache: `setup-node` would save the store after Claude ran, and `release.yml` restores that cache with an OIDC token.
 4. `git switch -c skill-work`, and a fixed commit identity for the skill's commits.
 5. **Isolation dependencies:** install `bubblewrap` and `socat`, and set `kernel.apparmor_restrict_unprivileged_userns=0`, as the action does for `allowed_non_write_users`. Unlike there, a failure fails the job.
 6. `anthropics/claude-code-action@v1`:
@@ -180,9 +180,15 @@ Settings:
      - `--max-turns 80`;
      - `--add-dir` for the output directory under `$RUNNER_TEMP`;
      - `--allowedTools`: the list below.
-7. **Package** (deterministic, `if: always()` after the action): `git bundle create` over `base_sha..skill-work`, plus `report.md` and `outcome.json` from the output directory.
-8. **Secret check** (deterministic, before the upload): the diff `base_sha..skill-work`, the commit messages, `report.md` and `outcome.json` are searched for the value of `CLAUDE_CODE_OAUTH_TOKEN`, passed to this step only. A hit fails the job and nothing is uploaded, so `publish` sees a failed run and writes only the run link. The step never prints the value or the matching line.
-9. **Upload** the bundle and the two files as one artifact.
+7. **Package and secret check** (deterministic, `if: always()` after the action). The step:
+   - restores `.git/config` from a root-owned copy taken before Claude ran;
+   - runs `package.mjs`, from a root-owned copy made before the checkout moved, so nothing Claude could write runs with the token;
+   - uses git plumbing only, with global and system config off;
+   - bundles `base_sha..skill-work`;
+   - searches every object the bundle carries (commits with their author lines, trees, blobs, intermediate ones included), `report.md` and `outcome.json` for the value of `CLAUDE_CODE_OAUTH_TOKEN`.
+
+   The token is passed to this step and the action only. A hit, an empty token, or a tampered `.git` fails the step and empties the package, so nothing is uploaded and `publish` writes only the run link. The step never prints the value or the matching line. The Claude step has its own 45-minute timeout, so a slow run still leaves time for this step.
+8. **Upload** the bundle and the two files as one artifact, only if the previous step succeeded.
 
 **Tool allowlist** (exact syntax confirmed in the dry run):
 
@@ -193,7 +199,7 @@ Settings:
 - git: `Bash(git status*)`, `Bash(git diff*)`, `Bash(git log*)`, `Bash(git show*)`, `Bash(git add*)`, `Bash(git commit*)`;
 - the web: `WebFetch(domain:developer.emporix.io)`, `WebFetch(domain:github.com)`, `WebFetch(domain:raw.githubusercontent.com)`. Upstream PRs in `emporix/api-references` are public pages, read with WebFetch.
 
-No `gh` at all: the gate already read the bot PR, and the sandbox gives Bash no network. No `git push`; the token could not do it anyway. The file tools (Read, Edit, Write, Glob, Grep) stay available, except reads under `/proc` (see below).
+No `gh` at all: the gate already read the bot PR, and the sandbox gives Bash no network. No `git push`; the token could not do it anyway. Read, Glob and Grep stay available, except reads under `/proc` (see below). Edit and Write are scoped to what `publish` accepts (`packages/sdk/**`, `docs/**`, `.changeset/**`) plus the output directory, and denied for `.git/config`, `.git/hooks/**`, `.git/info/**`, `.claude/**`, `.github/**` and `.husky/**`.
 
 **`outcome.json`**, written by Claude:
 
@@ -243,7 +249,8 @@ or carrying it out.
 | 1. Least privilege | a write credential being in reach at all | read-only `GITHUB_TOKEN`, no `id-token`, the OAuth token only on the action step and the secret check, never during `pnpm install` |
 | 2. No read | subprocesses reading the token | `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: 1`, plus `bubblewrap` for a PID namespace, so `/proc/<pid>/environ` of Claude's own process is out of reach |
 | 3. No send | subprocesses reaching the network | Claude Code's Bash sandbox: no allowed domains, `allowUnsandboxedCommands: false`, `failIfUnavailable: true`; the token's env vars denied to sandboxed commands |
-| 4. No publish | the token reaching the public repository | the secret check before the upload |
+| 4. No publish | the token reaching the public repository | the secret check before the upload, over every object the bundle carries |
+| 5. No poisoned aftermath | the steps after Claude, which hold the token, running something Claude wrote | `.git/config` restored from a root-owned copy, the script run from a root-owned copy, plumbing only; no pnpm cache saved |
 
 Layer 3 settings go in through the action's `settings` input. The keys come from
 the sandboxing docs (`sandbox.enabled`, `sandbox.network.allowedDomains`,
@@ -253,8 +260,8 @@ empty `allowedDomains` blocks all traffic, so the dry run proves it. A deny rule
 `/proc` keeps Claude's own file tool from reading its environment there.
 
 If the dry run shows that layer 3 cannot run on a hosted runner, it is dropped,
-and its gap is written into this document as an accepted risk. Layers 1, 2 and 4
-stay.
+and its gap is written into this document as an accepted risk. Layers 1, 2, 4
+and 5 stay.
 
 **Residual risk.**
 - The scrub is best-effort by its own docs.

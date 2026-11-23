@@ -3,9 +3,13 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { validateOutcome, offendingPaths, hasHumanWork, main } from "./publish.mjs";
-import { formatMarker } from "./shared.mjs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync } from "node:fs";
+import { validateOutcome, offendingPaths, hasHumanWork, changedPaths, main } from "./publish.mjs";
+import { createRunner, formatMarker } from "./shared.mjs";
 import { fakeRunner } from "./test-helpers.mjs";
+
+const BOT = { login: "app/viu-release-bot" };
 
 const F = "a".repeat(64);
 const H = "b".repeat(40);
@@ -80,7 +84,7 @@ function table({
         return "";
       },
     ],
-    ["git diff --name-only", paths.join("\n")],
+    ["git diff --name-only", paths.join("\0")],
     ["git ls-remote origin refs/heads/chore/emporix-api-sync-skill", remote],
     ["gh pr list --repo R --head chore/emporix-api-sync-skill --state open", JSON.stringify(skillPrs)],
     ["git push", ""],
@@ -159,7 +163,7 @@ test("rehearsal ship", async () => {
 });
 
 test("checks fail on an existing ready PR", async () => {
-  const skillPrs = [{ number: 470, body: `old\n${formatMarker({ fingerprint: "c".repeat(64), head: RECORDED })}`, isDraft: false, reviews: [] }];
+  const skillPrs = [{ number: 470, author: BOT, body: `old\n${formatMarker({ fingerprint: "c".repeat(64), head: RECORDED })}`, isDraft: false, reviews: [] }];
   const { run, result } = await publish({
     art: artifact({ outcome: { ...SHIP, checks: "fail" } }),
     tableOpts: { remote: `${RECORDED}\trefs/heads/chore/emporix-api-sync-skill`, skillPrs },
@@ -174,7 +178,7 @@ test("checks fail on an existing ready PR", async () => {
 });
 
 test("existing PR with a review", async () => {
-  const skillPrs = [{ number: 470, body: formatMarker({ fingerprint: "c".repeat(64), head: RECORDED }), isDraft: false, reviews: [{ state: "COMMENTED" }] }];
+  const skillPrs = [{ number: 470, author: BOT, body: formatMarker({ fingerprint: "c".repeat(64), head: RECORDED }), isDraft: false, reviews: [{ state: "COMMENTED" }] }];
   const { run, result } = await publish({ tableOpts: { remote: `${RECORDED}\trefs/heads/x`, skillPrs } });
   const w = writes(run);
   assert.equal(result.kind, "comment-skill-pr");
@@ -184,12 +188,52 @@ test("existing PR with a review", async () => {
 });
 
 test("recorded head differs", async () => {
-  const skillPrs = [{ number: 470, body: formatMarker({ fingerprint: "c".repeat(64), head: RECORDED }), isDraft: false, reviews: [] }];
+  const skillPrs = [{ number: 470, author: BOT, body: formatMarker({ fingerprint: "c".repeat(64), head: RECORDED }), isDraft: false, reviews: [] }];
   const { run, result } = await publish({ tableOpts: { remote: `${"9".repeat(40)}\trefs/heads/x`, skillPrs } });
   const w = writes(run);
   assert.equal(result.kind, "comment-skill-pr");
   assert.equal(w.some((c) => c.startsWith("git push")), false);
   assert.match(w[0], /^gh pr comment 470 /);
+});
+
+test("a foreign PR on the skill branch name is neither edited nor trusted", async () => {
+  // Its forged marker claims the current remote head, which would hide human work.
+  const REMOTE = "9".repeat(40);
+  const forged = { number: 999, author: { login: "mallory" }, body: formatMarker({ fingerprint: "c".repeat(64), head: REMOTE }), isDraft: false, reviews: [] };
+  const { run, result } = await publish({ tableOpts: { remote: `${REMOTE}\trefs/heads/chore/emporix-api-sync-skill`, skillPrs: [forged] } });
+  const w = writes(run);
+  assert.equal(result.kind, "pr");
+  assert.equal(w.some((c) => c.startsWith("gh pr edit 999") || c.startsWith("gh pr comment 999")), false);
+  assert.match(w[1], /^gh pr create /);
+});
+
+test("a failing write still records the run on the sync PR", async () => {
+  const t = table();
+  t.unshift(["git push", () => { throw new Error("stale info"); }]);
+  const run = fakeRunner(t);
+  const result = await main({ env: env(), run, artifactDir: artifact(), tmpDir: mkdtempSync(join(tmpdir(), "publish-tmp-")) });
+  assert.equal(result.kind, "failed");
+  assert.match(result.reason, /publish failed: stale info/);
+  const comment = writes(run).find((c) => c.startsWith("gh pr comment 461"));
+  assert.ok(comment, "a failure comment on the sync PR");
+  assert.ok(bodyOf(comment).includes(formatMarker({ fingerprint: F })));
+});
+
+test("changedPaths lists both sides of a rename, so a move into scope cannot hide a deletion", () => {
+  const dir = mkdtempSync(join(tmpdir(), "publish-git-"));
+  const git = (...a) => execFileSync("git", ["-C", dir, "-c", "user.name=t", "-c", "user.email=t@example.com", ...a], { encoding: "utf8" }).trim();
+  git("init", "-q", "-b", "main");
+  mkdirSync(join(dir, ".github"));
+  writeFileSync(join(dir, ".github", "x.yml"), "name: x\non: push\njobs: {}\n".repeat(20));
+  git("add", "-A");
+  git("commit", "-qm", "base");
+  const base = git("rev-parse", "HEAD");
+  mkdirSync(join(dir, "packages", "sdk"), { recursive: true });
+  git("mv", ".github/x.yml", "packages/sdk/x.yml");
+  git("commit", "-qm", "move");
+  const paths = changedPaths({ run: createRunner({ cwd: dir }), base, head: git("rev-parse", "HEAD") });
+  assert.deepEqual(paths.sort(), [".github/x.yml", "packages/sdk/x.yml"]);
+  assert.deepEqual(offendingPaths(paths), [".github/x.yml"]);
 });
 
 test("nothing", async () => {

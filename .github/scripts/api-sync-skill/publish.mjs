@@ -8,7 +8,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { MAX_BODY, SKILL_BRANCH, appendSummary, createRunner, formatMarker, parseMarkers } from "./shared.mjs";
+import { MAX_BODY, SKILL_BRANCH, appendSummary, createRunner, formatMarker, isReleaseBot, parseMarkers } from "./shared.mjs";
 
 const OUTCOMES = new Set(["ship", "nothing"]);
 const CHECKS = new Set(["pass", "fail"]);
@@ -34,6 +34,14 @@ export function validateOutcome(raw) {
 
 export function offendingPaths(files) {
   return files.filter((f) => FORBIDDEN.has(f) || !ALLOWED.some((prefix) => f.startsWith(prefix)));
+}
+
+/**
+ * Every path the range touches. `--no-renames` lists both sides of a move, so a
+ * file outside the scope cannot be deleted by moving it into the scope.
+ */
+export function changedPaths({ run, base, head }) {
+  return run("git", ["diff", "--name-only", "--no-renames", "-z", base, head]).split("\0").filter(Boolean);
 }
 
 /** A review, or a branch head the job did not push itself, means a human is working on the PR. */
@@ -87,15 +95,16 @@ export async function main({ env, run, artifactDir, tmpDir }) {
     } catch {
       ancestorOk = false;
     }
-    offending = offendingPaths(run("git", ["diff", "--name-only", base, head]).split("\n").filter(Boolean));
+    offending = offendingPaths(changedPaths({ run, base, head }));
   }
 
   const ship = validation?.ok && validation.value.outcome === "ship";
   let existingPr = null;
   if (mode !== "dry" && ship) {
-    const [pr] = JSON.parse(
-      run("gh", ["pr", "list", "--repo", repo, "--head", SKILL_BRANCH, "--state", "open", "--json", "number,body,isDraft,reviews"]),
-    );
+    // `--head` matches the branch name only, so fork PRs named like ours are listed too.
+    const pr = JSON.parse(
+      run("gh", ["pr", "list", "--repo", repo, "--head", SKILL_BRANCH, "--state", "open", "--json", "number,author,body,isDraft,reviews"]),
+    ).find((p) => isReleaseBot(p.author?.login));
     const remoteHead = run("git", ["ls-remote", "origin", `refs/heads/${SKILL_BRANCH}`]).split(/\s/)[0] || null;
     if (pr) {
       existingPr = {
@@ -134,59 +143,72 @@ export async function main({ env, run, artifactDir, tmpDir }) {
     return file;
   };
   const comment = (number, text) => run("gh", ["pr", "comment", String(number), "--repo", repo, "--body-file", bodyFile(text)]);
+  const failureBody = (reason) =>
+    `${prefix}The API sync skill run did not produce a publishable result: ${reason}.\n\n` +
+    `Run: ${runUrl}\n\nRerun it with \`workflow_dispatch\`, \`skill_mode: live\`, once the cause is fixed.\n\n` +
+    `${formatMarker({ fingerprint: fp })}\n`;
 
-  switch (decision.kind) {
-    case "pr": {
-      const title = `${prefix}${validation.value.title}`;
-      run("git", [
-        "push",
-        `--force-with-lease=refs/heads/${SKILL_BRANCH}:${existingPr.remoteHead ?? ""}`,
-        "origin",
-        `${head}:refs/heads/${SKILL_BRANCH}`,
-      ]);
-      if (existingPr.number) {
-        run("gh", ["pr", "edit", String(existingPr.number), "--repo", repo, "--title", title, "--body-file", bodyFile(body)]);
-        if (decision.draft && !existingPr.isDraft) run("gh", ["pr", "ready", String(existingPr.number), "--repo", repo, "--undo"]);
-      } else {
-        run("gh", [
-          "pr", "create", "--repo", repo, "--base", "main", "--head", SKILL_BRANCH,
-          "--title", title, "--body-file", bodyFile(body), ...(decision.draft ? ["--draft"] : []),
-        ]);
-      }
-      break;
+  let { kind, reason } = decision;
+  try {
+    write();
+  } catch (error) {
+    // Record the fingerprint anyway: without a marker the schedule would rerun Claude daily.
+    kind = "failed";
+    reason = `publish failed: ${error.message.split("\n")[0]}`;
+    try {
+      if (botPr) comment(botPr, failureBody(reason));
+    } catch (commentError) {
+      console.error(`publish: the failure comment failed too: ${commentError.message}`);
     }
-    case "comment-bot":
-      comment(botPr, body);
-      break;
-    case "comment-skill-pr":
-      comment(
-        existingPr.number,
-        `${prefix}New upstream spec content was found, but this PR was not updated: it has a review, ` +
-          `or commits the workflow did not push. Run: ${runUrl}\n\n${formatMarker({ fingerprint: fp })}\n`,
-      );
-      break;
-    case "failed":
-      if (botPr) {
-        comment(
-          botPr,
-          `${prefix}The API sync skill run did not produce a publishable result: ${decision.reason}.\n\n` +
-            `Run: ${runUrl}\n\nRerun it with \`workflow_dispatch\`, \`skill_mode: live\`, once the cause is fixed.\n\n` +
-            `${formatMarker({ fingerprint: fp })}\n`,
-        );
-      }
-      break;
   }
 
   appendSummary(
     [
-      `### API sync skill: ${decision.kind}`,
+      `### API sync skill: ${kind}`,
       `- mode: \`${mode}\`, outcome: \`${validation?.ok ? validation.value.outcome : "none"}\`, commits: ${commitCount}`,
-      decision.reason ? `- reason: ${decision.reason}` : "- reason: none",
+      reason ? `- reason: ${reason}` : "- reason: none",
       "",
       mode === "dry" ? report : "",
     ].join("\n"),
   );
-  return { kind: decision.kind, reason: decision.reason };
+  return { kind, reason };
+
+  function write() {
+    switch (decision.kind) {
+      case "pr": {
+        const title = `${prefix}${validation.value.title}`;
+        run("git", [
+          "push",
+          `--force-with-lease=refs/heads/${SKILL_BRANCH}:${existingPr.remoteHead ?? ""}`,
+          "origin",
+          `${head}:refs/heads/${SKILL_BRANCH}`,
+        ]);
+        if (existingPr.number) {
+          run("gh", ["pr", "edit", String(existingPr.number), "--repo", repo, "--title", title, "--body-file", bodyFile(body)]);
+          if (decision.draft && !existingPr.isDraft) run("gh", ["pr", "ready", String(existingPr.number), "--repo", repo, "--undo"]);
+        } else {
+          run("gh", [
+            "pr", "create", "--repo", repo, "--base", "main", "--head", SKILL_BRANCH,
+            "--title", title, "--body-file", bodyFile(body), ...(decision.draft ? ["--draft"] : []),
+          ]);
+        }
+        break;
+      }
+      case "comment-bot":
+        comment(botPr, body);
+        break;
+      case "comment-skill-pr":
+        comment(
+          existingPr.number,
+          `${prefix}New upstream spec content was found, but this PR was not updated: it has a review, ` +
+            `or commits the workflow did not push. Run: ${runUrl}\n\n${formatMarker({ fingerprint: fp })}\n`,
+        );
+        break;
+      case "failed":
+        if (botPr) comment(botPr, failureBody(decision.reason));
+        break;
+    }
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

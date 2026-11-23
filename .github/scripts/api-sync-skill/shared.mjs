@@ -45,7 +45,13 @@ export function appendSummary(markdown, file = process.env.GITHUB_STEP_SUMMARY) 
 }
 
 /** Runs a command without a shell and returns its trimmed stdout; throws on a non-zero exit. */
-export function createRunner() {
+export function createRunner({ cwd, env } = {}) {
   return (cmd, args) =>
-    execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], maxBuffer: 64 * 1024 * 1024 }).trimEnd();
+    execFileSync(cmd, args, {
+      cwd,
+      env,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "inherit"],
+      maxBuffer: 256 * 1024 * 1024,
+    }).trimEnd();
 }

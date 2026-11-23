@@ -56,12 +56,16 @@ export function decide({ mode, eventName, botPr, fingerprint, seen }) {
   return { run: true, base: "pr", reason: `sync PR #${botPr.number}` };
 }
 
-/** Fingerprints recorded by the release bot; a marker anyone else writes is ignored. */
+/**
+ * Fingerprints recorded by the release bot; a marker anyone else writes is
+ * ignored. `--head` matches the branch name only, so a fork PR named like the
+ * follow-up branch is listed too: filter on the author before taking the latest.
+ */
 function seenFingerprints({ run, repo, botPr }) {
   const texts = [];
-  const [skillPr] = JSON.parse(
-    run("gh", ["pr", "list", "--repo", repo, "--head", SKILL_BRANCH, "--state", "all", "--limit", "1", "--json", "body,comments"]),
-  );
+  const skillPr = JSON.parse(
+    run("gh", ["pr", "list", "--repo", repo, "--head", SKILL_BRANCH, "--state", "all", "--limit", "50", "--json", "author,body,comments"]),
+  ).find((pr) => isReleaseBot(pr.author?.login));
   if (skillPr) {
     texts.push(skillPr.body);
     texts.push(...skillPr.comments.filter((c) => isReleaseBot(c.author?.login)).map((c) => c.body));
