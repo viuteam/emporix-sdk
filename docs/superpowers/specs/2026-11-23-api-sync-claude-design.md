@@ -123,7 +123,7 @@ schedule / workflow_dispatch
 ### Mode switch
 
 - **Scheduled runs** read the repository variable `API_SYNC_SKILL`: `off`, `rehearsal` or `live`. Unset means `off`, so merging this change alters nothing until someone sets the variable.
-- **`workflow_dispatch`** gains an input `skill_mode`: `dry` (default), `rehearsal` or `live`. A human started it, so it ignores the variable and the fingerprint gate.
+- **`workflow_dispatch`** gains an input `skill_mode`: `off` (default), `dry`, `rehearsal` or `live`. The default keeps a manual re-run of the vendoring as it is today, without a Claude run. A human started it, so it ignores the variable and the fingerprint gate.
 
 | Mode | Claude runs | `publish` writes |
 |---|---|---|
@@ -153,10 +153,10 @@ Settings:
 
 1. **Mode** from the event, as in the table above. `off` → `run=false`.
 2. **Base.** The open PR with head `chore/emporix-api-sync` authored by `viu-release-bot[bot]`; `base_sha` is its head SHA. Without one: `dry` falls back to `main`; `rehearsal` and `live` stop with a summary note.
-3. **Context file:** the bot PR's number, title, body and changed files, read with `gh` here so Claude's Bash never needs the network. Written to the output directory as data for the prompt.
+3. **Context file:** the bot PR's number, title, body and changed files, read with `gh` here so Claude's Bash never needs the network, and the changed services derived from those files. Written to the output directory as data for the prompt.
 4. **Fingerprint:** sha256 over `git ls-files -s 'packages/sdk/specs/*.yml'` at `base_sha`, i.e. over the blob ids of the vendored specs. `.sync-manifest.json` is excluded; its timestamps change every day.
-5. **Seen before?** Scheduled runs only. The marker `<!-- emporix-api-sync-skill fingerprint=<hash> -->` is searched in:
-   - the body of the latest PR from `chore/emporix-api-sync-skill`, in any state;
+5. **Seen before?** Scheduled runs only. The marker `<!-- emporix-api-sync-skill fingerprint=<hash> head=<sha or -> -->` is searched in:
+   - the body of the latest PR from `chore/emporix-api-sync-skill`, in any state, and the comments `viu-release-bot[bot]` left on it;
    - the comments by `viu-release-bot[bot]` on the bot PR.
 
    Found → `run=false`. A closed, unmerged follow-up PR therefore also stops reruns: a human rejected that content.
@@ -172,13 +172,13 @@ Settings:
    - `claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}`;
    - `github_token: ${{ github.token }}`, the read-only token;
    - step env `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: 1`;
-   - `prompt`: `/emporix-api-sync`, then a short CI block naming the mode, `base_sha`, the changed services, the output directory with the context file, and `CI mode: follow "Running unattended in CI" in the skill`;
+   - `settings`: the sandbox configuration in [Secret protection](#secret-protection), from a file the gate copied out of `github.sha` before the checkout moved to `base_sha`;
+   - `prompt`: `/emporix-api-sync`, then a short CI block naming the mode, the context file, the output directory, and `CI mode: follow "Running unattended in CI" in the skill`;
    - `claude_args`:
      - `--permission-mode default`, so nothing outside the allowlist runs;
      - `--model opus`;
      - `--max-turns 80`;
      - `--add-dir` for the output directory under `$RUNNER_TEMP`;
-     - `--settings` with the sandbox configuration in [Secret protection](#secret-protection);
      - `--allowedTools`: the list below.
 7. **Package** (deterministic, `if: always()` after the action): `git bundle create` over `base_sha..skill-work`, plus `report.md` and `outcome.json` from the output directory.
 8. **Secret check** (deterministic, before the upload): the diff `base_sha..skill-work`, the commit messages, `report.md` and `outcome.json` are searched for the value of `CLAUDE_CODE_OAUTH_TOKEN`, passed to this step only. A hit fails the job and nothing is uploaded, so `publish` sees a failed run and writes only the run link. The step never prints the value or the matching line.
@@ -205,7 +205,7 @@ No `gh` at all: the gate already read the bot PR, and the sandbox gives Bash no 
 
 ### Job `publish`
 
-`needs: skill`, `if: !cancelled() && needs.skill.outputs.run == 'true'`. It holds the release App token and runs no LLM and no repository code: no `pnpm install`, no hooks (`HUSKY: 0`).
+`needs: skill`, `if: !cancelled() && needs.skill.outputs.run == 'true'`. It holds the release App token and runs no LLM. It checks out `github.sha` and runs only its own zero-dependency script from there with plain `node`. Nothing from the bundle or from `base_sha` is executed: no `pnpm install`, no hooks (`HUSKY: 0`).
 
 **Validate** before anything is written:
 
@@ -227,7 +227,7 @@ A failed check, or a failed or timed-out `skill` job, becomes the **failed** out
 
 A failed run records its fingerprint too, so the schedule does not retry it every day. The comment says to rerun it with `workflow_dispatch`, `skill_mode: live`.
 
-**Never over human work.** Before pushing, the job looks at the open PR from `chore/emporix-api-sync-skill`. If it has a review, or a commit whose committer is neither the skill's identity nor `viu-release-bot[bot]` (the "Update branch" button counts as human), the job does not push. It comments on that PR instead: new upstream content, the run link, the marker.
+**Never over human work.** Every marker the job writes into the follow-up PR body carries the head SHA it pushed. Before pushing, the job compares the branch's current head with that recorded head. If they differ (someone pushed, including through the "Update branch" button), or if the PR has a review, the job does not push. It comments on that PR instead: new upstream content, the run link, the marker. The comparison does not depend on commit identities, which GitHub and the action may set differently.
 
 **The PR** is opened by `viu-release-bot[bot]`, so `pr-check.yml` and `changeset-check.yml` run. Its body says it includes bot PR #N, and that merging it supersedes that PR. Whether GitHub closes the bot PR after the merge is checked in the first real run; if not, it is closed by hand.
 
@@ -245,10 +245,11 @@ or carrying it out.
 | 3. No send | subprocesses reaching the network | Claude Code's Bash sandbox: no allowed domains, `allowUnsandboxedCommands: false`, `failIfUnavailable: true`; the token's env vars denied to sandboxed commands |
 | 4. No publish | the token reaching the public repository | the secret check before the upload |
 
-Layer 3 settings go in through `--settings`. The exact keys come from the
-sandboxing docs (`sandbox.network.allowedDomains`,
-`sandbox.allowUnsandboxedCommands`, `sandbox.failIfUnavailable`, the credentials
-deny list) and are confirmed in the dry run. A deny rule for `Read` under
+Layer 3 settings go in through the action's `settings` input. The keys come from
+the sandboxing docs (`sandbox.enabled`, `sandbox.network.allowedDomains`,
+`sandbox.allowUnsandboxedCommands`, `sandbox.failIfUnavailable`,
+`sandbox.credentials.envVars` with `"mode": "deny"`). The docs do not say that an
+empty `allowedDomains` blocks all traffic, so the dry run proves it. A deny rule for `Read` under
 `/proc` keeps Claude's own file tool from reading its environment there.
 
 If the dry run shows that layer 3 cannot run on a hosted runner, it is dropped,
