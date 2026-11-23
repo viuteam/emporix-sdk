@@ -19,8 +19,13 @@ The core SDK has **no** React dependency; React lives only in this package.
 ```
 
 `useEmporix()` returns `{ client, storage }` and throws outside a provider.
-`EmporixClient` must be created **once** — once per app (CSR) or once per server
-(SSR), never per request/render.
+Create the `EmporixClient` you pass to `EmporixProvider` once per app in the
+browser and once per request on the server, never per render.
+`useState(() => new EmporixClient(…))` in the component that renders the provider
+gives you both, as `examples/next-app-router` does. Do not hand the provider a
+module-level client on the server. The provider attaches each request's storage
+to the client's guest (anonymous) session. That session is the client's, not the
+request's, so every visitor would share it, and with it one guest cart.
 
 `customerSession` says who owns the customer token:
 
@@ -724,8 +729,13 @@ Two patterns:
 2. **Pages Router / SPA hydration** — prefetch into a `QueryClient`, dehydrate,
    rehydrate on the client.
 
-Critical rule: `EmporixClient` is created **once per server**, never per
-request. Never put a per-request client in module scope.
+Critical rule: a server-side client for catalog reads and service tokens is
+created **once per server**, so its token cache works. It must not carry a
+guest's session. Anything bound to a guest, such as their cart, needs a client per
+request, because the anonymous session lives on the client and Emporix binds the
+guest cart to it. `@viu/emporix-sdk-next`'s `withEmporixSession` builds that
+per-request client for you. The client you pass to `EmporixProvider` follows the
+same rule: never a module-level one on the server.
 
 Everything below is on the `@viu/emporix-sdk-react/ssr` subpath, which carries
 no `"use client"` directive and is therefore importable from Server Components.
@@ -820,9 +830,11 @@ and `prefetchOrder` remain as convenience wrappers.
 
 ### Common pitfalls
 
-- **Per-request client** — recreating `EmporixClient` per request defeats token
-  caching and leaks state. One per server. `createServerStorage` is the
-  opposite: it is per request, because the cookie jar is.
+- **Per-request client for catalog reads** — recreating `EmporixClient` per
+  request defeats token caching. One per server for catalog reads and service
+  tokens. A guest's session is the exception: it lives on the client, so it needs
+  a client per request. `createServerStorage` is per request too, because the
+  cookie jar is.
 - **`httpOnly` breaks the client side** — if a Server Action writes
   `emporix.customerToken` with `httpOnly: true`, the browser-side
   `createCookieStorage` cannot read it and the provider mounts unauthenticated.
