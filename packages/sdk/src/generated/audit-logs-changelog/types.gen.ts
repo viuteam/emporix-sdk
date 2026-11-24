@@ -32,6 +32,16 @@ export type ChangelogHistoryResponse = {
 };
 
 /**
+ * Page of tenant changelog history returned in cursor mode. The body contains no totals. The cursors for the older and the newer pages are returned in the `x-next-cursor` and `x-prev-cursor` response headers.
+ */
+export type ChangelogCursorPageResponse = {
+    /**
+     * List of changed entries for the requested page, newest first. The list is empty when no entries match.
+     */
+    items: Array<ChangelogChangeItem>;
+};
+
+/**
  * A single changelog entry describing a change to a platform entity.
  */
 export type ChangelogChangeItem = {
@@ -160,14 +170,43 @@ export type QueryQ = string;
 /**
  * Page number to be retrieved. The number of the first page is 1.
  *
+ * **Note:** The `page` parameter is supported only in offset mode. If you send it in cursor mode, the request fails with `400`. In cursor mode, use `next` or `prev`.
+ *
  */
 export type QueryPage = number;
 
 /**
- * Number of changed entries to be retrieved per page. Maximum value is 100.
+ * Number of changed entries to be retrieved per page, in both pagination modes. Maximum value is 100.
+ *
+ * **Note:** In cursor mode, send the same `size` with every cursor that you received.
  *
  */
 export type QuerySize = number;
+
+/**
+ * Pagination mode. Possible values:
+ * * `offset` – page-number pagination with `page` and `size`. The response contains the totals.
+ * * `cursor` – cursor pagination with `size`, and with `next` or `prev`. The response contains only `items`, and the cursors are returned in the `x-next-cursor` and `x-prev-cursor` response headers.
+ *
+ * **Note:** A `next` or `prev` parameter also selects cursor mode when `pagination` is omitted. If you send `next` or `prev` with `pagination=offset`, the request fails with `400`.
+ */
+export type QueryPagination = 'offset' | 'cursor';
+
+/**
+ * Cursor mode only. Opaque cursor from the `x-next-cursor` response header. Use it to retrieve the next page, which contains older entries.
+ *
+ * **Note:** You cannot send `next` and `prev` in the same request. Send the same `q` and `size` as in the request that returned the cursor. Otherwise, the request fails with `400`.
+ *
+ */
+export type QueryNext = string;
+
+/**
+ * Cursor mode only. Opaque cursor from the `x-prev-cursor` response header. Use it to retrieve the previous page, which contains newer entries.
+ *
+ * **Note:** You cannot send `next` and `prev` in the same request. Send the same `q` and `size` as in the request that returned the cursor. Otherwise, the request fails with `400`.
+ *
+ */
+export type QueryPrev = string;
 
 export type GetChangelogRetrieveTenantChangelogsData = {
     body?: never;
@@ -197,22 +236,48 @@ export type GetChangelogRetrieveTenantChangelogsData = {
          */
         q?: string;
         /**
+         * Pagination mode. Possible values:
+         * * `offset` – page-number pagination with `page` and `size`. The response contains the totals.
+         * * `cursor` – cursor pagination with `size`, and with `next` or `prev`. The response contains only `items`, and the cursors are returned in the `x-next-cursor` and `x-prev-cursor` response headers.
+         *
+         * **Note:** A `next` or `prev` parameter also selects cursor mode when `pagination` is omitted. If you send `next` or `prev` with `pagination=offset`, the request fails with `400`.
+         */
+        pagination?: 'offset' | 'cursor';
+        /**
          * Page number to be retrieved. The number of the first page is 1.
+         *
+         * **Note:** The `page` parameter is supported only in offset mode. If you send it in cursor mode, the request fails with `400`. In cursor mode, use `next` or `prev`.
          *
          */
         page?: number;
         /**
-         * Number of changed entries to be retrieved per page. Maximum value is 100.
+         * Number of changed entries to be retrieved per page, in both pagination modes. Maximum value is 100.
+         *
+         * **Note:** In cursor mode, send the same `size` with every cursor that you received.
          *
          */
         size?: number;
+        /**
+         * Cursor mode only. Opaque cursor from the `x-next-cursor` response header. Use it to retrieve the next page, which contains older entries.
+         *
+         * **Note:** You cannot send `next` and `prev` in the same request. Send the same `q` and `size` as in the request that returned the cursor. Otherwise, the request fails with `400`.
+         *
+         */
+        next?: string;
+        /**
+         * Cursor mode only. Opaque cursor from the `x-prev-cursor` response header. Use it to retrieve the previous page, which contains newer entries.
+         *
+         * **Note:** You cannot send `next` and `prev` in the same request. Send the same `q` and `size` as in the request that returned the cursor. Otherwise, the request fails with `400`.
+         *
+         */
+        prev?: string;
     };
     url: '/changelog/{tenant}/changelogs';
 };
 
 export type GetChangelogRetrieveTenantChangelogsErrors = {
     /**
-     * Bad Request. The page, size, or q parameter is invalid.
+     * Bad Request. The `page`, `size`, `pagination`, `next`, `prev`, or `q` parameter is invalid.
      */
     400: ErrorMessage;
     /**
@@ -242,8 +307,10 @@ export type GetChangelogRetrieveTenantChangelogsError = GetChangelogRetrieveTena
 export type GetChangelogRetrieveTenantChangelogsResponses = {
     /**
      * The request was successful. A paginated list of changed entries has been returned.
+     *
+     * In offset mode, the body also contains the page number and the totals. In cursor mode, the body contains only `items`, and the cursors for the older and the newer pages are returned in the `x-next-cursor` and `x-prev-cursor` response headers. An empty page returns neither cursor header.
      */
-    200: ChangelogHistoryResponse;
+    200: ChangelogHistoryResponse | ChangelogCursorPageResponse;
 };
 
 export type GetChangelogRetrieveTenantChangelogsResponse = GetChangelogRetrieveTenantChangelogsResponses[keyof GetChangelogRetrieveTenantChangelogsResponses];
