@@ -5,6 +5,57 @@ folded into this SDK, and when. The machine-readable companion is
 `packages/sdk/specs/.sync-manifest.json` (per-service `sha256` + `fetchedAt`); run
 `pnpm -F @viu/emporix-sdk fetch:specs` to see `changed since last vendored: …`.
 
+## 2026-11-24 — audit-logs-changelog, import-service: cursor paging, 7-day window, XML files
+
+Vendored by the daily sync in viuteam/emporix-sdk#476 (`audit-logs-changelog`,
+`import-service`). **0 new endpoints, 0 removed, 0 newly deprecated** —
+measured by mapping operations on path literal
+(`node .claude/skills/emporix-api-sync/scripts/coverage.mjs`): both specs stay
+fully covered (1/1 and 30/30), and the remaining uncovered list is exactly the
+documented exclusions.
+
+Both changes were announced in the
+[Emporix changelog](https://developer.emporix.io/changelog) on 2026-11-24; the
+audit-log one is flagged there as a major change.
+
+### Endpoints
+
+No new paths. One new mode on an existing path:
+
+- **audit-logs-changelog** — `GET /changelog/{tenant}/changelogs` gained cursor
+  pagination: the query parameters `pagination` (`offset` | `cursor`), `next`
+  and `prev`, the `x-next-cursor` / `x-prev-cursor` response headers, and a
+  `ChangelogCursorPageResponse` body without totals. The facade never sent the
+  new parameters. SDK: added `auditLogs.listByCursor`, returning the new
+  `AuditLogCursorPage` (`items`, `hasNextPage`, `nextCursor`, `prevCursor`);
+  `auditLogs.list` stays offset-only. See
+  [audit-logs.md](./audit-logs.md#cursor-mode--listbycursor). Not verified
+  against a live tenant, no React or Angular hook (the service is
+  service-account only).
+
+### Fields
+
+- **import-service** — `sourceDataset.recordsPath` and
+  `sourceDataset.repeatingElements` for XML file sources, documented in the
+  `SourceDataset` prose (the generated type is open, so no type diff). Reachable
+  without a facade change.
+
+### Behaviour
+
+- **Audit log default window: 30 → 7 days.** Without an `occurredAt` lower
+  bound outside an `OR` condition, both modes now return only the last 7 days.
+  An unfiltered `auditLogs.list()` silently covers less than before. JSDoc and
+  [audit-logs.md](./audit-logs.md#the-two-things-that-will-bite-you) updated.
+- Audit log cursor mode: a cursor is bound to tenant, `q` and `size` (`400`
+  otherwise); `next` + `prev` together, `page` in cursor mode, and a cursor with
+  `pagination=offset` are each `400`. The time window is fixed by the first
+  page.
+- **Import: file streams read XML** as well as CSV, in the format of the
+  stream's connection, optionally `.gz` / `.zip`. A malformed XML file or a
+  `recordsPath` that matches nothing while another element repeats fails the
+  stream with `CONFIGURATION`; a record over `maxColumns` fails alone with
+  `REJECTED_BY_SOURCE`. See [import.md](./import.md#xml-files).
+
 ## 2026-11-23 — category, media, availability, product: bulk writes
 
 Vendored by the daily sync in viuteam/emporix-sdk#472 (`availability`,
