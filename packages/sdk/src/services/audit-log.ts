@@ -1,10 +1,20 @@
 import type { ClientContext } from "../core/context";
 import type { AuthContext } from "../core/auth";
-import type { ChangelogHistoryResponse } from "../generated/audit-logs-changelog";
-import type { AuditLogPage, AuditLogQuery } from "./audit-log-types";
+import type {
+  ChangelogCursorPageResponse,
+  ChangelogHistoryResponse,
+} from "../generated/audit-logs-changelog";
+import type {
+  AuditLogCursorPage,
+  AuditLogCursorQuery,
+  AuditLogPage,
+  AuditLogQuery,
+} from "./audit-log-types";
 
 export type {
   AuditLogChangeType,
+  AuditLogCursorPage,
+  AuditLogCursorQuery,
   AuditLogEntry,
   AuditLogPage,
   AuditLogPathChange,
@@ -56,13 +66,16 @@ export class AuditLogService {
   }
 
   /**
-   * List changes across the tenant, newest occurrence first.
+   * List changes across the tenant, newest occurrence first, by page number
+   * (offset mode). Every page carries the totals; for long histories where the
+   * count is not needed, {@link listByCursor} skips it.
    *
-   * **The window defaults to the last 30 days.** When `q` carries no
-   * conjunctive `occurredAt` lower bound, the service silently applies a
-   * trailing 30-day window — an unfiltered call is *not* «everything ever». Pass
-   * an explicit top-level or `AND`-ed `occurredAt` range to widen it; an
-   * `occurredAt` that appears only inside an `OR` arm does not lift the default.
+   * **The window defaults to the last 7 days** (the spec vendored on 2026-11-24
+   * shortened it from 30 days). When `q` carries no `occurredAt` lower bound outside
+   * an `OR` condition, the service silently applies that trailing window — an
+   * unfiltered call is *not* «everything ever». Pass an explicit top-level or
+   * `AND`-ed `occurredAt` range to widen it; an `occurredAt` that appears only
+   * inside an `OR` arm does not lift the default.
    *
    * **`entityId` needs `entity`.** Filtering by id alone is a `400`, not an
    * empty page. There is no path-based history endpoint either — scoping to one
@@ -95,5 +108,64 @@ export class AuditLogService {
       auth,
     });
     return toPage(wire);
+  }
+
+  /**
+   * List changes across the tenant, newest first, by cursor
+   * (`pagination=cursor`). The service pages without counting the matches, so
+   * the result has no page number and no totals — only the cursors to the older
+   * (`nextCursor`) and newer (`prevCursor`) page, read from the `x-next-cursor`
+   * / `x-prev-cursor` response headers.
+   *
+   * **A cursor is bound to `q` and `pageSize`.** Send both unchanged with every
+   * `next` / `prev`; a changed value, a malformed cursor, or `next` and `prev`
+   * together are each a `400`.
+   *
+   * **The time window is fixed by the first page.** It starts at the
+   * `occurredAt` lower bound in `q` (or at the default 7-day window, see
+   * {@link list}) and ends at the upper bound in `q` — or, without one, at the
+   * moment of the first request. Entries recorded after that do not appear on
+   * later pages; request a new first page to see them.
+   *
+   * @example
+   * ```ts
+   * const q = 'entity:order occurredAt:>"2026-06-01T00:00:00.000Z"';
+   * let page = await client.auditLogs.listByCursor({ q, pageSize: 100 });
+   * for (;;) {
+   *   for (const entry of page.items) console.log(entry.at, entry.actor);
+   *   if (page.nextCursor === undefined) break;
+   *   page = await client.auditLogs.listByCursor({ q, pageSize: 100, next: page.nextCursor });
+   * }
+   * ```
+   */
+  async listByCursor(
+    opts: AuditLogCursorQuery = {},
+    auth: AuthContext = SERVICE,
+  ): Promise<AuditLogCursorPage> {
+    const { data, headers } = await this.ctx.http.requestWithMeta<ChangelogCursorPageResponse>({
+      method: "GET",
+      path: `${this.base()}/changelogs`,
+      // `pagination=cursor` is sent even on the first page: without a cursor the
+      // service would otherwise fall back to offset mode and count everything.
+      // Absent options stay off the wire (HttpClient skips `undefined`).
+      query: {
+        pagination: "cursor",
+        q: opts.q,
+        size: opts.pageSize,
+        next: opts.next,
+        prev: opts.prev,
+      },
+      auth,
+    });
+    const nextCursor = headers.get("x-next-cursor") ?? undefined;
+    const prevCursor = headers.get("x-prev-cursor") ?? undefined;
+    // Spread conditionally — `exactOptionalPropertyTypes` rejects an explicit
+    // `undefined` for an optional property.
+    return {
+      items: data?.items ?? [],
+      hasNextPage: nextCursor !== undefined,
+      ...(nextCursor === undefined ? {} : { nextCursor }),
+      ...(prevCursor === undefined ? {} : { prevCursor }),
+    };
   }
 }

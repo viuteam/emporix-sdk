@@ -151,4 +151,95 @@ describe("AuditLogService.list", () => {
     expect(page.totalElements).toBe(0);
     expect(page.hasNextPage).toBe(false);
   });
+
+  // Offset mode is the service default; `list` must not opt into cursor mode.
+  it("does not send a pagination mode", async () => {
+    const seen: { url?: URL } = {};
+    server.use(
+      http.get(URL_CHANGELOGS, ({ request }) => {
+        seen.url = new URL(request.url);
+        return HttpResponse.json(envelope());
+      }),
+    );
+    await sdk().auditLogs.list({ pageNumber: 2 });
+    expect(seen.url?.searchParams.has("pagination")).toBe(false);
+  });
+});
+
+describe("AuditLogService.listByCursor", () => {
+  it("selects cursor mode on the first page and leaves page/cursors off the wire", async () => {
+    const seen: { url?: URL; auth?: string | null } = {};
+    server.use(
+      http.get(URL_CHANGELOGS, ({ request }) => {
+        seen.url = new URL(request.url);
+        seen.auth = request.headers.get("authorization");
+        return HttpResponse.json({ items: [entry] });
+      }),
+    );
+    await sdk().auditLogs.listByCursor();
+    expect(seen.auth).toBe("Bearer svc");
+    expect(seen.url?.searchParams.get("pagination")).toBe("cursor");
+    for (const name of ["q", "size", "page", "next", "prev"]) {
+      expect(seen.url?.searchParams.has(name)).toBe(false);
+    }
+  });
+
+  it("forwards q, size and the next cursor", async () => {
+    const seen: { url?: URL } = {};
+    server.use(
+      http.get(URL_CHANGELOGS, ({ request }) => {
+        seen.url = new URL(request.url);
+        return HttpResponse.json({ items: [] });
+      }),
+    );
+    await sdk().auditLogs.listByCursor({ q: "entity:order", pageSize: 50, next: "abc==" });
+    expect(seen.url?.searchParams.get("q")).toBe("entity:order");
+    expect(seen.url?.searchParams.get("size")).toBe("50");
+    expect(seen.url?.searchParams.get("next")).toBe("abc==");
+    expect(seen.url?.searchParams.has("prev")).toBe(false);
+  });
+
+  it("forwards the prev cursor", async () => {
+    const seen: { prev?: string | null; next?: string | null } = {};
+    server.use(
+      http.get(URL_CHANGELOGS, ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        seen.prev = params.get("prev");
+        seen.next = params.get("next");
+        return HttpResponse.json({ items: [] });
+      }),
+    );
+    await sdk().auditLogs.listByCursor({ prev: "xyz" });
+    expect(seen.prev).toBe("xyz");
+    expect(seen.next).toBeNull();
+  });
+
+  it("reads both cursors from the response headers", async () => {
+    server.use(
+      http.get(URL_CHANGELOGS, () =>
+        HttpResponse.json(
+          { items: [entry] },
+          { headers: { "x-next-cursor": "older", "x-prev-cursor": "newer" } },
+        ),
+      ),
+    );
+    const page = await sdk().auditLogs.listByCursor({ next: "c1" });
+    expect(page.items[0]?.entityId).toBe("6a2bce93592855a33518fc2f");
+    expect(page.nextCursor).toBe("older");
+    expect(page.prevCursor).toBe("newer");
+    expect(page.hasNextPage).toBe(true);
+  });
+
+  it("reports the last page when no x-next-cursor comes back", async () => {
+    server.use(http.get(URL_CHANGELOGS, () => HttpResponse.json({ items: [entry] })));
+    const page = await sdk().auditLogs.listByCursor();
+    expect(page.hasNextPage).toBe(false);
+    expect("nextCursor" in page).toBe(false);
+    expect("prevCursor" in page).toBe(false);
+  });
+
+  it("survives an empty body", async () => {
+    server.use(http.get(URL_CHANGELOGS, () => HttpResponse.json({})));
+    expect((await sdk().auditLogs.listByCursor()).items).toEqual([]);
+  });
 });

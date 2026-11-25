@@ -105,7 +105,7 @@ paging in the body; only its `siteFallback` goes in the query string.
 | field | when it is set |
 |---|---|
 | `totalCount` | the caller passed `totalCount: true` **and** the endpoint answered with `X-Total-Count` |
-| `nextCursor` / `prevCursor` | the endpoint offers cursor pagination (today: the schema service's custom instances) |
+| `nextCursor` / `prevCursor` | the endpoint offers cursor pagination (today: the schema service's custom instances and webhook failed messages; the audit log's cursor mode has its own `listByCursor` result shape, see [Audit Logs](./audit-logs.md#cursor-mode--listbycursor)) |
 
 `hasNextPage` uses whichever is most precise: a `nextCursor` means there is a next page,
 a known `totalCount` gives `pageNumber * pageSize < totalCount`, and otherwise it stays

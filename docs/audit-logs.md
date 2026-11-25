@@ -24,11 +24,12 @@ for (const entry of page.items) {
 
 ## The two things that will bite you
 
-**The window silently defaults to the last 30 days.** When your `q` carries no
-conjunctive `occurredAt` lower bound, the service applies a trailing 30-day
-window on its own. An unfiltered `list()` is *not* «everything ever» — it is
-«the last month», and nothing in the response says so. Pass an explicit
-top-level or `AND`-ed range to widen it:
+**The window silently defaults to the last 7 days.** When your `q` carries no
+`occurredAt` lower bound outside an `OR` condition, the service applies a
+trailing 7-day window on its own, in offset and in cursor mode alike. An
+unfiltered `list()` is *not* «everything ever» — it is «the last week», and
+nothing in the response says so. Pass an explicit top-level or `AND`-ed range to
+widen it:
 
 ```ts
 await client.auditLogs.list({
@@ -38,6 +39,10 @@ await client.auditLogs.list({
 
 An `occurredAt` that appears only inside an `OR` arm does **not** lift the
 default.
+
+> **Changed upstream.** Until the spec vendored on 2026-11-24, the default
+> window was 30 days. Code that relied on an unfiltered call covering the last
+> month now sees only the last week — add an explicit `occurredAt` bound.
 
 **`entityId` requires `entity`.** Filtering by id alone is a `400`, not an empty
 page. There is also no path-based history endpoint — scoping to one document
@@ -107,6 +112,18 @@ await client.auditLogs.list({
 
 ## Paging
 
+The endpoint pages in two modes, and the SDK gives each its own method because
+the results have different shapes:
+
+| | `list` (offset) | `listByCursor` (cursor) |
+|---|---|---|
+| Wire | `page` + `size` | `pagination=cursor`, `size`, `next` / `prev` |
+| Totals | `totalElements`, `totalPages` | none — the service does not count |
+| Next page | `pageNumber + 1` | `nextCursor` (older entries) |
+| Previous page | `pageNumber - 1` | `prevCursor` (newer entries) |
+
+### Offset mode — `list`
+
 Paging is one-based, and this service returns it in the **response body** rather
 than in `X-Total-Count` headers. The result therefore carries `totalElements`
 and `totalPages` on top of the usual [`PaginatedItems`](./pagination.md) shape —
@@ -126,7 +143,7 @@ rather than clamping it. `pageNumber` / `pageSize` are read back from the
 server's echo, so they describe the page you actually got.
 
 To walk every page, use the shared `iterateAll` helper — but bound the range
-first, or you are iterating the implicit 30-day window:
+first, or you are iterating the implicit 7-day window:
 
 ```ts
 import { iterateAll } from "@viu/emporix-sdk";
@@ -139,6 +156,38 @@ for await (const entry of iterateAll((pageNumber) =>
 }
 ```
 
+### Cursor mode — `listByCursor`
+
+For long histories where you only walk the entries and do not need the count,
+cursor mode skips the counting query. Entries come newest first, ordered by
+`occurredAt` and then by an internal event id, so ties stay in a stable order
+across pages.
+
+```ts
+const q = 'entity:order occurredAt:>"2026-06-01T00:00:00.000Z"';
+let page = await client.auditLogs.listByCursor({ q, pageSize: 100 });
+for (;;) {
+  for (const entry of page.items) console.log(entry.at, entry.actor);
+  if (page.nextCursor === undefined) break;
+  page = await client.auditLogs.listByCursor({ q, pageSize: 100, next: page.nextCursor });
+}
+```
+
+The traps:
+
+| Trap | What happens |
+|---|---|
+| Changing `q` or `pageSize` between cursor requests | `400` — a cursor is bound to the tenant, `q` and `size` it was issued for |
+| Sending `next` and `prev` together | `400` |
+| A malformed or stale cursor | `400` — request the first page again without a cursor |
+| Expecting new entries on later pages | Without an `occurredAt` upper bound in `q`, the window ends at the time of the first request; newer entries need a new first page |
+| Looking for `prevCursor` on the first page | Never set there; it appears from the second page on |
+
+`hasNextPage` is `true` exactly when `nextCursor` is set. Unlike the shared
+`PaginatedItems` contract, the absence of the cursor does mean «no older
+entries» here, because the service always sends the header in cursor mode when
+an older page exists. An empty page carries neither cursor.
+
 ## What is not verified against a live tenant
 
 The bindings are covered by unit tests against the vendored spec, not by a call
@@ -146,5 +195,7 @@ to a real tenant: the service needs a backend client with the
 `changelog.changelog_read` scope, which the `viu` tenant's test credentials do
 not carry. Unverified in particular are the exact `q` grammar the backend
 accepts (quoting, `elemMatch`, nested `compoundLogicalQuery`), the real shape of
-`paths` for nested documents, and the 30-day default window — all three are
-described here from the spec's own prose.
+`paths` for nested documents, the 7-day default window, and cursor mode
+(`listByCursor`: the `pagination=cursor` parameter, the `x-next-cursor` /
+`x-prev-cursor` headers and the `400` cases) — all of them are described here
+from the spec's own prose.

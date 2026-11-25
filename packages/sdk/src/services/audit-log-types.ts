@@ -37,7 +37,7 @@ export type AuditLogPathChange = PathValueChange;
  */
 export type AuditLogRelatedEntity = ChangelogRelatedItem;
 
-/** The `q` / `page` / `size` the endpoint accepts, straight from the spec. */
+/** The query parameters the endpoint accepts, straight from the spec. */
 type WireQuery = NonNullable<GetChangelogRetrieveTenantChangelogsData["query"]>;
 
 /** Options for {@link AuditLogService.list}. */
@@ -58,6 +58,63 @@ export interface AuditLogQuery {
   pageNumber?: WireQuery["page"];
   /** Entries per page. Default `20`, maximum `100` — the service rejects more with a `400`. */
   pageSize?: WireQuery["size"];
+}
+
+/** Options for {@link AuditLogService.listByCursor}. */
+export interface AuditLogCursorQuery {
+  /**
+   * Raw Emporix `q` filter — same grammar as {@link AuditLogQuery.q}.
+   *
+   * **A cursor is bound to the `q` and `pageSize` of the request that returned
+   * it.** Send both unchanged with every `next` / `prev`, or the service
+   * answers `400`.
+   */
+  q?: WireQuery["q"];
+  /**
+   * Entries per page. Default `20`, maximum `100`. Must stay the same for every
+   * request of one cursor walk — see {@link q}.
+   */
+  pageSize?: WireQuery["size"];
+  /**
+   * Opaque cursor from a previous page's `nextCursor`: fetches the next page,
+   * which holds **older** entries. Omit it (and `prev`) for the first page.
+   * Sending `next` and `prev` together is a `400`.
+   */
+  next?: WireQuery["next"];
+  /**
+   * Opaque cursor from a previous page's `prevCursor`: fetches the previous
+   * page, which holds **newer** entries. See {@link next}.
+   */
+  prev?: WireQuery["prev"];
+}
+
+/**
+ * A page of audit-log entries in cursor mode.
+ *
+ * Deliberately not a {@link PaginatedItems}: cursor mode has no page number and
+ * no totals, and the service never counts the matches — which is the point of
+ * the mode. Only the cursors say where to go next.
+ */
+export interface AuditLogCursorPage {
+  /** The entries of this page, newest first. Empty when nothing matches. */
+  items: AuditLogEntry[];
+  /**
+   * Whether an older page exists — `true` exactly when {@link nextCursor} is
+   * set. In cursor mode the service always sends the header when one exists,
+   * so its absence does mean «no older entries».
+   */
+  hasNextPage: boolean;
+  /**
+   * Cursor for the next page (older entries), from the `x-next-cursor` response
+   * header. Pass it back as `next`. Absent when there are no older entries, and
+   * on an empty page.
+   */
+  nextCursor?: string;
+  /**
+   * Cursor for the previous page (newer entries), from the `x-prev-cursor`
+   * response header. Pass it back as `prev`. Never set on the first page.
+   */
+  prevCursor?: string;
 }
 
 /**

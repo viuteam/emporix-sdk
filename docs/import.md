@@ -284,7 +284,9 @@ stream in its `sourceIssues` array.
 ## File-based streams
 
 Since 2026-10-28 a stream can read a delimited file — CSV or one of its
-variants. The file goes through the stream's queue: upload it, then trigger a run,
+variants — and, per the spec vendored on 2026-11-24, an XML file. The file must
+be in the format of the stream's connection, and may be compressed as `.gz` or
+`.zip`. The file goes through the stream's queue: upload it, then trigger a run,
 which drains the queue.
 
 ```ts
@@ -357,6 +359,41 @@ await client.imports.requeueStreamFile("str1", "1b4e28ba-…");
 | `deleteStreamFile` | `409` | the file is no longer waiting, or a run in flight |
 | `requeueStreamFile` | `409` | the file has not failed, its stored content is gone, it is not this stream's file, a newer file arrived on a snapshot stream, or a run in flight |
 | `requeueStreamFile` | — | not retried on a 5xx: a requeue that went through leaves the file `PENDING`, and a repeat answers `409` |
+
+### XML files
+
+A stream whose connection reads XML takes its file settings from
+`sourceDataset`, like a CSV stream, but a different subset applies:
+`nullLiterals`, `trimValues`, `compression` and `maxColumns` (for XML, the
+number of elements and attributes one record may have), plus two XML-only
+properties:
+
+- **`recordsPath`** — the element that repeats once per record: a dotted path
+  below the root (`CD` for `<CATALOG><CD>`, `channel.item` for RSS) or an
+  absolute path naming the root (`/CATALOG/CD`). A path naming only the root
+  (`/Invoice`) reads the whole document as one record. Empty means «detect it per
+  file»; a stream created in the Import Tool stores the detected path.
+- **`repeatingElements`** — element paths, relative to the record, that are
+  always read as a list, even when a record holds only one of them.
+
+Field names follow the XML responses of an HTTP source: child elements by dotted
+path (`Item.Name`), attributes like child elements
+(`LineExtensionAmount.currencyID`), the text of an element that also has
+attributes as `_text`, and repeated elements under their name plus `[]`
+(`AllowanceCharge[]`). Namespace prefixes are dropped.
+
+How XML fails:
+
+| Situation | Result |
+|---|---|
+| The file is not well-formed | the stream fails with `CONFIGURATION`; `message` names the file, line and column. The file goes to `FAILED` |
+| `recordsPath` matches nothing, while another element repeats | the stream fails with `CONFIGURATION`; `message` names the element that repeats |
+| `recordsPath` matches nothing, and nothing else repeats | the file yields no records — no error |
+| A record has more elements and attributes than `maxColumns` | only that record fails, with `REJECTED_BY_SOURCE`; the rest of the file is imported |
+
+The SDK needs no change for this: `sourceDataset` is typed from the spec, and
+`uploadStreamFile` sends the bytes as they are. Not verified against a live
+tenant.
 
 ## Streaming a run
 

@@ -1,0 +1,7 @@
+---
+"@viu/emporix-sdk": minor
+---
+
+chore(sdk): sync generated types with upstream Emporix API specs
+
+Updated services: audit-logs-changelog,import-service
